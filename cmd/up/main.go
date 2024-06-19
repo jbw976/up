@@ -212,6 +212,8 @@ type cli struct {
 
 	Alpha alpha `cmd:"" group:"Alpha" help:"Alpha features. Commands may be removed in future releases."`
 
+	GenerateDocs docsCmd `cmd:"" help:"Generate documentation in YAML format." hidden:""`
+
 	// We set this so we can print shutdown errors if otel is in debug mode.
 	// Bit of hack :/ sorry
 	otelDebug bool `kong:"-"`
