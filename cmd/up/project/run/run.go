@@ -172,19 +172,53 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		return err
 	}
 
-	if c.Repository != "" {
-		proj.Spec.Repository = c.Repository
-	}
-	if c.ControlPlaneName == "" {
-		c.ControlPlaneName = proj.Name
+	// Ensure the user's up context is pointed at a cloud space so we can create
+	// a dev MCP.
+	spaceExt, err := validateUpContext(upCtx)
+	if err != nil {
+		return err
 	}
 
-	// Ensure the user's up context is pointed at a cloud space and matches the
-	// project's org. If it doesn't we would either fail to create repositories
-	// or fail to pull from them in the dev MCP after doing a bunch of
-	// work. Better to fail fast.
-	if err := validateUpContext(upCtx, proj); err != nil {
-		return err
+	// If the user explicitly set the repository, use it and check that it
+	// matches their up context so their dev MCP can pull it.
+	//
+	// If the user didn't explicitly set a repository, and the project's
+	// repository isn't owned by their organization, construct a new repository
+	// name that is owned by them. This gives users the maximum chance of `up
+	// project run` Just Working when they check out an example repo.
+	if c.Repository != "" {
+		reg, org, repoName, err := parseRepository(c.Repository, upCtx.RegistryEndpoint.Host)
+		if err != nil {
+			return err
+		}
+
+		if reg != upCtx.RegistryEndpoint.Host {
+			return errors.New("specified registry does not match your current up profile; use `up profile use` to select a different profile")
+		}
+		if org != spaceExt.Spec.Cloud.Organization {
+			return errors.New("specified repository does not belong to your current organization; use `up ctx` to select a different organization")
+		}
+
+		// Make sure c.Repository is fully qualified.
+		c.Repository = strings.Join([]string{reg, spaceExt.Spec.Cloud.Organization, repoName}, "/")
+	} else {
+		reg, org, repoName, err := parseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
+		if err != nil {
+			return err
+		}
+		if reg != upCtx.RegistryEndpoint.Host || org != spaceExt.Spec.Cloud.Organization {
+			c.Repository = strings.Join([]string{reg, spaceExt.Spec.Cloud.Organization, repoName}, "/")
+		}
+	}
+
+	// Move the project, in memory only, to the desired repository.
+	c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+	if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
+		return errors.Wrap(err, "failed to update project repository")
+	}
+
+	if c.ControlPlaneName == "" {
+		c.ControlPlaneName = proj.Name
 	}
 
 	b := project.NewBuilder(
@@ -262,37 +296,33 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	return nil
 }
 
-func validateUpContext(upCtx *upbound.Context, proj *v1alpha1.Project) error {
+func validateUpContext(upCtx *upbound.Context) (*upbound.SpaceExtension, error) {
 	kubeCtx, _, _, ok := upCtx.GetCurrentContext()
 	if !ok {
-		return errors.New("invalid up context")
+		return nil, errors.New("invalid up context")
 	}
 
 	ext, err := upbound.GetSpaceExtension(kubeCtx)
 	if err != nil {
-		return errors.Wrap(err, "failed to get spaces extension from kubeconfig context")
+		return nil, errors.Wrap(err, "failed to get spaces extension from kubeconfig context")
 	}
 	if ext == nil || ext.Spec == nil || ext.Spec.Cloud == nil {
-		return errors.New("current kubeconfig context is not an Upbound Cloud Space; use `up ctx` to select a cloud space")
+		return nil, errors.New("current kubeconfig context is not an Upbound Cloud Space; use `up ctx` to select a cloud space")
 	}
 
-	ref, err := name.ParseReference(proj.Spec.Repository)
+	return ext, nil
+}
+
+func parseRepository(repository string, defaultRegistry string) (registry, org, repoName string, err error) {
+	ref, err := name.NewRepository(repository, name.WithDefaultRegistry(defaultRegistry))
 	if err != nil {
-		return errors.Wrap(err, "failed to parse project repository")
+		return "", "", "", errors.Wrap(err, "failed to parse repository")
 	}
+	reg := ref.Registry.String()
+	repo := ref.RepositoryStr()
+	repoParts := strings.SplitN(repo, "/", 2)
 
-	reg := ref.Context().RegistryStr()
-	if reg != upCtx.RegistryEndpoint.Host {
-		return errors.New("project registry does not match your current up profile; use `up project move` to change it or `up profile use` to switch profiles")
-	}
-
-	repo := ref.Context().RepositoryStr()
-	org := strings.SplitN(repo, "/", 2)[0]
-	if org != ext.Spec.Cloud.Organization {
-		return errors.New("project repository does not belong to your current organization; use `up project move` to change it or `up ctx` to select a different organization")
-	}
-
-	return nil
+	return reg, repoParts[0], repoParts[1], nil
 }
 
 func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch async.EventChannel) (client.Client, error) {
