@@ -95,7 +95,11 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	}
 
 	if c.Repository != "" {
-		proj.Spec.Repository = c.Repository
+		ref, err := name.NewRepository(c.Repository, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Host))
+		if err != nil {
+			return errors.Wrap(err, "failed to parse repository")
+		}
+		proj.Spec.Repository = ref.String()
 	}
 	if c.PackageFile == "" {
 		c.PackageFile = fmt.Sprintf("%s.uppkg", proj.Name)
