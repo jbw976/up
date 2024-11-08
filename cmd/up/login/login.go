@@ -271,7 +271,7 @@ func inferOrganization(ctx context.Context, upCtx *upbound.Context) (string, err
 		return "", err
 	}
 	if len(orgs) == 0 {
-		return "", errors.New("You must create an organization to use Upbound. Visit https://accounts.upbound.io to create one.")
+		return "", errors.Errorf("You must create an organization to use Upbound. Visit https://accounts.%s to create one.", upCtx.Domain.Host)
 	}
 
 	// Use the first org in the list as the default. The user can access other
