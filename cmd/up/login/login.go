@@ -37,7 +37,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up-sdk-go/service/userinfo"
+	"github.com/upbound/up-sdk-go/service/organizations"
 	uphttp "github.com/upbound/up/internal/http"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
@@ -127,7 +127,7 @@ type LoginCmd struct {
 func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { // nolint:gocyclo
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
-		return c.simpleAuth(ctx, p, upCtx)
+		return c.simpleAuth(ctx, upCtx)
 	}
 
 	// start webserver listening on port
@@ -174,7 +174,15 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		break
 	}
 
-	if err := c.exchangeTokenForSession(ctx, p, upCtx, t); err != nil {
+	if err := c.exchangeTokenForSession(ctx, upCtx, t); err != nil {
+		resultEP.RawQuery = url.Values{
+			"message": []string{err.Error()},
+		}.Encode()
+		redirect <- resultEP.String()
+		return errors.Wrap(err, errLoginFailed)
+	}
+
+	if err := c.validateOrganization(ctx, upCtx); err != nil {
 		resultEP.RawQuery = url.Values{
 			"message": []string{err.Error()},
 		}.Encode()
@@ -182,7 +190,23 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		return errors.Wrap(err, errLoginFailed)
 	}
 	redirect <- resultEP.String()
+
+	p.Printfln("%s logged in to organization %s", upCtx.Profile.ID, upCtx.Account)
+
 	return nil
+}
+
+func (c *LoginCmd) validateOrganization(ctx context.Context, upCtx *upbound.Context) error {
+	cfg, err := upCtx.BuildSDKConfig()
+	if err != nil {
+		return err
+	}
+
+	orgClient := organizations.NewClient(cfg)
+	// upCtx.Account is set during login, so should always contain an
+	// organization name.
+	_, err = orgClient.GetOrgID(ctx, upCtx.Account)
+	return err
 }
 
 // auth is the request body sent to authenticate a user or token.
@@ -192,7 +216,7 @@ type auth struct {
 	Remember bool   `json:"remember"`
 }
 
-func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID string) error {
+func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID string) error {
 	session, err := extractSession(res, upbound.CookieName)
 	if err != nil {
 		return err
@@ -215,17 +239,13 @@ func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context
 	}
 	upCtx.Profile = profile
 
-	// If the default account is not set, the user's personal account is used.
+	// If the account (organization) is not set (by profile or flags), try to
+	// infer it.
 	if upCtx.Account == "" {
-		conf, err := upCtx.BuildSDKConfig()
+		upCtx.Account, err = inferOrganization(ctx, upCtx)
 		if err != nil {
-			return errors.Wrap(err, errLoginFailed)
+			return err
 		}
-		info, err := userinfo.NewClient(conf).Get(ctx)
-		if err != nil {
-			return errors.Wrap(err, errLoginFailed)
-		}
-		upCtx.Account = info.User.Username
 	}
 	upCtx.Profile.Account = upCtx.Account
 
@@ -238,8 +258,25 @@ func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context
 	if err := upCtx.CfgSrc.UpdateConfig(upCtx.Cfg); err != nil {
 		return errors.Wrap(err, errUpdateConfig)
 	}
-	p.Printfln("%s logged in", authID)
 	return nil
+}
+
+func inferOrganization(ctx context.Context, upCtx *upbound.Context) (string, error) {
+	conf, err := upCtx.BuildSDKConfig()
+	if err != nil {
+		return "", err
+	}
+	orgs, err := organizations.NewClient(conf).List(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(orgs) == 0 {
+		return "", errors.Errorf("You must create an organization to use Upbound. Visit https://accounts.%s to create one.", upCtx.Domain.Host)
+	}
+
+	// Use the first org in the list as the default. The user can access other
+	// orgs later with `up ctx`.
+	return orgs[0].Name, nil
 }
 
 // constructAuth constructs the body of an Upbound Cloud authentication request
@@ -317,7 +354,7 @@ func getEndpoint(account url.URL, api url.URL, local string) string {
 	return loginEP.String()
 }
 
-func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, t string) error {
+func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.Context, t string) error {
 	if t == "" {
 		return errors.New("failed to receive callback from web login")
 	}
@@ -350,7 +387,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, p pterm.TextPrin
 	if !ok {
 		return errors.New("failed to get user details, code may have expired")
 	}
-	return setSession(ctx, p, upCtx, res, profile.TokenTypeUser, username)
+	return setSession(ctx, upCtx, res, profile.TokenTypeUser, username)
 }
 
 type callbackServer struct {
@@ -428,7 +465,7 @@ func (cb *callbackServer) getPort() (int, error) {
 	return strconv.Atoi(portString)
 }
 
-func (c *LoginCmd) simpleAuth(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error {
 	if c.Token == "-" {
 		b, err := io.ReadAll(c.stdin)
 		if err != nil {
@@ -465,5 +502,5 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, p pterm.TextPrinter, upCtx *u
 		return errors.Wrap(err, errLoginFailed)
 	}
 	defer res.Body.Close() // nolint:gosec,errcheck
-	return errors.Wrap(setSession(ctx, p, upCtx, res, profType, auth.ID), errLoginFailed)
+	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID), errLoginFailed)
 }
