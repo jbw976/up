@@ -191,7 +191,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	}
 	redirect <- resultEP.String()
 
-	p.Printfln("%s logged in", upCtx.Profile.ID)
+	p.Printfln("%s logged in to organization %s", upCtx.Profile.ID, upCtx.Account)
 
 	return nil
 }
