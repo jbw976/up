@@ -37,7 +37,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up-sdk-go/service/userinfo"
+	"github.com/upbound/up-sdk-go/service/organizations"
 	uphttp "github.com/upbound/up/internal/http"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
@@ -181,8 +181,32 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		redirect <- resultEP.String()
 		return errors.Wrap(err, errLoginFailed)
 	}
+
+	if err := c.validateOrganization(ctx, upCtx); err != nil {
+		resultEP.RawQuery = url.Values{
+			"message": []string{err.Error()},
+		}.Encode()
+		redirect <- resultEP.String()
+		return errors.Wrap(err, errLoginFailed)
+	}
 	redirect <- resultEP.String()
+
+	p.Printfln("%s logged in", upCtx.Profile.ID)
+
 	return nil
+}
+
+func (c *LoginCmd) validateOrganization(ctx context.Context, upCtx *upbound.Context) error {
+	cfg, err := upCtx.BuildSDKConfig()
+	if err != nil {
+		return err
+	}
+
+	orgClient := organizations.NewClient(cfg)
+	// upCtx.Account is set during login, so should always contain an
+	// organization name.
+	_, err = orgClient.GetOrgID(ctx, upCtx.Account)
+	return err
 }
 
 // auth is the request body sent to authenticate a user or token.
@@ -215,17 +239,13 @@ func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context
 	}
 	upCtx.Profile = profile
 
-	// If the default account is not set, the user's personal account is used.
+	// If the account (organization) is not set (by profile or flags), try to
+	// infer it.
 	if upCtx.Account == "" {
-		conf, err := upCtx.BuildSDKConfig()
+		upCtx.Account, err = inferOrganization(ctx, upCtx)
 		if err != nil {
-			return errors.Wrap(err, errLoginFailed)
+			return err
 		}
-		info, err := userinfo.NewClient(conf).Get(ctx)
-		if err != nil {
-			return errors.Wrap(err, errLoginFailed)
-		}
-		upCtx.Account = info.User.Username
 	}
 	upCtx.Profile.Account = upCtx.Account
 
@@ -238,8 +258,25 @@ func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context
 	if err := upCtx.CfgSrc.UpdateConfig(upCtx.Cfg); err != nil {
 		return errors.Wrap(err, errUpdateConfig)
 	}
-	p.Printfln("%s logged in", authID)
 	return nil
+}
+
+func inferOrganization(ctx context.Context, upCtx *upbound.Context) (string, error) {
+	conf, err := upCtx.BuildSDKConfig()
+	if err != nil {
+		return "", err
+	}
+	orgs, err := organizations.NewClient(conf).List(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(orgs) == 0 {
+		return "", errors.New("You must create an organization to use Upbound. Visit https://accounts.upbound.io to create one.")
+	}
+
+	// Use the first org in the list as the default. The user can access other
+	// orgs later with `up ctx`.
+	return orgs[0].Name, nil
 }
 
 // constructAuth constructs the body of an Upbound Cloud authentication request
