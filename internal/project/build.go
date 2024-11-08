@@ -197,6 +197,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 		mutMu sync.Mutex
 	)
 	statusStage = "Generating language schemas"
+	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
 	// Generate KCL Schemas
 	eg.Go(func() error {
 		kfs, err := schemagenerator.GenerateSchemaKcl(ctx, apisSource, apiExcludes, b.schemaRunner)
