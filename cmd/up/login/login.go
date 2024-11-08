@@ -127,7 +127,7 @@ type LoginCmd struct {
 func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { // nolint:gocyclo
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
-		return c.simpleAuth(ctx, p, upCtx)
+		return c.simpleAuth(ctx, upCtx)
 	}
 
 	// start webserver listening on port
@@ -174,7 +174,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		break
 	}
 
-	if err := c.exchangeTokenForSession(ctx, p, upCtx, t); err != nil {
+	if err := c.exchangeTokenForSession(ctx, upCtx, t); err != nil {
 		resultEP.RawQuery = url.Values{
 			"message": []string{err.Error()},
 		}.Encode()
@@ -216,7 +216,7 @@ type auth struct {
 	Remember bool   `json:"remember"`
 }
 
-func setSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID string) error {
+func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID string) error {
 	session, err := extractSession(res, upbound.CookieName)
 	if err != nil {
 		return err
@@ -354,7 +354,7 @@ func getEndpoint(account url.URL, api url.URL, local string) string {
 	return loginEP.String()
 }
 
-func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, t string) error {
+func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.Context, t string) error {
 	if t == "" {
 		return errors.New("failed to receive callback from web login")
 	}
@@ -387,7 +387,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, p pterm.TextPrin
 	if !ok {
 		return errors.New("failed to get user details, code may have expired")
 	}
-	return setSession(ctx, p, upCtx, res, profile.TokenTypeUser, username)
+	return setSession(ctx, upCtx, res, profile.TokenTypeUser, username)
 }
 
 type callbackServer struct {
@@ -465,7 +465,7 @@ func (cb *callbackServer) getPort() (int, error) {
 	return strconv.Atoi(portString)
 }
 
-func (c *LoginCmd) simpleAuth(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error {
 	if c.Token == "-" {
 		b, err := io.ReadAll(c.stdin)
 		if err != nil {
@@ -502,5 +502,5 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, p pterm.TextPrinter, upCtx *u
 		return errors.Wrap(err, errLoginFailed)
 	}
 	defer res.Body.Close() // nolint:gosec,errcheck
-	return errors.Wrap(setSession(ctx, p, upCtx, res, profType, auth.ID), errLoginFailed)
+	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID), errLoginFailed)
 }
