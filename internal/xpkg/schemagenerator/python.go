@@ -61,6 +61,15 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 			return err
 		}
 
+		// Skip excluded files
+		if !info.IsDir() {
+			for _, excl := range exclude {
+				if info.Name() == excl {
+					return nil // Skip this file
+				}
+			}
+		}
+
 		// Skip excluded paths
 		for _, excl := range exclude {
 			if strings.HasPrefix(path, excl) {

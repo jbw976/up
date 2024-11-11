@@ -48,17 +48,48 @@ import (
 type cli struct {
 	SourceImage string `help:"The source image to pull." required:""`
 	TargetImage string `help:"The target image to push to." required:""`
+
+	PythonExcludes []string `help:"List of CRD filenames to exclude from Python schema generation."`
+	KclExcludes    []string `help:"List of CRD filenames to exclude from KCL schema generation."`
 }
+
+const customHelpMessage = `
+The 'schema-generator' command generates schemas for all supported languages and appends them to provider images.
+It pulls the specified source image, generates the schemas, appends them as separate layers, and pushes the modified image to the target destination.
+
+Examples:
+	schema-generator \
+	--source-image xpkg.upbound.io/upbound/provider-gcp-datalossprevention:v1.8.3 \
+	--target-image docker.io/haarchri/provider-gcp-datalossprevention:v1.8.3
+		Pulls the source image, appends schema layers, and pushes to the target image.
+
+	schema-generator \
+	--source-image xpkg.upbound.io/upbound/provider-gcp-datalossprevention:v1.8.3 \
+	--target-image docker.io/haarchri/provider-gcp-datalossprevention:v1.8.3 \
+	--python-excludes "datalossprevention.gcp.upbound.io_deidentifytemplates.yaml"
+		Pulls the source image, appends schema layers, but excludes specific CRD files from the Python schema generation, then pushes to the target image.
+`
 
 func main() {
 	c := cli{}
-	kong.Parse(&c)
+
+	parser := kong.Parse(&c,
+		kong.Description(customHelpMessage),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact: true,
+		}),
+	)
+
 	pterm.EnableStyling()
 
-	ctx := context.Background()
-	if err := c.generateSchema(ctx); err != nil {
+	if err := parser.Run(&c); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
+}
+
+func (c *cli) Run() error {
+	ctx := context.Background()
+	return c.generateSchema(ctx)
 }
 
 func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
@@ -116,7 +147,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 			}
 
 			err = upterm.WrapWithSuccessSpinner("Schema Generation", upterm.CheckmarkSuccessSpinner, func() error {
-				img, err = runSchemaGeneration(gCtx, memFs, img, configFile.Config)
+				img, err = c.runSchemaGeneration(gCtx, memFs, img, configFile.Config)
 				return err
 			})
 			if err != nil {
@@ -187,16 +218,14 @@ func copyCrdToFs(pp *xpkgmarshaler.ParsedPackage, fs afero.Fs) error {
 }
 
 // runSchemaGeneration generates the schema and applies mutators to the base configuration
-func runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.Image, cfg v1.Config) (v1.Image, error) {
-	apiExcludes := []string{}
+func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.Image, cfg v1.Config) (v1.Image, error) {
 	schemaRunner := schemarunner.RealSchemaRunner{}
 
-	pfs, err := schemagenerator.GenerateSchemaPython(ctx, memFs, apiExcludes, schemaRunner)
+	pfs, err := schemagenerator.GenerateSchemaPython(ctx, memFs, c.PythonExcludes, schemaRunner)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate schema")
 	}
-
-	kfs, err := schemagenerator.GenerateSchemaKcl(ctx, memFs, apiExcludes, schemaRunner)
+	kfs, err := schemagenerator.GenerateSchemaKcl(ctx, memFs, c.KclExcludes, schemaRunner)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate schema")
 	}
