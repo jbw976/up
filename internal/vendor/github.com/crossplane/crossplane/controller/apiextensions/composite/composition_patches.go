@@ -42,32 +42,6 @@ const (
 	errFmtExpandingArrayFieldPaths    = "cannot expand ToFieldPath %s"
 )
 
-// ApplyEnvironmentPatch executes a patching operation between the cp and env objects.
-func ApplyEnvironmentPatch(p v1.EnvironmentPatch, cp, env runtime.Object) error {
-	// TODO(negz): Should this take composite.Resource and *env.Environment as
-	// arguments rather than generic runtime.Objects?
-
-	// To make thing easy, we are going to reuse the logic of a regular
-	// composition patch.
-	regularPatch := v1.Patch{
-		Type:          p.Type,
-		FromFieldPath: p.FromFieldPath,
-		Combine:       p.Combine,
-		ToFieldPath:   p.ToFieldPath,
-		Transforms:    p.Transforms,
-		Policy:        p.Policy,
-	}
-	return ApplyToObjects(
-		regularPatch,
-		cp,
-		env,
-		v1.PatchTypeFromCompositeFieldPath,
-		v1.PatchTypeCombineFromComposite,
-		v1.PatchTypeToCompositeFieldPath,
-		v1.PatchTypeCombineToComposite,
-	)
-}
-
 // Apply executes a patching operation between the from and to resources.
 // Applies all patch types unless an 'only' filter is supplied.
 func Apply(p v1.Patch, cp resource.Composite, cd resource.Composed, only ...v1.PatchType) error {
@@ -90,13 +64,13 @@ func ApplyToObjects(p v1.Patch, cp, cd runtime.Object, only ...v1.PatchType) err
 	}
 
 	switch p.Type {
-	case v1.PatchTypeFromCompositeFieldPath, v1.PatchTypeFromEnvironmentFieldPath:
+	case v1.PatchTypeFromCompositeFieldPath:
 		return ApplyFromFieldPathPatch(p, cp, cd)
-	case v1.PatchTypeToCompositeFieldPath, v1.PatchTypeToEnvironmentFieldPath:
+	case v1.PatchTypeToCompositeFieldPath:
 		return ApplyFromFieldPathPatch(p, cd, cp)
-	case v1.PatchTypeCombineFromComposite, v1.PatchTypeCombineFromEnvironment:
+	case v1.PatchTypeCombineFromComposite:
 		return ApplyCombineFromVariablesPatch(p, cp, cd)
-	case v1.PatchTypeCombineToComposite, v1.PatchTypeCombineToEnvironment:
+	case v1.PatchTypeCombineToComposite:
 		return ApplyCombineFromVariablesPatch(p, cd, cp)
 	case v1.PatchTypePatchSet:
 		// Already resolved - nothing to do.
@@ -314,9 +288,9 @@ func CombineString(format string, vars []any) (any, error) {
 
 // ComposedTemplates returns a revision's composed resource templates with any
 // patchsets dereferenced.
-func ComposedTemplates(cs v1.CompositionSpec) ([]v1.ComposedTemplate, error) {
+func ComposedTemplates(pss []v1.PatchSet, cts []v1.ComposedTemplate) ([]v1.ComposedTemplate, error) {
 	pn := make(map[string][]v1.Patch)
-	for _, s := range cs.PatchSets {
+	for _, s := range pss {
 		for _, p := range s.Patches {
 			if p.Type == v1.PatchTypePatchSet {
 				return nil, errors.New(errPatchSetType)
@@ -325,8 +299,8 @@ func ComposedTemplates(cs v1.CompositionSpec) ([]v1.ComposedTemplate, error) {
 		pn[s.Name] = s.Patches
 	}
 
-	ct := make([]v1.ComposedTemplate, len(cs.Resources))
-	for i, r := range cs.Resources {
+	ct := make([]v1.ComposedTemplate, len(cts))
+	for i, r := range cts {
 		po := []v1.Patch{}
 		for _, p := range r.Patches {
 			if p.Type != v1.PatchTypePatchSet {

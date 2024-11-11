@@ -70,7 +70,7 @@ type Kubernetes struct {
 func init() {
 	// NOTE(tnthornton) we override the runtime.ErrorHandlers so that Helm
 	// doesn't leak Println logs.
-	runtime.ErrorHandlers = []func(error){} //nolint:reassign
+	runtime.ErrorHandlers = []runtime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {}} //nolint:reassign
 	// NOTE(tnthornton) this suppresses the warnings coming from client-go for
 	// using ControllerConfig.
 	rest.SetDefaultWarningHandler(rest.NoWarnings{})

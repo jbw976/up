@@ -36,6 +36,7 @@ import (
 
 // Error strings.
 const (
+	errGetSecret      = "cannot get composite resource's connection secret"
 	errConnDetailName = "connection detail is missing name"
 
 	errFmtConnDetailKey  = "connection detail of type %q key is not set"

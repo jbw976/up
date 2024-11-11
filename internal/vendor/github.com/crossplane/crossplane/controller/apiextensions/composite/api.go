@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -158,14 +159,14 @@ func NewAPIRevisionFetcher(ca resource.ClientApplicator) *APIRevisionFetcher {
 // composition reference is nil, but handles setting the composition revision
 // reference.
 func (f *APIRevisionFetcher) Fetch(ctx context.Context, cr resource.Composite) (*v1.Composition, error) {
-	ref := cr.GetCompositionRevisionReference()
+	current := cr.GetCompositionRevisionReference()
 	pol := cr.GetCompositionUpdatePolicy()
 
 	// We've already selected a revision, and our update policy is manual.
 	// Just fetch and return the selected revision.
-	if ref != nil && pol != nil && *pol == xpv1.UpdateManual {
+	if current != nil && pol != nil && *pol == xpv1.UpdateManual {
 		rev := &v1.CompositionRevision{}
-		err := f.ca.Get(ctx, meta.NamespacedNameOf(ref), rev)
+		err := f.ca.Get(ctx, types.NamespacedName{Name: current.Name}, rev)
 		return AsComposition(rev), errors.Wrap(err, errGetCompositionRevision)
 	}
 
@@ -182,19 +183,19 @@ func (f *APIRevisionFetcher) Fetch(ctx context.Context, cr resource.Composite) (
 		return nil, errors.Wrap(err, errFetchCompositionRevision)
 	}
 
-	current := v1.LatestRevision(comp, rl.Items)
+	latest := v1.LatestRevision(comp, rl.Items)
 	if current == nil {
 		return nil, errors.New(errNoCompatibleCompositionRevision)
 	}
 
-	if ref == nil || ref.Name != current.GetName() {
-		cr.SetCompositionRevisionReference(meta.ReferenceTo(current, v1beta1.CompositionRevisionGroupVersionKind))
+	if current == nil || current.Name != latest.GetName() {
+		cr.SetCompositionRevisionReference(&corev1.LocalObjectReference{Name: latest.GetName()})
 		if err := f.ca.Apply(ctx, cr); err != nil {
 			return nil, errors.Wrap(err, errUpdate)
 		}
 	}
 
-	return AsComposition(current), nil
+	return AsComposition(latest), nil
 }
 
 // AsComposition creates a new composition from the supplied revision. It
