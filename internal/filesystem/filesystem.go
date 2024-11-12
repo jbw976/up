@@ -119,12 +119,19 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 		if err != nil {
 			return err
 		}
+		// Compute the full path in the tar archive
+		fullPath := filepath.Join(prefix, name)
 		if info.IsDir() {
+			// Skip the root directory as it was already added
+			if fullPath == prefix {
+				return nil
+			}
+
 			h, err := tar.FileInfoHeader(info, "")
 			if err != nil {
 				return err
 			}
-			h.Name = filepath.Join(prefix, name)
+			h.Name = fullPath
 			if cfg.uidOverride != nil {
 				h.Uid = *cfg.uidOverride
 			}
@@ -207,7 +214,7 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 			if err != nil {
 				return err
 			}
-			h.Name = filepath.Join(prefix, name)
+			h.Name = fullPath
 			if cfg.uidOverride != nil {
 				h.Uid = *cfg.uidOverride
 			}
