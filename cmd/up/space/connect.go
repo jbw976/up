@@ -42,6 +42,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
+
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
@@ -83,6 +84,13 @@ type connectCmd struct {
 }
 
 func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
+	if err := c.Kube.AfterApply(); err != nil {
+		return err
+	}
+	if err := c.Registry.AfterApply(); err != nil {
+		return err
+	}
+
 	upCtx, err := upbound.NewFromFlags(c.Upbound)
 	if err != nil {
 		return err
@@ -104,10 +112,6 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(organizations.NewClient(cfg))
 	kongCtx.Bind(robots.NewClient(cfg))
 	kongCtx.Bind(tokens.NewClient(cfg))
-
-	if err := c.Kube.AfterApply(); err != nil {
-		return err
-	}
 
 	// NOTE(tnthornton) we currently only have support for stylized output.
 	pterm.EnableStyling()
