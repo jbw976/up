@@ -203,13 +203,13 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		// Make sure c.Repository is fully qualified.
 		c.Repository = strings.Join([]string{reg, spaceExt.Spec.Cloud.Organization, repoName}, "/")
 	} else {
-		reg, org, repoName, err := parseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
+		_, _, repoName, err := parseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
 			return err
 		}
-		if reg != upCtx.RegistryEndpoint.Host || org != spaceExt.Spec.Cloud.Organization {
-			c.Repository = strings.Join([]string{reg, spaceExt.Spec.Cloud.Organization, repoName}, "/")
-		}
+
+		// Always use the host and org from the context
+		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, spaceExt.Spec.Cloud.Organization, repoName}, "/")
 	}
 
 	// Move the project, in memory only, to the desired repository.
