@@ -88,6 +88,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
+		manager.WithSkipCacheUpdateIfExists(true),
 		manager.WithResolver(r),
 	)
 

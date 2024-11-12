@@ -27,6 +27,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -321,7 +322,6 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs, m *manager.Manager) error {
 	ws, err := workspace.New("/",
 		workspace.WithFS(projectFS),
-		// The user doesn't care about workspace warnings during build.
 		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),
 	)
@@ -335,14 +335,38 @@ func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs,
 	if err != nil {
 		return errors.Wrap(err, "failed to get dependencies")
 	}
+
+	sem := make(chan struct{}, b.maxConcurrency)
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		cerr error
+	)
+
 	for _, dep := range deps {
-		_, _, err := m.AddAll(ctx, dep)
-		if err != nil {
-			return errors.Wrapf(err, "failed to check dependency %q", dep.Package)
-		}
+		wg.Add(1)
+
+		// Capture `dep` as an argument to the goroutine to avoid scoping issues
+		go func(dep v1beta1.Dependency) {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// Check dependency
+			if _, _, err := m.AddAll(ctx, dep); err != nil {
+				mu.Lock()
+				if cerr == nil { // Record only the first error
+					cerr = errors.Wrapf(err, "failed to check dependency %q", dep.Package)
+				}
+				mu.Unlock()
+			}
+		}(dep) // Pass `dep` explicitly as a parameter to avoid loop variable issues
 	}
 
-	return nil
+	wg.Wait()
+
+	return cerr
 }
 
 // buildFunctions builds the embedded functions found in directories at the top

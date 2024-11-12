@@ -57,8 +57,9 @@ type Manager struct {
 	cacheRoot     string
 	watchInterval *time.Duration
 
-	acc         []*xpkg.ParsedPackage
-	cacheModels *afero.Fs
+	acc                     []*xpkg.ParsedPackage
+	cacheModels             *afero.Fs
+	skipCacheUpdateIfExists bool
 }
 
 // Cache defines the API contract for working with a Cache.
@@ -146,6 +147,16 @@ func WithCache(c Cache) Option {
 func WithCacheModels(fs afero.Fs) Option {
 	return func(m *Manager) {
 		m.cacheModels = &fs
+	}
+}
+
+// WithSkipCacheUpdateIfExists configures the Manager to skip cache updates if
+// the package already exists in the local cache. Setting this option to true
+// prevents the Manager from updating cached packages even if their digests
+// would differ.
+func WithSkipCacheUpdateIfExists(skip bool) Option {
+	return func(m *Manager) {
+		m.skipCacheUpdateIfExists = skip
 	}
 }
 
@@ -391,7 +402,7 @@ func (m *Manager) retrieveAndStorePkg(ctx context.Context, d v1beta1.Dependency)
 		if err != nil {
 			return nil, err
 		}
-	} else {
+	} else if !m.skipCacheUpdateIfExists { // Skip cache update if flag is true
 		// check if digest is different from what we have locally
 		digest, err := m.i.ResolveDigest(ctx, d)
 		if err != nil {

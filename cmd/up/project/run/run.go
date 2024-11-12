@@ -123,6 +123,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
+		manager.WithSkipCacheUpdateIfExists(true),
 		manager.WithResolver(r),
 	)
 	if err != nil {
