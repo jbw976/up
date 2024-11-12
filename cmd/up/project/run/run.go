@@ -87,9 +87,12 @@ type Cmd struct {
 	schemaRunner       schemarunner.SchemaRunner
 	transport          http.RoundTripper
 	m                  *manager.Manager
+
+	spaceClient  client.Client
+	organization string // the Upbound organization in the current kubecontext
 }
 
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //todo: Break down
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -131,18 +134,51 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	c.m = m
 
-	// Set the control plane group based on the current kubeconfig conteext. If
-	// there's no namespace specified there, use "default".
-	if c.ControlPlaneGroup == "" {
-		kubectx, _, _, ok := upCtx.GetCurrentContext()
-		if !ok {
-			return errors.New("failed to get kubeconfig context")
-		}
-		if kubectx.Namespace != "" {
-			c.ControlPlaneGroup = kubectx.Namespace
+	spaceCtx, err := getCurrentSpaceNavigation(context.Background(), upCtx)
+	if err != nil {
+		return err
+	}
+
+	var ok bool
+	var space *ctxcmd.Space
+
+	if space, ok = spaceCtx.(*ctxcmd.Space); !ok {
+		if group, ok := spaceCtx.(*ctxcmd.Group); ok {
+			space = &group.Space
+			if c.ControlPlaneGroup == "" {
+				c.ControlPlaneGroup = group.Name
+			}
+		} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
+			space = &ctp.Group.Space
+			if c.ControlPlaneGroup == "" {
+				c.ControlPlaneGroup = ctp.Group.Name
+			}
 		} else {
-			c.ControlPlaneGroup = "default"
+			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
 		}
+	}
+	c.organization = space.Org.Name
+
+	// fallback to the default "default" group
+	if c.ControlPlaneGroup == "" {
+		c.ControlPlaneGroup = "default"
+	}
+
+	// Get the client for parent space, even if pointed at a group or a control
+	// plane
+	spaceClientConfig, err := space.BuildClient(upCtx, types.NamespacedName{
+		Namespace: c.ControlPlaneGroup,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to build space client")
+	}
+	spaceClientREST, err := spaceClientConfig.ClientConfig()
+	if err != nil {
+		return errors.Wrap(err, "failed to get REST config for space client")
+	}
+	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
+	if err != nil {
+		return err
 	}
 
 	pterm.EnableStyling()
@@ -173,13 +209,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		return err
 	}
 
-	// Ensure the user's up context is pointed at a cloud space so we can create
-	// a dev MCP.
-	spaceExt, err := validateUpContext(upCtx)
-	if err != nil {
-		return err
-	}
-
 	// If the user explicitly set the repository, use it and check that it
 	// matches their up context so their dev MCP can pull it.
 	//
@@ -196,12 +225,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		if reg != upCtx.RegistryEndpoint.Host {
 			return errors.New("specified registry does not match your current up profile; use `up profile use` to select a different profile")
 		}
-		if org != spaceExt.Spec.Cloud.Organization {
+		if org != c.organization {
 			return errors.New("specified repository does not belong to your current organization; use `up ctx` to select a different organization")
 		}
 
 		// Make sure c.Repository is fully qualified.
-		c.Repository = strings.Join([]string{reg, spaceExt.Spec.Cloud.Organization, repoName}, "/")
+		c.Repository = strings.Join([]string{reg, c.organization, repoName}, "/")
 	} else {
 		_, _, repoName, err := parseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
@@ -209,7 +238,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		}
 
 		// Always use the host and org from the context
-		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, spaceExt.Spec.Cloud.Organization, repoName}, "/")
+		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, c.organization, repoName}, "/")
 	}
 
 	// Move the project, in memory only, to the desired repository.
@@ -297,21 +326,17 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	return nil
 }
 
-func validateUpContext(upCtx *upbound.Context) (*upbound.SpaceExtension, error) {
-	kubeCtx, _, _, ok := upCtx.GetCurrentContext()
-	if !ok {
-		return nil, errors.New("invalid up context")
-	}
+// getCurrentSpaceNavigation derives the state of the current navigation using
+// the same process as up ctx
+func getCurrentSpaceNavigation(ctx context.Context, upCtx *upbound.Context) (ctxcmd.NavigationState, error) {
+	po := clientcmd.NewDefaultPathOptions()
+	var err error
 
-	ext, err := upbound.GetSpaceExtension(kubeCtx)
+	conf, err := po.GetStartingConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get spaces extension from kubeconfig context")
+		return nil, err
 	}
-	if ext == nil || ext.Spec == nil || ext.Spec.Cloud == nil {
-		return nil, errors.New("current kubeconfig context is not an Upbound Cloud Space; use `up ctx` to select a cloud space")
-	}
-
-	return ext, nil
+	return ctxcmd.DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
 }
 
 func parseRepository(repository string, defaultRegistry string) (registry, org, repoName string, err error) {
@@ -327,17 +352,12 @@ func parseRepository(repository string, defaultRegistry string) (registry, org, 
 }
 
 func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch async.EventChannel) (client.Client, error) {
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get kube client")
-	}
-
 	var ctp spacesv1beta1.ControlPlane
 	nn := types.NamespacedName{
 		Namespace: c.ControlPlaneGroup,
 		Name:      c.ControlPlaneName,
 	}
-	err = cl.Get(ctx, nn, &ctp)
+	err := c.spaceClient.Get(ctx, nn, &ctp)
 
 	switch {
 	case err == nil:
@@ -351,7 +371,7 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch
 
 	case kerrors.IsNotFound(err):
 		// Create a control plane.
-		if err := c.createControlPlane(ctx, cl, ch); err != nil {
+		if err := c.createControlPlane(ctx, c.spaceClient, ch); err != nil {
 			return nil, err
 		}
 
