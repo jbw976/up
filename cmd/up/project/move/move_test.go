@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
 
-	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -43,19 +43,13 @@ func TestMove(t *testing.T) {
 	)
 	projFS = afero.NewCopyOnWriteFs(projFS, afero.NewMemMapFs())
 
-	ws, err := workspace.New("/",
-		workspace.WithFS(projFS),
-		workspace.WithPrinter(&pterm.DefaultBasicText),
-		workspace.WithPermissiveParser(),
-	)
-	assert.NilError(t, err)
-	err = ws.Parse(context.Background())
+	newRepo, err := name.NewRepository("docker.io/my-org/my-project")
 	assert.NilError(t, err)
 
 	c := &Cmd{
 		projFS:        projFS,
-		ws:            ws,
-		NewRepository: "docker.io/my-org/my-project",
+		NewRepository: newRepo.String(),
+		newRepo:       newRepo,
 		ProjectFile:   "upbound.yaml",
 	}
 

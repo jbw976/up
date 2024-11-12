@@ -21,6 +21,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
@@ -30,6 +31,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -41,13 +43,14 @@ import (
 )
 
 type Cmd struct {
-	ProjectFile    string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Repository     string `optional:"" help:"Repository for the built package. Overrides the repository specified in the project file."`
-	OutputDir      string `short:"o" help:"Path to the output directory, where packages will be written." default:"_output"`
-	NoBuildCache   bool   `help:"Don't cache image layers while building." default:"false"`
-	BuildCacheDir  string `help:"Path to the build cache directory." type:"path" default:"~/.up/build-cache"`
-	MaxConcurrency uint   `help:"Maximum number of functions to build at once." env:"UP_MAX_CONCURRENCY" default:"8"`
-	CacheDir       string `short:"d" help:"Directory used for caching dependencies." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	ProjectFile    string        `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
+	Repository     string        `optional:"" help:"Repository for the built package. Overrides the repository specified in the project file."`
+	OutputDir      string        `short:"o" help:"Path to the output directory, where packages will be written." default:"_output"`
+	NoBuildCache   bool          `help:"Don't cache image layers while building." default:"false"`
+	BuildCacheDir  string        `help:"Path to the build cache directory." type:"path" default:"~/.up/build-cache"`
+	MaxConcurrency uint          `help:"Maximum number of functions to build at once." env:"UP_MAX_CONCURRENCY" default:"8"`
+	CacheDir       string        `help:"Directory used for caching dependencies." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	Flags          upbound.Flags `embed:""`
 
 	modelsFS afero.Fs
 	outputFS afero.Fs
@@ -60,6 +63,13 @@ type Cmd struct {
 }
 
 func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
+
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 	// Read the project file.
@@ -107,7 +117,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo // This is fine.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocyclo // This is fine.
 	pterm.EnableStyling()
 
 	if c.MaxConcurrency == 0 {
@@ -133,7 +143,17 @@ func (c *Cmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:goc
 	}
 
 	if c.Repository != "" {
-		proj.Spec.Repository = c.Repository
+		// Update the project (in-memory) to use the new repository. This
+		// ensures function references in compositions are consistent with the
+		// project's repository.
+		ref, err := name.NewRepository(c.Repository, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Host))
+		if err != nil {
+			return errors.Wrap(err, "failed to parse repository")
+		}
+		c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+		if err := project.Move(ctx, proj, c.projFS, ref.String()); err != nil {
+			return errors.Wrap(err, "failed to update project repository")
+		}
 	}
 
 	b := project.NewBuilder(

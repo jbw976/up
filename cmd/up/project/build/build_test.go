@@ -19,6 +19,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -40,6 +41,7 @@ import (
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -202,7 +204,13 @@ func TestBuild(t *testing.T) {
 			assert.NilError(t, err)
 
 			// Build the package.
-			err = c.Run(context.Background(), &pterm.BasicTextPrinter{
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			err = c.Run(context.Background(), upCtx, &pterm.BasicTextPrinter{
 				Style:  pterm.DefaultBasicText.Style,
 				Writer: &TestWriter{t},
 			})
