@@ -40,6 +40,7 @@ const (
 	pythonModelsFolder         = "models"
 	pythonAdoptModelsStructure = "sorted"
 	pythonGeneratedFolder      = "models/workdir"
+	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.26.1"
 )
 
 // GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS
@@ -142,7 +143,7 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 		ctx,
 		crdFS,
 		baseFolder,
-		"koxudaxi/datamodel-code-generator:0.26.1",
+		pythonImage,
 		[]string{
 			"--input-file-type",
 			"openapi",
