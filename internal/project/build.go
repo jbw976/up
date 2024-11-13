@@ -101,9 +101,10 @@ func BuildWithMaxConcurrency(n uint) BuilderOption {
 type BuildOption func(o *buildOptions)
 
 type buildOptions struct {
-	eventChan   async.EventChannel
-	imageLabels map[string]string
-	depManager  *manager.Manager
+	eventChan       async.EventChannel
+	imageLabels     map[string]string
+	depManager      *manager.Manager
+	projectBasePath string
 }
 
 // BuildWithEventChannel provides a channel to which progress updates will be
@@ -128,6 +129,15 @@ func BuildWithImageLabels(labels map[string]string) BuildOption {
 func BuildWithDependencyManager(m *manager.Manager) BuildOption {
 	return func(o *buildOptions) {
 		o.depManager = m
+	}
+}
+
+// BuildWithProjectBasePath sets the real on-disk base path of the project. This
+// path will be uesd for following symlinks. If not set it will be inferred from
+// the project FS, which works only when the project FS is an afero.BasePathFs.
+func BuildWithProjectBasePath(path string) BuildOption {
+	return func(o *buildOptions) {
+		o.projectBasePath = path
 	}
 }
 
@@ -251,7 +261,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 	// generation because functions may depend on the generated schemas.
 	statusStage = "Building functions"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	imgMap, deps, err := b.buildFunctions(ctx, functionsSource, project)
+	imgMap, deps, err := b.buildFunctions(ctx, functionsSource, project, os.projectBasePath)
 	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
@@ -374,7 +384,7 @@ func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs,
 // level of the provided filesystem. The resulting images are returned in a map
 // where the keys are their tags, suitable for writing to a file with
 // go-containerregistry's `tarball.MultiWrite`.
-func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project) (ImageTagMap, []xpmetav1.Dependency, error) { //nolint:gocyclo // This is fine.
+func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) { //nolint:gocyclo // This is fine.
 	var (
 		imgMap = make(map[name.Tag]v1.Image)
 		imgMu  sync.Mutex
@@ -410,7 +420,11 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 
 			fnRepo := fmt.Sprintf("%s_%s", project.Spec.Repository, fnName)
 			fnFS := afero.NewBasePathFs(fromFS, fnName)
-			imgs, err := b.buildFunction(ctx, fnFS, project, fnName)
+			fnBasePath := ""
+			if basePath != "" {
+				fnBasePath = filepath.Join(basePath, project.Spec.Paths.Functions, fnName)
+			}
+			imgs, err := b.buildFunction(ctx, fnFS, project, fnName, fnBasePath)
 			if err != nil {
 				return errors.Wrapf(err, "failed to build function %q", fnName)
 			}
@@ -461,7 +475,7 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 // buildFunction builds images for a single function whose source resides in the
 // given filesystem. One image will be returned for each architecture specified
 // in the project.
-func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, fnName string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
+func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, fnName string, basePath string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
 	fn := &xpmetav1.Function{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: xpmetav1.SchemeGroupVersion.String(),
@@ -517,12 +531,11 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 	// Resolve the real absolute path to the function directory if
 	// possible. This is required for following symlinks in the function
 	// directory.
-	var osBasePath string
-	if bfs, ok := fromFS.(*afero.BasePathFs); ok {
-		osBasePath = afero.FullBaseFsPath(bfs, ".")
+	if bfs, ok := fromFS.(*afero.BasePathFs); ok && basePath == "" {
+		basePath = afero.FullBaseFsPath(bfs, ".")
 	}
 
-	runtimeImages, err := fnBuilder.Build(ctx, fromFS, project.Spec.Architectures, osBasePath)
+	runtimeImages, err := fnBuilder.Build(ctx, fromFS, project.Spec.Architectures, basePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build runtime images")
 	}

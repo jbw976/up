@@ -242,6 +242,10 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	}
 
 	// Move the project, in memory only, to the desired repository.
+	basePath := ""
+	if bfs, ok := c.projFS.(*afero.BasePathFs); ok && basePath == "" {
+		basePath = afero.FullBaseFsPath(bfs, ".")
+	}
 	c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
 	if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
 		return errors.Wrap(err, "failed to update project repository")
@@ -276,6 +280,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
+				project.BuildWithProjectBasePath(basePath),
 			)
 			return err
 		})
