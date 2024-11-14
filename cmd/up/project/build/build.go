@@ -142,6 +142,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		return err
 	}
 
+	basePath := ""
 	if c.Repository != "" {
 		// Update the project (in-memory) to use the new repository. This
 		// ensures function references in compositions are consistent with the
@@ -149,6 +150,10 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		ref, err := name.NewRepository(c.Repository, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Host))
 		if err != nil {
 			return errors.Wrap(err, "failed to parse repository")
+		}
+
+		if bfs, ok := c.projFS.(*afero.BasePathFs); ok && basePath == "" {
+			basePath = afero.FullBaseFsPath(bfs, ".")
 		}
 		c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
 		if err := project.Move(ctx, proj, c.projFS, ref.String()); err != nil {
@@ -169,6 +174,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),
+			project.BuildWithProjectBasePath(basePath),
 		)
 		return err
 	})
