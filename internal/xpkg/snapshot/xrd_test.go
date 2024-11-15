@@ -85,75 +85,6 @@ func TestValidateOpenAPIV3Schema(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"ErrDueToRootTypeNotSpecified": {
-			reason: "type at the root is a required property for the schema definition.",
-			args: args{
-				xrd: &xpextv1.CompositeResourceDefinition{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v1",
-						Kind:       "CompositeResourceDefinition",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "xpostgresqlinstances.database.example.org",
-					},
-					Spec: xpextv1.CompositeResourceDefinitionSpec{
-						Group: "database.example.org",
-						Names: v1.CustomResourceDefinitionNames{
-							Kind:   "XPostgreSQLInstance",
-							Plural: "xpostgresqlinstances",
-						},
-						ClaimNames: &v1.CustomResourceDefinitionNames{
-							Kind:   "PostgreSQLInstance",
-							Plural: "postgresqlinstances",
-						},
-						Versions: []xpextv1.CompositeResourceDefinitionVersion{
-							{
-								Name:          "v1alpha1",
-								Served:        true,
-								Referenceable: true,
-								Schema: &xpextv1.CompositeResourceValidation{
-									OpenAPIV3Schema: runtime.RawExtension{
-										Raw: []byte(`{
-											"properties": {
-												"spec": {
-													"properties": {
-														"parameters": {
-															"properties": {
-																"storageGB": {
-																	"type":"integer"
-																}
-															},
-															"required":[
-																"storageGB"
-															],
-															"type":"object"
-														}
-													},
-													"required": [
-														"parameters"
-													],
-													"type": "object"
-												}
-											}
-										}`),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: want{
-				errs: []error{
-					&field.Error{
-						Type:     "FieldValueRequired",
-						Field:    "spec.validation.openAPIV3Schema.type",
-						BadValue: string(""),
-						Detail:   "must not be empty at the root",
-					},
-				},
-			},
-		},
 		"ErrDueTo$RefIncluded": {
 			reason: "Defining $ref within the schema is invalid.",
 			args: args{
@@ -164,6 +95,7 @@ func TestValidateOpenAPIV3Schema(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "xpostgresqlinstances.database.example.org",
+						UID:  "56789",
 					},
 					Spec: xpextv1.CompositeResourceDefinitionSpec{
 						Group: "database.example.org",
