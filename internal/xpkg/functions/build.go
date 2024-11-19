@@ -380,7 +380,7 @@ func setImageEnvvar(image v1.Image, key string, value string) (v1.Image, error) 
 
 func newKCLBuilder() *kclBuilder {
 	return &kclBuilder{
-		baseImage: "xpkg.upbound.io/upbound/function-kcl-base:v0.10.6-2-g7179bcb",
+		baseImage: "xpkg.upbound.io/upbound/function-kcl-base:v0.10.8-up.1",
 		transport: http.DefaultTransport,
 	}
 }
@@ -388,7 +388,7 @@ func newKCLBuilder() *kclBuilder {
 func newPythonBuilder() *pythonBuilder {
 	return &pythonBuilder{
 		// TODO(negz): Should this be hardcoded?
-		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.1.0",
+		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.2.0",
 
 		// TODO(negz): This'll need to change if function-interpreter-python is
 		// updated to a distroless base layer that uses a newer Python version.

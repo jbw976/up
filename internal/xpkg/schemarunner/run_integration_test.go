@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	kclImage = "kcllang/kcl:v0.10.6"
+	kclImage = "xpkg.upbound.io/upbound/kcl:v0.10.6"
 )
 
 func TestRunContainerWithKCLIntegration(t *testing.T) {

@@ -38,7 +38,7 @@ const (
 	kclSchemaFolder         = "schemas"
 	kclModelsFolder         = "models"
 	kclAdoptModelsStructure = "sorted"
-	kclImage                = "kcllang/kcl:v0.10.6"
+	kclImage                = "xpkg.upbound.io/upbound/kcl:v0.10.6"
 )
 
 // GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS
