@@ -33,7 +33,7 @@ func TestAPIVersionDeprecation(t *testing.T) {
 		o runtime.Object
 	}
 	type want struct {
-		err *validator.Validation
+		err *validator.ValidationError
 	}
 
 	cases := map[string]struct {
@@ -52,7 +52,7 @@ func TestAPIVersionDeprecation(t *testing.T) {
 				},
 			},
 			want: want{
-				err: &validator.Validation{
+				err: &validator.ValidationError{
 					TypeCode: validator.WarningTypeCode,
 					Message:  "meta.pkg.crossplane.io/v1alpha1 is deprecated in favor of meta.pkg.crossplane.io/v1",
 					Name:     "apiVersion",
@@ -70,7 +70,7 @@ func TestAPIVersionDeprecation(t *testing.T) {
 				},
 			},
 			want: want{
-				err: &validator.Validation{
+				err: &validator.ValidationError{
 					TypeCode: validator.WarningTypeCode,
 					Message:  "meta.pkg.crossplane.io/v1alpha1 is deprecated in favor of meta.pkg.crossplane.io/v1",
 					Name:     "apiVersion",

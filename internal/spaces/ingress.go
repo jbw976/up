@@ -31,9 +31,9 @@ import (
 	"github.com/upbound/up/internal/version"
 )
 
-// SpaceConnectionError is an error returned when the connection to the space,
+// ErrSpaceConnection is an error returned when the connection to the space,
 // through the connect API, fails.
-var SpaceConnectionError = errors.New("failed to connect to space through the API client")
+var ErrSpaceConnection = errors.New("failed to connect to space through the API client")
 
 type SpaceIngress struct {
 	Host   string
@@ -100,12 +100,12 @@ func (c *ingressCache) Get(ctx context.Context, space v1alpha1.Space) (ingress *
 
 	connectClient, err := client.New(cfg, client.Options{})
 	if err != nil {
-		return nil, SpaceConnectionError
+		return nil, ErrSpaceConnection
 	}
 
 	var ingressPublic corev1.ConfigMap
 	if err := connectClient.Get(ctx, types.NamespacedName{Namespace: "upbound-system", Name: "ingress-public"}, &ingressPublic); err != nil {
-		return nil, SpaceConnectionError
+		return nil, ErrSpaceConnection
 	}
 
 	var ok bool

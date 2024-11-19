@@ -94,7 +94,7 @@ func (c *CompositionValidator) Validate(ctx context.Context, data any) *validate
 	if err != nil {
 		// some validation errors occur during reconciliation that we want to
 		// send to the end user.
-		ie := &validator.Validation{
+		ie := &validator.ValidationError{
 			TypeCode: validator.ErrorTypeCode,
 			Message:  err.Error(),
 			Name:     resources,
@@ -168,7 +168,7 @@ func (c *CompositionValidator) validatePipelineFunctionRefs(comp *xpextv1.Compos
 	// Find any pipeline steps using an unknown function.
 	for i, step := range comp.Spec.Pipeline {
 		if !functionDeps[step.FunctionRef.Name] {
-			errs = append(errs, &validator.Validation{
+			errs = append(errs, &validator.ValidationError{
 				TypeCode: validator.WarningTypeCode,
 				Message:  fmt.Sprintf("package does not depend on function %q", step.FunctionRef.Name),
 				Name:     fmt.Sprintf(pipelineStepFunctionNameFmt, i),
@@ -229,7 +229,7 @@ func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Contex
 			continue
 		}
 		if len(crds) == 0 {
-			errs = append(errs, &validator.Validation{
+			errs = append(errs, &validator.ValidationError{
 				TypeCode: validator.WarningTypeCode,
 				Message:  fmt.Sprintf("function %q does not take input", step.FunctionRef.Name),
 				Name:     fmt.Sprintf(pipelineStepInputFmt, stepIdx),
@@ -249,7 +249,7 @@ func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Contex
 		var u unstructured.Unstructured
 		err := json.Unmarshal(step.Input.Raw, &u)
 		if err != nil {
-			errs = append(errs, &validator.Validation{
+			errs = append(errs, &validator.ValidationError{
 				TypeCode: validator.WarningTypeCode,
 				Message:  err.Error(),
 				Name:     fmt.Sprintf(pipelineStepInputFmt, stepIdx),
@@ -258,7 +258,7 @@ func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Contex
 		}
 		val, ok := vals[u.GroupVersionKind()]
 		if !ok {
-			errs = append(errs, &validator.Validation{
+			errs = append(errs, &validator.ValidationError{
 				TypeCode: validator.WarningTypeCode,
 				Message:  fmt.Sprintf("incorrect input type for step %q; valid inputs: %v", step.Step, crdKinds),
 				Name:     fmt.Sprintf(pipelineStepInputFieldFmt, stepIdx, "apiVersion"),
@@ -271,7 +271,7 @@ func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Contex
 			if !errors.As(e, &ve) {
 				return []error{errors.New(errIncorrectErrType)}
 			}
-			ie := &validator.Validation{
+			ie := &validator.ValidationError{
 				TypeCode: ve.Code(),
 				Message:  fmt.Sprintf(errFmt, ve.Error(), u.GroupVersionKind()),
 				Name:     fmt.Sprintf(pipelineStepInputFieldFmt, stepIdx, ve.Name),
@@ -398,7 +398,7 @@ func (p *PatchesValidator) validate(ctx context.Context, idx int, cd resource.Co
 			if !errors.As(e, &ve) {
 				return []error{errors.New(errIncorrectErrType)}
 			}
-			ie := &validator.Validation{
+			ie := &validator.ValidationError{
 				TypeCode: ve.Code(),
 				Message:  fmt.Sprintf(errFmt, ve.Error(), cdgvk),
 				Name:     fmt.Sprintf(resourceBaseFmt, idx, ve.Name),

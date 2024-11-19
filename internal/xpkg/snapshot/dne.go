@@ -31,7 +31,7 @@ const (
 // where the warning should be surfaced.
 func gvkDNEWarning(gvk schema.GroupVersionKind, location string) []error {
 	return []error{
-		&validator.Validation{
+		&validator.ValidationError{
 			TypeCode: validator.WarningTypeCode,
 			Message:  fmt.Sprintf(errFmt, warnNoDefinitionFound, gvk),
 			Name:     location,

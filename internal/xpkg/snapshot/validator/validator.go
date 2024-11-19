@@ -42,19 +42,19 @@ type Validator interface {
 	Validate(ctx context.Context, data any) *validate.Result
 }
 
-// Validation represents a failure of a file condition.
-type Validation struct {
+// ValidationError represents a failure of a file condition.
+type ValidationError struct {
 	TypeCode int32
 	Message  string
 	Name     string
 }
 
 // Code returns the code corresponding to the MetaValidation.
-func (e *Validation) Code() int32 {
+func (e *ValidationError) Code() int32 {
 	return e.TypeCode
 }
 
-func (e *Validation) Error() string {
+func (e *ValidationError) Error() string {
 	return e.Message
 }
 

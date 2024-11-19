@@ -327,7 +327,7 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 				ingress, err := navCtx.ingressReader.Get(ctx, space)
 				if err != nil {
 					mu.Lock()
-					if errors.Is(err, spaces.SpaceConnectionError) {
+					if errors.Is(err, spaces.ErrSpaceConnection) {
 						unselectableItems = append(unselectableItems, item{
 							text:          space.GetObjectMeta().GetName() + " (unreachable)",
 							kind:          "space",
