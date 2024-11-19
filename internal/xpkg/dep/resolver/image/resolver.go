@@ -26,6 +26,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+
+	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
 const (
@@ -76,24 +78,38 @@ func WithFetcher(f Fetcher) ResolverOption {
 }
 
 // ResolveImage resolves the image corresponding to the given v1beta1.Dependency.
-func (r *Resolver) ResolveImage(ctx context.Context, dep v1beta1.Dependency) (string, v1.Image, error) {
+func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (string, v1.Image, error) {
+	var (
+		cons string
+		err  error
+		path string
+	)
 
-	tag, err := r.ResolveTag(ctx, dep)
-	if err != nil {
-		return "", nil, errors.Errorf("failed to resolve %s:%s: %w", dep.Package, dep.Constraints, err)
+	if utils.IsDigest(&d) {
+		cons, err = r.ResolveDigest(ctx, d)
+		if err != nil {
+			return "", nil, errors.Errorf("failed to resolve %s@%s: %w", d.Package, d.Constraints, err)
+		}
+		path = fmt.Sprintf("%s@%s", d.Package, cons)
+	} else {
+		cons, err = r.ResolveTag(ctx, d)
+		if err != nil {
+			return "", nil, errors.Errorf("failed to resolve %s:%s: %w", d.Package, d.Constraints, err)
+		}
+		path = FullTag(v1beta1.Dependency{
+			Package:     d.Package,
+			Type:        d.Type,
+			Constraints: cons,
+		})
 	}
 
-	remoteImageRef, err := name.ParseReference(FullTag(v1beta1.Dependency{
-		Package:     dep.Package,
-		Type:        dep.Type,
-		Constraints: tag,
-	}))
+	remoteImageRef, err := name.ParseReference(path)
 	if err != nil {
 		return "", nil, err
 	}
 
 	i, err := r.f.Fetch(ctx, remoteImageRef)
-	return tag, i, err
+	return cons, i, err
 }
 
 // ResolveTag resolves the tag corresponding to the given v1beta1.Dependency.

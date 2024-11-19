@@ -32,6 +32,7 @@ import (
 
 	"github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
+	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
 const (
@@ -123,16 +124,11 @@ func WithWatchInterval(i *time.Duration) Option {
 func (c *Local) Get(k v1beta1.Dependency) (*xpkg.ParsedPackage, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	t, err := name.NewTag(image.FullTag(k))
+
+	e, err := c.currentEntry(calculatePath(k))
 	if err != nil {
 		return nil, err
 	}
-
-	e, err := c.currentEntry(calculatePath(&t))
-	if err != nil {
-		return nil, err
-	}
-
 	return e.pkg, nil
 }
 
@@ -146,12 +142,7 @@ func (c *Local) Store(k v1beta1.Dependency, v *xpkg.ParsedPackage) error {
 		return errors.New(errInvalidValueSupplied)
 	}
 
-	t, err := name.NewTag(image.FullTag(k))
-	if err != nil {
-		return err
-	}
-
-	path := calculatePath(&t)
+	path := calculatePath(k)
 
 	curr, err := c.currentEntry(path)
 	if err != nil && !os.IsNotExist(err) {
@@ -290,17 +281,20 @@ func (c *Local) ensureDirExists(path string) error {
 	return c.fs.MkdirAll(path, os.ModePerm)
 }
 
-// calculatePath calculates the directory path from the given name.Tag following
-// our convention.
-// example:
-//
-//	tag: crossplane/provider-aws:v0.20.1-alpha
-//	path: index.docker.io/crossplane/provider-aws@v0.20.1-alpha
-func calculatePath(tag *name.Tag) string {
-	return filepath.Join(
-		tag.RegistryStr(),
-		fmt.Sprintf("%s@%s", tag.RepositoryStr(), tag.TagStr()),
-	)
+// calculatePath calculates the directory path from the given dependency
+func calculatePath(k v1beta1.Dependency) string {
+	if utils.IsDigest(&k) {
+		return filepath.Clean(fmt.Sprintf("%s@%s", k.Package, k.Constraints))
+	} else {
+		tag, err := name.NewTag(image.FullTag(k))
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(
+			tag.RegistryStr(),
+			fmt.Sprintf("%s@%s", tag.RepositoryStr(), tag.TagStr()),
+		)
+	}
 }
 
 func calculateVersionsGlob(tag *name.Tag) string {

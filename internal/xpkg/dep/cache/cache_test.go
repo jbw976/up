@@ -22,7 +22,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	ociname "github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
@@ -441,17 +440,13 @@ func TestVersions(t *testing.T) {
 }
 
 func TestCalculatePath(t *testing.T) {
-	tag1, _ := ociname.NewTag("crossplane/provider-aws:v0.20.1-alpha")
-	tag2, _ := ociname.NewTag("gcr.io/crossplane/provider-gcp:v1.0.0")
-	tag3, _ := ociname.NewTag("registry.upbound.io/examples-aws/getting-started:v0.14.0-240.g6a7366f")
-
 	NewLocal(
 		"/cache",
 		WithFS(afero.NewMemMapFs()),
 	)
 
 	type args struct {
-		tag *ociname.Tag
+		k v1beta1.Dependency
 	}
 	cases := map[string]struct {
 		reason string
@@ -461,29 +456,48 @@ func TestCalculatePath(t *testing.T) {
 		"SuccessDockerIO": {
 			reason: "Should return formatted cache path with packageName as filename.",
 			args: args{
-				tag: &tag1,
+				k: v1beta1.Dependency{
+					Package:     "crossplane/provider-aws",
+					Constraints: "v0.20.1-alpha",
+				},
 			},
 			want: "index.docker.io/crossplane/provider-aws@v0.20.1-alpha",
 		},
 		"SuccessGCR": {
 			reason: "Should return formatted cache path with packageName as filename.",
 			args: args{
-				tag: &tag2,
+				k: v1beta1.Dependency{
+					Package:     "gcr.io/crossplane/provider-gcp",
+					Constraints: "v1.0.0",
+				},
 			},
 			want: "gcr.io/crossplane/provider-gcp@v1.0.0",
 		},
 		"SuccessUpboundRegistry": {
 			reason: "Should return formatted cache path with packageName as filename.",
 			args: args{
-				tag: &tag3,
+				k: v1beta1.Dependency{
+					Package:     "xpkg.upbound.io/examples-aws/getting-started",
+					Constraints: "v0.14.0-240.g6a7366f",
+				},
 			},
-			want: "registry.upbound.io/examples-aws/getting-started@v0.14.0-240.g6a7366f",
+			want: "xpkg.upbound.io/examples-aws/getting-started@v0.14.0-240.g6a7366f",
+		},
+		"SuccessDigestConstraint": {
+			reason: "Should return formatted cache path with packageName as filename.",
+			args: args{
+				k: v1beta1.Dependency{
+					Package:     "xpkg.upbound.io/upbound/getting-started_network",
+					Constraints: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				},
+			},
+			want: "xpkg.upbound.io/upbound/getting-started_network@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			d := calculatePath(tc.args.tag)
+			d := calculatePath(tc.args.k)
 
 			if diff := cmp.Diff(tc.want, d); diff != "" {
 				t.Errorf("\n%s\nCalculatePath(...): -want err, +got err:\n%s", tc.reason, diff)

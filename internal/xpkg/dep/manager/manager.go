@@ -36,6 +36,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	xpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
+	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
 var (
@@ -423,13 +424,25 @@ func (m *Manager) retrieveAndStorePkg(ctx context.Context, d v1beta1.Dependency)
 
 // finalizeExtDepVersion sets the resolved tag version on the supplied v1beta1.Dependency.
 func (m *Manager) finalizeExtDepVersion(ctx context.Context, d *v1beta1.Dependency) error {
-	// determine the version (using resolver) to use based on the supplied constraints
-	v, err := m.i.ResolveTag(ctx, *d)
-	if err != nil {
-		return err
+	var (
+		resolvedVersion string
+		err             error
+	)
+
+	if utils.IsDigest(d) {
+		resolvedVersion, err = m.i.ResolveDigest(ctx, *d)
+		if err != nil {
+			return fmt.Errorf("failed to resolve digest for package %s: %w", d.Package, err)
+		}
+	} else {
+		resolvedVersion, err = m.i.ResolveTag(ctx, *d)
+		if err != nil {
+			return fmt.Errorf("failed to resolve tag for package %s: %w", d.Package, err)
+		}
 	}
 
-	d.Constraints = v
+	// Set the resolved version (either resolved digest or tag) to d.Constraints
+	d.Constraints = resolvedVersion
 	return nil
 }
 
