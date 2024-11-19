@@ -183,7 +183,7 @@ func TestResolveTransitiveDependencies(t *testing.T) {
 				t.Errorf("\n%s\nResolveTransitiveDependencies(...): -want err, +got err:\n%s", tc.reason, diff)
 			}
 
-			// make sure the # of accumulated entries is equal the the expected entries
+			// make sure the # of accumulated entries is equal the expected entries
 			if diff := cmp.Diff(len(tc.want.entries), len(acc)); diff != "" {
 				t.Errorf("\n%s\nResolveTransitiveDependencies(...): -want err, +got err:\n%s", tc.reason, diff)
 			}

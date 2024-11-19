@@ -53,7 +53,7 @@ const (
 	errMutateConfig      = "failed to mutate config for image"
 	errBuildObjectScheme = "failed to build scheme for package encoder"
 	errParseAuth         = "an auth extension was supplied but could not be parsed"
-	errAuthNotAnnotated  = "an auth extension was supplied but but the " + ProviderConfigKind + " object could not be found"
+	errAuthNotAnnotated  = "an auth extension was supplied but the " + ProviderConfigKind + " object could not be found"
 	authMetaAnno         = "auth.upbound.io/group"
 	AuthObjectAnno       = "auth.upbound.io/config"
 	ProviderConfigKind   = "ProviderConfig"

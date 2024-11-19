@@ -124,8 +124,8 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 
 	// Make sure the initial state is usable. If it's broken (e.g., because the
-	// user is is logged into a different account than the last ctx they
-	// selected), start the user at the top level.
+	// user is logged into a different account than the last ctx they selected),
+	// start the user at the top level.
 	if _, err := initialState.Items(ctx, upCtx, navCtx); err != nil {
 		initialState, err = DeriveNewState(ctx, conf, profile.GetIngressHost)
 		if err != nil {

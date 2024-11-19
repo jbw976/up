@@ -49,8 +49,8 @@ type Manager struct {
 	prereqs []Prerequisite
 }
 
-// Status represents the the overall status of the Prerequisite within the
-// target cluster.
+// Status represents the overall status of the Prerequisite within the target
+// cluster.
 type Status struct {
 	NotInstalled []Prerequisite
 }
