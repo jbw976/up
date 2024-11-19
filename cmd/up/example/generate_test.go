@@ -202,7 +202,7 @@ func TestCreateCRDAndGenerateResource(t *testing.T) {
 								APIVersion:         "apiextensions.crossplane.io/v1",
 								Kind:               "CompositeResourceDefinition",
 								Name:               "xeks.aws.platform.upbound.io",
-								UID:                "placeholder-uid",
+								UID:                "",
 								Controller:         &trueVar,
 								BlockOwnerDeletion: &trueVar,
 							},
