@@ -156,7 +156,6 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		concurrency <- struct{}{}
 	}
 	for _, s := range c.SmallerProviders {
-		s := s
 		go func() { //nolint:contextcheck
 			// if concurrency is limited
 			if c.Concurrency != 0 {
@@ -435,7 +434,7 @@ func (c *batchCmd) getAuthBackend(ax string) (parser.Backend, error) {
 	// we silently skip if a valid authentication extension
 	// is not specified as before
 	if err != nil {
-		return nil, nil 
+		return nil, nil
 	}
 
 	defer func() { _ = axf.Close() }()

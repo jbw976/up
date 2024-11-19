@@ -143,8 +143,6 @@ func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t 
 	// meaning that if one fails it will cancel others that are in progress.
 	g, ctx := errgroup.WithContext(context.Background())
 	for i, img := range imgs {
-		// pin range variables for use in go func
-		i, img := i, img
 		g.Go(func() error {
 			// annotate image layers
 			aimg, err := xpkg.AnnotateImage(img)

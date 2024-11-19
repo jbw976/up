@@ -119,7 +119,7 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCon
 		// We want `up ctx` to be usable for disconnected spaces even if the
 		// user isn't logged in or can't connect to Upbound. Return a friendly
 		// message instead of an error.
-		items = append(items, item{ 
+		items = append(items, item{
 			text:          "Could not list Upbound organizations; are you logged in?",
 			notSelectable: true,
 		})

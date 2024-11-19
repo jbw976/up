@@ -60,7 +60,6 @@ func (i *WindowIterator) Next() (event.Reader, usagetime.Range, error) {
 
 	readers := make([]event.Reader, len(lo))
 	for j, opts := range lo {
-		opts := opts
 		readers[j] = &PagerEventReader{Client: i.Client, Pager: i.Client.NewListBlobsFlatPager(&opts)}
 	}
 
