@@ -254,8 +254,8 @@ issues:
   exclude-dirs:
   # Exclude the Go mod cache.
   - "..+/go"
-  # Exclude files vendored from k/k
-  - internal/authentication/forked/kubeapiserver/*
+  # Exclude vendored files
+  - internal/vendor/*
   # Excluding configuration per-path and per-linter.
   exclude-rules:
     # Exclude some linters from running on tests files.
