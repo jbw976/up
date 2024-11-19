@@ -20,12 +20,12 @@ import (
 	"io"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/xpkg"

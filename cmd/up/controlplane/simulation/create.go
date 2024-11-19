@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	diffv3 "github.com/r3labs/diff/v3"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"

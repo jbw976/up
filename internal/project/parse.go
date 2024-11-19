@@ -17,9 +17,10 @@ package project
 import (
 	"path/filepath"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )

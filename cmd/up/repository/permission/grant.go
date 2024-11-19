@@ -19,8 +19,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
