@@ -244,7 +244,8 @@ issues:
   # files. The number of warnings should go down over time. Eventually we may
   # want to take a pass at fixing them all.
   new: true
-  new-from-rev: HEAD
+  new-from-rev: HEAD~
+  whole-files: true
 
   # Excluding generated files.
   exclude-files:

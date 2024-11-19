@@ -61,6 +61,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           submodules: true
+          fetch-depth: 0
 
       # TODO(hasheddan): temporary to allow access to up-sdk-go
       - name: Granting private modules access
@@ -83,6 +84,7 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           skip-go-installation: true
+          only-new-issues: true
 
   check-diff:
     runs-on: ubuntu-24.04
