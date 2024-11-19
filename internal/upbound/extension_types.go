@@ -51,7 +51,7 @@ type SpaceExtension struct {
 	Spec *SpaceExtensionSpec `json:"spec,omitempty"`
 }
 
-// SpaceExtensionKind is kind of SpaceExtension
+// SpaceExtensionKind is kind of SpaceExtension.
 var SpaceExtensionKind = reflect.TypeOf(SpaceExtension{}).Name()
 
 func NewCloudV1Alpha1SpaceExtension(org, space string) *SpaceExtension {

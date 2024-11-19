@@ -62,7 +62,7 @@ const (
 )
 
 // BeforeApply sets default values in login before assignment and validation.
-func (c *LoginCmd) BeforeApply() error { 
+func (c *LoginCmd) BeforeApply() error {
 	c.stdin = os.Stdin
 	c.prompter = input.NewPrompter()
 	return nil

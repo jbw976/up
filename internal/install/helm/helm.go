@@ -71,7 +71,7 @@ type helmPuller interface {
 	SetVersion(string)
 }
 
-type puller struct { 
+type puller struct {
 	*action.Pull
 }
 
