@@ -31,10 +31,10 @@ type PathNavigator interface {
 	GetSupportedVersions() ([]string, error)
 }
 
-// LoaderFunc is a function type for loading charts
+// LoaderFunc is a function type for loading charts.
 type LoaderFunc func(name string) (*chart.Chart, error)
 
-// PullFunc is a function type for pulling charts
+// PullFunc is a function type for pulling charts.
 type PullFunc func(src, version string) (string, error)
 
 // GetValuesFromChart fetches the supported versions from a Helm chart specified by the chart and version parameters.

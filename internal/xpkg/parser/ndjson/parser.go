@@ -70,7 +70,7 @@ func (p *Package) SetObjects(objs []runtime.Object) {
 	p.objects = objs
 }
 
-// New returns a new NDJSONPackageParser
+// New returns a new NDJSONPackageParser.
 func New() (*PackageParser, error) {
 	metaScheme, err := scheme.BuildMetaScheme()
 	if err != nil {

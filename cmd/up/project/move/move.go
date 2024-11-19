@@ -19,18 +19,19 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 )
 
 type Cmd struct {
-	NewRepository string        `arg:"" help:"The new repository for the project."`
-	ProjectFile   string        `short:"f" help:"Path to the project definition file." default:"upbound.yaml"`
+	NewRepository string        `arg:""                 help:"The new repository for the project."`
+	ProjectFile   string        `default:"upbound.yaml" help:"Path to the project definition file." short:"f"`
 	Flags         upbound.Flags `embed:""`
 
 	newRepo name.Repository

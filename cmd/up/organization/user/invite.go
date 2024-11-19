@@ -26,9 +26,9 @@ import (
 
 // inviteCmd sends out an invitation to a user to join an organization.
 type inviteCmd struct {
-	OrgName    string                                    `arg:"" required:"" help:"Name of the organization."`
-	Email      string                                    `arg:"" required:"" help:"Email address of the user to invite."`
-	Permission organizations.OrganizationPermissionGroup `short:"p" enum:"member,owner" default:"member" help:"Role of the user to invite (owner or member)."`
+	OrgName    string                                    `arg:""           help:"Name of the organization."            required:""`
+	Email      string                                    `arg:""           help:"Email address of the user to invite." required:""`
+	Permission organizations.OrganizationPermissionGroup `default:"member" enum:"member,owner"                         help:"Role of the user to invite (owner or member)." short:"p"`
 }
 
 // Run executes the invite command.

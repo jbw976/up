@@ -44,7 +44,7 @@ type Meta struct {
 	obj runtime.Object
 }
 
-// New constructs a new Meta given a
+// New constructs a new Meta given a.
 func New(obj runtime.Object) *Meta {
 	return &Meta{
 		obj: obj,
@@ -95,7 +95,7 @@ func (m *Meta) Object() runtime.Object {
 // upsertDeps takes a v1beta1.Dependency and a runtime.Object of type that can
 // be converted to a v1.Pkg and returns an updated runtime.Object with a slice
 // of dependencies that includes the provided dependency d.
-func upsertDeps(d v1beta1.Dependency, o runtime.Object) error { // nolint:gocyclo
+func upsertDeps(d v1beta1.Dependency, o runtime.Object) error { //nolint:gocyclo
 	p, ok := scheme.TryConvertToPkg(o,
 		&pkgmetav1.Provider{},
 		&pkgmetav1.Configuration{},
@@ -134,7 +134,6 @@ func upsertDeps(d v1beta1.Dependency, o runtime.Object) error { // nolint:gocycl
 	}
 
 	if !processed {
-
 		dep := pkgmetav1.Dependency{
 			Version: d.Constraints,
 		}

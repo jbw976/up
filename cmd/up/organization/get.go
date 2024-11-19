@@ -18,11 +18,11 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
 
-	"github.com/upbound/up-sdk-go/service/organizations"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -35,12 +35,11 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd gets a single organization on Upbound.
 type getCmd struct {
-	Name string `arg:"" required:"" help:"Name of organization." predictor:"orgs"`
+	Name string `arg:"" help:"Name of organization." predictor:"orgs" required:""`
 }
 
 // Run executes the get command.
 func (c *getCmd) Run(printer upterm.ObjectPrinter, oc *organizations.Client, upCtx *upbound.Context) error {
-
 	// The get command accepts a name, but the get API call takes an ID
 	// Therefore we get all orgs and find the one the user requested
 	orgs, err := oc.List(context.Background())

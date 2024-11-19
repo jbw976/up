@@ -100,5 +100,4 @@ func (ag *MaxResourceCountPerGVKPerMXP) validateEvent(e model.MXPGVKEvent) error
 		return errors.New("Kind tag is empty")
 	}
 	return nil
-
 }

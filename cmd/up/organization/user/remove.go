@@ -34,10 +34,10 @@ import (
 type removeCmd struct {
 	prompter input.Prompter
 
-	OrgName string `arg:"" required:"" help:"Name of the organization."`
-	User    string `arg:"" required:"" help:"Username or email of the user to remove."`
+	OrgName string `arg:"" help:"Name of the organization."                required:""`
+	User    string `arg:"" help:"Username or email of the user to remove." required:""`
 
-	Force bool `help:"Force removal of the member." default:"false"`
+	Force bool `default:"false" help:"Force removal of the member."`
 }
 
 const (

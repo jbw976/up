@@ -14,7 +14,7 @@
 
 package dependency
 
-// Cmd contains commands for dependency cmd
+// Cmd contains commands for dependency cmd.
 type Cmd struct {
 	Add         addCmd         `cmd:"" help:"Add a dependency to the current project."`
 	UpdateCache updateCacheCmd `cmd:"" help:"Update the dependency cache for the current project."`

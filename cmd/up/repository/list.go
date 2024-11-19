@@ -26,7 +26,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/repositories"
 	repos "github.com/upbound/up-sdk-go/service/repositories"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )

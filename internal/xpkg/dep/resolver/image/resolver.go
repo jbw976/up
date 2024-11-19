@@ -21,17 +21,18 @@ import (
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
 const (
-	// DefaultVer effectively defines latest for the semver constraints
+	// DefaultVer effectively defines latest for the semver constraints.
 	DefaultVer = ">=v0.0.0"
 
 	packageTagFmt = "%s:%s"
@@ -43,7 +44,7 @@ const (
 	errTagDoesNotExist    = "supplied tag does not exist in the registry"
 )
 
-// Resolver --
+// Resolver --.
 type Resolver struct {
 	f Fetcher
 }
@@ -113,8 +114,8 @@ func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (stri
 }
 
 // ResolveTag resolves the tag corresponding to the given v1beta1.Dependency.
-// TODO(@tnthornton) add a test that flexes resolving constraint versions to the expected target version
-func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error) { // nolint:gocyclo
+// TODO(@tnthornton) add a test that flexes resolving constraint versions to the expected target version.
+func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error) { //nolint:gocyclo
 	// if the passed in version was blank use the default to pass
 	// constraint checks and grab latest semver
 	if dep.Constraints == "" {
@@ -214,7 +215,7 @@ func (r *Resolver) ResolveDigest(ctx context.Context, d v1beta1.Dependency) (str
 	return desc.Digest.String(), nil
 }
 
-// FullTag returns the full image tag "source:version" of the given dependency
+// FullTag returns the full image tag "source:version" of the given dependency.
 func FullTag(d v1beta1.Dependency) string {
 	// NOTE(@tnthornton) this should ONLY be used after the version constraint
 	// has been resolved for the given dependency. Using a semver range is not

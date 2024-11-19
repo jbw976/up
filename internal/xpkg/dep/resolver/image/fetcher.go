@@ -23,10 +23,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-// LocalFetcher --
+// LocalFetcher --.
 type LocalFetcher struct{}
 
-// NewLocalFetcher --
+// NewLocalFetcher --.
 func NewLocalFetcher() *LocalFetcher {
 	return &LocalFetcher{}
 }

@@ -26,28 +26,28 @@ import (
 // Flags are common flags used by commands that interact with Upbound.
 type Flags struct {
 	// Optional
-	Domain  *url.URL `env:"UP_DOMAIN" default:"https://upbound.io" help:"Root Upbound domain." json:"domain,omitempty"`
-	Profile string   `env:"UP_PROFILE" help:"Profile used to execute command." predictor:"profiles" json:"profile,omitempty"`
-	Account string   `short:"a" env:"UP_ACCOUNT" help:"Account used to execute command." json:"account,omitempty"`
+	Domain  *url.URL `default:"https://upbound.io" env:"UP_DOMAIN"                         help:"Root Upbound domain." json:"domain,omitempty"`
+	Profile string   `env:"UP_PROFILE"             help:"Profile used to execute command." json:"profile,omitempty"    predictor:"profiles"`
+	Account string   `env:"UP_ACCOUNT"             help:"Account used to execute command." json:"account,omitempty"    short:"a"`
 
 	// Insecure
-	InsecureSkipTLSVerify bool `env:"UP_INSECURE_SKIP_TLS_VERIFY" help:"[INSECURE] Skip verifying TLS certificates." json:"insecureSkipTLSVerify,omitempty"`
-	Debug                 int  `short:"d" env:"UP_DEBUG" name:"debug" type:"counter" help:"[INSECURE] Run with debug logging. Repeat to increase verbosity. Output might contain confidential data like tokens." json:"debug,omitempty"`
+	InsecureSkipTLSVerify bool `env:"UP_INSECURE_SKIP_TLS_VERIFY" help:"[INSECURE] Skip verifying TLS certificates."                                                                          json:"insecureSkipTLSVerify,omitempty"`
+	Debug                 int  `env:"UP_DEBUG"                    help:"[INSECURE] Run with debug logging. Repeat to increase verbosity. Output might contain confidential data like tokens." json:"debug,omitempty"                 name:"debug" short:"d" type:"counter"`
 
 	// Hidden
-	APIEndpoint      *url.URL `env:"OVERRIDE_API_ENDPOINT" hidden:"" name:"override-api-endpoint" help:"Overrides the default API endpoint." json:"apiEndpoint,omitempty"`
-	AuthEndpoint     *url.URL `env:"OVERRIDE_AUTH_ENDPOINT" hidden:"" name:"override-auth-endpoint" help:"Overrides the default auth endpoint." json:"authEndpoint,omitempty"`
-	ProxyEndpoint    *url.URL `env:"OVERRIDE_PROXY_ENDPOINT" hidden:"" name:"override-proxy-endpoint" help:"Overrides the default proxy endpoint." json:"proxyEndpoint,omitempty"`
-	RegistryEndpoint *url.URL `env:"OVERRIDE_REGISTRY_ENDPOINT" hidden:"" name:"override-registry-endpoint" help:"Overrides the default registry endpoint." json:"registryEndpoint,omitempty"`
+	APIEndpoint      *url.URL `env:"OVERRIDE_API_ENDPOINT"      help:"Overrides the default API endpoint."      hidden:"" json:"apiEndpoint,omitempty"      name:"override-api-endpoint"`
+	AuthEndpoint     *url.URL `env:"OVERRIDE_AUTH_ENDPOINT"     help:"Overrides the default auth endpoint."     hidden:"" json:"authEndpoint,omitempty"     name:"override-auth-endpoint"`
+	ProxyEndpoint    *url.URL `env:"OVERRIDE_PROXY_ENDPOINT"    help:"Overrides the default proxy endpoint."    hidden:"" json:"proxyEndpoint,omitempty"    name:"override-proxy-endpoint"`
+	RegistryEndpoint *url.URL `env:"OVERRIDE_REGISTRY_ENDPOINT" help:"Overrides the default registry endpoint." hidden:"" json:"registryEndpoint,omitempty" name:"override-registry-endpoint"`
 }
 
 type KubeFlags struct {
 	// Kubeconfig is the kubeconfig file path to read. If empty, it refers to
 	// client-go's default kubeconfig location.
-	Kubeconfig string `type:"existingfile" help:"Override default kubeconfig path."`
+	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
 	// Context is the context within Kubeconfig to read. If empty, it refers
 	// to the default context.
-	Context string `name:"kubecontext" help:"Override default kubeconfig context."`
+	Context string `help:"Override default kubeconfig context." name:"kubecontext"`
 
 	// set by AfterApply
 	config    *rest.Config

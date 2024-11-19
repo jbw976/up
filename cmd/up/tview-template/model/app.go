@@ -26,8 +26,7 @@
 
 package model
 
-type App struct {
-}
+type App struct{}
 
 func NewApp() *App {
 	a := &App{}

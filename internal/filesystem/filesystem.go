@@ -23,8 +23,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 var ErrFsNotEmpty = errors.New("filesystem is not empty")
@@ -44,7 +45,7 @@ func CopyFilesBetweenFs(fromFS, toFS afero.Fs) error {
 
 		// Ensure the parent directories exist on the destination filesystem
 		dir := filepath.Dir(path)
-		err = toFS.MkdirAll(dir, 0755) // Use appropriate permissions for the directories
+		err = toFS.MkdirAll(dir, 0o755) // Use appropriate permissions for the directories
 		if err != nil {
 			return err
 		}
@@ -54,7 +55,7 @@ func CopyFilesBetweenFs(fromFS, toFS afero.Fs) error {
 		if err != nil {
 			return err
 		}
-		err = afero.WriteFile(toFS, path, fileData, 0644)
+		err = afero.WriteFile(toFS, path, fileData, 0o644)
 		if err != nil {
 			return err
 		}
@@ -91,7 +92,7 @@ func WithGIDOverride(gid int) FSToTarOption {
 	}
 }
 
-func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) { // nolint:gocyclo
+func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) { //nolint:gocyclo
 	cfg := &fsToTarConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -102,7 +103,7 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 	prefixHdr := &tar.Header{
 		Name:     prefix,
 		Typeflag: tar.TypeDir,
-		Mode:     0777,
+		Mode:     0o777,
 	}
 	if cfg.uidOverride != nil {
 		prefixHdr.Uid = *cfg.uidOverride
@@ -158,7 +159,7 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 			if err != nil {
 				// The symlink target may be missing, which can occur when dependencies are only referenced without schemas.
 				// It's safe to skip these symlinks by returning nil, allowing the packaging to continue without interruption.
-				return nil // nolint:nilerr
+				return nil //nolint:nilerr
 			}
 
 			// Ensure the symlink target exists in the real filesystem (OsFs)
@@ -296,7 +297,7 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 	return nil
 }
 
-// IsFsEmptycheck if the filesystem is empty
+// IsFsEmptycheck if the filesystem is empty.
 func IsFsEmpty(fs afero.Fs) (bool, error) {
 	// Check if the root directory (".") exists
 	_, err := fs.Stat(".")
@@ -332,7 +333,7 @@ func CopyFolder(fs afero.Fs, sourceDir, targetDir string) error {
 		destPath := filepath.Join(targetDir, relPath)
 
 		if info.IsDir() {
-			return fs.MkdirAll(destPath, 0755)
+			return fs.MkdirAll(destPath, 0o755)
 		}
 
 		srcFile, err := fs.Open(path)

@@ -18,13 +18,14 @@ import (
 	"context"
 	"io"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
@@ -80,7 +81,7 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version  string `arg:"" optional:"" help:"UXP version to install."`
+	Version  string `arg:""                                     help:"UXP version to install." optional:""`
 	Unstable bool   `help:"Allow installing unstable versions."`
 
 	install.CommonParams

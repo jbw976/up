@@ -18,15 +18,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -60,10 +60,10 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) erro
 type deleteCmd struct {
 	prompter input.Prompter
 
-	RobotName string `arg:"" required:"" help:"Name of robot."`
-	TokenName string `arg:"" required:"" help:"Name of token."`
+	RobotName string `arg:"" help:"Name of robot." required:""`
+	TokenName string `arg:"" help:"Name of token." required:""`
 
-	Force bool `help:"Force delete token even if conflicts exist." default:"false"`
+	Force bool `default:"false" help:"Force delete token even if conflicts exist."`
 }
 
 // Run executes the delete command.

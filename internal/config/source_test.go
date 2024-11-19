@@ -19,13 +19,16 @@ import (
 	"os"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
 
-var _ Source = &FSSource{}
-var _ Source = &MockSource{}
+var (
+	_ Source = &FSSource{}
+	_ Source = &MockSource{}
+)
 
 // TODO(hasheddan): a mock afero.Fs could increase test coverage here with
 // simulated failed file opens and writes.
@@ -104,7 +107,7 @@ func TestGetConfig(t *testing.T) {
 				func(f *FSSource) {
 					f.path = "/.up/config.json"
 					fs := afero.NewMemMapFs()
-					file, _ := fs.OpenFile("/.up/config.json", os.O_CREATE, 0600)
+					file, _ := fs.OpenFile("/.up/config.json", os.O_CREATE, 0o600)
 					defer file.Close()
 					b, _ := json.Marshal(testConf)
 					_, _ = file.Write(b)

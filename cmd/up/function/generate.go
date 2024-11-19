@@ -16,7 +16,6 @@ package function
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"html/template"
 	"io"
@@ -24,12 +23,13 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
@@ -40,6 +40,8 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
+
+	_ "embed"
 )
 
 func (c *generateCmd) Help() string {
@@ -144,19 +146,19 @@ type kclModInfo struct {
 	Name string
 }
 
-// Prepare formatted import paths for the template
+// Prepare formatted import paths for the template.
 type kclImportStatement struct {
 	ImportPath string
 	Alias      string
 }
 
 type generateCmd struct {
-	ProjectFile     string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Repository      string `optional:"" help:"Repository for the built package. Overrides the repository specified in the project file."`
-	CacheDir        string `short:"d" help:"Directory used for caching dependency images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
-	Language        string `help:"Language for function." default:"kcl" enum:"kcl,python" short:"l"`
-	Name            string `arg:"" required:"" help:"Name for the new Function."`
-	CompositionPath string `arg:"" optional:"" help:"Path to Crossplane Composition file."`
+	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
+	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
+	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." short:"d" type:"path"`
+	Language        string `default:"kcl"                                                                                    enum:"kcl,python"                           help:"Language for function."                        short:"l"`
+	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
+	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
 
 	functionFS        afero.Fs
 	modelsFS          afero.Fs
@@ -214,7 +216,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -240,7 +241,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
 	var (
 		err                error
 		functionSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
@@ -291,7 +292,6 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 		}
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}
@@ -355,7 +355,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 	return nil
 }
 
-func (c *generateCmd) generateKCLFiles() (afero.Fs, error) { // nolint:gocyclo
+func (c *generateCmd) generateKCLFiles() (afero.Fs, error) { //nolint:gocyclo
 	targetFS := afero.NewMemMapFs()
 
 	kclModInfo := kclModInfo{
@@ -480,7 +480,7 @@ func (c *generateCmd) addPipelineStep(comp *v1.Composition) error {
 		return errors.Wrapf(err, "failed to marshal composition to yaml")
 	}
 
-	if err = afero.WriteFile(c.projFS, c.CompositionPath, compYAML, 0644); err != nil {
+	if err = afero.WriteFile(c.projFS, c.CompositionPath, compYAML, 0o644); err != nil {
 		return errors.Wrapf(err, "failed to write composition to file")
 	}
 
@@ -507,7 +507,7 @@ func (c *generateCmd) readAndUnmarshalComposition() (*v1.Composition, error) {
 	return &comp, nil
 }
 
-// Helper function to convert kcl paths to the desired import format
+// Helper function to convert kcl paths to the desired import format.
 func formatKclImportPath(path string) (string, string) {
 	// Find the position of "models" in the path and keep only the part after it
 	modelsIndex := strings.Index(path, "models")

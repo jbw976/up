@@ -48,7 +48,7 @@ func NewExampleGraph(client http.RoundTripper, kubeURL string) *ExampleGraph {
 	return d
 }
 
-func (g *ExampleGraph) Tick(ctx context.Context) error { // nolint:gocyclo // TODO: split
+func (g *ExampleGraph) Tick(ctx context.Context) error { //nolint:gocyclo // TODO: split
 	req, err := http.NewRequest("GET", strings.TrimSuffix(g.kubeURL, "/")+"/metrics", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -60,7 +60,7 @@ func (g *ExampleGraph) Tick(ctx context.Context) error { // nolint:gocyclo // TO
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get metrics: %s", resp.Status)
 	}
-	defer resp.Body.Close() // nolint:errcheck
+	defer resp.Body.Close() //nolint:errcheck
 
 	// Parse the metrics
 	var parser expfmt.TextParser

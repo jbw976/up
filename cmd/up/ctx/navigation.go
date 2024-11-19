@@ -52,7 +52,7 @@ var (
 )
 
 var (
-	// all adaptive colors have a minimum of 7:1 against #fff or #000
+	// all adaptive colors have a minimum of 7:1 against #fff or #000.
 	upboundRootStyle         = lipgloss.NewStyle().Foreground(upboundBrandColor)
 	pathInactiveSegmentStyle = lipgloss.NewStyle().Foreground(neutralColor)
 	pathSegmentStyle         = lipgloss.NewStyle()
@@ -83,7 +83,7 @@ func (f AcceptingFunc) Accept(ctx context.Context, upCtx *upbound.Context) error
 	return f(ctx, upCtx)
 }
 
-// breadcrumbStyle defines the styles to be used in the breadcrumbs of a list
+// breadcrumbStyle defines the styles to be used in the breadcrumbs of a list.
 type breadcrumbStyle struct {
 	// previousLevel is the style of the previous levels in the path (higher
 	// order items). For example, when listing control planes then the
@@ -119,7 +119,7 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCon
 		// We want `up ctx` to be usable for disconnected spaces even if the
 		// user isn't logged in or can't connect to Upbound. Return a friendly
 		// message instead of an error.
-		items = append(items, item{ //nolint:nilerr
+		items = append(items, item{ 
 			text:          "Could not list Upbound organizations; are you logged in?",
 			notSelectable: true,
 		})
@@ -483,7 +483,7 @@ func (s *Space) Breadcrumbs() string {
 	return s.breadcrumbs(defaultBreadcrumbStyle)
 }
 
-// GetClient returns a kube client pointed at the current space
+// GetClient returns a kube client pointed at the current space.
 func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
 	conf, err := s.BuildClient(upCtx, types.NamespacedName{})
 	if err != nil {
@@ -585,8 +585,10 @@ type Group struct {
 	Name  string
 }
 
-var _ Accepting = &Group{}
-var _ Back = &Group{}
+var (
+	_ Accepting = &Group{}
+	_ Back      = &Group{}
+)
 
 func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
 	cl, err := g.Space.GetClient(upCtx)
@@ -650,8 +652,10 @@ type ControlPlane struct {
 	Name  string
 }
 
-var _ Accepting = &ControlPlane{}
-var _ Back = &ControlPlane{}
+var (
+	_ Accepting = &ControlPlane{}
+	_ Back      = &ControlPlane{}
+)
 
 func (ctp *ControlPlane) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
 	return []list.Item{

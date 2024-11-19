@@ -17,9 +17,10 @@ package xpls
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/sourcegraph/jsonrpc2"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
 	"github.com/upbound/up/internal/xpls"
 	"github.com/upbound/up/internal/xpls/handler"
@@ -31,13 +32,12 @@ type serveCmd struct {
 	// serve command. It seems like we can easily get into an inconsistent state
 	// if someone specifies config element from the command line. We should move
 	// this to the config.
-	Cache   string `default:"~/.up/cache" help:"Directory path for dependency schema cache." type:"path"`
+	Cache   string `default:"~/.up/cache"                   help:"Directory path for dependency schema cache." type:"path"`
 	Verbose bool   `help:"Run server with verbose logging."`
 }
 
 // Run runs the language server.
 func (c *serveCmd) Run(ctx context.Context) error {
-
 	// cache directory resolution should occur at this level.
 
 	// TODO(hasheddan): move to AfterApply.

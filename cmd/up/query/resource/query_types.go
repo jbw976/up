@@ -20,9 +20,11 @@ type QueryObject interface {
 	DeepCopyQueryObject() QueryObject
 }
 
-type SpaceQuery queryv1alpha2.SpaceQuery
-type GroupQuery queryv1alpha2.GroupQuery
-type Query queryv1alpha2.Query
+type (
+	SpaceQuery queryv1alpha2.SpaceQuery
+	GroupQuery queryv1alpha2.GroupQuery
+	Query      queryv1alpha2.Query
+)
 
 func (c *SpaceQuery) DeepCopy() *SpaceQuery {
 	return (*SpaceQuery)((*queryv1alpha2.SpaceQuery)(c).DeepCopy())

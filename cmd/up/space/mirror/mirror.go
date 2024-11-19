@@ -23,21 +23,22 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"gopkg.in/yaml.v3"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/upterm"
 )
 
 type Cmd struct {
-	ToDir   string `optional:"" help:"Specify the path to the local directory where images will be exported as .tgz files." short:"t"`
-	To      string `optional:"" help:"Specify the destination registry." short:"d"`
-	Version string `required:"" help:"Specify the specific Spaces version for which you want to mirror the images." short:"v"`
+	ToDir   string `help:"Specify the path to the local directory where images will be exported as .tgz files." optional:"" short:"t"`
+	To      string `help:"Specify the destination registry."                                                    optional:"" short:"d"`
+	Version string `help:"Specify the specific Spaces version for which you want to mirror the images."         required:"" short:"v"`
 }
 
 type spinner struct {
@@ -75,7 +76,7 @@ func (c *Cmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (rErr error
 		switch {
 		case os.IsNotExist(err):
 			// Directory does not exist, create it
-			if err := os.MkdirAll(c.ToDir, 0750); err != nil {
+			if err := os.MkdirAll(c.ToDir, 0o750); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case err != nil:
@@ -234,7 +235,6 @@ func (c *Cmd) mirrorWithExtraImages(ctx context.Context, printer upterm.ObjectPr
 }
 
 func (c *Cmd) mirrorArtifact(printer upterm.ObjectPrinter, artifact string, craneOpts []crane.Option) error {
-
 	path := fmt.Sprintf("%s%s.tgz", c.ToDir, oci.GetArtifactName(artifact))
 	rawArtifactName := oci.RemoveDomainAndOrg(artifact)
 

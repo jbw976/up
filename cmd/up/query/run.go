@@ -81,7 +81,7 @@ func (c *cmd) afterApply() error {
 	return nil
 }
 
-func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, queryTemplate resource.QueryObject, kubeconfig *rest.Config, notFound NotFound) error { // nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, queryTemplate resource.QueryObject, kubeconfig *rest.Config, notFound NotFound) error { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
 	tgns, errs := ParseTypesAndNames(c.Resources...)
 	if len(errs) > 0 {
 		return kerrors.NewAggregate(errs)
@@ -153,7 +153,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 				if err != nil {
 					return errors.Wrap(err, "failed to marshal query")
 				}
-				fmt.Fprintf(kongCtx.Stderr, "Sending query:\n\n%s\n", string(bs)) // nolint:errcheck // just debug output
+				fmt.Fprintf(kongCtx.Stderr, "Sending query:\n\n%s\n", string(bs)) //nolint:errcheck // just debug output
 			}
 
 			// send request
@@ -257,7 +257,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 				break
 			}
 			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "Fetching page %d\n", page) // nolint:errcheck // just debug output
+				fmt.Fprintf(kongCtx.Stderr, "Fetching page %d\n", page) //nolint:errcheck // just debug output
 			}
 		}
 	}
@@ -271,7 +271,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	return c.printGeneric(kongCtx, infos)
 }
 
-func (c *cmd) humanReadablePrintObjects(kongCtx *kong.Context, infos []*cliresource.Info, printWithKind bool, notFound NotFound) error { // nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) humanReadablePrintObjects(kongCtx *kong.Context, infos []*cliresource.Info, printWithKind bool, notFound NotFound) error { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
 	objs := make([]kruntime.Object, len(infos))
 	for i, info := range infos {
 		objs[i] = info.Object
@@ -354,7 +354,7 @@ func (c *cmd) humanReadablePrintObjects(kongCtx *kong.Context, infos []*cliresou
 	return kerrors.NewAggregate(allErrs)
 }
 
-func (c *cmd) printGeneric(kongCtx *kong.Context, infos []*cliresource.Info) error { // nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) printGeneric(kongCtx *kong.Context, infos []*cliresource.Info) error { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
 	// we flattened the data from the builder, so we have individual items, but now we'd like to either:
 	// 1. if there is more than one item, combine them all into a single list
 	// 2. if there is a single item and that item is a list, leave it as its specific list
@@ -434,7 +434,7 @@ func (c *cmd) printGeneric(kongCtx *kong.Context, infos []*cliresource.Info) err
 	return kerrors.Reduce(kerrors.Flatten(kerrors.NewAggregate(errs)))
 }
 
-func (c *cmd) createPrinter(mapping *meta.RESTMapping, withNamespace bool, withKind bool) (printers.ResourcePrinterFunc, error) { // nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) createPrinter(mapping *meta.RESTMapping, withNamespace bool, withKind bool) (printers.ResourcePrinterFunc, error) { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
 	// make a new copy of current flags / opts before mutating
 	printFlags := c.printFlags.Copy()
 

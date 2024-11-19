@@ -60,8 +60,8 @@ type Cmd struct {
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
 
-	Kubeconfig string `type:"existingfile" help:"Override default kubeconfig path."`
-	Namespace  string `short:"n" env:"UXP_NAMESPACE" default:"upbound-system" help:"Kubernetes namespace for UXP."`
+	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
+	Namespace  string `default:"upbound-system"                 env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

@@ -22,11 +22,13 @@ import (
 	"strings"
 	"testing"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
+
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg"
@@ -34,8 +36,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
-
-	"gotest.tools/v3/assert"
 )
 
 var (

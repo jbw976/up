@@ -18,15 +18,15 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/teams"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -41,7 +41,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 
 // listCmd lists all teams a specific robot belongs to.
 type listCmd struct {
-	RobotName string `arg:"" required:"" help:"Name of robot."`
+	RobotName string `arg:"" help:"Name of robot." required:""`
 }
 
 // Run executes the get robot command to get all team memberships for a specific robot.

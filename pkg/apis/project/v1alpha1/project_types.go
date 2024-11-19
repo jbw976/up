@@ -15,8 +15,9 @@
 package v1alpha1
 
 import (
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 )
 
 // Project defines an Upbound Project, which can be built into a Crossplane

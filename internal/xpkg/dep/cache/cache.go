@@ -261,7 +261,7 @@ func (c *Local) Close() {
 // Event contains change information about the cache.
 type Event any
 
-// add the given entry to the supplied path (to)
+// add the given entry to the supplied path (to).
 func (c *Local) add(e *entry, to string) error {
 	if err := c.ensureDirExists(filepath.Join(c.root, to)); err != nil {
 		return err
@@ -281,7 +281,7 @@ func (c *Local) ensureDirExists(path string) error {
 	return c.fs.MkdirAll(path, os.ModePerm)
 }
 
-// calculatePath calculates the directory path from the given dependency
+// calculatePath calculates the directory path from the given dependency.
 func calculatePath(k v1beta1.Dependency) string {
 	if utils.IsDigest(&k) {
 		return filepath.Clean(fmt.Sprintf("%s@%s", k.Package, k.Constraints))

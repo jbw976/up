@@ -91,7 +91,7 @@ func TestIdentify(t *testing.T) {
 
 			fromFS := afero.NewMemMapFs()
 			for fname, content := range tc.files {
-				err := afero.WriteFile(fromFS, fname, []byte(content), 0644)
+				err := afero.WriteFile(fromFS, fname, []byte(content), 0o644)
 				assert.NilError(t, err)
 			}
 

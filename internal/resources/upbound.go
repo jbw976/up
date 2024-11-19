@@ -21,12 +21,10 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 )
 
-var (
-	// Domain specifies the demo Upbound domain.
-	// NOTE(tnthornton) this field is a temporary measure that will be removed
-	// when the Custom Resource exposes the status.domain field.
-	Domain = "local.upbound.io"
-)
+// Domain specifies the demo Upbound domain.
+// NOTE(tnthornton) this field is a temporary measure that will be removed
+// when the Custom Resource exposes the status.domain field.
+var Domain = "local.upbound.io"
 
 // Upbound represents the Upbound CustomResource and extends an
 // unstructured.Unstructured.

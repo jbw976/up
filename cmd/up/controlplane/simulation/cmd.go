@@ -27,15 +27,12 @@ import (
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
-var (
-	fieldNames = []string{"GROUP", "NAME", "SOURCE", "SIMULATED", "ACCEPTING-CHANGES", "STATE", "AGE"}
-)
+var fieldNames = []string{"GROUP", "NAME", "SOURCE", "SIMULATED", "ACCEPTING-CHANGES", "STATE", "AGE"}
 
 func init() {
 	kruntime.Must(spacesv1alpha1.AddToScheme(scheme.Scheme))

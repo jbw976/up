@@ -18,10 +18,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	"github.com/spf13/afero"
 
 	"github.com/upbound/up/internal/xpkg/parser/ndjson"
 )
@@ -32,7 +32,7 @@ type JSONPackageParser interface {
 	Parse(context.Context, io.ReadCloser) (*ndjson.Package, error)
 }
 
-// ParsedPackage represents an xpkg that has been parsed from a v1.Image
+// ParsedPackage represents an xpkg that has been parsed from a v1.Image.
 type ParsedPackage struct {
 	// The package dependencies derived from .Spec.DependsOn.
 	Deps []v1beta1.Dependency
@@ -53,7 +53,6 @@ type ParsedPackage struct {
 	// The resolved version, e.g. v0.20.0
 	Ver    string
 	Schema map[string]afero.Fs // Optional schema field, can be nil
-
 }
 
 // Digest returns the package's digest derived from the package image.
@@ -88,13 +87,13 @@ func (p *ParsedPackage) Type() v1beta1.PackageType {
 }
 
 // Registry returns the registry path where the package image is located.
-// e.g. index.docker.io/crossplane/provider-aws
+// e.g. index.docker.io/crossplane/provider-aws.
 func (p *ParsedPackage) Registry() string {
 	return p.Reg
 }
 
 // Version returns the version for the package image.
-// e.g. v0.20.0
+// e.g. v0.20.0.
 func (p *ParsedPackage) Version() string {
 	return p.Ver
 }

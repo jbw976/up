@@ -34,7 +34,7 @@ const (
 	DefaultName = "default"
 )
 
-// A Profile is a set of credentials
+// A Profile is a set of credentials.
 type Profile struct {
 	// ID is the referencable name of the profile.
 	ID string `json:"id,omitempty"`

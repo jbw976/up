@@ -24,7 +24,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

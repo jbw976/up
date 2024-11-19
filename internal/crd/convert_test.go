@@ -15,7 +15,6 @@
 package crd
 
 import (
-	_ "embed"
 	"path/filepath"
 	"testing"
 
@@ -25,6 +24,8 @@ import (
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/yaml"
+
+	_ "embed"
 )
 
 //go:embed testdata/template.fn.crossplane.io_kclinputs.yaml

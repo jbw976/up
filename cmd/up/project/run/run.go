@@ -22,11 +22,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/pterm/pterm"
@@ -41,6 +36,12 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -70,14 +71,14 @@ var ctpSchemeBuilders = []*scheme.Builder{
 }
 
 type Cmd struct {
-	ProjectFile       string        `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Repository        string        `optional:"" help:"Repository for the built package. Overrides the repository specified in the project file."`
-	NoBuildCache      bool          `help:"Don't cache image layers while building." default:"false"`
-	BuildCacheDir     string        `help:"Path to the build cache directory." type:"path" default:"~/.up/build-cache"`
-	MaxConcurrency    uint          `help:"Maximum number of functions to build and push at once." env:"UP_MAX_CONCURRENCY" default:"8"`
+	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."         short:"f"`
+	Repository        string        `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
+	NoBuildCache      bool          `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
+	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."       type:"path"`
+	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                        help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	CacheDir          string        `help:"Directory used for caching dependencies." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                 help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Flags             upbound.Flags `embed:""`
 
@@ -332,7 +333,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 }
 
 // getCurrentSpaceNavigation derives the state of the current navigation using
-// the same process as up ctx
+// the same process as up ctx.
 func getCurrentSpaceNavigation(ctx context.Context, upCtx *upbound.Context) (ctxcmd.NavigationState, error) {
 	po := clientcmd.NewDefaultPathOptions()
 	var err error

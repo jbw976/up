@@ -103,9 +103,7 @@ func TestAPIVersionDeprecation(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			err := validateAPIVersion(tc.args.o)
-
 			if err != nil {
 				if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 					t.Errorf("\n%s\nAPIVersionDeprecation(...): -want error, +got error:\n%s", tc.reason, diff)

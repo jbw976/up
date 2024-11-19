@@ -48,6 +48,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 // Cmd contains commands for managing Upbound.
 type Cmd struct {
-	Kubeconfig string `type:"existingfile" help:"Override default kubeconfig path."`
-	Namespace  string `short:"n" env:"UPBOUND_NAMESPACE" default:"upbound-system" help:"Kubernetes namespace for Upbound."`
+	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
+	Namespace  string `default:"upbound-system"                 env:"UPBOUND_NAMESPACE" help:"Kubernetes namespace for Upbound." short:"n"`
 }

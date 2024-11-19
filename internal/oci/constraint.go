@@ -20,7 +20,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-// CheckPreReleaseConstraint checks whether a given version, stripped of its pre-release suffix
+// CheckPreReleaseConstraint checks whether a given version, stripped of its pre-release suffix.
 func CheckPreReleaseConstraint(constraint *semver.Constraints, version *semver.Version) bool {
 	// Create a new version without the pre-release
 	baseVersionStr := fmt.Sprintf("%d.%d.%d", version.Major(), version.Minor(), version.Patch())

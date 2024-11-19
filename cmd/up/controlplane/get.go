@@ -47,8 +47,8 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd gets a single control plane in an account on Upbound.
 type getCmd struct {
-	Name  string `arg:"" required:"" help:"Name of control plane." predictor:"ctps"`
-	Group string `short:"g" default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context"`
+	Name  string `arg:""     help:"Name of control plane."                                                                                                      predictor:"ctps" required:""`
+	Group string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 }
 
 // Run executes the get command.

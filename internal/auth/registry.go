@@ -29,7 +29,7 @@ import (
 
 const (
 	path = "/service/token"
-	// query params
+	// query params.
 	serviceKey   = "service"
 	serviceValue = "registry-token-service"
 	scopeKey     = "scope"
@@ -38,7 +38,7 @@ const (
 	errAuthFailed = "unable to acquire access token"
 )
 
-// Response is the response that we get from a successful authentication request
+// Response is the response that we get from a successful authentication request.
 type Response struct {
 	AccessToken string `json:"access_token"`
 	Scope       string `json:"scope"`
@@ -46,14 +46,13 @@ type Response struct {
 	IssuedAt    string `json:"issued_at"`
 }
 
-// Provider defines an auth provider
+// Provider defines an auth provider.
 type Provider interface {
 	GetToken(context.Context) (*Response, error)
 }
 
-// NewProvider constructs a new upboundRegistry provider
+// NewProvider constructs a new upboundRegistry provider.
 func NewProvider(modifiers ...ProviderModifierFn) *UpboundRegistry {
-
 	p := &UpboundRegistry{
 		client: &http.Client{},
 	}
@@ -65,7 +64,7 @@ func NewProvider(modifiers ...ProviderModifierFn) *UpboundRegistry {
 	return p
 }
 
-// UpboundRegistry provides authentication using the Upbound Registry
+// UpboundRegistry provides authentication using the Upbound Registry.
 type UpboundRegistry struct {
 	client   uphttp.Client
 	endpoint *url.URL
@@ -111,7 +110,7 @@ func WithProductID(productID string) ProviderModifierFn {
 	}
 }
 
-// GetToken returns a JWT corresponding to the supplied username/password
+// GetToken returns a JWT corresponding to the supplied username/password.
 func (u *UpboundRegistry) GetToken(ctx context.Context) (*Response, error) {
 	u.endpoint.Path = path
 
@@ -133,7 +132,7 @@ func (u *UpboundRegistry) GetToken(ctx context.Context) (*Response, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, errAuthFailed)
 	}
-	defer res.Body.Close() // nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:gosec,errcheck
 
 	b, err := io.ReadAll(res.Body)
 	if err != nil {

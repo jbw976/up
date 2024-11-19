@@ -23,9 +23,7 @@ import (
 	"github.com/upbound/up/cmd/up/query/resource"
 )
 
-var (
-	queryScheme = runtime.NewScheme()
-)
+var queryScheme = runtime.NewScheme()
 
 func init() {
 	kruntime.Must(resource.AddToScheme(queryScheme))

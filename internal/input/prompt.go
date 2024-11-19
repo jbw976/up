@@ -21,8 +21,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"golang.org/x/term"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const (
@@ -55,7 +56,7 @@ func (defaultTTY) ReadPassword(fd int) ([]byte, error) {
 }
 
 // TODO(@tnthornton @jastang) there are possible enhancements to this.
-// for example: reprompt if not given y/n (yes/no)
+// for example: reprompt if not given y/n (yes/no).
 func InputYes(include string) bool {
 	if len(include) > 0 {
 		return strings.ToLower(include)[0:1] == "y"

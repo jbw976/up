@@ -39,7 +39,7 @@ type Cmd struct {
 	Export exportCmd `cmd:"" help:"The 'export' command is used to export the current state of a Crossplane or Universal Crossplane (xp/uxp) control plane into an archive file. This file can then be used for migration to Upbound Managed Control Planes."`
 	Import importCmd `cmd:"" help:"The 'import' command imports a control plane state from an archive file into an Upbound managed control plane."`
 
-	Kubeconfig string `type:"existingfile" help:"Override default kubeconfig path."`
+	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
 }
 
 func (c *Cmd) Help() string {

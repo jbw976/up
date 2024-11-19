@@ -21,12 +21,13 @@ import (
 	"strings"
 	"testing"
 
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
+
+	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )

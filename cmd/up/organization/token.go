@@ -34,8 +34,8 @@ import (
 type tokenCmd struct {
 	Upbound upbound.Flags `embed:""`
 
-	Name  string `arg:"" env:"ORGANIZATION" required:"" help:"Name of organization." predictor:"orgs"`
-	Token string `short:"t" env:"UP_TOKEN" help:"Token used to execute command. Overrides the token present in the profile."`
+	Name  string `arg:""         env:"ORGANIZATION"                                                                help:"Name of organization." predictor:"orgs" required:""`
+	Token string `env:"UP_TOKEN" help:"Token used to execute command. Overrides the token present in the profile." short:"t"`
 }
 
 // AfterApply sets default values in command after assignment and validation.

@@ -21,7 +21,6 @@ import (
 	"github.com/pterm/pterm"
 
 	repos "github.com/upbound/up-sdk-go/service/repositories"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -34,7 +33,7 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd gets a single repo.
 type getCmd struct {
-	Name string `arg:"" required:"" help:"Name of repo." predictor:"repos"`
+	Name string `arg:"" help:"Name of repo." predictor:"repos" required:""`
 }
 
 // Run executes the get command.

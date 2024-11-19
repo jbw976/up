@@ -42,9 +42,7 @@ const (
 	contextSwitchedFmt = "Switched kubeconfig context to: %s\n"
 )
 
-var (
-	errParseSpaceContext = errors.New("unable to parse space info from context")
-)
+var errParseSpaceContext = errors.New("unable to parse space info from context")
 
 func init() {
 	kruntime.Must(spacesv1beta1.AddToScheme(scheme.Scheme))
@@ -54,10 +52,10 @@ type Cmd struct {
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
 
-	Argument    string `arg:"" optional:"" help:".. to move to the parent, '-' for the previous context, '.' for the current context, or any relative path."`
-	Short       bool   `short:"s" env:"UP_SHORT" name:"short" help:"Short output."`
-	KubeContext string `env:"UP_CONTEXT" default:"upbound" name:"context" help:"Kubernetes context to operate on."`
-	File        string `short:"f" name:"kubeconfig" help:"Kubeconfig to modify when saving a new context"`
+	Argument    string `arg:""                                                help:".. to move to the parent, '-' for the previous context, '.' for the current context, or any relative path." optional:""`
+	Short       bool   `env:"UP_SHORT"                                        help:"Short output."                                                                                              name:"short"                             short:"s"`
+	KubeContext string `default:"upbound"                                     env:"UP_CONTEXT"                                                                                                  help:"Kubernetes context to operate on." name:"context"`
+	File        string `help:"Kubeconfig to modify when saving a new context" name:"kubeconfig"                                                                                                 short:"f"`
 }
 
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
@@ -80,7 +78,7 @@ type Termination struct {
 }
 
 // navContext contains the helpers and functions used when navigating through
-// the up ctx flow
+// the up ctx flow.
 type navContext struct {
 	ingressReader spaces.IngressReader
 	contextWriter kubeContextWriter
@@ -145,7 +143,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 }
 
-func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) error { // nolint:gocyclo // TODO: shorten
+func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) error { //nolint:gocyclo // TODO: shorten
 	last, err := readLastContext()
 	if err != nil {
 		return err
@@ -187,7 +185,7 @@ func withUpboundPrefix(s string) string {
 	return fmt.Sprintf("%s %s", upboundRootStyle.Render("Upbound"), s)
 }
 
-func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext string) (newConf *clientcmdapi.Config, newLastContext string, err error) { // nolint:gocyclo // little long, but well tested
+func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext string) (newConf *clientcmdapi.Config, newLastContext string, err error) { //nolint:gocyclo // little long, but well tested
 	// switch to non-upbound last context trivially via CurrentContext e.g.
 	// - upbound <-> other
 	// - something <-> other
@@ -273,7 +271,7 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 	return conf, newLastContext, nil
 }
 
-func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error { // nolint:gocyclo // a bit long but ¯\_(ツ)_/¯
+func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error { //nolint:gocyclo // a bit long but ¯\_(ツ)_/¯
 	// begin from root unless we're starting from a relative . or ..
 	state := initialState
 	if !strings.HasPrefix(c.Argument, ".") {
@@ -406,7 +404,7 @@ func (c *Cmd) kubeContextWriter(upCtx *upbound.Context) kubeContextWriter {
 type getIngressHostFn func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error)
 
 // DeriveState returns the navigation state based on the current context set in
-// the given kubeconfig
+// the given kubeconfig.
 func DeriveState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi.Config, getIngressHost getIngressHostFn) (NavigationState, error) {
 	currentCtx := conf.Contexts[conf.CurrentContext]
 
@@ -444,18 +442,18 @@ func DeriveNewState(ctx context.Context, conf *clientcmdapi.Config, getIngressHo
 
 	rest, err := clientcmd.NewDefaultClientConfig(*conf, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
-		return &Root{}, nil // nolint:nilerr
+		return &Root{}, nil //nolint:nilerr
 	}
 
 	cl, err := corev1client.NewForConfig(rest)
 	if err != nil {
-		return &Root{}, nil // nolint:nilerr
+		return &Root{}, nil //nolint:nilerr
 	}
 
 	ingress, ca, err := getIngressHost(ctx, cl)
 	if err != nil {
 		// ingress inaccessible or doesn't exist
-		return &Root{}, nil // nolint:nilerr
+		return &Root{}, nil //nolint:nilerr
 	}
 
 	return &Space{
@@ -471,7 +469,7 @@ func DeriveNewState(ctx context.Context, conf *clientcmdapi.Config, getIngressHo
 
 // DeriveExistingDisconnectedState derives the navigation state assuming the
 // current context in the passed kubeconfig is pointing at an existing
-// disconnected space created by the CLI
+// disconnected space created by the CLI.
 func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi.Config, disconnected *upbound.DisconnectedConfiguration, getIngressHost getIngressHostFn) (NavigationState, error) {
 	if _, ok := conf.Contexts[disconnected.HubContext]; !ok {
 		return nil, fmt.Errorf("cannot find space hub context %q", disconnected.HubContext)
@@ -494,18 +492,18 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 			CurrentContext: disconnected.HubContext,
 		}).ClientConfig()
 		if err != nil {
-			return &Root{}, nil // nolint:nilerr
+			return &Root{}, nil //nolint:nilerr
 		}
 
 		cl, err := corev1client.NewForConfig(rest)
 		if err != nil {
-			return &Root{}, nil // nolint:nilerr
+			return &Root{}, nil //nolint:nilerr
 		}
 
 		ingress, ca, err = getIngressHost(ctx, cl)
 		if err != nil {
 			// ingress inaccessible or doesn't exist
-			return &Root{}, nil // nolint:nilerr
+			return &Root{}, nil //nolint:nilerr
 		}
 	}
 
@@ -541,7 +539,7 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 
 // DeriveExistingCloudState derives the navigation state assuming that the
 // current context in the passed kubeconfig is pointing at an existing Cloud
-// space previously created by the CLI
+// space previously created by the CLI.
 func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config, cloud *upbound.CloudConfiguration) (NavigationState, error) {
 	auth := conf.AuthInfos[conf.Contexts[conf.CurrentContext].AuthInfo]
 	ca := conf.Clusters[conf.Contexts[conf.CurrentContext].Cluster].CertificateAuthorityData

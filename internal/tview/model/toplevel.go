@@ -37,6 +37,7 @@ func (t *TopLevel) SetError(err error) {
 	t.err = err
 	t.errTS = time.Now()
 }
+
 func (t *TopLevel) Error() error {
 	t.lock.RLock()
 	defer t.lock.RUnlock()

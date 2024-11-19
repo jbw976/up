@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -31,20 +30,22 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/pterm/pterm"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 type initCmd struct {
-	Name      string `arg:"" help:"The name of the new project to initialize."`
-	Template  string `default:"project-template" help:"The template name or URL to use to initialize the new project."`
+	Name      string `arg:""                                                                                        help:"The name of the new project to initialize."`
+	Template  string `default:"project-template"                                                                    help:"The template name or URL to use to initialize the new project."`
 	Directory string `help:"The directory to initialize. It must be empty. It will be created if it doesn't exist." type:"path"`
-	RefName   string `default:"main" help:"The branch or tag to clone from the template repository." name:"ref-name"`
+	RefName   string `default:"main"                                                                                help:"The branch or tag to clone from the template repository."       name:"ref-name"`
 
-	Method   string `default:"https" help:"Specify the method to access the repository: 'https' or 'ssh'."`
+	Method   string `default:"https"                                                                                                                                                                  help:"Specify the method to access the repository: 'https' or 'ssh'."`
 	SshKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
-	Username string `default:"git" help:"Optional. Specify a username for HTTP(S) authentication. Used when the method is 'https' and an SSH key is not provided."`
+	Username string `default:"git"                                                                                                                                                                    help:"Optional. Specify a username for HTTP(S) authentication. Used when the method is 'https' and an SSH key is not provided."`
 	Password string `help:"Optional. Specify a password for authentication. Used with the username when the method is 'https', or with an SSH key that requires a password when the method is 'ssh'."`
 
 	Flags upbound.Flags `embed:""`
@@ -99,7 +100,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocyclo
 	// use name as directory
 	if c.Directory == "" {
 		c.Directory = c.Name
@@ -218,7 +219,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextP
 		return errors.Wrap(err, "could not construct project file")
 	}
 
-	err = os.WriteFile(filePath, modifiedProject, 0600)
+	err = os.WriteFile(filePath, modifiedProject, 0o600)
 	if err != nil {
 		return errors.Wrap(err, "could not write project file")
 	}

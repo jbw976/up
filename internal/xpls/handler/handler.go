@@ -32,7 +32,7 @@ type Handler struct {
 	server     *server.Server
 }
 
-// New constructs a new LSP handler,
+// New constructs a new LSP handler,.
 func New(opts ...Option) (*Handler, error) {
 	h := &Handler{
 		log: logging.NewNopLogger(),
@@ -65,6 +65,6 @@ func WithLogger(l logging.Logger) Option {
 }
 
 // Handle handles LSP requests. It panics if we cannot initialize the workspace.
-func (h *Handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) { // nolint:gocyclo
+func (h *Handler) Handle(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) { //nolint:gocyclo
 	h.dispatcher.Dispatch(ctx, h.server, conn, r)
 }

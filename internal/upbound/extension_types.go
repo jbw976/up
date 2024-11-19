@@ -22,12 +22,12 @@ import (
 	upboundv1alpha1 "github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
 )
 
-// DisconnectedConfiguration is the configuration for a disconnected space
+// DisconnectedConfiguration is the configuration for a disconnected space.
 type DisconnectedConfiguration struct {
 	HubContext string `json:"hubContext"`
 }
 
-// CloudConfiguration is the configuration of a cloud space
+// CloudConfiguration is the configuration of a cloud space.
 type CloudConfiguration struct {
 	Organization string `json:"organization"`
 	SpaceName    string `json:"space"`
@@ -51,10 +51,8 @@ type SpaceExtension struct {
 	Spec *SpaceExtensionSpec `json:"spec,omitempty"`
 }
 
-var (
-	// SpaceExtensionKind is kind of SpaceExtension
-	SpaceExtensionKind = reflect.TypeOf(SpaceExtension{}).Name()
-)
+// SpaceExtensionKind is kind of SpaceExtension
+var SpaceExtensionKind = reflect.TypeOf(SpaceExtension{}).Name()
 
 func NewCloudV1Alpha1SpaceExtension(org, space string) *SpaceExtension {
 	return &SpaceExtension{

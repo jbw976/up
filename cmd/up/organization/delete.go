@@ -21,7 +21,6 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up-sdk-go/service/organizations"
-
 	"github.com/upbound/up/internal/input"
 )
 
@@ -54,9 +53,9 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter) error {
 type deleteCmd struct {
 	prompter input.Prompter
 
-	Name string `arg:"" required:"" help:"Name of organization." predictor:"orgs"`
+	Name string `arg:"" help:"Name of organization." predictor:"orgs" required:""`
 
-	Force bool `help:"Force deletion of the organization." default:"false"`
+	Force bool `default:"false" help:"Force deletion of the organization."`
 }
 
 // Run executes the delete command.

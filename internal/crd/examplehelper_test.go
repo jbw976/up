@@ -15,13 +15,14 @@
 package crd
 
 import (
-	_ "embed"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
+
+	_ "embed"
 )
 
 //go:embed testdata/template.fn.crossplane.io_kclinputs.yaml

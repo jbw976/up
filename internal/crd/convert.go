@@ -19,13 +19,14 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/spf13/afero"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 func ConvertToOpenAPI(fs afero.Fs, bs []byte, path, baseFolder string) (string, error) {

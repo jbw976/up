@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
-
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,7 +171,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestRWMetaFile(t *testing.T) {
-
 	cfgMetaFile := &metav1.Configuration{
 		TypeMeta: apimetav1.TypeMeta{
 			APIVersion: "meta.pkg.crossplane.io/v1",

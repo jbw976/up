@@ -43,7 +43,7 @@ func ParseSpacesK8sURL(url string) (base string, ctp types.NamespacedName, match
 }
 
 // ParseMCPK8sURL attempts to parse a legacy MCP URL and returns the name of the
-// matching control plane if it matches
+// matching control plane if it matches.
 func ParseMCPK8sURL(url string) (ctp types.NamespacedName, matches bool) {
 	m := legacyControlPlanePathRE.FindStringSubmatch(url)
 	if m == nil {

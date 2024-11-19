@@ -19,9 +19,10 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/utils/ptr"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	usagetime "github.com/upbound/up/internal/usage/time"
 )

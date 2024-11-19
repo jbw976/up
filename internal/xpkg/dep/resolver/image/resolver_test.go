@@ -18,14 +18,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestResolveTag(t *testing.T) {
-
 	type args struct {
 		dep     v1beta1.Dependency
 		fetcher Fetcher
@@ -199,7 +199,6 @@ func TestResolveTag(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			r := NewResolver(WithFetcher(tc.args.fetcher))
 
 			got, err := r.ResolveTag(context.Background(), tc.args.dep)

@@ -16,15 +16,17 @@ package schemarunner
 
 import (
 	"context"
-	_ "embed"
 	"os"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 
+	"github.com/crossplane/crossplane-runtime/pkg/test"
+
 	"github.com/upbound/up/internal/filesystem"
+
+	_ "embed"
 )
 
 //go:embed testdata/template.fn.crossplane.io_kclinputs.yaml
@@ -109,7 +111,7 @@ func TestCreateTarFromFs(t *testing.T) {
 				baseFolder: ".", // Root directory
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
-					_ = afero.WriteFile(fs, "file.txt", []byte("hello world"), 0644) // Relative path
+					_ = afero.WriteFile(fs, "file.txt", []byte("hello world"), 0o644) // Relative path
 					return fs
 				},
 			},

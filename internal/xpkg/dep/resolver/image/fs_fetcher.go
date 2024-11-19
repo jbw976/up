@@ -20,11 +20,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/xpkg"
 )
@@ -46,7 +47,6 @@ func (m *FSFetcher) Fetch(ctx context.Context, ref name.Reference, secrets ...st
 	img, err := tarball.Image(func() (io.ReadCloser, error) {
 		return m.FS.Open(fname)
 	}, nil)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load image from tarball")
 	}

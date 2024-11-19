@@ -18,18 +18,17 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"k8s.io/kube-openapi/pkg/validation/strfmt"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
-
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
@@ -47,7 +46,7 @@ const (
 )
 
 // ValidatorsForObj returns a mapping of GVK -> validator for the given runtime.Object.
-func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[schema.GroupVersionKind]*validator.ObjectValidator, error) { // nolint:gocyclo
+func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[schema.GroupVersionKind]*validator.ObjectValidator, error) { //nolint:gocyclo
 	validators := make(map[schema.GroupVersionKind]*validator.ObjectValidator)
 
 	switch rd := o.(type) {
@@ -99,7 +98,6 @@ func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[s
 }
 
 func validatorsFromV1Beta1CRD(c *extv1beta1.CustomResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
-
 	internal := &apiextensions.CustomResourceDefinition{}
 	if err := extv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(c, internal, nil); err != nil {
 		return err
@@ -129,7 +127,6 @@ func validatorsFromV1Beta1CRD(c *extv1beta1.CustomResourceDefinition, acc map[sc
 }
 
 func validatorsFromV1CRD(c *extv1.CustomResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
-
 	for _, v := range c.Spec.Versions {
 		sv, _, err := newV1SchemaValidator(*v.Schema.OpenAPIV3Schema)
 		if err != nil {

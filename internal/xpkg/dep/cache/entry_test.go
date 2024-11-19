@@ -19,7 +19,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
-
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -190,7 +189,6 @@ func TestFlush(t *testing.T) {
 			if diff := cmp.Diff(tc.want.flushErr, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nFlush(...): -want err, +got err:\n%s", tc.reason, diff)
 			}
-
 		})
 	}
 }

@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	apixv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
@@ -31,6 +30,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/util/podutils"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 )
@@ -40,10 +41,10 @@ var (
 	chartNamespace = chartName
 	otelMgrURL, _  = url.Parse("https://open-telemetry.github.io/opentelemetry-helm-charts")
 
-	// Chart version to be installed
+	// Chart version to be installed.
 	version = "0.56.0"
 
-	// Set image used to contrib to cover more exporters
+	// Set image used to contrib to cover more exporters.
 	values = map[string]any{
 		"manager": map[string]any{
 			"collectorImage": map[string]any{
@@ -59,7 +60,7 @@ var (
 	errFmtCreateNamespace   = "failed to create namespace %s"
 )
 
-// OpenTelemetryCollectorOperator represents a Helm manager
+// OpenTelemetryCollectorOperator represents a Helm manager.
 type OpenTelemetryCollectorOperator struct {
 	mgr       install.Manager
 	crdclient *apixv1client.ApiextensionsV1Client

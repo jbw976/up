@@ -17,9 +17,10 @@ package dep
 import (
 	"strings"
 
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )

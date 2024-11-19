@@ -30,9 +30,9 @@ import (
 
 // grantCmd grant repositorypermission for an team on Upbound.
 type grantCmd struct {
-	TeamName       string `arg:"" required:"" help:"Name of team."`
-	RepositoryName string `arg:"" required:"" help:"Name of repository."`
-	Permission     string `arg:"" required:"" help:"Permission type (admin, read, write, view)."`
+	TeamName       string `arg:"" help:"Name of team."                               required:""`
+	RepositoryName string `arg:"" help:"Name of repository."                         required:""`
+	Permission     string `arg:"" help:"Permission type (admin, read, write, view)." required:""`
 }
 
 // Validate validates the grantCmd struct.

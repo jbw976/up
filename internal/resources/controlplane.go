@@ -24,15 +24,13 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 )
 
-var (
-	// ControlPlaneGVK is the GroupVersionKind used for
-	// provider-kubernetes ProviderConfig.
-	ControlPlaneGVK = schema.GroupVersionKind{
-		Group:   "spaces.upbound.io",
-		Version: "v1beta1",
-		Kind:    "ControlPlane",
-	}
-)
+// ControlPlaneGVK is the GroupVersionKind used for
+// provider-kubernetes ProviderConfig.
+var ControlPlaneGVK = schema.GroupVersionKind{
+	Group:   "spaces.upbound.io",
+	Version: "v1beta1",
+	Kind:    "ControlPlane",
+}
 
 // ControlPlane represents the ControlPlane CustomResource and extends an
 // unstructured.Unstructured.

@@ -17,10 +17,10 @@ package prerequisites
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/rest"
 
 	"github.com/crossplane/crossplane-runtime/pkg/feature"
-	"github.com/stretchr/testify/require"
 
 	"github.com/upbound/up/cmd/up/space/defaults"
 	spacefeature "github.com/upbound/up/cmd/up/space/features"

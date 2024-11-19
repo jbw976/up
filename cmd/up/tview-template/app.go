@@ -69,7 +69,7 @@ func NewApp(title string, client http.RoundTripper, kubeURL string) *App {
 }
 
 func (a *App) TopLevelInputHandler(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool {
-	switch event.Key() { // nolint:exhaustive // there is a default case
+	switch event.Key() { //nolint:exhaustive // there is a default case
 	case tcell.KeyF2:
 		oldRoot := dialogs.GetRoot(a.Application)
 		dialogs.ShowModal(a.Application, dialogs.NewConfirmDialog().

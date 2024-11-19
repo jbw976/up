@@ -17,20 +17,18 @@ package crd
 import (
 	"path/filepath"
 
+	"github.com/spf13/afero"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/yaml"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/crossplane/crossplane/xcrd"
-	"github.com/spf13/afero"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	"sigs.k8s.io/yaml"
 )
 
-var (
-	crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-)
+var crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
 
-// createCRDFromXRD creates a xrCRD and claimCRD if possible from the XRD
+// createCRDFromXRD creates a xrCRD and claimCRD if possible from the XRD.
 func createCRDFromXRD(xrd xpv1.CompositeResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, *apiextensionsv1.CustomResourceDefinition, error) {
 	var xrCrd, claimCrd *apiextensionsv1.CustomResourceDefinition
 
@@ -56,7 +54,7 @@ func createCRDFromXRD(xrd xpv1.CompositeResourceDefinition) (*apiextensionsv1.Cu
 	return claimCrd, xrCrd, nil
 }
 
-// ProcessXRD generate associated CRDs
+// ProcessXRD generate associated CRDs.
 func ProcessXRD(fs afero.Fs, bs []byte, path, baseFolder string) (string, string, error) {
 	var xrd xpv1.CompositeResourceDefinition
 	if err := yaml.Unmarshal(bs, &xrd); err != nil {

@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apixv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
@@ -35,7 +36,7 @@ var (
 	chartName     = "cert-manager"
 	certMgrURL, _ = url.Parse("https://charts.jetstack.io")
 
-	// Chart version to be installed
+	// Chart version to be installed.
 	version = "v1.11.0"
 	// Ensure CRDs are installed for the chart.
 	values = map[string]any{
@@ -49,7 +50,7 @@ var (
 	errFmtCreateNamespace   = "failed to create namespace %s"
 )
 
-// CertManager represents a Helm manager
+// CertManager represents a Helm manager.
 type CertManager struct {
 	mgr       install.Manager
 	crdclient *apixv1client.ApiextensionsV1Client

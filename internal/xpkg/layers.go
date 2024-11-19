@@ -21,9 +21,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // Layer creates a v1.Layer that represetns the layer contents for the xpkg and

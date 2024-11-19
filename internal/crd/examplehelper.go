@@ -22,9 +22,10 @@ import (
 	"strconv"
 
 	"github.com/brianvoe/gofakeit/v6"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const array = "array"
@@ -82,7 +83,7 @@ func newParser(group, kind string, requiredOnly, skipRandom bool) *parser {
 }
 
 // parseProperties generates a map of properties.
-func (p *parser) parseProperties(version string, properties map[string]apiextensionsv1.JSONSchemaProps, requiredFields []string) (map[string]interface{}, error) { // nolint:gocyclo
+func (p *parser) parseProperties(version string, properties map[string]apiextensionsv1.JSONSchemaProps, requiredFields []string) (map[string]interface{}, error) { //nolint:gocyclo
 	result := make(map[string]interface{})
 
 	// Sort the property keys
@@ -104,7 +105,7 @@ func (p *parser) parseProperties(version string, properties map[string]apiextens
 		// handle simple properties (no sub-properties or additionalProperties)
 		case len(prop.Properties) == 0 && prop.AdditionalProperties == nil:
 			var value interface{}
-			if k == "apiVersion" { // nolint:gocritic
+			if k == "apiVersion" { //nolint:gocritic
 				value = fmt.Sprintf("%s/%s", p.group, version)
 			} else if k == "kind" && p.indent == 0 {
 				value = p.kind
@@ -145,7 +146,7 @@ func (p *parser) parseProperties(version string, properties map[string]apiextens
 }
 
 // outputValueType generates an output value based on the given type.
-func outputValueType(v apiextensionsv1.JSONSchemaProps, skipRandom bool) interface{} { // nolint:gocyclo
+func outputValueType(v apiextensionsv1.JSONSchemaProps, skipRandom bool) interface{} { //nolint:gocyclo
 	if v.Default != nil {
 		var defaultValue interface{}
 		err := yaml.Unmarshal(v.Default.Raw, &defaultValue)

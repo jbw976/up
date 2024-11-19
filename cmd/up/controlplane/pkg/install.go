@@ -103,10 +103,10 @@ type installCmd struct {
 	Package string `arg:"" help:"Reference to the ${package_type}."`
 
 	// NOTE(hasheddan): kong automatically cleans paths tagged with existingfile.
-	Kubeconfig         string        `hidden:"" type:"existingfile" help:"Deprecated: Override default kubeconfig path."`
+	Kubeconfig         string        `help:"Deprecated: Override default kubeconfig path."              hidden:"" type:"existingfile"`
 	Name               string        `help:"Name of ${package_type}."`
 	PackagePullSecrets []string      `help:"List of secrets used to pull ${package_type}."`
-	Wait               time.Duration `short:"w" help:"Wait duration for successful ${package_type} installation."`
+	Wait               time.Duration `help:"Wait duration for successful ${package_type} installation." short:"w"`
 }
 
 // Run executes the install command.

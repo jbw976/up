@@ -18,10 +18,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // Image wraps a v1.Image and extends it with ImageMeta.

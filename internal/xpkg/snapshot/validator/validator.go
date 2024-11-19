@@ -21,7 +21,7 @@ import (
 )
 
 // All code responses can be used to differentiate errors for different handling
-// by the consumer
+// by the consumer.
 const (
 	// WarningTypeCode indicates a warning is being returned.
 	WarningTypeCode = 100

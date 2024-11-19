@@ -17,8 +17,9 @@ package crd
 import (
 	"errors"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 )
 
 // GetCRDVersion iterates over the versions defined in the CustomResourceDefinition (CRD).

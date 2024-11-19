@@ -39,9 +39,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
-var (
-	defaultCacheRoot = ".up/cache"
-)
+var defaultCacheRoot = ".up/cache"
 
 const (
 	defaultWatchInterval = "100ms"
@@ -49,7 +47,7 @@ const (
 	errInvalidSemVerConstraintFmt = "invalid semver constraint %v: %w"
 )
 
-// Manager defines a dependency Manager
+// Manager defines a dependency Manager.
 type Manager struct {
 	c             Cache
 	i             ImageResolver
@@ -86,7 +84,7 @@ type XpkgMarshaler interface {
 	FromDir(afero.Fs, string) (*xpkg.ParsedPackage, error)
 }
 
-// New returns a new Manager
+// New returns a new Manager.
 func New(opts ...Option) (*Manager, error) {
 	interval, err := time.ParseDuration(defaultWatchInterval)
 	if err != nil {
@@ -310,7 +308,6 @@ func (m *Manager) retrieveAllDeps(ctx context.Context, p *xpkg.ParsedPackage) er
 // addAllDeps recursively resolves the transitive dependencies for a
 // given xpkg.ParsedPackage.
 func (m *Manager) addAllDeps(ctx context.Context, p *xpkg.ParsedPackage) error {
-
 	if len(p.Dependencies()) == 0 {
 		// no remaining dependencies to resolve
 		return nil

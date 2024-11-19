@@ -17,9 +17,10 @@ package credhelper
 import (
 	"strings"
 
+	"github.com/docker/docker-credential-helpers/credentials"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/docker/docker-credential-helpers/credentials"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/profile"

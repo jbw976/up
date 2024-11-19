@@ -20,8 +20,9 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
 
 func TestInitVersionConstraints(t *testing.T) {

@@ -18,13 +18,14 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	admv1 "k8s.io/api/admissionregistration/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"

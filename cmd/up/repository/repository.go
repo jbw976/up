@@ -23,7 +23,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/cmd/up/repository/permission"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

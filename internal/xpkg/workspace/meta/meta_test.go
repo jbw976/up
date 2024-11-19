@@ -257,7 +257,6 @@ func TestUpsert(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			m := New(tc.args.metaFile)
 
 			err := m.Upsert(tc.args.dep)
@@ -273,7 +272,6 @@ func TestUpsert(t *testing.T) {
 			})); diff != "" {
 				t.Errorf("\n%s\nUpsert(...): -want err, +got err:\n%s", tc.reason, diff)
 			}
-
 		})
 	}
 }
@@ -608,7 +606,6 @@ func TestUpsertDeps(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			err := upsertDeps(tc.args.dep, tc.args.pkg)
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
@@ -794,7 +791,6 @@ func TestDependsOn(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			m := New(tc.args.metaFile)
 
 			got, err := m.DependsOn()
@@ -807,7 +803,6 @@ func TestDependsOn(t *testing.T) {
 			})); diff != "" {
 				t.Errorf("\n%s\nDependsOn(...): -want err, +got err:\n%s", tc.reason, diff)
 			}
-
 		})
 	}
 }

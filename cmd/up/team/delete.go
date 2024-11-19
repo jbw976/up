@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/teams"
-
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -64,9 +64,9 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) erro
 type deleteCmd struct {
 	prompter input.Prompter
 
-	Name string `arg:"" required:"" help:"Name of team." predictor:"teams"`
+	Name string `arg:"" help:"Name of team." predictor:"teams" required:""`
 
-	Force bool `help:"Force delete team even if conflicts exist." default:"false"`
+	Force bool `default:"false" help:"Force delete team even if conflicts exist."`
 }
 
 // Run executes the delete command.

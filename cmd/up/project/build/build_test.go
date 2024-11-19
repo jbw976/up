@@ -25,7 +25,6 @@ import (
 	"strings"
 	"testing"
 
-	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -38,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
+
+	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/project"
@@ -278,7 +279,6 @@ func TestBuild(t *testing.T) {
 						assert.Assert(t, exists, "Label %s not found", key)
 						assert.Equal(t, expectedValue, actualValue, "Label %s value mismatch", key)
 					}
-
 				} else {
 					fnTag, err := name.NewTag(desc.RepoTags[0])
 					assert.NilError(t, err)

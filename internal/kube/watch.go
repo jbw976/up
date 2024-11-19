@@ -17,11 +17,11 @@ package kube
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const errClosedResults = "stopped watching before condition met"

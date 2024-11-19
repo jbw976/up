@@ -23,13 +23,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	"golang.org/x/exp/slices"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/spf13/afero"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
@@ -43,14 +43,13 @@ const (
 	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.26.1"
 )
 
-// GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS
+// GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS.
 func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocyclo
-
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
 
-	if err := crdFS.MkdirAll(baseFolder, 0755); err != nil {
+	if err := crdFS.MkdirAll(baseFolder, 0o755); err != nil {
 		return nil, err
 	}
 
@@ -184,7 +183,7 @@ func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path, baseFolder string, openA
 	return nil
 }
 
-// transformStructurePython combines the reorganization of Python files and the adjustment of import paths into one pass
+// transformStructurePython combines the reorganization of Python files and the adjustment of import paths into one pass.
 func transformStructurePython(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocyclo
 	v1MetaCopied := false // Flag to track if v1.py has already been moved
 	createdInitFiles := make(map[string]bool)
@@ -318,9 +317,8 @@ func transformStructurePython(fs afero.Fs, sourceDir, targetDir string) error { 
 	})
 }
 
-// adjustImportsInFile modifies the import statements in the file to ensure correct depth
+// adjustImportsInFile modifies the import statements in the file to ensure correct depth.
 func adjustImportsInFile(fs afero.Fs, filePath string) error {
-
 	// Count the number of directories deep the file is
 	depth := strings.Count(filePath, string(os.PathSeparator))
 
@@ -351,7 +349,7 @@ func adjustImportsInFile(fs afero.Fs, filePath string) error {
 }
 
 // Adjusts the number of leading dots in the `io.k8s.apimachinery.pkg.apis.meta` import statement
-// based on the file's depth
+// based on the file's depth.
 func adjustLeadingDots(importLine string, depth int) string {
 	dotPart := ""
 	// Check for either `io.k8s.apimachinery.pkg.apis.meta` or `k8s.apimachinery.pkg.apis.meta`

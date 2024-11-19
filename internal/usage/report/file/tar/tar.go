@@ -27,7 +27,7 @@ import (
 const (
 	metaFilename  = "report/meta.json"
 	usageFilename = "report/usage.json"
-	mode          = 0644
+	mode          = 0o644
 )
 
 // Writer writes Upbound usage events for a single account to a usage report in

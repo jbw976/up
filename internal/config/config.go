@@ -43,7 +43,7 @@ const (
 // QuietFlag provides a named boolean type for the QuietFlag.
 type QuietFlag bool
 
-// Allowed values for the global format option
+// Allowed values for the global format option.
 type Format string
 
 const (

@@ -61,8 +61,8 @@ type upgradeCmd struct {
 
 	// NOTE(hasheddan): version is currently required for upgrade with OCI image
 	// as latest strategy is undetermined.
-	Version  string `arg:"" help:"Upbound Spaces version to upgrade to."`
-	Yes      bool   `name:"yes" type:"bool" help:"Answer yes to all questions"`
+	Version  string `arg:""                                                             help:"Upbound Spaces version to upgrade to."`
+	Yes      bool   `help:"Answer yes to all questions"                                 name:"yes"                                   type:"bool"`
 	Rollback bool   `help:"Rollback to previously installed version on failed upgrade."`
 
 	helmMgr    install.Manager

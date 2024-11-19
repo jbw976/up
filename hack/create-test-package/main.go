@@ -10,13 +10,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/xpkg"
 )
@@ -33,7 +34,7 @@ func main() {
 	}
 }
 
-func realMain(pkg, outfile string) error { // nolint:gocyclo
+func realMain(pkg, outfile string) error { //nolint:gocyclo
 	pkgRef, err := name.ParseReference(pkg, name.WithDefaultRegistry("xpkg.upbound.io"))
 	if err != nil {
 		return errors.Wrap(err, "failed to parse package reference")

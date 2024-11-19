@@ -21,21 +21,21 @@ import (
 	"path/filepath"
 	"testing"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
-
-	"k8s.io/utils/ptr"
 )
 
 var (
@@ -232,7 +232,6 @@ func TestNewComposition(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			outFS := afero.NewMemMapFs()
 			// Set up a mock cache directory in Afero
 			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
@@ -298,7 +297,7 @@ func TestNewComposition(t *testing.T) {
 	}
 }
 
-// embedToAferoFS walks through an embedded FS and writes files to Afero FS
+// embedToAferoFS walks through an embedded FS and writes files to Afero FS.
 func embedToAferoFS(embeddedFS embed.FS, aferoFS afero.Fs, sourceDir string, targetDir string) error {
 	err := fs.WalkDir(embeddedFS, sourceDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -315,7 +314,7 @@ func embedToAferoFS(embeddedFS embed.FS, aferoFS afero.Fs, sourceDir string, tar
 		}
 		// Write the file to the Afero filesystem at the target path
 		targetPath := filepath.Join(targetDir, filepath.Base(path))
-		err = afero.WriteFile(aferoFS, targetPath, data, 0644)
+		err = afero.WriteFile(aferoFS, targetPath, data, 0o644)
 		if err != nil {
 			return err
 		}

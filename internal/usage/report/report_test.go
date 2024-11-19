@@ -20,8 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/upbound/up/internal/usage/model"
 	usagetesting "github.com/upbound/up/internal/usage/testing"
@@ -186,8 +187,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 							}},
 						}},
 						Window: usagetime.Range{
-							Start: time.Date(2006, 05, 04, 03, 0, 0, 0, time.UTC),
-							End:   time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
+							Start: time.Date(2006, 0o5, 0o4, 0o3, 0, 0, 0, time.UTC),
+							End:   time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
 						},
 					},
 					// This window's events each have a different combination of
@@ -247,8 +248,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 							}},
 						}},
 						Window: usagetime.Range{
-							Start: time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-							End:   time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+							Start: time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+							End:   time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						},
 					},
 					// This window's events have the same GVK and mxpID as
@@ -279,8 +280,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 							}},
 						}},
 						Window: usagetime.Range{
-							Start: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
-							End:   time.Date(2006, 05, 04, 06, 0, 0, 0, time.UTC),
+							Start: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
+							End:   time.Date(2006, 0o5, 0o4, 0o6, 0, 0, 0, time.UTC),
 						},
 					},
 				}},
@@ -291,8 +292,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(7),
-						Timestamp:    time.Date(2006, 05, 04, 03, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o3, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1",
@@ -303,8 +304,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(3),
-						Timestamp:    time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1",
@@ -315,8 +316,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(3),
-						Timestamp:    time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "foo.example.com",
 							Version: "v1",
@@ -327,8 +328,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(3),
-						Timestamp:    time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1alpha1",
@@ -339,8 +340,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(3),
-						Timestamp:    time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1",
@@ -351,8 +352,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(3),
-						Timestamp:    time.Date(2006, 05, 04, 04, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o4, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1",
@@ -363,8 +364,8 @@ func TestMaxResourceCountPerGVKPerMXP(t *testing.T) {
 					{
 						Name:         "max_resource_count_per_gvk_per_mxp",
 						Value:        float64(50),
-						Timestamp:    time.Date(2006, 05, 04, 05, 0, 0, 0, time.UTC),
-						TimestampEnd: time.Date(2006, 05, 04, 06, 0, 0, 0, time.UTC),
+						Timestamp:    time.Date(2006, 0o5, 0o4, 0o5, 0, 0, 0, time.UTC),
+						TimestampEnd: time.Date(2006, 0o5, 0o4, 0o6, 0, 0, 0, time.UTC),
 						Tags: model.MXPGVKEventTags{
 							Group:   "example.com",
 							Version: "v1",

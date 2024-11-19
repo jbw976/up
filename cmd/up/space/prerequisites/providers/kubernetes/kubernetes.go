@@ -18,10 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xppkgv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -33,6 +29,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xppkgv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 
 	"github.com/upbound/up/internal/resources"
 )
@@ -150,7 +151,6 @@ func (k *Kubernetes) Install() error { //nolint:gocyclo
 			p.GetUnstructured(),
 			metav1.CreateOptions{},
 		)
-
 	if err != nil {
 		return err
 	}

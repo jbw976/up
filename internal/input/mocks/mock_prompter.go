@@ -20,8 +20,7 @@ const (
 	ErrCannotPrompt = "cannot prompt in non-interactive terminal"
 )
 
-type MockPrompter struct {
-}
+type MockPrompter struct{}
 
 func (m *MockPrompter) Prompt(label string, sensitive bool) (string, error) {
 	return label, errors.New(ErrCannotPrompt)

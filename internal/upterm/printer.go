@@ -23,10 +23,9 @@ import (
 	"text/template"
 
 	"github.com/pterm/pterm"
+	"gopkg.in/yaml.v3"
 
 	"github.com/upbound/up/internal/config"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Printer describes interactions for working with the ObjectPrinter below.
@@ -42,7 +41,7 @@ type Printer interface {
 
 // The ObjectPrinter is intended to make it easy to print individual structs
 // and lists of structs for the 'get' and 'list' commands. It can print as
-// a human-readable table, or computer-readable (JSON or YAML)
+// a human-readable table, or computer-readable (JSON or YAML).
 type ObjectPrinter struct {
 	Quiet  config.QuietFlag
 	Pretty bool
@@ -52,15 +51,13 @@ type ObjectPrinter struct {
 	TablePrinter *pterm.TablePrinter
 }
 
-var (
-	DefaultObjPrinter = ObjectPrinter{
-		Quiet:        false,
-		Pretty:       false,
-		DryRun:       false,
-		Format:       config.Default,
-		TablePrinter: pterm.DefaultTable.WithSeparator("   "),
-	}
-)
+var DefaultObjPrinter = ObjectPrinter{
+	Quiet:        false,
+	Pretty:       false,
+	DryRun:       false,
+	Format:       config.Default,
+	TablePrinter: pterm.DefaultTable.WithSeparator("   "),
+}
 
 func init() {
 	pterm.DisableStyling()
@@ -124,8 +121,8 @@ func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
 		if err := templ.Execute(w, obj); err != nil {
 			return err
 		}
-		w.Write([]byte("\n")) // nolint:errcheck
-		w.Flush()             // nolint:errcheck
+		w.Write([]byte("\n")) //nolint:errcheck
+		w.Flush()             //nolint:errcheck
 	}
 	return nil
 }
@@ -202,22 +199,27 @@ func (p nopTextPrinter) Print(a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
+
 func (p nopTextPrinter) Println(a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
+
 func (p nopTextPrinter) Printf(format string, a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
+
 func (p nopTextPrinter) Printfln(format string, a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
+
 func (p nopTextPrinter) PrintOnError(a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
+
 func (p nopTextPrinter) PrintOnErrorf(format string, a ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp

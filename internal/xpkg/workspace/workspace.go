@@ -30,7 +30,6 @@ import (
 	"github.com/golang/tools/span"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -186,7 +185,7 @@ func (w *Workspace) Write(m *meta.Meta) error {
 	}
 
 	// Keep the permissions on the meta file the same if it already exists.
-	perms := os.FileMode(0644)
+	perms := os.FileMode(0o644)
 	st, err := w.fs.Stat(w.view.metaPath)
 	if err == nil {
 		perms = st.Mode()
@@ -392,7 +391,7 @@ func (v *View) parseComposition(ctx context.Context, pCtx parseContext) error {
 	var cp xpextv1.Composition
 	if err := k8syaml.Unmarshal(pCtx.docBytes, &cp); err != nil {
 		// we have a composition but failed to unmarshal it, skip for now.
-		return nil // nolint:nilerr
+		return nil //nolint:nilerr
 	}
 
 	mode := xpextv1.CompositionModeResources

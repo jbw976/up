@@ -17,8 +17,9 @@ package xpkg
 import (
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const (
@@ -40,7 +41,7 @@ func FindXpkgInDir(fs afero.Fs, root string) (string, error) {
 	path := ""
 	for _, file := range files {
 		// Match only returns an error if XpkgMatchPattern is malformed.
-		match, _ := filepath.Match(XpkgMatchPattern, file.Name()) //nolint:errcheck
+		match, _ := filepath.Match(XpkgMatchPattern, file.Name()) 
 		if !match {
 			continue
 		}

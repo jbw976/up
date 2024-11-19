@@ -19,13 +19,14 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/parser"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
@@ -106,12 +107,12 @@ type buildCmd struct {
 	root    string
 	fetch   fetchFn
 
-	Name         string   `optional:"" xor:"xpkg-build-out" help:"[DEPRECATED: use --output] Name of the package to be built. Uses name in crossplane.yaml if not specified. Does not correspond to package tag."`
-	Output       string   `optional:"" short:"o" xor:"xpkg-build-out" help:"Path for package output."`
+	Name         string   `help:"[DEPRECATED: use --output] Name of the package to be built. Uses name in crossplane.yaml if not specified. Does not correspond to package tag." optional:""                                      xor:"xpkg-build-out"`
+	Output       string   `help:"Path for package output."                                                                                                                       optional:""                                      short:"o"            xor:"xpkg-build-out"`
 	Controller   string   `help:"Controller image used as base for package."`
-	PackageRoot  string   `short:"f" help:"Path to package directory." default:"."`
-	ExamplesRoot string   `short:"e" help:"Path to package examples directory." default:"./examples"`
-	AuthExt      string   `short:"a" help:"Path to an authentication extension file." default:"auth.yaml"`
+	PackageRoot  string   `default:"."                                                                                                                                           help:"Path to package directory."                short:"f"`
+	ExamplesRoot string   `default:"./examples"                                                                                                                                  help:"Path to package examples directory."       short:"e"`
+	AuthExt      string   `default:"auth.yaml"                                                                                                                                   help:"Path to an authentication extension file." short:"a"`
 	Ignore       []string `help:"Paths, specified relative to --package-root, to exclude from the package."`
 }
 

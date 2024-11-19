@@ -53,9 +53,9 @@ type uninstallCmd struct {
 	mgr install.Manager
 
 	ClusterName           string `help:"Name of the cluster connecting to the control plane. If not provided, the namespace argument value will be used."`
-	Namespace             string `arg:"" required:"" help:"Namespace in the control plane where the claims of the cluster will be stored."`
-	Kubeconfig            string `type:"existingfile" help:"Override the default kubeconfig path."`
-	InstallationNamespace string `short:"n" env:"MCP_CONNECTOR_NAMESPACE" default:"kube-system" help:"Kubernetes namespace for MCP Connector. Default is kube-system."`
+	Namespace             string `arg:""                                                                                                                  help:"Namespace in the control plane where the claims of the cluster will be stored." required:""`
+	Kubeconfig            string `help:"Override the default kubeconfig path."                                                                            type:"existingfile"`
+	InstallationNamespace string `default:"kube-system"                                                                                                   env:"MCP_CONNECTOR_NAMESPACE"                                                         help:"Kubernetes namespace for MCP Connector. Default is kube-system." short:"n"`
 }
 
 // Run executes the uninstall command.

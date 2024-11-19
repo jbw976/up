@@ -36,7 +36,7 @@ func readLastContext() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bs, err := os.ReadFile(path) // nolint:gosec // it's ok
+	bs, err := os.ReadFile(path) //nolint:gosec // it's ok
 	if os.IsNotExist(err) {
 		return "", nil
 	} // nolint:gosec // it's ok
@@ -51,8 +51,8 @@ func writeLastContext(value string) error {
 		return err
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil { // nolint:gosec // it's ok
+	if err := os.MkdirAll(dir, 0o755); err != nil { // nolint:gosec // it's ok
 		return errors.Wrap(err, "failed to create parent directories")
 	}
-	return os.WriteFile(path, []byte(value), 0644) // nolint:gosec // it's ok
+	return os.WriteFile(path, []byte(value), 0o644) // nolint:gosec // it's ok
 }

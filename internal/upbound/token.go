@@ -18,8 +18,9 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const errInvalidTokenFile = "token file is invalid"

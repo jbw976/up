@@ -33,10 +33,8 @@ import (
 	"github.com/upbound/up/internal/xpkg/snapshot"
 )
 
-var (
-	// kind describes how text synchronization works.
-	kind = lsp.TDSKIncremental
-)
+// kind describes how text synchronization works.
+var kind = lsp.TDSKIncremental
 
 const (
 	defaultWatchInterval = "100ms"
@@ -108,7 +106,6 @@ func WithLogger(l logging.Logger) Option {
 
 // Initialize handles calls to Initialize.
 func (s *Server) Initialize(ctx context.Context, conn *jsonrpc2.Conn, id jsonrpc2.ID, params *protocol.InitializeParams) {
-
 	// TODO(@tnthornton) this is the only place that the passed in conn is used.
 	// Given that the conn is the same at the time it is established, we should
 	// work towards pulling out this dependency into something we can supply.
@@ -325,7 +322,7 @@ func (s *Server) checkMetaFile(ctx context.Context) {
 }
 
 // // watchSnapshot watches the cache for changes.
-func (s *Server) watchSnapshot(ctx context.Context) { // nolint:gocyclo
+func (s *Server) watchSnapshot(ctx context.Context) { //nolint:gocyclo
 	watch := s.snapFactory.WatchExt()
 
 	go func() {

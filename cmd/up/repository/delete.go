@@ -21,7 +21,6 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up-sdk-go/service/repositories"
-
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -48,16 +47,15 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) erro
 	}
 
 	return fmt.Errorf("operation canceled")
-
 }
 
 // deleteCmd deletes a repository on Upbound.
 type deleteCmd struct {
 	prompter input.Prompter
 
-	Name string `arg:"" required:"" help:"Name of repository." predictor:"repos"`
+	Name string `arg:"" help:"Name of repository." predictor:"repos" required:""`
 
-	Force bool `help:"Force deletion of repository." default:"false"`
+	Force bool `default:"false" help:"Force deletion of repository."`
 }
 
 // Run executes the delete command.

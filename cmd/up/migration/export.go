@@ -43,16 +43,16 @@ IMPORTANT: The exported archive will contain secrets. Do you wish to proceed?`
 type exportCmd struct {
 	prompter input.Prompter
 
-	Yes bool `help:"When set to true, automatically accepts any confirmation prompts that may appear during the export process." default:"false"`
+	Yes bool `default:"false" help:"When set to true, automatically accepts any confirmation prompts that may appear during the export process."`
 
-	Output string `short:"o" help:"Specifies the file path where the exported archive will be saved. Defaults to 'xp-state.tar.gz'." default:"xp-state.tar.gz"`
+	Output string `default:"xp-state.tar.gz" help:"Specifies the file path where the exported archive will be saved. Defaults to 'xp-state.tar.gz'." short:"o"`
 
-	IncludeExtraResources []string `help:"A list of extra resource types to include in the export in \"resource.group\" format in addition to all Crossplane resources. By default, it includes namespaces, configmaps, secrets." default:"namespaces,configmaps,secrets"`
+	IncludeExtraResources []string `default:"namespaces,configmaps,secrets"                                                                                        help:"A list of extra resource types to include in the export in \"resource.group\" format in addition to all Crossplane resources. By default, it includes namespaces, configmaps, secrets."`
 	ExcludeResources      []string `help:"A list of resource types to exclude from the export in \"resource.group\" format. No resources are excluded by default."`
 	IncludeNamespaces     []string `help:"A list of specific namespaces to include in the export. If not specified, all namespaces are included by default."`
-	ExcludeNamespaces     []string `help:"A list of specific namespaces to exclude from the export. Defaults to 'kube-system', 'kube-public', 'kube-node-lease', and 'local-path-storage'." default:"kube-system,kube-public,kube-node-lease,local-path-storage"`
+	ExcludeNamespaces     []string `default:"kube-system,kube-public,kube-node-lease,local-path-storage"                                                           help:"A list of specific namespaces to exclude from the export. Defaults to 'kube-system', 'kube-public', 'kube-node-lease', and 'local-path-storage'."`
 
-	PauseBeforeExport bool `help:"When set to true, pauses all managed resources before starting the export process. This can help ensure a consistent state for the export. Defaults to false." default:"false"`
+	PauseBeforeExport bool `default:"false" help:"When set to true, pauses all managed resources before starting the export process. This can help ensure a consistent state for the export. Defaults to false."`
 }
 
 func (c *exportCmd) Help() string {
@@ -137,7 +137,7 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
 }
 
 // NOTE(phisco): this is required to avoid having the pkg/migration depend on upterm to
-// allow exporting it
+// allow exporting it.
 type spinner struct {
 	*pterm.SpinnerPrinter
 }

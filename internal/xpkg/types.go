@@ -22,7 +22,7 @@ const (
 	Configuration Package = "configuration"
 	// Provider represents a provider package.
 	Provider Package = "provider"
-	// Function represents a function package
+	// Function represents a function package.
 	Function Package = "function"
 )
 

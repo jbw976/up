@@ -49,7 +49,7 @@ type disconnectCmd struct {
 	Upbound upbound.Flags     `embed:""`
 	Kube    upbound.KubeFlags `embed:""`
 
-	Space string `arg:"" optional:"" help:"Name of the Upbound Space. If name is not a supplied, it will be determined from the connection info in the space."`
+	Space string `arg:"" help:"Name of the Upbound Space. If name is not a supplied, it will be determined from the connection info in the space." optional:""`
 }
 
 func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
@@ -228,7 +228,6 @@ func deleteSpaceRobot(ctx context.Context, p pterm.TextPrinter, oc *organization
 
 func (c *disconnectCmd) deleteResources(ctx context.Context, kClient *kubernetes.Clientset, disconnectSpinner *pterm.SpinnerPrinter, upCtx *upbound.Context, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, sc client.Client) error {
 	cm, err := getConnectConfigmap(ctx, kClient, agentNs, connConfMap)
-
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return errors.Wrapf(err, `failed to get ConfigMap "%s/%s"`, agentNs, agentSecret)

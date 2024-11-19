@@ -48,7 +48,7 @@ func (t *Tree) Update(objs []queryv1alpha2.QueryResponseObject) {
 	t.update(t.root, objs, 0)
 }
 
-func (t *Tree) update(parent *tview.TreeNode, respObjs []queryv1alpha2.QueryResponseObject, level int) []*Object { // nolint:gocyclo // TODO: split up
+func (t *Tree) update(parent *tview.TreeNode, respObjs []queryv1alpha2.QueryResponseObject, level int) []*Object { //nolint:gocyclo // TODO: split up
 	existing := map[string]*tview.TreeNode{}
 	for _, n := range parent.GetChildren() {
 		obj := n.GetReference().(*Object)

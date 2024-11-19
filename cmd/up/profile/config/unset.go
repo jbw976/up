@@ -23,9 +23,9 @@ import (
 )
 
 type unsetCmd struct {
-	Key string `arg:"" optional:"" help:"Configuration Key."`
+	Key string `arg:"" help:"Configuration Key." optional:""`
 
-	File *os.File `short:"f" help:"Configuration File. Must be in JSON format."`
+	File *os.File `help:"Configuration File. Must be in JSON format." short:"f"`
 }
 
 func (c *unsetCmd) Run(upCtx *upbound.Context) error {

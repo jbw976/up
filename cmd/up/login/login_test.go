@@ -23,11 +23,12 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/upbound/up/internal/http/mocks"
 	inputmocks "github.com/upbound/up/internal/input/mocks"
@@ -259,7 +260,7 @@ func TestExtractSession(t *testing.T) {
 			reason: "Should return an error if cookie does not exist.",
 			args: args{
 				res: &http.Response{
-					Body: io.NopCloser(bytes.NewBuffer([]byte("unauthorized"))),
+					Body: io.NopCloser(bytes.NewBufferString("unauthorized")),
 				},
 			},
 			err: errors.Errorf(errParseCookieFmt, "unauthorized"),

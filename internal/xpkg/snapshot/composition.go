@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/spf13/afero"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,9 +34,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/spf13/afero"
-
 	icomposite "github.com/crossplane/crossplane/controller/apiextensions/composite"
 	icompositions "github.com/crossplane/crossplane/controller/apiextensions/compositions"
 

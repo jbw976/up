@@ -53,8 +53,10 @@ type typeGroupNames struct {
 	Names []string
 }
 
-type GroupKindNames map[metav1.GroupKind][]string
-type CategoryNames map[string][]string
+type (
+	GroupKindNames map[metav1.GroupKind][]string
+	CategoryNames  map[string][]string
+)
 
 // SplitGroupKindAndCategories splits specified types into fully qualified GroupKinds and categories.
 func SplitGroupKindAndCategories(tgns []typeGroupNames) (GroupKindNames, CategoryNames) {
@@ -121,7 +123,7 @@ func ParseTypesAndNames(args ...string) (resourceTuples []typeGroupNames, errs [
 	return groupTuples, nil
 }
 
-func parseTypesAndNames(args ...string) (resourceTuples []typeNames, errs []error) { // nolint:gocyclo // core algorithm, doesn't get simpler by splitting.
+func parseTypesAndNames(args ...string) (resourceTuples []typeNames, errs []error) { //nolint:gocyclo // core algorithm, doesn't get simpler by splitting.
 	if ok, err := hasCombinedTypeArgs(args); ok {
 		if err != nil {
 			errs = append(errs, err)
@@ -185,7 +187,7 @@ func hasCombinedTypeArgs(args []string) (bool, error) {
 }
 
 // splitTypeName handles type/name resource formats and returns a resource tuple
-// (empty or not), whether it successfully found one, and an error
+// (empty or not), whether it successfully found one, and an error.
 func splitTypeName(s string) (typeNames, bool, error) {
 	if !strings.Contains(s, "/") {
 		return typeNames{}, false, nil

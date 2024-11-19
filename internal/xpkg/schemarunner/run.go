@@ -28,9 +28,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/spf13/afero"
 
-	"github.com/upbound/up/internal/filesystem"
-
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/filesystem"
 )
 
 // SchemaRunner defines an interface for schema generation.
@@ -41,8 +41,8 @@ type SchemaRunner interface {
 // RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
 type RealSchemaRunner struct{}
 
-// RunContainer runs the containerized tool (e.g., KCL, Python) for schema generation
-func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, imageName string, command []string) error { // nolint:gocyclo
+// RunContainer runs the containerized tool (e.g., KCL, Python) for schema generation.
+func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, imageName string, command []string) error { //nolint:gocyclo
 	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrapf(err, "failed to use the docker client")
@@ -128,8 +128,8 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	return nil
 }
 
-// copyFromContainerToFs copies files from the container back to the Afero filesystem
-func copyFromContainerToFs(cli *client.Client, ctx context.Context, containerID, containerPath string, fs afero.Fs) error { // nolint:gocyclo
+// copyFromContainerToFs copies files from the container back to the Afero filesystem.
+func copyFromContainerToFs(cli *client.Client, ctx context.Context, containerID, containerPath string, fs afero.Fs) error { //nolint:gocyclo
 	// Copy the files from the container
 	reader, _, err := cli.CopyFromContainer(ctx, containerID, containerPath)
 	if err != nil {
@@ -155,7 +155,7 @@ func copyFromContainerToFs(cli *client.Client, ctx context.Context, containerID,
 		// Create directories or files in the MemMapFs
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := fs.MkdirAll(cleanedPath, 0755); err != nil {
+			if err := fs.MkdirAll(cleanedPath, 0o755); err != nil {
 				return err
 			}
 		case tar.TypeReg:

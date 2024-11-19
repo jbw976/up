@@ -15,16 +15,16 @@
 package schemagenerator
 
 import (
-	_ "embed"
 	"os"
 	"testing"
 
 	"github.com/spf13/afero"
+
+	_ "embed"
 )
 
 // TestTransformStructureKcl tests reorganizing files and adjusting imports.
 func TestTransformStructureKcl(t *testing.T) {
-
 	// Test case structure
 	tests := []struct {
 		name           string

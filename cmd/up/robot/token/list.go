@@ -20,16 +20,16 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -44,7 +44,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 
 // listCmd creates a robot on Upbound.
 type listCmd struct {
-	RobotName string `arg:"" required:"" help:"Name of robot." predictor:"robots"`
+	RobotName string `arg:"" help:"Name of robot." predictor:"robots" required:""`
 }
 
 // Run executes the list robot tokens command.

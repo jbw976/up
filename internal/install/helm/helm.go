@@ -71,7 +71,7 @@ type helmPuller interface {
 	SetVersion(string)
 }
 
-type puller struct { //nolint:unused
+type puller struct { 
 	*action.Pull
 }
 
@@ -200,7 +200,7 @@ func WithCacheDir(c string) InstallerModifierFn {
 	}
 }
 
-// WithChart sets the chart to be installed/upgraded
+// WithChart sets the chart to be installed/upgraded.
 func WithChart(chartFile *os.File) InstallerModifierFn {
 	return func(h *Installer) {
 		h.chartFile = chartFile
@@ -228,7 +228,7 @@ func Wait() InstallerModifierFn {
 	}
 }
 
-// WithNoHooks will disable uninstall hooks
+// WithNoHooks will disable uninstall hooks.
 func WithNoHooks() InstallerModifierFn {
 	return func(h *Installer) {
 		h.noHooks = true
@@ -236,7 +236,7 @@ func WithNoHooks() InstallerModifierFn {
 }
 
 // NewManager builds a helm install manager for UXP.
-func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
+func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) { //nolint:gocyclo
 	h := &Installer{
 		repoURL:     repoURL,
 		chartName:   chartName,
@@ -271,7 +271,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifie
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		if err := h.fs.MkdirAll(h.cacheDir, 0755); err != nil {
+		if err := h.fs.MkdirAll(h.cacheDir, 0o755); err != nil {
 			return nil, err
 		}
 	}

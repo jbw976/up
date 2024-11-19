@@ -31,8 +31,8 @@ import (
 
 // deleteCmd deletes a simulation on Upbound.
 type deleteCmd struct {
-	Name  string `arg:"" help:"Name of the simulation." predictor:"ctps"`
-	Group string `short:"g" default:"" help:"The group that the simulation is contained in. This defaults to the group specified in the current context"`
+	Name  string `arg:""     help:"Name of the simulation."                                                                                    predictor:"ctps"`
+	Group string `default:"" help:"The group that the simulation is contained in. This defaults to the group specified in the current context" short:"g"`
 }
 
 // AfterApply sets default values in command after assignment and validation.

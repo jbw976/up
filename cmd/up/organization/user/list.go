@@ -47,7 +47,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 // listCmd lists users of an organization.
 // It lists both members and invites.
 type listCmd struct {
-	OrgName string `arg:"" required:"" help:"Name of the organization."`
+	OrgName string `arg:"" help:"Name of the organization." required:""`
 }
 
 // Run executes the list command.

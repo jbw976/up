@@ -137,8 +137,8 @@ func (a *App) Unzoom() {
 	a.model.Zoomed = false
 }
 
-func (a *App) TopLevelInputHandler(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool { // nolint:gocyclo // TODO: split up
-	switch event.Key() { // nolint:exhaustive // there is a default case
+func (a *App) TopLevelInputHandler(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool { //nolint:gocyclo // TODO: split up
+	switch event.Key() { //nolint:exhaustive // there is a default case
 	case tcell.KeyEscape:
 		if a.model.Zoomed {
 			a.Unzoom()

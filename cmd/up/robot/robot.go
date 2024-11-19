@@ -23,7 +23,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
-
 	"github.com/upbound/up/cmd/up/robot/team"
 	"github.com/upbound/up/cmd/up/robot/token"
 	"github.com/upbound/up/internal/upbound"

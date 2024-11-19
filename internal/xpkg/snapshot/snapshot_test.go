@@ -119,6 +119,7 @@ func NewMockDepManager() *MockDepManager { return &MockDepManager{} }
 func (m *MockDepManager) View(context.Context, []v1beta1.Dependency) (*manager.View, error) {
 	return nil, nil
 }
+
 func (m *MockDepManager) Versions(context.Context, v1beta1.Dependency) ([]string, error) {
 	return nil, nil
 }

@@ -14,7 +14,7 @@
 
 package composition
 
-// Cmd contains commands for composition cmd
+// Cmd contains commands for composition cmd.
 type Cmd struct {
 	Generate generateCmd `cmd:"" help:"Generate an Composition."`
 }
