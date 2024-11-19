@@ -194,17 +194,29 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 func (p *realPusher) createRepository(ctx context.Context, repo name.Repository, public bool) error {
 	account, repoName, ok := strings.Cut(repo.RepositoryStr(), "/")
 	if !ok {
-		return errors.New("invalid repository: must be of the form <account>/<name>")
+		return errors.New("invalid repository: must be of the form <organization>/<name>")
 	}
 	cfg, err := p.upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
 	}
+	client := repositories.NewClient(cfg)
+
+	// Check if the repository exists
+	existingRepo, err := client.Get(ctx, account, repoName)
+	if err != nil {
+		return errors.Wrap(err, "failed to search repository")
+	}
+
+	if existingRepo != nil {
+		return nil
+	}
+
 	visibility := repositories.WithPrivate()
 	if public {
 		visibility = repositories.WithPublic()
 	}
-	if err := repositories.NewClient(cfg).CreateOrUpdateWithOptions(ctx, account, repoName, visibility); err != nil {
+	if err := client.CreateOrUpdateWithOptions(ctx, account, repoName, visibility); err != nil {
 		return errors.Wrap(err, "failed to create repository")
 	}
 
