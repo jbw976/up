@@ -126,10 +126,10 @@ type xpExtractCmd struct {
 	name  name.Reference
 	fetch fetchFn
 
-	Package    string `arg:"" optional:"" help:"Name of the package to extract. Must be a valid OCI image tag or a path if using --from-xpkg."`
-	FromDaemon bool   `xor:"xp-extract-from" help:"Indicates that the image should be fetched from the Docker daemon."`
-	FromXpkg   bool   `xor:"xp-extract-from" help:"Indicates that the image should be fetched from a local xpkg. If package is not specified and only one exists in current directory it will be used."`
-	Output     string `short:"o" help:"Package output file path. Extension must be .gz or will be replaced." default:"out.gz"`
+	Package    string `arg:""                                                                                                                                                     help:"Name of the package to extract. Must be a valid OCI image tag or a path if using --from-xpkg." optional:""`
+	FromDaemon bool   `help:"Indicates that the image should be fetched from the Docker daemon."                                                                                  xor:"xp-extract-from"`
+	FromXpkg   bool   `help:"Indicates that the image should be fetched from a local xpkg. If package is not specified and only one exists in current directory it will be used." xor:"xp-extract-from"`
+	Output     string `default:"out.gz"                                                                                                                                           help:"Package output file path. Extension must be .gz or will be replaced."                          short:"o"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

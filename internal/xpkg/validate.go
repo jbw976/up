@@ -18,8 +18,9 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 
 var errInvalidPkgName = errors.New("invalid package dependency supplied")
 
-// ValidDep --
+// ValidDep --.
 func ValidDep(pkg string) (bool, error) {
 	upkg := strings.ReplaceAll(pkg, "@", ":")
 
@@ -40,7 +41,7 @@ func ValidDep(pkg string) (bool, error) {
 	return true, nil
 }
 
-func parsePackageReference(pkg string) (bool, error) { // nolint:gocyclo
+func parsePackageReference(pkg string) (bool, error) { //nolint:gocyclo
 	if pkg == "" {
 		return false, errors.Errorf("could not parse reference: empty package name, %s", errInvalidPkgName.Error())
 	}

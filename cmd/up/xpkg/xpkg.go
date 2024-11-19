@@ -28,9 +28,9 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 // Cmd contains commands for interacting with xpkgs.
 type Cmd struct {
 	Build     buildCmd     `cmd:"" help:"Build a package, by default from the current directory."`
-	XPExtract xpExtractCmd `cmd:"" maturity:"alpha" help:"Extract package contents into a Crossplane cache compatible format. Fetches from a remote registry by default."`
+	XPExtract xpExtractCmd `cmd:"" help:"Extract package contents into a Crossplane cache compatible format. Fetches from a remote registry by default." maturity:"alpha"`
 	Push      pushCmd      `cmd:"" help:"Push a package."`
-	Batch     batchCmd     `cmd:"" maturity:"alpha" help:"Batch build and push a family of service-scoped provider packages."`
+	Batch     batchCmd     `cmd:"" help:"Batch build and push a family of service-scoped provider packages."                                             maturity:"alpha"`
 }
 
 func (c *Cmd) Help() string {

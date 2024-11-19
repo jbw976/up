@@ -15,16 +15,17 @@
 package example
 
 import (
-	_ "embed"
 	"testing"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+
+	_ "embed"
 )
 
 // Embed an XRD YAML file

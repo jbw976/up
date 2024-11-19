@@ -16,9 +16,10 @@ package prerequisites
 
 import (
 	"github.com/Masterminds/semver/v3"
+	"k8s.io/client-go/rest"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/feature"
-	"k8s.io/client-go/rest"
 
 	"github.com/upbound/up/cmd/up/space/defaults"
 	spacefeature "github.com/upbound/up/cmd/up/space/features"
@@ -31,9 +32,7 @@ import (
 	"github.com/upbound/up/cmd/up/space/prerequisites/uxp"
 )
 
-var (
-	errCreatePrerequisite = "failed to instantiate prerequisite manager"
-)
+var errCreatePrerequisite = "failed to instantiate prerequisite manager"
 
 // Prerequisite defines the API that is used to interogate an installation
 // prerequisite.
@@ -57,7 +56,7 @@ type Status struct {
 }
 
 // New constructs a new Manager for working with installation Prerequisites.
-func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flags, versionStr string) (*Manager, error) { // nolint:gocyclo
+func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flags, versionStr string) (*Manager, error) { //nolint:gocyclo
 	prereqs := []Prerequisite{}
 
 	version, err := semver.NewVersion(versionStr)

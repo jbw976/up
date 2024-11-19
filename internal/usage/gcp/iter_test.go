@@ -19,10 +19,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	usagetime "github.com/upbound/up/internal/usage/time"
 )

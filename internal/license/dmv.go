@@ -33,20 +33,19 @@ const (
 	errGetAccessKey = "failed to acquire key"
 )
 
-// Response is the response returned from a successful access key request
+// Response is the response returned from a successful access key request.
 type Response struct {
 	AccessKey string `json:"key"`
 	Signature string `json:"signature"`
 }
 
-// Provider defines a license provider
+// Provider defines a license provider.
 type Provider interface {
 	GetAccessKey(context.Context, string, string) (*Response, error)
 }
 
-// NewProvider constructs a new dmv provider
+// NewProvider constructs a new dmv provider.
 func NewProvider(modifiers ...ProviderModifierFn) *DMV {
-
 	p := &DMV{
 		client: &http.Client{},
 	}
@@ -58,7 +57,7 @@ func NewProvider(modifiers ...ProviderModifierFn) *DMV {
 	return p
 }
 
-// DMV represents the DMV specific license provider
+// DMV represents the DMV specific license provider.
 type DMV struct {
 	client   uphttp.Client
 	endpoint *url.URL
@@ -94,7 +93,6 @@ func WithProductID(productID string) ProviderModifierFn {
 // GetAccessKey returns the license access key corresponding to the supplied version if
 // the given token is valid.
 func (d *DMV) GetAccessKey(ctx context.Context, token, version string) (*Response, error) {
-
 	d.endpoint.Path = fmt.Sprintf(path, d.orgID, d.productID, version)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.endpoint.String(), nil)
@@ -110,7 +108,7 @@ func (d *DMV) GetAccessKey(ctx context.Context, token, version string) (*Respons
 	if err != nil {
 		return nil, errors.Wrap(err, errGetAccessKey)
 	}
-	defer res.Body.Close() // nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:gosec,errcheck
 
 	b, err := io.ReadAll(res.Body)
 	if err != nil {

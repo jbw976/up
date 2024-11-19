@@ -15,11 +15,12 @@
 package mirror
 
 import (
-	_ "embed"
 	"encoding/json"
 	"reflect"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	_ "embed"
 )
 
 // Embed the YAML file.
@@ -100,7 +101,7 @@ func (k *RegisterImageTag) GetSupportedVersions() ([]string, error) {
 	return k.Registration.Image.Tag, nil
 }
 
-// init function to return byte slice and oci.PathNavigator
+// init function to return byte slice and oci.PathNavigator.
 func initConfig() ([]byte, map[string]reflect.Type) {
 	return configFile, map[string]reflect.Type{
 		"uxpVersionsPath":  reflect.TypeOf(UXPVersionsPath{}),

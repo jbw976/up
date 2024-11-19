@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
@@ -34,7 +35,7 @@ import (
 type ServiceType string
 
 const (
-	// ServiceTypes are kubernetes supported service types
+	// ServiceTypes are kubernetes supported service types.
 	LoadBalancer ServiceType = "LoadBalancer"
 	NodePort     ServiceType = "NodePort"
 )
@@ -43,14 +44,14 @@ var (
 	chartName   = "ingress-nginx"
 	nginxURL, _ = url.Parse("https://kubernetes.github.io/ingress-nginx")
 
-	// Chart version to be installed
+	// Chart version to be installed.
 	version                 = "4.7.1"
 	errFmtCreateHelmManager = "failed to create helm manager for %s"
 	errFmtCreateK8sClient   = "failed to create kubernetes client for helm chart %s"
 	errFmtCreateNamespace   = "failed to create namespace %s"
 )
 
-// IngressNginx represents a Helm manager
+// IngressNginx represents a Helm manager.
 type IngressNginx struct {
 	mgr     install.Manager
 	kclient kubernetes.Interface

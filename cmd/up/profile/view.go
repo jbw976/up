@@ -25,9 +25,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-var (
-	errNoProfiles = "No profiles found"
-)
+var errNoProfiles = "No profiles found"
 
 type viewCmd struct{}
 
@@ -36,7 +34,7 @@ func (c *viewCmd) Run(p pterm.TextPrinter, ctx *kong.Context, upCtx *upbound.Con
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println(errNoProfiles)
-		return nil // nolint:nilerr
+		return nil //nolint:nilerr
 	}
 
 	redacted := make(map[string]profile.Redacted)

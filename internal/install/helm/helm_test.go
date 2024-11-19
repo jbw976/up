@@ -17,14 +17,15 @@ package helm
 import (
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/spf13/afero"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
 
 type mockGetClient struct {
@@ -730,7 +731,7 @@ func TestPullAndLoad(t *testing.T) {
 			},
 			fsSetup: func() afero.Fs {
 				fs := afero.NewMemMapFs()
-				_ = fs.MkdirAll("/tmp", 0755)
+				_ = fs.MkdirAll("/tmp", 0o755)
 				f, _ := fs.Create("/tmp/test-a-version.tgz")
 				_ = f.Close()
 				f, _ = fs.Create("/tmp/test-b-version.tgz")
@@ -762,7 +763,7 @@ func TestPullAndLoad(t *testing.T) {
 			},
 			fsSetup: func() afero.Fs {
 				fs := afero.NewMemMapFs()
-				_ = fs.MkdirAll("/tmp", 0755)
+				_ = fs.MkdirAll("/tmp", 0o755)
 				f, _ := fs.Create("/tmp/test-a-version.tgz")
 				_ = f.Close()
 				return fs

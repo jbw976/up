@@ -17,11 +17,12 @@ package v1alpha1
 import (
 	"testing"
 
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 )
 
 func TestValidate(t *testing.T) {

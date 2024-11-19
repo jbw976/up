@@ -18,18 +18,18 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/robots"
-
 	"github.com/upbound/up/internal/upbound"
 )
 
 // createCmd creates a robot on Upbound.
 type createCmd struct {
-	Name string `arg:"" required:"" help:"Name of robot."`
+	Name string `arg:"" help:"Name of robot." required:""`
 
 	// NOTE(hasheddan): a description is required by the API, but we default to
 	// ' ' to avoid forcing the user to provide one.

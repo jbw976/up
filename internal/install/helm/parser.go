@@ -36,7 +36,7 @@ func NewParser(base map[string]any, overrides map[string]string) install.Paramet
 	}
 }
 
-// Parse parses install and upgrade parameters
+// Parse parses install and upgrade parameters.
 func (p *Parser) Parse() (map[string]any, error) {
 	for k, v := range p.overrides {
 		if err := strvals.ParseInto(fmt.Sprintf("%s=%s", k, v), p.values); err != nil {

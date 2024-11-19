@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
 	"github.com/upbound/up/cmd/up/trace/model"
@@ -78,7 +77,7 @@ func shorten(n int, s string) string {
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", n-left-len(s))
 }
 
-func conditionStatus(n int, conds ...xpv1.ConditionType) func(o *model.Object) string { // nolint:unparam // ¯\_(ツ)_/¯
+func conditionStatus(n int, conds ...xpv1.ConditionType) func(o *model.Object) string { //nolint:unparam // ¯\_(ツ)_/¯
 	return conditionFn(func(cond *xpv1.Condition) string {
 		if cond == nil {
 			return "[#626262]" + shorten(n, "n/a")

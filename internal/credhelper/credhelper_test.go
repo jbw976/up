@@ -17,10 +17,11 @@ package credhelper
 import (
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/profile"

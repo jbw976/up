@@ -24,10 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
-	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -37,6 +33,11 @@ import (
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/parser"
+	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/xpkg"
@@ -285,7 +286,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal package metadata")
 	}
-	err = afero.WriteFile(packageFS, "/crossplane.yaml", y, 0644)
+	err = afero.WriteFile(packageFS, "/crossplane.yaml", y, 0o644)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to write package metadata")
 	}
@@ -488,7 +489,7 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal function metadata")
 	}
-	err = afero.WriteFile(metaFS, "/crossplane.yaml", y, 0644)
+	err = afero.WriteFile(metaFS, "/crossplane.yaml", y, 0o644)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to write function metadata")
 	}
@@ -595,7 +596,7 @@ func collectComposites(fromFS afero.Fs, exclude []string) (afero.Fs, error) { //
 		}
 
 		// Copy the file into the package FS.
-		err = afero.WriteFile(toFS, path, bs, 0644)
+		err = afero.WriteFile(toFS, path, bs, 0o644)
 		if err != nil {
 			return errors.Wrapf(err, "failed to write file %q to package", path)
 		}

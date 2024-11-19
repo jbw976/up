@@ -20,9 +20,10 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg"
@@ -61,13 +62,13 @@ type addCmd struct {
 	ws       *workspace.Workspace
 	modelsFS afero.Fs
 
-	Package     string `arg:"" help:"Package to be added."`
-	ProjectFile string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
+	Package     string `arg:""                 help:"Package to be added."`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `short:"d" help:"Directory used for caching package images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -105,7 +106,6 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}

@@ -19,11 +19,12 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 const (
@@ -114,7 +115,7 @@ func (p *registryPuller) Run(chartName string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, errReadCompressed)
 	}
-	defer read.Close() // nolint:gosec,errcheck
+	defer read.Close() //nolint:gosec,errcheck
 	fileName := filepath.Join(p.cacheDir, fmt.Sprintf("%s-%s.tgz", chartName, p.version))
 
 	// TODO(hasheddan): the native helm pull client will build up a string

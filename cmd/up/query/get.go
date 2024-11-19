@@ -37,8 +37,8 @@ import (
 type GetCmd struct {
 	cmd
 
-	Namespace     string `short:"n" name:"namespace" help:"If present, the namespace scope for this CLI request."`
-	AllNamespaces bool   `short:"A" name:"all-namespaces" help:"If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with --namespace."`
+	Namespace     string `help:"If present, the namespace scope for this CLI request."                                                                                       name:"namespace"      short:"n"`
+	AllNamespaces bool   `help:"If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with --namespace." name:"all-namespaces" short:"A"`
 }
 
 func (c *GetCmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {

@@ -22,13 +22,14 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/xcrd"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"github.com/crossplane/crossplane/xcrd"
 
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
@@ -84,18 +85,18 @@ type resource struct {
 
 type generateCmd struct {
 	Path   string `help:"Specifies the path to the output file where the  Composite Resource (XR) or Composite Resource Claim (XRC) will be saved." optional:""`
-	Output string `help:"Specifies the output format for the results. Use 'file' to save to a file, 'yaml' to display the  Composite Resource (XR) or Composite Resource Claim (XRC) in YAML format, or 'json' to display in JSON format." short:"o" default:"file" enum:"file,yaml,json"`
+	Output string `default:"file"                                                                                                                   enum:"file,yaml,json" help:"Specifies the output format for the results. Use 'file' to save to a file, 'yaml' to display the  Composite Resource (XR) or Composite Resource Claim (XRC) in YAML format, or 'json' to display in JSON format." short:"o"`
 
-	Type       string `help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)." default:"" enum:"xr,xrc,claim,"`
+	Type       string `default:""                                         enum:"xr,xrc,claim," help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)."`
 	APIGroup   string `help:"Specifies the API group for the resource."`
 	APIVersion string `help:"Specifies the API version for the resource."`
 	Kind       string `help:"Specifies the Kind of the resource."`
 	Name       string `help:"Specifies the Name of the resource."`
 	Namespace  string `help:"Specifies the Namespace of the resource."`
 
-	XRDFilePath    string `arg:"" optional:"" help:"Specifies the path to the Composite Resource Definition (XRD) file used to generate an example resource."`
+	XRDFilePath    string `arg:"" help:"Specifies the path to the Composite Resource Definition (XRD) file used to generate an example resource." optional:""`
 	relXrdFilePath string
-	ProjectFile    string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
+	ProjectFile    string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
 	projFS    afero.Fs
 	exampleFS afero.Fs
@@ -159,7 +160,7 @@ func (c *generateCmd) Run(ctx context.Context) error {
 	return c.processInput()
 }
 
-// processXRDFile handles the logic when the XRD file path is provided
+// processXRDFile handles the logic when the XRD file path is provided.
 func (c *generateCmd) processXRDFile() error {
 	xrd, err := c.readXRDFile()
 	if err != nil {
@@ -179,7 +180,7 @@ func (c *generateCmd) processXRDFile() error {
 	return c.outputResource(resource)
 }
 
-// readXRDFile reads and unmarshals the XRD file
+// readXRDFile reads and unmarshals the XRD file.
 func (c *generateCmd) readXRDFile() (v1.CompositeResourceDefinition, error) {
 	var xrd v1.CompositeResourceDefinition
 
@@ -196,7 +197,7 @@ func (c *generateCmd) readXRDFile() (v1.CompositeResourceDefinition, error) {
 	return xrd, nil
 }
 
-// createCRDFromXRD creates a CRD from the XRD
+// createCRDFromXRD creates a CRD from the XRD.
 func (c *generateCmd) createCRDFromXRD(xrd v1.CompositeResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
@@ -217,7 +218,7 @@ func (c *generateCmd) createCRDFromXRD(xrd v1.CompositeResourceDefinition) (*api
 	return crd, nil
 }
 
-// generateResourceFromCRD generates a resource from a CRD
+// generateResourceFromCRD generates a resource from a CRD.
 func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourceDefinition) (resource, error) {
 	var res resource
 
@@ -244,7 +245,7 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 	return res, nil
 }
 
-// processInput handles the logic when the XRD file path is not provided (interactive input)
+// processInput handles the logic when the XRD file path is not provided (interactive input).
 func (c *generateCmd) processInput() error {
 	resourceType, compositeName, apiGroup, apiVersion, name, namespace, err := c.collectInteractiveInput()
 	if err != nil {
@@ -270,7 +271,7 @@ func (c *generateCmd) collectInteractiveInput() (string, string, string, string,
 		nil
 }
 
-// getInteractiveType gets the resource type interactively
+// getInteractiveType gets the resource type interactively.
 func (c *generateCmd) getInteractiveType() string {
 	if c.Type != "" {
 		return c.Type
@@ -299,7 +300,7 @@ func (c *generateCmd) getInteractiveType() string {
 	return cType
 }
 
-// getInteractiveKind gets the resource kind interactively
+// getInteractiveKind gets the resource kind interactively.
 func (c *generateCmd) getInteractiveKind(resourceType string) string {
 	if c.Kind != "" {
 		return c.Kind
@@ -325,7 +326,7 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 	return name
 }
 
-// getInteractiveGroup gets the API group interactively
+// getInteractiveGroup gets the API group interactively.
 func (c *generateCmd) getInteractiveGroup() string {
 	if c.APIGroup != "" {
 		return c.APIGroup
@@ -344,7 +345,7 @@ func (c *generateCmd) getInteractiveGroup() string {
 	return group
 }
 
-// getInteractiveVersion gets the API version interactively
+// getInteractiveVersion gets the API version interactively.
 func (c *generateCmd) getInteractiveVersion() string {
 	if c.APIVersion != "" {
 		return c.APIVersion
@@ -363,7 +364,7 @@ func (c *generateCmd) getInteractiveVersion() string {
 	return version
 }
 
-// getInteractiveMetadataName gets the metadata.name interactively
+// getInteractiveMetadataName gets the metadata.name interactively.
 func (c *generateCmd) getInteractiveMetadataName() string {
 	if c.Name != "" {
 		return c.Name
@@ -382,7 +383,7 @@ func (c *generateCmd) getInteractiveMetadataName() string {
 	return name
 }
 
-// getInteractiveMetadataNamespace gets the metadata.namespace interactively
+// getInteractiveMetadataNamespace gets the metadata.namespace interactively.
 func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) string {
 	if c.Namespace != "" {
 		return c.Namespace
@@ -405,7 +406,7 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 	return namespace
 }
 
-// createResource creates a resource based on the collected input
+// createResource creates a resource based on the collected input.
 func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiVersion, name, namespace string) (resource, error) {
 	var res resource
 	// Check if required fields are missing or invalid
@@ -444,8 +445,8 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 	return res, nil
 }
 
-// outputResource handles the output of the generated resource based on the specified output type
-func (c *generateCmd) outputResource(res resource) error { // nolint:gocyclo
+// outputResource handles the output of the generated resource based on the specified output type.
+func (c *generateCmd) outputResource(res resource) error { //nolint:gocyclo
 	// Convert resource to YAML format
 	resourceYAML, err := yaml.Marshal(res)
 	if err != nil {
@@ -480,11 +481,11 @@ func (c *generateCmd) outputResource(res resource) error { // nolint:gocyclo
 			}
 		}
 
-		if err := c.exampleFS.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		if err := c.exampleFS.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return errors.Wrap(err, "failed to create directories for the specified output path")
 		}
 
-		if err := afero.WriteFile(c.exampleFS, filePath, resourceYAML, 0644); err != nil {
+		if err := afero.WriteFile(c.exampleFS, filePath, resourceYAML, 0o644); err != nil {
 			return errors.Wrap(err, "failed to write example to file")
 		}
 
@@ -505,7 +506,7 @@ func (c *generateCmd) outputResource(res resource) error { // nolint:gocyclo
 	return nil
 }
 
-// validateNameNamespace checks that the name and (if provided) the namespace are valid DNS labels
+// validateNameNamespace checks that the name and (if provided) the namespace are valid DNS labels.
 func validateNameNamespace(name, namespace string) (string, error) {
 	if len(name) > 63 {
 		return "", errors.New("metadata.name must be no more than 63 characters")

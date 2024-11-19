@@ -187,7 +187,7 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { // nolint:gocyclo // TODO: shorten
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // TODO: shorten
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.windowHeight = msg.Height

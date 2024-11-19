@@ -17,8 +17,9 @@ package xpkg
 import (
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 func TestValidVer(t *testing.T) {
@@ -136,7 +137,7 @@ func TestValidVer(t *testing.T) {
 	}
 }
 
-// helper function to check if the error chain contains a substring of an error message
+// helper function to check if the error chain contains a substring of an error message.
 func errorsContains(err error, msg string) bool {
 	for err != nil {
 		if err.Error() == msg {

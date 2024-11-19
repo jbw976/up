@@ -25,7 +25,7 @@ var KnownAPIVersions = []string{
 	"v3beta1", "v3beta2", "v3beta3", "v3beta4", "v3beta5",
 }
 
-// Checks if a segment is a known API version
+// Checks if a segment is a known API version.
 func IsKnownAPIVersion(segment string) bool {
 	for _, v := range KnownAPIVersions {
 		if v == segment {

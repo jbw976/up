@@ -20,18 +20,19 @@ import (
 	"encoding/pem"
 	"sync"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
 	"github.com/upbound/up/internal/version"
 )
 
 // SpaceConnectionError is an error returned when the connection to the space,
-// through the connect API, fails
+// through the connect API, fails.
 var SpaceConnectionError = errors.New("failed to connect to space through the API client")
 
 type SpaceIngress struct {

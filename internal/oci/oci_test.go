@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 )
 
-// TestGetArtifactName tests the GetArtifactName function
+// TestGetArtifactName tests the GetArtifactName function.
 func TestGetArtifactName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -55,7 +55,7 @@ func TestGetArtifactName(t *testing.T) {
 	}
 }
 
-// TestRemoveDomainAndOrg tests the RemoveDomainAndOrg function
+// TestRemoveDomainAndOrg tests the RemoveDomainAndOrg function.
 func TestRemoveDomainAndOrg(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -87,7 +87,7 @@ func TestRemoveDomainAndOrg(t *testing.T) {
 	}
 }
 
-// TestTagExists tests the TagExists function
+// TestTagExists tests the TagExists function.
 func TestTagExists(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -123,7 +123,7 @@ func TestTagExists(t *testing.T) {
 	}
 }
 
-// TestListTags tests the ListTags function
+// TestListTags tests the ListTags function.
 func TestListTags(t *testing.T) {
 	tests := []struct {
 		name       string

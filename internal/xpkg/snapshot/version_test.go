@@ -78,7 +78,6 @@ func TestVersionMatch(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			matched := versionMatch(tc.args.constraint, tc.args.versions)
 
 			if diff := cmp.Diff(tc.want.matched, matched); diff != "" {

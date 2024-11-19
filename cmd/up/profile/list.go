@@ -37,7 +37,7 @@ func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, ctx *kong.Con
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println(errNoProfiles)
-		return nil // nolint:nilerr
+		return nil //nolint:nilerr
 	}
 
 	redacted := make(map[string]profile.Redacted)

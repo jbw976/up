@@ -36,13 +36,13 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // Cmd contains commands for interacting with spaces.
 type Cmd struct {
-	Connect    connectCmd    `cmd:"" help:"Connect an Upbound Space to the Upbound web console." aliases:"attach"`
-	Destroy    destroyCmd    `cmd:"" help:"Remove the Upbound Spaces deployment."`
-	Disconnect disconnectCmd `cmd:"" help:"Disconnect an Upbound Space from the Upbound web console." aliases:"detach"`
-	Init       initCmd       `cmd:"" help:"Initialize an Upbound Spaces deployment."`
-	List       listCmd       `cmd:"" help:"List all accessible spaces in Upbound."`
-	Mirror     mirror.Cmd    `cmd:"" maturity:"alpha" help:"List of all OCI artifacts required for Spaces."`
-	Upgrade    upgradeCmd    `cmd:"" help:"Upgrade the Upbound Spaces deployment."`
+	Connect    connectCmd    `aliases:"attach" cmd:""                                                help:"Connect an Upbound Space to the Upbound web console."`
+	Destroy    destroyCmd    `cmd:""           help:"Remove the Upbound Spaces deployment."`
+	Disconnect disconnectCmd `aliases:"detach" cmd:""                                                help:"Disconnect an Upbound Space from the Upbound web console."`
+	Init       initCmd       `cmd:""           help:"Initialize an Upbound Spaces deployment."`
+	List       listCmd       `cmd:""           help:"List all accessible spaces in Upbound."`
+	Mirror     mirror.Cmd    `cmd:""           help:"List of all OCI artifacts required for Spaces." maturity:"alpha"`
+	Upgrade    upgradeCmd    `cmd:""           help:"Upgrade the Upbound Spaces deployment."`
 
 	Billing billing.Cmd `cmd:""`
 }

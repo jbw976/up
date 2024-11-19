@@ -30,9 +30,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-var (
-	fieldNames = []string{"NAME", "PROTECTED"}
-)
+var fieldNames = []string{"NAME", "PROTECTED"}
 
 func init() {
 	runtime.Must(spacesv1beta1.AddToScheme(scheme.Scheme))

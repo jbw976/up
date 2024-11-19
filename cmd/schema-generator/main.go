@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -31,22 +30,22 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
+	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/mutators"
 	"github.com/upbound/up/internal/xpkg/parser/schema"
 	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
-	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 )
 
 type cli struct {
-	SourceImage string `help:"The source image to pull." required:""`
+	SourceImage string `help:"The source image to pull."    required:""`
 	TargetImage string `help:"The target image to push to." required:""`
 
 	PythonExcludes []string `help:"List of CRD filenames to exclude from Python schema generation."`
@@ -193,7 +192,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 	return nil
 }
 
-// copyCrdToFs get Objs from ParsedPackage identifies CRDs, and stores them in FS
+// copyCrdToFs get Objs from ParsedPackage identifies CRDs, and stores them in FS.
 func copyCrdToFs(pp *xpkgmarshaler.ParsedPackage, fs afero.Fs) error {
 	for i, obj := range pp.Objs {
 		crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition)
@@ -209,7 +208,7 @@ func copyCrdToFs(pp *xpkgmarshaler.ParsedPackage, fs afero.Fs) error {
 		crdName := fmt.Sprintf("/%s_%s.yaml", crd.Spec.Group, crd.Spec.Names.Plural)
 		filePath := filepath.Join(pp.DepName, crdName)
 
-		err = afero.WriteFile(fs, filePath, data, 0644)
+		err = afero.WriteFile(fs, filePath, data, 0o644)
 		if err != nil {
 			return errors.Wrapf(err, "failed to write CRD %d to FS", i)
 		}
@@ -217,7 +216,7 @@ func copyCrdToFs(pp *xpkgmarshaler.ParsedPackage, fs afero.Fs) error {
 	return nil
 }
 
-// runSchemaGeneration generates the schema and applies mutators to the base configuration
+// runSchemaGeneration generates the schema and applies mutators to the base configuration.
 func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.Image, cfg v1.Config) (v1.Image, error) {
 	schemaRunner := schemarunner.RealSchemaRunner{}
 

@@ -22,28 +22,27 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/gobuffalo/flect"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/project"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
-
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+
+	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *generateCmd) Help() string {
@@ -76,13 +75,13 @@ type inputYAML struct {
 }
 
 type generateCmd struct {
-	File     string `arg:"" help:"Path to the file containing the Composite Resource (XR) or Composite Resource Claim (XRC)."`
-	CacheDir string `short:"d" help:"Directory used for caching dependency images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	File     string `arg:""                                                                                      help:"Path to the file containing the Composite Resource (XR) or Composite Resource Claim (XRC)."`
+	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    short:"d" type:"path"`
 	Path     string `help:"Path to the output file where the Composite Resource Definition (XRD) will be saved." optional:""`
-	Plural   string `help:"Optional custom plural form for the Composite Resource Definition (XRD)." optional:""`
-	Output   string `help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o" default:"file" enum:"file,yaml,json"`
+	Plural   string `help:"Optional custom plural form for the Composite Resource Definition (XRD)."             optional:""`
+	Output   string `default:"file"                                                                              enum:"file,yaml,json"                                                                             help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
 
-	ProjectFile string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
 	projFS   afero.Fs
 	apisFS   afero.Fs
@@ -152,7 +151,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -166,7 +164,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
 	pterm.EnableStyling()
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
@@ -213,11 +211,11 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 			}
 		}
 
-		if err := c.apisFS.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		if err := c.apisFS.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return errors.Wrap(err, "failed to create directories for the specified output path")
 		}
 
-		if err := afero.WriteFile(c.apisFS, filePath, xrdYAML, 0644); err != nil {
+		if err := afero.WriteFile(c.apisFS, filePath, xrdYAML, 0o644); err != nil {
 			return errors.Wrap(err, "failed to write CompositeResourceDefinition (XRD) to file")
 		}
 
@@ -276,8 +274,8 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 	return nil
 }
 
-// newXRD to create a new CompositeResourceDefinition and fail if inferProperties fails
-func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) { // nolint:gocyclo
+// newXRD to create a new CompositeResourceDefinition and fail if inferProperties fails.
+func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) { //nolint:gocyclo
 	var input inputYAML
 	err := yaml.Unmarshal(yamlData, &input)
 	if err != nil {
@@ -444,7 +442,7 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 	return xrd, nil
 }
 
-// inferProperties to return the correct type
+// inferProperties to return the correct type.
 func inferProperties(spec map[string]interface{}) (map[string]extv1.JSONSchemaProps, error) {
 	properties := make(map[string]extv1.JSONSchemaProps)
 
@@ -461,8 +459,8 @@ func inferProperties(spec map[string]interface{}) (map[string]extv1.JSONSchemaPr
 	return properties, nil
 }
 
-// inferProperty to return extv1.JSONSchemaProps
-func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) { // nolint:gocyclo
+// inferProperty to return extv1.JSONSchemaProps.
+func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) { //nolint:gocyclo
 	// Explicitly handle nil
 	if value == nil {
 		return extv1.JSONSchemaProps{

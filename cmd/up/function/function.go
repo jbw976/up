@@ -14,7 +14,7 @@
 
 package function
 
-// Cmd contains commands for function cmd
+// Cmd contains commands for function cmd.
 type Cmd struct {
 	Generate generateCmd `cmd:"" help:"Generate an Function for a Composition."`
 }

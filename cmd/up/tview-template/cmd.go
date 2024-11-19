@@ -22,8 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-type Cmd struct {
-}
+type Cmd struct{}
 
 func (c *Cmd) Help() string {
 	return `

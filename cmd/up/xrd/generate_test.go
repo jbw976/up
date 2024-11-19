@@ -19,13 +19,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 )
 
 // TestInferProperty tests the inferProperty function.
@@ -919,7 +920,7 @@ spec:
 	}
 }
 
-// helper function to convert JSONSchemaProps to RawExtension
+// helper function to convert JSONSchemaProps to RawExtension.
 func jsonSchemaPropsToRawExtension(schema *extv1.JSONSchemaProps) runtime.RawExtension {
 	schemaBytes, _ := json.Marshal(schema)
 	return runtime.RawExtension{Raw: schemaBytes}

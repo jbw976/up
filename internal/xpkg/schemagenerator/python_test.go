@@ -15,17 +15,17 @@
 package schemagenerator
 
 import (
-	_ "embed"
 	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
+
+	_ "embed"
 )
 
 // TestTransformStructurePython tests reorganizing files and adjusting imports.
 func TestTransformStructurePython(t *testing.T) {
-
 	// Test case structure
 	tests := []struct {
 		name           string

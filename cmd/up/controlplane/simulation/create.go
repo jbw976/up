@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	diffv3 "github.com/r3labs/diff/v3"
@@ -41,6 +40,8 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/e2e-framework/klient/wait"
+
+	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
@@ -89,19 +90,19 @@ var (
 // CreateCmd creates a control plane simulation and outputs the differences
 // detected.
 type CreateCmd struct {
-	SourceName string `arg:"" required:"" help:"Name of source control plane."`
-	Group      string `short:"g" default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context"`
+	SourceName string `arg:""     help:"Name of source control plane."                                                                                               required:""`
+	Group      string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 
-	SimulationName string `short:"n" help:"The name of the simulation resource"`
+	SimulationName string `help:"The name of the simulation resource" short:"n"`
 
-	Changeset     []string       `short:"f" help:"Path to the resources that will be applied as part of the simulation. Can either be a single file or a directory" required:"true"`
-	Recursive     bool           `short:"r" help:"Process the directory used in -f, --changeset recursively." default:"false"`
-	CompleteAfter *time.Duration `help:"The maximum amount of time the simulated control plane should run before ending the simulation" default:"60s"`
+	Changeset     []string       `help:"Path to the resources that will be applied as part of the simulation. Can either be a single file or a directory" required:"true"                                                                                       short:"f"`
+	Recursive     bool           `default:"false"                                                                                                         help:"Process the directory used in -f, --changeset recursively."                                     short:"r"`
+	CompleteAfter *time.Duration `default:"60s"                                                                                                           help:"The maximum amount of time the simulated control plane should run before ending the simulation"`
 
-	FailOn            failOnCondition `help:"Fail and exit with a code of '1' if a certain condition is met" default:"none" enum:"none, difference"`
-	Output            string          `short:"o" help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified"`
-	Wait              bool            `default:"true" help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
-	TerminateOnFinish bool            `default:"false" help:"Terminate the simulation after the completion criteria is met"`
+	FailOn            failOnCondition `default:"none"                                                                                              enum:"none, difference"                                                                                                       help:"Fail and exit with a code of '1' if a certain condition is met"`
+	Output            string          `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
+	Wait              bool            `default:"true"                                                                                              help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
+	TerminateOnFinish bool            `default:"false"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
 
 	Flags upbound.Flags `embed:""`
 }
@@ -145,7 +146,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 }
 
 // Run executes the create command.
-func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client) error { // nolint:gocyclo
+func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client) error { //nolint:gocyclo
 	var srcCtp spacesv1beta1.ControlPlane
 	if err := spacesClient.Get(ctx, types.NamespacedName{Name: c.SourceName, Namespace: c.Group}, &srcCtp); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -392,7 +393,7 @@ func (c *CreateCmd) removeFieldsForDiff(u *unstructured.Unstructured) error {
 // status and looks up the difference between the initial version of the
 // resource and the version currently in the API server (at the time of the
 // function call).
-func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { // nolint:gocyclo
+func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { //nolint:gocyclo
 	lookup, err := kube.NewDiscoveryResourceLookup(config)
 	if err != nil {
 		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to create resource lookup client")
@@ -530,7 +531,7 @@ func (c *CreateCmd) outputDiff(diffSet []diff.ResourceDiff) error {
 		return nil
 	}
 
-	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) // nolint:gosec // nothing system sensitive in the file
+	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec // nothing system sensitive in the file
 }
 
 // getControlPlaneConfig gets a REST config for a given control plane within

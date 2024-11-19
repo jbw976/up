@@ -32,10 +32,10 @@ const (
 )
 
 type setCmd struct {
-	Key   string `arg:"" optional:"" help:"Configuration Key."`
-	Value string `arg:"" optional:"" help:"Configuration Value."`
+	Key   string `arg:"" help:"Configuration Key."   optional:""`
+	Value string `arg:"" help:"Configuration Value." optional:""`
 
-	File *os.File `short:"f" help:"Configuration File. Must be in JSON format."`
+	File *os.File `help:"Configuration File. Must be in JSON format." short:"f"`
 }
 
 // Run executes the set command.

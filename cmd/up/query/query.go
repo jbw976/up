@@ -36,10 +36,10 @@ type QueryCmd struct {
 	cmd
 
 	// flags about the scope
-	Namespace    string `short:"n" name:"namespace" env:"UPBOUND_NAMESPACE" help:"Namespace name for resources to query. By default, it's all namespaces if not on a control plane profile   the profiles current namespace or \"default\"."`
-	Group        string `short:"g" name:"group" env:"UPBOUND_GROUP" help:"Control plane group. By default, it's the kubeconfig's current namespace or \"default\"."`
-	ControlPlane string `short:"c" name:"controlplane" env:"UPBOUND_CONTROLPLANE" help:"Control plane name. Defaults to the current kubeconfig context if it points to a control plane."`
-	AllGroups    bool   `short:"A" name:"all-groups" help:"Query in all groups."`
+	Namespace    string `env:"UPBOUND_NAMESPACE"     help:"Namespace name for resources to query. By default, it's all namespaces if not on a control plane profile   the profiles current namespace or \"default\"." name:"namespace"    short:"n"`
+	Group        string `env:"UPBOUND_GROUP"         help:"Control plane group. By default, it's the kubeconfig's current namespace or \"default\"."                                                                  name:"group"        short:"g"`
+	ControlPlane string `env:"UPBOUND_CONTROLPLANE"  help:"Control plane name. Defaults to the current kubeconfig context if it points to a control plane."                                                           name:"controlplane" short:"c"`
+	AllGroups    bool   `help:"Query in all groups." name:"all-groups"                                                                                                                                                short:"A"`
 }
 
 // BeforeReset is the first hook to run.
@@ -49,7 +49,7 @@ func (c *QueryCmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { // nolint:gocyclo // pure plumbing. Doesn't get better by splitting.
+func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo // pure plumbing. Doesn't get better by splitting.
 	upCtx, err := upbound.NewFromFlags(c.Flags, upbound.AllowMissingProfile())
 	if err != nil {
 		return err

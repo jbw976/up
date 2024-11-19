@@ -21,20 +21,20 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 )
 
-// ListTagsFunc is a type for the ListTags function
+// ListTagsFunc is a type for the ListTags function.
 type ListTagsFunc func(repo string, options ...crane.Option) ([]string, error)
 
-// DefaultListTags is the default implementation of ListTagsFunc
+// DefaultListTags is the default implementation of ListTagsFunc.
 var DefaultListTags ListTagsFunc = crane.ListTags
 
-// GetArtifactName extracts the artifact name from the chart reference and replaces ':' with '-'
+// GetArtifactName extracts the artifact name from the chart reference and replaces ':' with '-'.
 func GetArtifactName(artifact string) string {
 	parts := strings.Split(artifact, "/")
 	artifactPathName := parts[len(parts)-1]
 	return strings.ReplaceAll(artifactPathName, ":", "-")
 }
 
-// RemoveDomainAndOrg removes the domain and organization from the repository URL
+// RemoveDomainAndOrg removes the domain and organization from the repository URL.
 func RemoveDomainAndOrg(src string) string {
 	parts := strings.SplitN(src, "/", 3)
 	if len(parts) == 3 {
@@ -46,7 +46,7 @@ func RemoveDomainAndOrg(src string) string {
 	return src
 }
 
-// TagExists checks if a specific version exists in the list of tags
+// TagExists checks if a specific version exists in the list of tags.
 func TagExists(tags []string, version string) bool {
 	for _, tag := range tags {
 		if tag == version {
@@ -56,7 +56,7 @@ func TagExists(tags []string, version string) bool {
 	return false
 }
 
-// ListTags lists the tags for a given repository
+// ListTags lists the tags for a given repository.
 func ListTags(ctx context.Context, repository string) ([]string, error) {
 	return DefaultListTags(repository)
 }

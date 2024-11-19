@@ -19,12 +19,12 @@ import (
 	"fmt"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -37,7 +37,7 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd gets a single team in an account on Upbound.
 type getCmd struct {
-	Name string `arg:"" required:"" help:"Name of team." predictor:"teams"`
+	Name string `arg:"" help:"Name of team." predictor:"teams" required:""`
 }
 
 // Run executes the get team command.

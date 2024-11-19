@@ -69,8 +69,8 @@ func (c *pushCmd) AfterApply(kongCtx *kong.Context) error {
 type pushCmd struct {
 	fs afero.Fs
 
-	Tag     string   `arg:"" help:"Tag of the package to be pushed. Must be a valid OCI image tag."`
-	Package []string `short:"f" help:"Path to packages. If not specified and only one package exists in current directory it will be used."`
+	Tag     string   `arg:""                                                                                                      help:"Tag of the package to be pushed. Must be a valid OCI image tag."`
+	Package []string `help:"Path to packages. If not specified and only one package exists in current directory it will be used." short:"f"`
 	Create  bool     `help:"Create repository on push if it does not exist."`
 
 	// Common Upbound API configuration

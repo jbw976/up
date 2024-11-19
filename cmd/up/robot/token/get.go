@@ -19,16 +19,16 @@ import (
 	"fmt"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -41,8 +41,8 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd get a robot token on Upbound.
 type getCmd struct {
-	RobotName string `arg:"" required:"" help:"Name of robot."`
-	TokenName string `arg:"" required:"" help:"Name of token."`
+	RobotName string `arg:"" help:"Name of robot." required:""`
+	TokenName string `arg:"" help:"Name of token." required:""`
 }
 
 // Run executes the get robot token command.

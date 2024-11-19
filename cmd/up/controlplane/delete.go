@@ -31,8 +31,8 @@ import (
 
 // deleteCmd deletes a control plane on Upbound.
 type deleteCmd struct {
-	Name  string `arg:"" help:"Name of control plane." predictor:"ctps"`
-	Group string `short:"g" default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context"`
+	Name  string `arg:""     help:"Name of control plane."                                                                                                      predictor:"ctps"`
+	Group string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 }
 
 // AfterApply sets default values in command after assignment and validation.

@@ -20,12 +20,13 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
@@ -38,18 +39,17 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 type Cmd struct {
-	ProjectFile    string        `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Repository     string        `optional:"" help:"Repository for the built package. Overrides the repository specified in the project file."`
-	OutputDir      string        `short:"o" help:"Path to the output directory, where packages will be written." default:"_output"`
-	NoBuildCache   bool          `help:"Don't cache image layers while building." default:"false"`
-	BuildCacheDir  string        `help:"Path to the build cache directory." type:"path" default:"~/.up/build-cache"`
-	MaxConcurrency uint          `help:"Maximum number of functions to build at once." env:"UP_MAX_CONCURRENCY" default:"8"`
-	CacheDir       string        `help:"Directory used for caching dependencies." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	ProjectFile    string        `default:"upbound.yaml"                                                                           help:"Path to project definition file."                              short:"f"`
+	Repository     string        `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
+	OutputDir      string        `default:"_output"                                                                                help:"Path to the output directory, where packages will be written." short:"o"`
+	NoBuildCache   bool          `default:"false"                                                                                  help:"Don't cache image layers while building."`
+	BuildCacheDir  string        `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."                            type:"path"`
+	MaxConcurrency uint          `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                                             help:"Maximum number of functions to build at once."`
+	CacheDir       string        `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                      help:"Directory used for caching dependencies."      type:"path"`
 	Flags          upbound.Flags `embed:""`
 
 	modelsFS afero.Fs
@@ -101,7 +101,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 		manager.WithSkipCacheUpdateIfExists(true),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -183,7 +182,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	}
 
 	outFile := filepath.Join(c.OutputDir, fmt.Sprintf("%s.uppkg", proj.Name))
-	err = c.outputFS.MkdirAll(c.OutputDir, 0755)
+	err = c.outputFS.MkdirAll(c.OutputDir, 0o755)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create output directory %q", c.OutputDir)
 	}

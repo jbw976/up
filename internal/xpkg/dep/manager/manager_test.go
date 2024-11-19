@@ -21,10 +21,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
-	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -37,6 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
+	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -159,7 +160,6 @@ func TestResolveTransitiveDependencies(t *testing.T) {
 
 	for n, tc := range cases {
 		t.Run(n, func(t *testing.T) {
-
 			ref, _ := name.ParseReference(image.FullTag(tc.args.root.dep))
 			lref, _ := name.ParseReference(image.FullTag(tc.args.leaf.dep))
 
@@ -408,7 +408,6 @@ func TestSnapshot(t *testing.T) {
 
 	for n, tc := range cases {
 		t.Run(n, func(t *testing.T) {
-
 			ref, _ := name.ParseReference(image.FullTag(tc.args.dep))
 
 			m, _ := New(
@@ -479,6 +478,7 @@ func (m *MockFetcher) Fetch(ctx context.Context, ref name.Reference, secrets ...
 	}
 	return newPackageImage(objs...), nil
 }
+
 func (m *MockFetcher) Head(ctx context.Context, ref name.Reference, secrets ...string) (*v1.Descriptor, error) {
 	h, _ := v1.NewHash("test")
 
@@ -486,6 +486,7 @@ func (m *MockFetcher) Head(ctx context.Context, ref name.Reference, secrets ...s
 		Digest: h,
 	}, nil
 }
+
 func (m *MockFetcher) Tags(ctx context.Context, ref name.Reference, secrets ...string) ([]string, error) {
 	if m.tags != nil {
 		return m.tags, nil

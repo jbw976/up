@@ -21,24 +21,24 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/upbound"
 )
 
 // createCmd creates a robot on Upbound.
 type createCmd struct {
-	RobotName string `arg:"" required:"" help:"Name of robot."`
-	TokenName string `arg:"" required:"" help:"Name of token."`
+	RobotName string `arg:"" help:"Name of robot." required:""`
+	TokenName string `arg:"" help:"Name of token." required:""`
 
-	Output string `type:"path" short:"o" required:"" help:"Path to write JSON file containing access ID and token."`
+	Output string `help:"Path to write JSON file containing access ID and token." required:"" short:"o" type:"path"`
 }
 
 // Run executes the create command.
@@ -106,7 +106,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		return nil
 	}
 
-	f, err := os.OpenFile(filepath.Clean(c.Output), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	f, err := os.OpenFile(filepath.Clean(c.Output), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

@@ -22,8 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/upbound/up/internal/usage/model"
 	"github.com/upbound/up/internal/usage/report"
@@ -33,7 +34,7 @@ import (
 // makeTestData creates the test data used by TestWriter(). This function is
 // not called anywhere. It is made available here as documentation of how test
 // data was created and for use when updating tests.
-func makeTestData() { // nolint:unused
+func makeTestData() { //nolint:unused
 	panicOnErr := func(err error, msg string) {
 		if err != nil {
 			panic(msg)

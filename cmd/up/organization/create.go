@@ -24,7 +24,7 @@ import (
 
 // createCmd creates an organization on Upbound.
 type createCmd struct {
-	Name string `arg:"" required:"" help:"Name of organization."`
+	Name string `arg:"" help:"Name of organization." required:""`
 }
 
 // Run executes the create command.

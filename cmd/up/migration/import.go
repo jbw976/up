@@ -36,11 +36,11 @@ import (
 
 type importCmd struct {
 	prompter input.Prompter
-	Yes      bool `help:"When set to true, automatically accepts any confirmation prompts that may appear during the import process." default:"false"`
+	Yes      bool `default:"false" help:"When set to true, automatically accepts any confirmation prompts that may appear during the import process."`
 
-	Input string `short:"i" help:"Specifies the file path of the archive to be imported. The default path is 'xp-state.tar.gz'." default:"xp-state.tar.gz"`
+	Input string `default:"xp-state.tar.gz" help:"Specifies the file path of the archive to be imported. The default path is 'xp-state.tar.gz'." short:"i"`
 
-	UnpauseAfterImport bool `help:"When set to true, automatically unpauses all managed resources that were paused during the import process. This helps in resuming normal operations post-import. Defaults to false, requiring manual unpausing of resources if needed." default:"false"`
+	UnpauseAfterImport bool `default:"false" help:"When set to true, automatically unpauses all managed resources that were paused during the import process. This helps in resuming normal operations post-import. Defaults to false, requiring manual unpausing of resources if needed."`
 }
 
 func (c *importCmd) Help() string {

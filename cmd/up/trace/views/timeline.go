@@ -58,7 +58,7 @@ func (t *TimeLine) GetOffset() int {
 	return t.offset
 }
 
-func (t *TimeLine) Draw(screen tcell.Screen) { // nolint:gocyclo // TODO: splitup
+func (t *TimeLine) Draw(screen tcell.Screen) { //nolint:gocyclo // TODO: splitup
 	t.Box.Draw(screen)
 
 	rightTS := t.model.TimeLine.FixedTime

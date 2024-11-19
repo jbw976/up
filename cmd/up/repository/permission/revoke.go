@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/repositorypermission"
-
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -34,9 +34,9 @@ import (
 type revokeCmd struct {
 	prompter input.Prompter
 
-	TeamName       string `arg:"" required:"" help:"Name of team."`
-	RepositoryName string `arg:"" required:"" help:"Name of repository."`
-	Force          bool   `help:"Force the revoke of the repository permission even if conflicts exist." default:"false"`
+	TeamName       string `arg:""          help:"Name of team."                                                          required:""`
+	RepositoryName string `arg:""          help:"Name of repository."                                                    required:""`
+	Force          bool   `default:"false" help:"Force the revoke of the repository permission even if conflicts exist."`
 }
 
 // BeforeApply sets default values for the delete command, before assignment and validation.

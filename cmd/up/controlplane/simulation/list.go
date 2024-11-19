@@ -29,8 +29,8 @@ import (
 
 // listCmd list simulations in an account on Upbound.
 type listCmd struct {
-	AllGroups bool   `short:"A" default:"false" help:"List simulations across all groups."`
-	Group     string `short:"g" default:"" help:"The group that the simulation is contained in. This defaults to the group specified in the current context"`
+	AllGroups bool   `default:"false" help:"List simulations across all groups."                                                                        short:"A"`
+	Group     string `default:""      help:"The group that the simulation is contained in. This defaults to the group specified in the current context" short:"g"`
 }
 
 // AfterApply sets default values in command after assignment and validation.

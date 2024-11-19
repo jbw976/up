@@ -18,7 +18,6 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

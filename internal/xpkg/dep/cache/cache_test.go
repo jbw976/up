@@ -20,9 +20,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/spf13/afero"
+	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
@@ -275,7 +274,6 @@ func TestStore(t *testing.T) {
 			}
 
 			if tc.want.err == nil {
-
 				e, _ := cache.Get(tc.args.dep)
 
 				if diff := cmp.Diff(tc.want.pkgDigest, e.Digest()); diff != "" {

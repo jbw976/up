@@ -19,7 +19,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/teams"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

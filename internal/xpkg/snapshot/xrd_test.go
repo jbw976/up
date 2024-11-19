@@ -62,7 +62,6 @@ func TestCleanFieldPath(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			got := cleanFieldPath(tc.args.path)
 
 			if diff := cmp.Diff(tc.want.cleaned, got); diff != "" {
@@ -195,7 +194,6 @@ func TestValidateOpenAPIV3Schema(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			got := validateOpenAPIV3Schema(context.Background(), tc.args.xrd)
 
 			if diff := cmp.Diff(tc.want.errs, got); diff != "" {

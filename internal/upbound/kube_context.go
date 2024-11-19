@@ -32,7 +32,7 @@ import (
 
 const (
 	// ContextExtensionKeySpace is the key used in a context extension for a
-	// space extension
+	// space extension.
 	ContextExtensionKeySpace = "spaces.upbound.io/space"
 )
 
@@ -50,7 +50,7 @@ func (c *Context) HasValidContext() bool {
 }
 
 // BuildCurrentContextClient creates a K8s client using the current Kubeconfig
-// defaulting to the current Kubecontext
+// defaulting to the current Kubecontext.
 func (c *Context) BuildCurrentContextClient() (client.Client, error) {
 	rest, err := c.Kubecfg.ClientConfig()
 	if err != nil {
@@ -136,7 +136,7 @@ func (c *Context) GetCurrentSpaceContextScope() (ingressHost string, ctp types.N
 }
 
 // GetSpaceExtension attempts to get the context space extension for the
-// provided context, if it exists
+// provided context, if it exists.
 func GetSpaceExtension(context *clientcmdapi.Context) (extension *SpaceExtension, err error) {
 	if context == nil {
 		return nil, nil

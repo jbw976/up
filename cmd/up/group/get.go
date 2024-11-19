@@ -31,7 +31,7 @@ import (
 
 // getCmd gets a specific group in a space.
 type getCmd struct {
-	Name string `arg:"" required:"" help:"Name of group."`
+	Name string `arg:"" help:"Name of group." required:""`
 }
 
 // AfterApply sets default values in command after assignment and validation.
@@ -42,7 +42,7 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the list command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { //nolint:gocyclo
 	// list groups
 	var ns corev1.Namespace
 	if err := client.Get(ctx, types.NamespacedName{Name: c.Name}, &ns); err != nil {

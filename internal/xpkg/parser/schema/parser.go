@@ -20,8 +20,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // Parser is a Parser implementation for generic schema.

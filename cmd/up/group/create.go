@@ -29,11 +29,11 @@ import (
 
 // createCmd creates a group in a space.
 type createCmd struct {
-	Name string `arg:"" required:"" help:"Name of group."`
+	Name string `arg:"" help:"Name of group." required:""`
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *createCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { //nolint:gocyclo
 	// create group
 	group := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

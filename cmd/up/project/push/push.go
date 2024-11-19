@@ -22,11 +22,12 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/project"
@@ -35,11 +36,11 @@ import (
 )
 
 type Cmd struct {
-	ProjectFile    string        `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Repository     string        `optional:"" help:"Repository to push to. Overrides the repository specified in the project file."`
-	Tag            string        `short:"t" help:"Tag for the built package. If not provided, a semver tag will be generated." default:""`
-	PackageFile    string        `optional:"" help:"Package file to push. Discovered by default based on repository and tag."`
-	MaxConcurrency uint          `help:"Maximum number of functions to build at once." env:"UP_MAX_CONCURRENCY" default:"8"`
+	ProjectFile    string        `default:"upbound.yaml"                                                                help:"Path to project definition file."                                            short:"f"`
+	Repository     string        `help:"Repository to push to. Overrides the repository specified in the project file." optional:""`
+	Tag            string        `default:""                                                                            help:"Tag for the built package. If not provided, a semver tag will be generated." short:"t"`
+	PackageFile    string        `help:"Package file to push. Discovered by default based on repository and tag."       optional:""`
+	MaxConcurrency uint          `default:"8"                                                                           env:"UP_MAX_CONCURRENCY"                                                           help:"Maximum number of functions to build at once."`
 	Public         bool          `help:"Create new repositories with public visibility."`
 	Flags          upbound.Flags `embed:""`
 

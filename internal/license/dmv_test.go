@@ -23,9 +23,10 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
-	"github.com/google/go-cmp/cmp"
 
 	"github.com/upbound/up/internal/http/mocks"
 )
@@ -86,7 +87,6 @@ func TestGetAccessKey(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			resp, err := tc.provider.GetAccessKey(ctx, bearerToken, "version")
 			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nGetAccessKey(...): -want error, +got error:\n%s", tc.reason, diff)

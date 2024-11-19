@@ -96,30 +96,30 @@ func (c *cli) BeforeReset(ctx *kong.Context, p *kong.Path) error {
 }
 
 type cli struct {
-	Format config.Format    `name:"format" enum:"default,json,yaml" default:"default" help:"Format for get/list commands. Can be: json, yaml, default"`
-	Quiet  config.QuietFlag `short:"q" name:"quiet" help:"Suppress all output."`
-	Pretty bool             `name:"pretty" help:"Pretty print output."`
-	DryRun bool             `name:"dry-run" help:"dry-run output."`
+	Format config.Format    `default:"default"           enum:"default,json,yaml" help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"             short:"q"`
+	Pretty bool             `help:"Pretty print output." name:"pretty"`
+	DryRun bool             `help:"dry-run output."      name:"dry-run"`
 
 	// Manage Upbound Resources
-	Organization organization.Cmd `cmd:"" group:"Manage Upbound Resources" name:"organization" aliases:"org" help:"Interact with Upbound organizations."`
-	Team         team.Cmd         `cmd:"" group:"Manage Upbound Resources" name:"team" help:"Interact with teams."`
-	Robot        robot.Cmd        `cmd:"" group:"Manage Upbound Resources" name:"robot" help:"Interact with robots."`
-	Repository   repository.Cmd   `cmd:"" group:"Manage Upbound Resources" name:"repository" aliases:"repo" help:"Interact with repositories."`
-	Space        space.Cmd        `cmd:"" group:"Manage Upbound Resources" help:"Interact with Spaces."`
-	Group        group.Cmd        `cmd:"" group:"Manage Upbound Resources" help:"Interact with groups inside Spaces."`
-	ControlPlane controlplane.Cmd `cmd:"" group:"Manage Upbound Resources" name:"controlplane" aliases:"ctp" help:"Interact with control planes in the current context, both in the cloud and in a local Space."`
-	UXP          uxp.Cmd          `cmd:"" group:"Manage Upbound Resources" help:"Interact with UXP."`
+	Organization organization.Cmd `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"           help:"Interact with Upbound organizations."                                                         name:"organization"`
+	Team         team.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with teams."                name:"team"`
+	Robot        robot.Cmd        `cmd:""         group:"Manage Upbound Resources" help:"Interact with robots."               name:"robot"`
+	Repository   repository.Cmd   `aliases:"repo" cmd:""                           group:"Manage Upbound Resources"           help:"Interact with repositories."                                                                  name:"repository"`
+	Space        space.Cmd        `cmd:""         group:"Manage Upbound Resources" help:"Interact with Spaces."`
+	Group        group.Cmd        `cmd:""         group:"Manage Upbound Resources" help:"Interact with groups inside Spaces."`
+	ControlPlane controlplane.Cmd `aliases:"ctp"  cmd:""                           group:"Manage Upbound Resources"           help:"Interact with control planes in the current context, both in the cloud and in a local Space." name:"controlplane"`
+	UXP          uxp.Cmd          `cmd:""         group:"Manage Upbound Resources" help:"Interact with UXP."`
 
 	// Develop with Crossplane
-	Project     project.Cmd     `cmd:"" group:"Develop with Crossplane" help:"Manage Upbound development projects."`
-	Example     example.Cmd     `cmd:"" group:"Develop with Crossplane" help:"Manage Claim(XRC) or Composite Resource(XR)."`
-	Dependency  dependency.Cmd  `cmd:"" group:"Develop with Crossplane" aliases:"dep" help:"Manage configuration dependencies."`
-	XRD         xrd.Cmd         `cmd:"" group:"Develop with Crossplane" help:"Manage XRDs from Composite Resources(XR) or Claims(XRC)."`
-	Composition composition.Cmd `cmd:"" group:"Develop with Crossplane" help:"Manage Compositions."`
-	Function    function.Cmd    `cmd:"" group:"Develop with Crossplane" help:"Manage Functions."`
-	XPKG        xpkg.Cmd        `cmd:"" group:"Develop with Crossplane" maturity:"deprecated" help:"Deprecated. Please migrate to up project or use the crossplane CLI."`
-	XPLS        xpls.Cmd        `cmd:"" group:"Develop with Crossplane" help:"Start xpls language server."`
+	Project     project.Cmd     `cmd:""        group:"Develop with Crossplane" help:"Manage Upbound development projects."`
+	Example     example.Cmd     `cmd:""        group:"Develop with Crossplane" help:"Manage Claim(XRC) or Composite Resource(XR)."`
+	Dependency  dependency.Cmd  `aliases:"dep" cmd:""                          group:"Develop with Crossplane"                                            help:"Manage configuration dependencies."`
+	XRD         xrd.Cmd         `cmd:""        group:"Develop with Crossplane" help:"Manage XRDs from Composite Resources(XR) or Claims(XRC)."`
+	Composition composition.Cmd `cmd:""        group:"Develop with Crossplane" help:"Manage Compositions."`
+	Function    function.Cmd    `cmd:""        group:"Develop with Crossplane" help:"Manage Functions."`
+	XPKG        xpkg.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Deprecated. Please migrate to up project or use the crossplane CLI." maturity:"deprecated"`
+	XPLS        xpls.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Start xpls language server."`
 
 	// Configure up
 	Completion kongplete.InstallCompletions `cmd:"" group:"Configure up" help:"Generate shell autocompletions"`
@@ -151,15 +151,15 @@ func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam
 type alpha struct {
 	// For now, we maintain compatibility for systems that may still use the alpha variant of `controlplane`.
 	// This nudges users towards the stable variant when they attempt to emit help.
-	ControlPlane  controlplane.Cmd  `cmd:"" hidden:"" name:"controlplane" aliases:"ctp" help:"Interact with control planes in the current context, both in the cloud and in a local space."`
-	Upbound       upbound.Cmd       `cmd:"" maturity:"alpha" help:"Interact with Upbound."`
-	Migration     migration.Cmd     `cmd:"" maturity:"alpha" help:"Migrate control planes to Upbound Managed Control Planes."`
-	Trace         trace.Cmd         `cmd:"" maturity:"alpha" hidden:"" help:"Trace a Crossplane resource."`
-	TviewTemplate tviewtemplate.Cmd `cmd:"" maturity:"alpha" hidden:"" help:"TView example."`
-	Query         query.QueryCmd    `cmd:"" maturity:"alpha" hidden:"" help:"Query objects in one or many control planes."`
-	Get           query.GetCmd      `cmd:"" maturity:"alpha" hidden:"" help:"Get objects in the current control plane."`
-	Space         space.Cmd         `cmd:"" maturity:"alpha" help:"Interact with Spaces."`
-	Ctx           ctx.Cmd           `cmd:"" maturity:"alpha" help:"Select an Upbound kubeconfig context."`
+	ControlPlane  controlplane.Cmd  `aliases:"ctp" cmd:""                                                           help:"Interact with control planes in the current context, both in the cloud and in a local space." hidden:""        name:"controlplane"`
+	Upbound       upbound.Cmd       `cmd:""        help:"Interact with Upbound."                                    maturity:"alpha"`
+	Migration     migration.Cmd     `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes." maturity:"alpha"`
+	Trace         trace.Cmd         `cmd:""        help:"Trace a Crossplane resource."                              hidden:""                                                                                           maturity:"alpha"`
+	TviewTemplate tviewtemplate.Cmd `cmd:""        help:"TView example."                                            hidden:""                                                                                           maturity:"alpha"`
+	Query         query.QueryCmd    `cmd:""        help:"Query objects in one or many control planes."              hidden:""                                                                                           maturity:"alpha"`
+	Get           query.GetCmd      `cmd:""        help:"Get objects in the current control plane."                 hidden:""                                                                                           maturity:"alpha"`
+	Space         space.Cmd         `cmd:""        help:"Interact with Spaces."                                     maturity:"alpha"`
+	Ctx           ctx.Cmd           `cmd:""        help:"Select an Upbound kubeconfig context."                     maturity:"alpha"`
 }
 
 const helpDescription = `The Upbound CLI.

@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 )
 
@@ -70,7 +69,7 @@ var cell = tview.TableCell{
 	Transparent:     true,
 }
 
-func (t statusContent) GetCell(row, column int) *tview.TableCell { // nolint:gocyclo // TODO: split up
+func (t statusContent) GetCell(row, column int) *tview.TableCell { //nolint:gocyclo // TODO: split up
 	o := t.scrolling.ObjectAt(row - t.scrolling.GetScrollOffset())
 	if o == nil {
 		cell.Text = ""

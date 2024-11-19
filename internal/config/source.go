@@ -86,14 +86,14 @@ func (src *FSSource) Initialize() error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		if err := src.fs.MkdirAll(filepath.Dir(src.path), 0755); err != nil {
+		if err := src.fs.MkdirAll(filepath.Dir(src.path), 0o755); err != nil {
 			return err
 		}
-		f, err := src.fs.OpenFile(src.path, os.O_CREATE, 0600)
+		f, err := src.fs.OpenFile(src.path, os.O_CREATE, 0o600)
 		if err != nil {
 			return err
 		}
-		defer f.Close() // nolint:errcheck
+		defer f.Close() //nolint:errcheck
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (src *FSSource) GetConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close() // nolint:errcheck
+	defer f.Close() //nolint:errcheck
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (src *FSSource) GetConfig() (*Config, error) {
 
 // UpdateConfig updates the Config in the filesystem.
 func (src *FSSource) UpdateConfig(c *Config) error {
-	f, err := src.fs.OpenFile(src.path, os.O_RDWR|os.O_TRUNC, 0600)
+	f, err := src.fs.OpenFile(src.path, os.O_RDWR|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (src *FSSource) UpdateConfig(c *Config) error {
 	// close the file (i.e. write buffer is not flushed). In the latter case the
 	// deferred Close() will error (see https://golang.org/pkg/os/#File.Close),
 	// but we do not check it.
-	defer f.Close() // nolint:errcheck
+	defer f.Close() //nolint:errcheck
 	b, err := json.Marshal(c)
 	if err != nil {
 		return err

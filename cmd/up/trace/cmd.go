@@ -34,10 +34,10 @@ import (
 )
 
 type Cmd struct {
-	ControlPlane string `short:"c" long:"controlplane" env:"UPBOUND_CONTROLPLANE" description:"Controlplane to query"`
-	Group        string `short:"g" long:"group" env:"UPBOUND_GROUP" description:"Group to query"`
-	Namespace    string `short:"n" long:"namespace" env:"UPBOUND_NAMESPACE" description:"Namespace of objects to query (defaults to all namespaces)"`
-	AllGroups    bool   `short:"A" name:"all-groups" help:"Query in all groups."`
+	ControlPlane string `description:"Controlplane to query"                                      env:"UPBOUND_CONTROLPLANE" long:"controlplane" short:"c"`
+	Group        string `description:"Group to query"                                             env:"UPBOUND_GROUP"        long:"group"        short:"g"`
+	Namespace    string `description:"Namespace of objects to query (defaults to all namespaces)" env:"UPBOUND_NAMESPACE"    long:"namespace"    short:"n"`
+	AllGroups    bool   `help:"Query in all groups."                                              name:"all-groups"          short:"A"`
 
 	// positional arguments
 	Resources []string `arg:"" help:"Type(s) (resource, singular or plural, category, short-name) and names: TYPE[.GROUP][,TYPE[.GROUP]...] [NAME ...] | TYPE[.GROUP]/NAME .... If no resource is specified, all resources are queried, but --all-resources must be specified."`
@@ -78,7 +78,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) error { // nolint:gocyclo // TODO: split up
+func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: split up
 	// create client
 	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
 	if err != nil {

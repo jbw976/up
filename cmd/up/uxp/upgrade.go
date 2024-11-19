@@ -17,9 +17,10 @@ package uxp
 import (
 	"io"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/pterm/pterm"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
@@ -70,7 +71,7 @@ type upgradeCmd struct {
 	mgr    install.Manager
 	parser install.ParameterParser
 
-	Version string `arg:"" optional:"" help:"UXP version to upgrade to."`
+	Version string `arg:"" help:"UXP version to upgrade to." optional:""`
 
 	Rollback bool `help:"Rollback to previously installed version on failed upgrade."`
 	Force    bool `help:"Force upgrade even if versions are incompatible."`

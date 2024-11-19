@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"io"
 
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/workspace"
@@ -140,7 +141,7 @@ func updateCompositions(ws *workspace.Workspace, fnMap map[string]string) error 
 		if err != nil {
 			return errors.Wrapf(err, "failed to marshal updated composition %q", comp.Name)
 		}
-		if err := afero.WriteFile(projFS, fname, compYAML, 0644); err != nil {
+		if err := afero.WriteFile(projFS, fname, compYAML, 0o644); err != nil {
 			return errors.Wrapf(err, "failed to write updated composition %q", comp.Name)
 		}
 	}

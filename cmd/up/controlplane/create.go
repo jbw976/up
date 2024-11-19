@@ -31,13 +31,13 @@ import (
 
 // createCmd creates a control plane on Upbound.
 type createCmd struct {
-	Name  string `arg:"" required:"" help:"Name of control plane."`
-	Group string `short:"g" default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context"`
+	Name  string `arg:""     help:"Name of control plane."                                                                                                      required:""`
+	Group string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 
 	Crossplane struct {
 		Version     string `default:"" help:"The version of Universal Crossplane to use. The default depends on the selected auto-upgrade channel."`
 		AutoUpgrade struct {
-			Channel string `default:"Stable" help:"The Crossplane auto-upgrade channel to use. Must be one of: None, Patch, Stable, Rapid" enum:"None,Patch,Stable,Rapid"`
+			Channel string `default:"Stable" enum:"None,Patch,Stable,Rapid" help:"The Crossplane auto-upgrade channel to use. Must be one of: None, Patch, Stable, Rapid"`
 		} `embed:""`
 	} `embed:"" prefix:"crossplane-"`
 

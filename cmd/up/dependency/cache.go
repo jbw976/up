@@ -21,10 +21,11 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -43,11 +44,11 @@ type updateCacheCmd struct {
 	ws       *workspace.Workspace
 	modelsFS afero.Fs
 
-	ProjectFile string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `short:"d" help:"Directory used for caching package images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
 }
 
 func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
@@ -79,7 +80,6 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) 
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ type cleanCacheCmd struct {
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `short:"d" help:"Directory used for caching package images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
 }
 
 func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {

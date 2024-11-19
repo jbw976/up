@@ -20,13 +20,12 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up-sdk-go/service/repositories"
-
 	"github.com/upbound/up/internal/upbound"
 )
 
 // createCmd creates a repository on Upbound.
 type createCmd struct {
-	Name    string `arg:"" required:"" help:"Name of repository."`
+	Name    string `arg:""                                  help:"Name of repository." required:""`
 	Private bool   `help:"Make the new repository private."`
 }
 

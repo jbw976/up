@@ -96,34 +96,34 @@ type batchCmd struct {
 	fs    afero.Fs
 	fetch fetchFn
 
-	FamilyBaseImage        string   `help:"Family image used as the base for the smaller provider packages." required:""`
-	ProviderName           string   `help:"Provider name, such as provider-aws to be used while formatting smaller provider package repositories." required:""`
+	FamilyBaseImage        string   `help:"Family image used as the base for the smaller provider packages."                                                                                                                                       required:""`
+	ProviderName           string   `help:"Provider name, such as provider-aws to be used while formatting smaller provider package repositories."                                                                                                 required:""`
 	FamilyPackageURLFormat string   `help:"Family package URL format to be used for the smaller provider packages. Must be a valid OCI image URL with the format specifier \"%s\", which will be substituted with <provider name>-<service name>." required:""`
-	SmallerProviders       []string `help:"Smaller provider names to build and push, such as ec2, eks or config." default:"monolith"`
-	Concurrency            uint     `help:"Maximum number of packages to process concurrently. Setting it to 0 puts no limit on the concurrency, i.e., all packages are processed in parallel." default:"0"`
-	PushRetry              uint     `help:"Number of retries when pushing a provider package fails." default:"3"`
+	SmallerProviders       []string `default:"monolith"                                                                                                                                                                                            help:"Smaller provider names to build and push, such as ec2, eks or config."`
+	Concurrency            uint     `default:"0"                                                                                                                                                                                                   help:"Maximum number of packages to process concurrently. Setting it to 0 puts no limit on the concurrency, i.e., all packages are processed in parallel."`
+	PushRetry              uint     `default:"3"                                                                                                                                                                                                   help:"Number of retries when pushing a provider package fails."`
 
-	Platform        []string `help:"Platforms to build the packages for. Each platform should use the <OS>_<arch> syntax. An example is: linux_arm64." default:"linux_amd64,linux_arm64"`
-	ProviderBinRoot string   `short:"p" help:"Provider binary paths root. Smaller provider binaries should reside under the platform directories in this folder." type:"existingdir"`
-	OutputDir       string   `short:"o" help:"Path of the package output directory." optional:""`
+	Platform        []string `default:"linux_amd64,linux_arm64"                                                                                                                help:"Platforms to build the packages for. Each platform should use the <OS>_<arch> syntax. An example is: linux_arm64."`
+	ProviderBinRoot string   `help:"Provider binary paths root. Smaller provider binaries should reside under the platform directories in this folder."                        short:"p"                                                                                                                type:"existingdir"`
+	OutputDir       string   `help:"Path of the package output directory."                                                                                                     optional:""                                                                                                              short:"o"`
 	StorePackages   []string `help:"Smaller provider names whose provider package should be stored under the package output directory specified with the --output-dir option." optional:""`
 
-	PackageMetadataTemplate string            `help:"Smaller provider metadata template. The template variables {{ .Service }} and {{ .Name }} will be substituted when the template is executed among with the supplied template variable substitutions." default:"./package/crossplane.yaml.tmpl" type:"path"`
+	PackageMetadataTemplate string            `default:"./package/crossplane.yaml.tmpl"                                                   help:"Smaller provider metadata template. The template variables {{ .Service }} and {{ .Name }} will be substituted when the template is executed among with the supplied template variable substitutions." type:"path"`
 	TemplateVar             map[string]string `help:"Smaller provider metadata template variables to be used for the specified template."`
 
 	ExamplesGroupOverride map[string]string `help:"Overrides for the location of the example manifests folder of a smaller provider." optional:""`
-	CRDGroupOverride      map[string]string `help:"Overrides for the locations of the CRD folders of the smaller providers." optional:""`
-	PackageRepoOverride   map[string]string `help:"Overrides for the package repository names of the smaller providers." optional:""`
-	ProvidersWithAuthExt  []string          `help:"Smaller provider names for which we need to configure the authentication extension." default:"monolith,config"`
+	CRDGroupOverride      map[string]string `help:"Overrides for the locations of the CRD folders of the smaller providers."          optional:""`
+	PackageRepoOverride   map[string]string `help:"Overrides for the package repository names of the smaller providers."              optional:""`
+	ProvidersWithAuthExt  []string          `default:"monolith,config"                                                                help:"Smaller provider names for which we need to configure the authentication extension."`
 
-	ExamplesRoot string   `short:"e" help:"Path to package examples directory." default:"./examples" type:"path"`
-	CRDRoot      string   `help:"Path to package CRDs directory." default:"./package/crds" type:"path"`
-	AuthExt      string   `help:"Path to an authentication extension file." default:"./package/auth.yaml" type:"path"`
+	ExamplesRoot string   `default:"./examples"                                        help:"Path to package examples directory."                                                               short:"e"   type:"path"`
+	CRDRoot      string   `default:"./package/crds"                                    help:"Path to package CRDs directory."                                                                   type:"path"`
+	AuthExt      string   `default:"./package/auth.yaml"                               help:"Path to an authentication extension file."                                                         type:"path"`
 	Ignore       []string `help:"Paths to exclude from the smaller provider packages."`
 	Create       bool     `help:"Create repository on push if it does not exist."`
-	BuildOnly    bool     `help:"Only build the smaller provider packages and do not attempt to push them to a package repository." default:"false"`
+	BuildOnly    bool     `default:"false"                                             help:"Only build the smaller provider packages and do not attempt to push them to a package repository."`
 
-	ProviderNameSuffixForPush string `help:"Suffix for provider name during pushing the packages. This suffix is added to the end of the provider name. If there is a service name for the corresponded provider, then the suffix will be added to the base provider name and the service-scoped name will be after this suffix.  Examples: provider-family-aws-suffix, provider-aws-suffix-s3" optional:"" env:"PROVIDER_NAME_SUFFIX_FOR_PUSH"`
+	ProviderNameSuffixForPush string `env:"PROVIDER_NAME_SUFFIX_FOR_PUSH" help:"Suffix for provider name during pushing the packages. This suffix is added to the end of the provider name. If there is a service name for the corresponded provider, then the suffix will be added to the base provider name and the service-scoped name will be after this suffix.  Examples: provider-family-aws-suffix, provider-aws-suffix-s3" optional:""`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
@@ -435,7 +435,7 @@ func (c *batchCmd) getAuthBackend(ax string) (parser.Backend, error) {
 	// we silently skip if a valid authentication extension
 	// is not specified as before
 	if err != nil {
-		return nil, nil //nolint:nilerr
+		return nil, nil 
 	}
 
 	defer func() { _ = axf.Close() }()

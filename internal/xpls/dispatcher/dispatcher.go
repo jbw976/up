@@ -18,9 +18,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/golang/tools/lsp/protocol"
 	"github.com/sourcegraph/jsonrpc2"
+
+	"github.com/crossplane/crossplane-runtime/pkg/logging"
 )
 
 const (
@@ -68,7 +69,7 @@ func WithLogger(l logging.Logger) Option {
 }
 
 // Dispatch dispatches the given JSONRPC request to the appropriate server function.
-func (d *Dispatcher) Dispatch(ctx context.Context, server Server, conn *jsonrpc2.Conn, r *jsonrpc2.Request) { // nolint:gocyclo
+func (d *Dispatcher) Dispatch(ctx context.Context, server Server, conn *jsonrpc2.Conn, r *jsonrpc2.Request) { //nolint:gocyclo
 	switch r.Method {
 	case "initialize":
 		var params protocol.InitializeParams

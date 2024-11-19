@@ -62,7 +62,7 @@ const (
 )
 
 // BeforeApply sets default values in login before assignment and validation.
-func (c *LoginCmd) BeforeApply() error { //nolint:unparam
+func (c *LoginCmd) BeforeApply() error { 
 	c.stdin = os.Stdin
 	c.prompter = input.NewPrompter()
 	return nil
@@ -114,9 +114,9 @@ type LoginCmd struct {
 	stdin    io.Reader
 	prompter input.Prompter
 
-	Username string `short:"u" env:"UP_USER" xor:"identifier" help:"Username used to execute command."`
-	Password string `short:"p" env:"UP_PASSWORD" help:"Password for specified user. '-' to read from stdin."`
-	Token    string `short:"t" env:"UP_TOKEN" xor:"identifier" help:"Upbound API token (personal access token) used to execute command. '-' to read from stdin."`
+	Username string `env:"UP_USER"     help:"Username used to execute command."                                                          short:"u" xor:"identifier"`
+	Password string `env:"UP_PASSWORD" help:"Password for specified user. '-' to read from stdin."                                       short:"p"`
+	Token    string `env:"UP_TOKEN"    help:"Upbound API token (personal access token) used to execute command. '-' to read from stdin." short:"t" xor:"identifier"`
 
 	accountsEndpoint url.URL
 	// Common Upbound API configuration
@@ -124,7 +124,7 @@ type LoginCmd struct {
 }
 
 // Run executes the login command.
-func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { // nolint:gocyclo
+func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { //nolint:gocyclo
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
 		return c.simpleAuth(ctx, upCtx)
@@ -377,7 +377,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.C
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close() // nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:gosec,errcheck
 
 	var user map[string]interface{} = make(map[string]interface{})
 	if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
@@ -446,7 +446,6 @@ func (cb *callbackServer) getPort() (int, error) {
 	// Create a new server without specifying a port
 	// which will result in an open port being chosen
 	server, err := net.Listen("tcp", "localhost:0")
-
 	// If there's an error it likely means no ports
 	// are available or something else prevented finding
 	// an open port
@@ -501,6 +500,6 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 	if err != nil {
 		return errors.Wrap(err, errLoginFailed)
 	}
-	defer res.Body.Close() // nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:gosec,errcheck
 	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID), errLoginFailed)
 }

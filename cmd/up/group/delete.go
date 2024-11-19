@@ -31,18 +31,16 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-var (
-	errDeletionProtectionEnabled = errors.New("Deletion protection is enabled on the specified group. Use '--force' to delete anyway.")
-)
+var errDeletionProtectionEnabled = errors.New("Deletion protection is enabled on the specified group. Use '--force' to delete anyway.")
 
 // deleteCmd creates a group in a space.
 type deleteCmd struct {
-	Name  string `arg:"" required:"" help:"Name of group."`
-	Force bool   `name:"force" optional:"" default:"false" help:"Force the deletion of the group."`
+	Name  string `arg:""          help:"Name of group."                   required:""`
+	Force bool   `default:"false" help:"Force the deletion of the group." name:"force" optional:""`
 }
 
 // Run executes the create command.
-func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { //nolint:gocyclo
 	// delete group
 	group := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -64,7 +62,6 @@ func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx
 				return errDeletionProtectionEnabled
 			}
 		}
-
 	}
 
 	if err := client.Delete(ctx, &group); err != nil {

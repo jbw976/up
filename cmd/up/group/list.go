@@ -28,8 +28,7 @@ import (
 )
 
 // listCmd list groups in a space.
-type listCmd struct {
-}
+type listCmd struct{}
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
@@ -39,7 +38,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client ctrlclient.Client, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client ctrlclient.Client, p pterm.TextPrinter) error { //nolint:gocyclo
 	// list groups
 	var nss corev1.NamespaceList
 	if err := client.List(ctx, &nss, ctrlclient.MatchingLabels(map[string]string{spacesv1beta1.ControlPlaneGroupLabelKey: "true"})); err != nil {

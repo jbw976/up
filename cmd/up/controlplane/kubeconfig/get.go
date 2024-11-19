@@ -23,8 +23,8 @@ import (
 type getCmd struct {
 	ConnectionSecretCmd
 
-	File    string `type:"path" short:"f" help:"File to merge control plane kubeconfig into or to create. By default it is merged into the user's default kubeconfig. Use '-' to print it to stdout.'"`
-	Context string `short:"c" help:"Context to use in the kubeconfig."`
+	File    string `help:"File to merge control plane kubeconfig into or to create. By default it is merged into the user's default kubeconfig. Use '-' to print it to stdout.'" short:"f" type:"path"`
+	Context string `help:"Context to use in the kubeconfig."                                                                                                                     short:"c"`
 }
 
 // Run executes the get command.

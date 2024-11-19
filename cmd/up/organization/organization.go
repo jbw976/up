@@ -21,7 +21,6 @@ import (
 	"github.com/posener/complete"
 
 	"github.com/upbound/up-sdk-go/service/organizations"
-
 	"github.com/upbound/up/cmd/up/organization/user"
 	"github.com/upbound/up/internal/upbound"
 )

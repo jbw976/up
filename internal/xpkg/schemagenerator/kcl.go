@@ -22,12 +22,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/spf13/afero"
 	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
@@ -41,13 +42,13 @@ const (
 	kclImage                = "xpkg.upbound.io/upbound/kcl:v0.10.6"
 )
 
-// GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS
+// GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS.
 func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocyclo
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
 
-	if err := crdFS.MkdirAll(baseFolder, 0755); err != nil {
+	if err := crdFS.MkdirAll(baseFolder, 0o755); err != nil {
 		return nil, err
 	}
 
@@ -213,7 +214,7 @@ func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //n
 		newDir := filepath.Join(targetDir, filepath.Join(reversedParts...))
 
 		// Ensure the new directory structure exists
-		if err := fs.MkdirAll(newDir, 0755); err != nil {
+		if err := fs.MkdirAll(newDir, 0o755); err != nil {
 			return errors.Wrapf(err, "failed to create directory %s", newDir)
 		}
 

@@ -20,13 +20,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/spf13/afero"
 	v1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1beta1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg"
@@ -44,7 +45,7 @@ const (
 	errNoObjectsToFlushToDisk      = "no objects to flush"
 )
 
-// entry is the internal representation of the cache at a given directory
+// entry is the internal representation of the cache at a given directory.
 type entry struct {
 	cacheRoot string
 	fs        afero.Fs
@@ -53,9 +54,8 @@ type entry struct {
 }
 
 // NewEntry --
-// TODO(@tnthornton) maybe pull this into cache.go
+// TODO(@tnthornton) maybe pull this into cache.go.
 func (c *Local) newEntry(p *rxpkg.ParsedPackage) *entry {
-
 	return &entry{
 		cacheRoot: c.root,
 		fs:        c.fs,
@@ -66,9 +66,8 @@ func (c *Local) newEntry(p *rxpkg.ParsedPackage) *entry {
 // CurrentEntry retrieves the current Entry at the given path.
 // In addition registry and repo are provided in order to fully
 // hydrate the ParsedPackage.
-// TODO(@tnthornton) maybe pull this into cache.go
+// TODO(@tnthornton) maybe pull this into cache.go.
 func (c *Local) currentEntry(path string) (*entry, error) {
-
 	e := &entry{
 		cacheRoot: c.root,
 		fs:        c.fs,
@@ -153,7 +152,7 @@ func (e *entry) writeImageMeta(registry, repo, version, digest string) (*flushst
 }
 
 // writeMeta writes the meta file to disk.
-// If the meta file was written, we return the file count
+// If the meta file was written, we return the file count.
 func (e *entry) writeMeta(o runtime.Object) (*flushstats, error) {
 	stats := &flushstats{}
 
@@ -161,7 +160,7 @@ func (e *entry) writeMeta(o runtime.Object) (*flushstats, error) {
 	if err != nil {
 		return stats, errors.Wrap(err, errFailedToCreateMeta)
 	}
-	defer cf.Close() // nolint:errcheck
+	defer cf.Close() //nolint:errcheck
 
 	b, err := yaml.Marshal(o)
 	if err != nil {
@@ -195,17 +194,17 @@ func (e *entry) createPackageJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer pf.Close() // nolint:errcheck
+	defer pf.Close() //nolint:errcheck
 
 	return writeToFile(data, pf)
 }
 
 func (e *entry) appendToPackageJSON(data []byte) error {
-	pf, err := e.fs.OpenFile(filepath.Join(e.location(), xpkg.JSONStreamFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	pf, err := e.fs.OpenFile(filepath.Join(e.location(), xpkg.JSONStreamFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
-	defer pf.Close() // nolint:errcheck
+	defer pf.Close() //nolint:errcheck
 
 	return writeToFile(data, pf)
 }
@@ -217,8 +216,8 @@ func writeToFile(data []byte, f afero.File) error {
 	return err
 }
 
-// writeObjects writes out the CRDs and XRDs that came from the package.yaml
-func (e *entry) writeObjects(objs []runtime.Object) (*flushstats, error) { // nolint:gocyclo
+// writeObjects writes out the CRDs and XRDs that came from the package.yaml.
+func (e *entry) writeObjects(objs []runtime.Object) (*flushstats, error) { //nolint:gocyclo
 	stats := &flushstats{}
 
 	for _, o := range objs {

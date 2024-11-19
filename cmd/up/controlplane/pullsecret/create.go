@@ -72,9 +72,9 @@ type createCmd struct {
 	Name string `arg:"" default:"package-pull-secret" help:"Name of the pull secret."`
 
 	// NOTE(hasheddan): kong automatically cleans paths tagged with existingfile.
-	File       string `type:"existingfile" short:"f" help:"Path to credentials file. Credentials from profile are used if not specified."`
-	Kubeconfig string `hidden:"" type:"existingfile" help:"No longer used. Please use the KUBECONFIG environment variable instead."`
-	Namespace  string `short:"n" env:"UPBOUND_NAMESPACE" default:"upbound-system" help:"Kubernetes namespace for pull secret."`
+	File       string `help:"Path to credentials file. Credentials from profile are used if not specified." short:"f"               type:"existingfile"`
+	Kubeconfig string `help:"No longer used. Please use the KUBECONFIG environment variable instead."       hidden:""               type:"existingfile"`
+	Namespace  string `default:"upbound-system"                                                             env:"UPBOUND_NAMESPACE" help:"Kubernetes namespace for pull secret." short:"n"`
 }
 
 // Run executes the pull secret command.

@@ -16,13 +16,11 @@ package snapshot
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
-
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -40,6 +38,8 @@ import (
 	"github.com/upbound/up/internal/xpkg/scheme"
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
 	"github.com/upbound/up/internal/xpkg/workspace"
+
+	_ "embed"
 )
 
 func TestCompositionValidationResources(t *testing.T) {
@@ -405,10 +405,8 @@ func TestCompositionValidationResources(t *testing.T) {
 	}
 }
 
-var (
-	//go:embed testdata/upbound.yaml
-	projectFile []byte
-)
+//go:embed testdata/upbound.yaml
+var projectFile []byte
 
 func TestCompositionValidationPipeline(t *testing.T) {
 	objScheme, _ := scheme.BuildObjectScheme()
@@ -440,8 +438,8 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
-					_ = f.MkdirAll("/functions/my-function", 0755)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
+					_ = f.MkdirAll("/functions/my-function", 0o755)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -482,7 +480,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -519,7 +517,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -565,7 +563,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -638,7 +636,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -711,7 +709,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),
@@ -796,7 +794,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			args: args{
 				workspace: func() *workspace.Workspace {
 					f := afero.NewMemMapFs()
-					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0644)
+					_ = afero.WriteFile(f, "/upbound.yaml", projectFile, 0o644)
 					ws, _ := workspace.New("/", workspace.WithFS(f))
 					return ws
 				}(),

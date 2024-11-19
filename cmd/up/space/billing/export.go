@@ -18,7 +18,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	_ "embed"
 	"fmt"
 	"io/fs"
 	"os"
@@ -34,8 +33,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	gcpopt "google.golang.org/api/option"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	usageaws "github.com/upbound/up/internal/usage/aws"
 	"github.com/upbound/up/internal/usage/azure"
@@ -44,6 +44,8 @@ import (
 	"github.com/upbound/up/internal/usage/report"
 	reporttar "github.com/upbound/up/internal/usage/report/file/tar"
 	usagetime "github.com/upbound/up/internal/usage/time"
+
+	_ "embed"
 )
 
 const (
@@ -99,17 +101,17 @@ func (p provider) Validate() error {
 }
 
 type exportCmd struct {
-	Out string `optional:"" short:"o" env:"UP_BILLING_OUT" default:"upbound_billing_report.tgz" help:"Name of the output file."`
+	Out string `default:"upbound_billing_report.tgz" env:"UP_BILLING_OUT" help:"Name of the output file." optional:"" short:"o"`
 
 	// TODO(branden): Make storage params optional and fetch missing values from spaces cluster.
-	Provider            provider `required:"" enum:"aws,gcp,azure," env:"UP_BILLING_PROVIDER" group:"Storage" help:"Storage provider. Must be one of: aws, gcp, azure."`
-	Bucket              string   `required:"" env:"UP_BILLING_BUCKET" group:"Storage" help:"Storage bucket."`
-	Endpoint            string   `env:"UP_BILLING_ENDPOINT" group:"Storage" help:"Custom storage endpoint."`
-	Account             string   `required:"" env:"UP_BILLING_ACCOUNT" group:"Storage" help:"Name of the Upbound account whose billing report is being collected."`
-	AzureStorageAccount string   `optional:"" env:"UP_AZURE_STORAGE_ACCOUNT" group:"Storage" help:"Name of the Azure storage account. Required for --provider=azure."`
+	Provider            provider `enum:"aws,gcp,azure,"          env:"UP_BILLING_PROVIDER" group:"Storage"                                                             help:"Storage provider. Must be one of: aws, gcp, azure." required:""`
+	Bucket              string   `env:"UP_BILLING_BUCKET"        group:"Storage"           help:"Storage bucket."                                                      required:""`
+	Endpoint            string   `env:"UP_BILLING_ENDPOINT"      group:"Storage"           help:"Custom storage endpoint."`
+	Account             string   `env:"UP_BILLING_ACCOUNT"       group:"Storage"           help:"Name of the Upbound account whose billing report is being collected." required:""`
+	AzureStorageAccount string   `env:"UP_AZURE_STORAGE_ACCOUNT" group:"Storage"           help:"Name of the Azure storage account. Required for --provider=azure."    optional:""`
 
-	BillingMonth    time.Time  `format:"2006-01" required:"" xor:"billingperiod" env:"UP_BILLING_MONTH" group:"Billing period" help:"Export a report for a billing period of one calendar month. Format: 2006-01."`
-	BillingCustom   *dateRange `required:"" xor:"billingperiod" env:"UP_BILLING_CUSTOM" group:"Billing period" help:"Export a report for a custom billing period. Date range is inclusive. Format: 2006-01-02/2006-01-02."`
+	BillingMonth    time.Time  `env:"UP_BILLING_MONTH"            format:"2006-01"       group:"Billing period"                                                                                      help:"Export a report for a billing period of one calendar month. Format: 2006-01." required:""         xor:"billingperiod"`
+	BillingCustom   *dateRange `env:"UP_BILLING_CUSTOM"           group:"Billing period" help:"Export a report for a custom billing period. Date range is inclusive. Format: 2006-01-02/2006-01-02." required:""                                                                         xor:"billingperiod"`
 	ForceIncomplete bool       `env:"UP_BILLING_FORCE_INCOMPLETE" group:"Billing period" help:"Export a report for an incomplete billing period."`
 
 	outAbs        string
@@ -216,7 +218,7 @@ func (c *exportCmd) collectReport() error {
 	if err != nil {
 		return errors.Wrap(err, "error creating report")
 	}
-	defer f.Close() // nolint:errcheck
+	defer f.Close() //nolint:errcheck
 	gw := gzip.NewWriter(f)
 	tw := tar.NewWriter(gw)
 	rw, err := reporttar.NewWriter(tw, report.Meta{

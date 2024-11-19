@@ -15,11 +15,12 @@
 package resources
 
 import (
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Package represents a Crossplane Package.

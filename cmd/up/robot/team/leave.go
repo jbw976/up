@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
-
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -59,10 +59,10 @@ func (c *leaveCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error
 type leaveCmd struct {
 	prompter input.Prompter
 
-	TeamName  string `arg:"" required:"" help:"Name of team."`
-	RobotName string `arg:"" required:"" help:"Name of robot."`
+	TeamName  string `arg:"" help:"Name of team."  required:""`
+	RobotName string `arg:"" help:"Name of robot." required:""`
 
-	Force bool `help:"Force the removal of a robot from a team even if conflicts exist." default:"false"`
+	Force bool `default:"false" help:"Force the removal of a robot from a team even if conflicts exist."`
 }
 
 // Run executes the delete command.

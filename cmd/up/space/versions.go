@@ -26,7 +26,7 @@ const (
 	// constraint which version of Upbound up can be used to install it.
 	// It's a semicolon-separated list of semver constraints with a message:
 	//
-	// spaces.upbound.io/up-version-constraints: ">= 0.20: up 0.20.0 or later is required; <0.29: up <0.29 is required"
+	// spaces.upbound.io/up-version-constraints: ">= 0.20: up 0.20.0 or later is required; <0.29: up <0.29 is required".
 	chartAnnotationUpConstraints = "spaces.upbound.io/up-version-constraints"
 )
 

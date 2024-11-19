@@ -17,21 +17,21 @@ package team
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
-
 	"github.com/upbound/up/internal/upbound"
 )
 
 // joinCmd adds a robot to team on Upbound.
 type joinCmd struct {
-	TeamName  string `arg:"" required:"" help:"Name of team."`
-	RobotName string `arg:"" required:"" help:"Name of robot."`
+	TeamName  string `arg:"" help:"Name of team."  required:""`
+	RobotName string `arg:"" help:"Name of robot." required:""`
 }
 
 // Run executes the create command.

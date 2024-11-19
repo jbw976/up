@@ -21,18 +21,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	cv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	xpmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
-
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	xpmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/crossplane/crossplane/xcrd"
 
@@ -55,17 +54,15 @@ const (
 	maxFileSize                     = 1024 * 1024 * 1024
 )
 
-var (
-	crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-)
+var crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
 
-// Marshaler represents a xpkg Marshaler
+// Marshaler represents a xpkg Marshaler.
 type Marshaler struct {
 	yp parser.Parser
 	jp JSONPackageParser
 }
 
-// NewMarshaler returns a new Marshaler
+// NewMarshaler returns a new Marshaler.
 func NewMarshaler(opts ...MarshalerOption) (*Marshaler, error) {
 	r := &Marshaler{}
 	yp, err := yaml.New()
@@ -88,7 +85,7 @@ func NewMarshaler(opts ...MarshalerOption) (*Marshaler, error) {
 	return r, nil
 }
 
-// MarshalerOption modifies the xpkg Marshaler
+// MarshalerOption modifies the xpkg Marshaler.
 type MarshalerOption func(*Marshaler)
 
 // WithYamlParser modifies the Marshaler by setting the supplied PackageParser as
@@ -109,14 +106,14 @@ func WithJSONParser(p JSONPackageParser) MarshalerOption {
 
 // FromImage takes a xpkg.Image and returns a ParsedPackage for consumption by
 // upstream callers.
-func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { // nolint:gocyclo
+func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:gocyclo
 	manifest, err := i.Image.Manifest()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get image manifest")
 	}
 
 	var packageLayerDigest cv1.Hash
-	var schemaFS = make(map[string]afero.Fs)
+	schemaFS := make(map[string]afero.Fs)
 
 	for _, l := range manifest.Layers {
 		if val, ok := l.Annotations[xpkg.AnnotationKey]; ok && val == xpkg.PackageAnnotation {
@@ -202,7 +199,7 @@ func (r *Marshaler) FromDir(fs afero.Fs, path string) (*ParsedPackage, error) {
 	return finalizePkg(pkg)
 }
 
-// parseYaml parses the
+// parseYaml parses the.
 func (r *Marshaler) parseYaml(reader io.ReadCloser) (*ParsedPackage, error) {
 	pkg, err := r.yp.Parse(context.Background(), reader)
 	if err != nil {
@@ -313,7 +310,7 @@ func convertXRD2CRD(pkg *ParsedPackage) (*ParsedPackage, error) {
 	return pkg, nil
 }
 
-func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) { // nolint:gocyclo
+func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) { //nolint:gocyclo
 	deps, err := determineDeps(pkg.MetaObj)
 	if err != nil {
 		return nil, err
@@ -361,7 +358,7 @@ func convertToV1beta1(in xpmetav1.Dependency) v1beta1.Dependency {
 	return betaD
 }
 
-func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { // nolint:gocyclo
+func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { //nolint:gocyclo
 	layers, err := i.Image.Layers()
 	if err != nil {
 		return errors.Wrap(err, "failed to get image layers")
@@ -407,7 +404,7 @@ func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { /
 		switch header.Typeflag {
 		case tar.TypeDir:
 			// Create directories in the Afero filesystem
-			if err := fs.MkdirAll(outputPath, 0755); err != nil {
+			if err := fs.MkdirAll(outputPath, 0o755); err != nil {
 				return errors.Wrap(err, "failed to create directory in afero fs")
 			}
 		case tar.TypeReg:
@@ -425,7 +422,6 @@ func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { /
 			if _, err := io.Copy(outFile, limitedReader); err != nil {
 				return errors.Wrap(err, "failed to write file in afero fs or exceeded file size limit")
 			}
-
 		}
 	}
 

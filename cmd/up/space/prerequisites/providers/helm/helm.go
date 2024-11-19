@@ -18,10 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xppkgv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,12 +30,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xppkgv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
+
 	"github.com/upbound/up/internal/resources"
 )
 
 var (
 	providerName = "provider-helm"
-	// Package version to be installed
+	// Package version to be installed.
 	version   = "v0.19.0"
 	pkgRef, _ = name.ParseReference(fmt.Sprintf("crossplane-contrib/provider-helm:%s", version))
 

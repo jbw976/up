@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-cmp/cmp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -32,6 +31,7 @@ import (
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 	xpmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
@@ -146,7 +146,6 @@ func TestFromImage(t *testing.T) {
 			}
 
 			if err == nil {
-
 				if diff := cmp.Diff(tc.want.pkg.Digest(), pkg.Digest()); diff != "" {
 					t.Errorf("\n%s\nFromImage(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
@@ -180,7 +179,6 @@ func TestFromImage(t *testing.T) {
 }
 
 func TestFromDir(t *testing.T) {
-
 	inmemfs := afero.NewMemMapFs()
 	testdatafs := afero.NewOsFs()
 	path1 := "cache/index.docker.io/crossplane/provider-helm@v0.9.0"
@@ -403,7 +401,6 @@ func TestFromDir(t *testing.T) {
 					t.Errorf("\n%s\nFromDir(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
 			}
-
 		})
 	}
 }

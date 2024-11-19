@@ -94,9 +94,9 @@ type initCmd struct {
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
 
-	Version       string `arg:"" help:"Upbound Spaces version to install."`
-	Yes           bool   `name:"yes" type:"bool" help:"Answer yes to all questions"`
-	PublicIngress bool   `name:"public-ingress" type:"bool" help:"For AKS,EKS,GKE expose ingress publically"`
+	Version       string `arg:""                                           help:"Upbound Spaces version to install."`
+	Yes           bool   `help:"Answer yes to all questions"               name:"yes"                                type:"bool"`
+	PublicIngress bool   `help:"For AKS,EKS,GKE expose ingress publically" name:"public-ingress"                     type:"bool"`
 
 	helmMgr    install.Manager
 	prereqs    *prerequisites.Manager

@@ -63,8 +63,8 @@ func TestFSToTar(t *testing.T) {
 			},
 			prefix: "my-prefix/",
 			expectedFiles: map[string]fileInfo{
-				"my-prefix/":         {mode: 0777},
-				"my-prefix/file.txt": {mode: 0777},
+				"my-prefix/":         {mode: 0o777},
+				"my-prefix/file.txt": {mode: 0o777},
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestFSToTar(t *testing.T) {
 			},
 			prefix: "my-prefix/",
 			expectedFiles: map[string]fileInfo{
-				"my-prefix/": {mode: 0777}, // Only prefix should exist, no dir should be included.
+				"my-prefix/": {mode: 0o777}, // Only prefix should exist, no dir should be included.
 			},
 		},
 		{
@@ -87,9 +87,9 @@ func TestFSToTar(t *testing.T) {
 			},
 			prefix: "another-prefix/",
 			expectedFiles: map[string]fileInfo{
-				"another-prefix/":          {mode: 0777},
-				"another-prefix/file1.txt": {mode: 0777},
-				"another-prefix/file2.txt": {mode: 0777},
+				"another-prefix/":          {mode: 0o777},
+				"another-prefix/file1.txt": {mode: 0o777},
+				"another-prefix/file2.txt": {mode: 0o777},
 			},
 		},
 		{
@@ -104,9 +104,9 @@ func TestFSToTar(t *testing.T) {
 				WithUIDOverride(2345),
 			},
 			expectedFiles: map[string]fileInfo{
-				"my-prefix/":          {mode: 0777, uid: 2345},
-				"my-prefix/file1.txt": {mode: 0777, uid: 2345},
-				"my-prefix/file2.txt": {mode: 0777, uid: 2345},
+				"my-prefix/":          {mode: 0o777, uid: 2345},
+				"my-prefix/file1.txt": {mode: 0o777, uid: 2345},
+				"my-prefix/file2.txt": {mode: 0o777, uid: 2345},
 			},
 		},
 		{
@@ -121,9 +121,9 @@ func TestFSToTar(t *testing.T) {
 				WithGIDOverride(2345),
 			},
 			expectedFiles: map[string]fileInfo{
-				"my-prefix/":          {mode: 0777, gid: 2345},
-				"my-prefix/file1.txt": {mode: 0777, gid: 2345},
-				"my-prefix/file2.txt": {mode: 0777, gid: 2345},
+				"my-prefix/":          {mode: 0o777, gid: 2345},
+				"my-prefix/file1.txt": {mode: 0o777, gid: 2345},
+				"my-prefix/file2.txt": {mode: 0o777, gid: 2345},
 			},
 		},
 	}
@@ -359,7 +359,7 @@ func TestCopyFolder(t *testing.T) {
 			targetDir: "/target",
 			setupFs: func(fs afero.Fs) {
 				fs.MkdirAll("/source", os.ModePerm)
-				afero.WriteFile(fs, "/source/file1.txt", []byte("content"), 0644)
+				afero.WriteFile(fs, "/source/file1.txt", []byte("content"), 0o644)
 			},
 			expectedErr: false,
 			verifyFs: func(fs afero.Fs, t *testing.T) {
@@ -386,8 +386,8 @@ func TestCopyFolder(t *testing.T) {
 			targetDir: "/target",
 			setupFs: func(fs afero.Fs) {
 				fs.MkdirAll("/source/dir1/dir2", os.ModePerm)
-				afero.WriteFile(fs, "/source/dir1/file1.txt", []byte("file1 content"), 0644)
-				afero.WriteFile(fs, "/source/dir1/dir2/file2.txt", []byte("file2 content"), 0644)
+				afero.WriteFile(fs, "/source/dir1/file1.txt", []byte("file1 content"), 0o644)
+				afero.WriteFile(fs, "/source/dir1/dir2/file2.txt", []byte("file2 content"), 0o644)
 			},
 			expectedErr: false,
 			verifyFs: func(fs afero.Fs, t *testing.T) {
@@ -474,7 +474,7 @@ func TestCopyFileIfExists(t *testing.T) {
 			dst:  "/destination/file.txt",
 			setupFs: func(fs afero.Fs) {
 				fs.MkdirAll("/source", os.ModePerm)
-				afero.WriteFile(fs, "/source/file.txt", []byte("file content"), 0644)
+				afero.WriteFile(fs, "/source/file.txt", []byte("file content"), 0o644)
 			},
 			expectedErr: false,
 			verifyFs: func(fs afero.Fs, t *testing.T) {
@@ -520,8 +520,8 @@ func TestCopyFileIfExists(t *testing.T) {
 			setupFs: func(fs afero.Fs) {
 				fs.MkdirAll("/source", os.ModePerm)
 				fs.MkdirAll("/destination", os.ModePerm)
-				afero.WriteFile(fs, "/source/file.txt", []byte("new content"), 0644)
-				afero.WriteFile(fs, "/destination/file.txt", []byte("old content"), 0644)
+				afero.WriteFile(fs, "/source/file.txt", []byte("new content"), 0o644)
+				afero.WriteFile(fs, "/destination/file.txt", []byte("old content"), 0o644)
 			},
 			expectedErr: false,
 			verifyFs: func(fs afero.Fs, t *testing.T) {

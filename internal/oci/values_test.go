@@ -24,7 +24,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 )
 
-// MockPathNavigator is a mock implementation of PathNavigator for testing
+// MockPathNavigator is a mock implementation of PathNavigator for testing.
 type MockPathNavigator struct {
 	SupportedVersions []string `json:"supportedVersions"`
 }
@@ -33,7 +33,7 @@ func (m *MockPathNavigator) GetSupportedVersions() ([]string, error) {
 	return m.SupportedVersions, nil
 }
 
-// Mock functions
+// Mock functions.
 func mockLoaderLoad(name string) (*chart.Chart, error) {
 	return &chart.Chart{
 		Metadata: &chart.Metadata{
@@ -53,7 +53,7 @@ func mockPullRun(src, version string) (string, error) {
 	return dir, nil
 }
 
-// TestGetValuesFromChart tests the GetValuesFromChart function
+// TestGetValuesFromChart tests the GetValuesFromChart function.
 func TestGetValuesFromChart(t *testing.T) {
 	// Setup mock functions and data
 	chartName := "test-chart"
@@ -69,7 +69,7 @@ func TestGetValuesFromChart(t *testing.T) {
 	assert.Equal(t, supportedVersions, versions)
 }
 
-// TestGetValuesFromChart_PullError tests the GetValuesFromChart function when Pull fails
+// TestGetValuesFromChart_PullError tests the GetValuesFromChart function when Pull fails.
 func TestGetValuesFromChart_PullError(t *testing.T) {
 	// Setup mock functions and data
 	chartName := "test-chart"
@@ -88,7 +88,7 @@ func TestGetValuesFromChart_PullError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to pull chart")
 }
 
-// TestGetValuesFromChart_LoadError tests the GetValuesFromChart function when Load fails
+// TestGetValuesFromChart_LoadError tests the GetValuesFromChart function when Load fails.
 func TestGetValuesFromChart_LoadError(t *testing.T) {
 	// Setup mock functions and data
 	chartName := "test-chart"
@@ -107,7 +107,7 @@ func TestGetValuesFromChart_LoadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to load chart")
 }
 
-// TestGetValuesFromChart_JSONError tests the GetValuesFromChart function when JSON unmarshalling fails
+// TestGetValuesFromChart_JSONError tests the GetValuesFromChart function when JSON unmarshalling fails.
 func TestGetValuesFromChart_JSONError(t *testing.T) {
 	// Setup mock functions and data
 	chartName := "test-chart"

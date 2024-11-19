@@ -21,7 +21,6 @@ import (
 )
 
 func TestTypes(t *testing.T) {
-
 	type args struct {
 		pkgType string
 	}

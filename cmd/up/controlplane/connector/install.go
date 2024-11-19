@@ -30,7 +30,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
@@ -38,9 +37,7 @@ import (
 	"github.com/upbound/up/internal/version"
 )
 
-var (
-	mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts")
-)
+var mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts")
 
 const (
 	connectorName = "mcp-connector"
@@ -101,13 +98,13 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Name      string `arg:"" required:"" help:"Name of control plane." predictor:"ctps"`
-	Namespace string `arg:"" required:"" help:"Namespace in the control plane where the claims of the cluster will be stored."`
+	Name      string `arg:"" help:"Name of control plane."                                                         predictor:"ctps" required:""`
+	Namespace string `arg:"" help:"Namespace in the control plane where the claims of the cluster will be stored." required:""`
 
 	Token                 string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 	ClusterName           string `help:"Name of the cluster connecting to the control plane. If not provided, the namespace argument value will be used."`
-	Kubeconfig            string `type:"existingfile" help:"Override the default kubeconfig path."`
-	InstallationNamespace string `short:"n" env:"MCP_CONNECTOR_NAMESPACE" default:"kube-system" help:"Kubernetes namespace for MCP Connector. Default is kube-system."`
+	Kubeconfig            string `help:"Override the default kubeconfig path."                                                                            type:"existingfile"`
+	InstallationNamespace string `default:"kube-system"                                                                                                   env:"MCP_CONNECTOR_NAMESPACE" help:"Kubernetes namespace for MCP Connector. Default is kube-system." short:"n"`
 	ControlPlaneSecret    string `help:"Name of the secret that contains the kubeconfig for a control plane."`
 
 	install.CommonParams

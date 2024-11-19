@@ -21,7 +21,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/repositorypermission"
 	"github.com/upbound/up-sdk-go/service/teams"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

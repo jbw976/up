@@ -25,22 +25,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/goccy/go-yaml/ast"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/kube-openapi/pkg/validation/validate"
-
-	apimachyaml "k8s.io/apimachinery/pkg/util/yaml"
-	verrors "k8s.io/kube-openapi/pkg/validation/errors"
-
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/token"
 	"github.com/golang/tools/lsp/protocol"
 	"github.com/golang/tools/span"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	apimachyaml "k8s.io/apimachinery/pkg/util/yaml"
+	verrors "k8s.io/kube-openapi/pkg/validation/errors"
+	"k8s.io/kube-openapi/pkg/validation/validate"
+
+	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -70,7 +68,7 @@ type DepManager interface {
 // Snapshot provides a unified point in time snapshot of the details needed to
 // perform operations on an xpkg project. These details include:
 // - currently parsed workspace files
-// - external dependencies per the crossplane.yaml in the xpkg project
+// - external dependencies per the crossplane.yaml in the xpkg project.
 type Snapshot struct {
 	// TODO synchonize access to the snapshot using channels so that we don't
 	// need this lock.
@@ -200,7 +198,6 @@ func (s *Snapshot) init(ctx context.Context) error {
 
 		// add external dependency validators to snapshot validators
 		for _, pkg := range extView.Packages() {
-
 			for _, o := range pkg.Objects() {
 				validators, err := ValidatorsForObj(ctx, o, s)
 				if err != nil {
@@ -340,7 +337,6 @@ func (s *Snapshot) updateChanges(_ context.Context, uri span.URI, changes []prot
 		buf.WriteString(c.Text)
 		buf.Write(content[end:])
 		content = buf.Bytes()
-
 	}
 
 	return content, nil
@@ -348,7 +344,7 @@ func (s *Snapshot) updateChanges(_ context.Context, uri span.URI, changes []prot
 
 // loadWSValidators processes the details from the parsed workspace, extracting
 // the corresponding validators and applying them to the workspace.
-func (s *Snapshot) loadWSValidators(ctx context.Context) error { // nolint:gocyclo
+func (s *Snapshot) loadWSValidators(ctx context.Context) error { //nolint:gocyclo
 	for _, d := range s.wsview.FileDetails() {
 		validators, err := s.validatorsFromBytes(ctx, d.Body)
 		if err != nil {
@@ -430,7 +426,7 @@ func (s *Snapshot) ValidateMeta(ctx context.Context) (span.URI, []protocol.Diagn
 // for any validation errors encountered.
 // TODO(hasheddan): consider decoupling forming diagnostics from getting
 // validation errors.
-func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagnostic, error) { // nolint:gocyclo
+func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagnostic, error) { //nolint:gocyclo
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	diags := []protocol.Diagnostic{}
@@ -465,7 +461,7 @@ func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagn
 // errors.
 // TODO(@tnthornton) this function is getting pretty complex. We should work
 // towards breaking it up.
-func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVersionKind) []protocol.Diagnostic { // nolint:gocyclo
+func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVersionKind) []protocol.Diagnostic { //nolint:gocyclo
 	diags := []protocol.Diagnostic{}
 	for _, err := range res.Errors {
 		var e *verror
@@ -516,7 +512,7 @@ func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVer
 				startCh, endCh := tok.Position.Column-1, 0
 
 				// end character can be unmatched if we have doublequotes
-				switch tok.Type { // nolint:exhaustive
+				switch tok.Type { //nolint:exhaustive
 				case token.DoubleQuoteType:
 					endCh = tok.Position.Column + len(tok.Value) + 1
 				default:

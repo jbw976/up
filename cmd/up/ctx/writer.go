@@ -31,8 +31,7 @@ type kubeContextWriter interface {
 	Write(config *clientcmdapi.Config) error
 }
 
-type printWriter struct {
-}
+type printWriter struct{}
 
 var _ kubeContextWriter = &printWriter{}
 
@@ -83,7 +82,7 @@ func (f *fileWriter) Write(config *clientcmdapi.Config) error {
 		return err
 	}
 
-	if err := f.writeLastContext(prevContext); err != nil { // nolint:staticcheck
+	if err := f.writeLastContext(prevContext); err != nil { //nolint:staticcheck
 		// ignore error because now everything has happened already.
 	}
 	return nil
@@ -91,7 +90,7 @@ func (f *fileWriter) Write(config *clientcmdapi.Config) error {
 
 // loadOutputKubeconfig loads the Kubeconfig that will be overwritten by the
 // action, either loading it from the file override or defaulting back to the
-// current kubeconfig
+// current kubeconfig.
 func (f *fileWriter) loadOutputKubeconfig() (config *clientcmdapi.Config, err error) {
 	if f.fileOverride != "" {
 		config, err = clientcmd.LoadFromFile(f.fileOverride)
@@ -111,7 +110,7 @@ func (f *fileWriter) loadOutputKubeconfig() (config *clientcmdapi.Config, err er
 }
 
 // upsertContext upserts the input kubeconfig based on its current context into
-// the output kubeconfig at the destination context name set in the writer
+// the output kubeconfig at the destination context name set in the writer.
 func (f *fileWriter) upsertContext(inConfig *clientcmdapi.Config, outConfig *clientcmdapi.Config) (ctpConf *clientcmdapi.Config, prevContext string, err error) {
 	// assumes the current context
 	ctpConf, prevContext, err = mergeUpboundContext(outConfig, inConfig, inConfig.CurrentContext, f.kubeContext)
@@ -134,7 +133,7 @@ func (f *fileWriter) upsertContext(inConfig *clientcmdapi.Config, outConfig *cli
 // Note: We add all of the information to the `*-previous` context in this
 // method because when we call `activateContext`, it gets swapped with the
 // correct context name.
-func mergeUpboundContext(dest, src *clientcmdapi.Config, srcContext, destContext string) (ctpConf *clientcmdapi.Config, prevContext string, err error) { // nolint:gocyclo // little long, but well tested
+func mergeUpboundContext(dest, src *clientcmdapi.Config, srcContext, destContext string) (ctpConf *clientcmdapi.Config, prevContext string, err error) { //nolint:gocyclo // little long, but well tested
 	dest = dest.DeepCopy()
 
 	if _, ok := src.Contexts[srcContext]; !ok {

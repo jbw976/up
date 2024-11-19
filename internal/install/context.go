@@ -29,6 +29,6 @@ type Context struct {
 // CommonParams are common parameters for installing and upgrading.
 type CommonParams struct {
 	Set    map[string]string `help:"Set parameters."`
-	File   *os.File          `short:"f" help:"Parameters file."`
+	File   *os.File          `help:"Parameters file."   short:"f"`
 	Bundle *os.File          `help:"Local bundle path."`
 }

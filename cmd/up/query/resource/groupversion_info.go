@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: queryv1alpha2.SchemeGroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.

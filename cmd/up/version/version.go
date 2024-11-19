@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/alecthomas/kong"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -56,20 +55,20 @@ Server:
 )
 
 type clientVersion struct {
-	Arch      string `json:"arch,omitempty" yaml:"arch,omitempty"`
+	Arch      string `json:"arch,omitempty"      yaml:"arch,omitempty"`
 	GitCommit string `json:"gitCommit,omitempty" yaml:"gitCommit,omitempty"`
 	GoVersion string `json:"goVersion,omitempty" yaml:"goVersion,omitempty"`
-	OS        string `json:"os,omitempty" yaml:"os,omitempty"`
-	Version   string `json:"version,omitempty" yaml:"version,omitempty"`
+	OS        string `json:"os,omitempty"        yaml:"os,omitempty"`
+	Version   string `json:"version,omitempty"   yaml:"version,omitempty"`
 }
 
 type serverVersion struct {
-	CrossplaneVersion       string `json:"crossplaneVersion,omitempty" yaml:"crossplaneVersion,omitempty"`
+	CrossplaneVersion       string `json:"crossplaneVersion,omitempty"       yaml:"crossplaneVersion,omitempty"`
 	SpacesControllerVersion string `json:"spacesControllerVersion,omitempty" yaml:"spacesControllerVersion,omitempty"`
 }
 
 type versionInfo struct {
-	Client clientVersion  `json:"client" yaml:"client"`
+	Client clientVersion  `json:"client"           yaml:"client"`
 	Server *serverVersion `json:"server,omitempty" yaml:"server,omitempty"`
 }
 
@@ -92,7 +91,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-// BeforeApply sets default values and parses flags
+// BeforeApply sets default values and parses flags.
 func (c *Cmd) BeforeApply() error {
 	flag.BoolVar(&c.Client, "client", false, "If true, shows client version only (no server required).")
 	flag.Parse()

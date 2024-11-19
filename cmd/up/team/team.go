@@ -23,7 +23,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/teams"
-
 	"github.com/upbound/up/internal/upbound"
 )
 

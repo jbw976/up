@@ -61,6 +61,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           submodules: true
+          fetch-depth: 0
 
       # TODO(hasheddan): temporary to allow access to up-sdk-go
       - name: Granting private modules access
@@ -71,24 +72,6 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Find the Go Build Cache
-        id: go-cache-paths
-        run: |
-          echo "::set-output name=go-build::$(make go.cachedir)"
-          echo "::set-output name=go-mod::$(make go.mod.cachedir)"
-
-      - name: Cache the Go Build Cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-build }}
-          key: ${{ runner.os }}-build-lint-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
-
-      - name: Cache Go Dependencies
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-pkg-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
 
       - name: Vendor Dependencies
         run: make vendor vendor.check
@@ -101,6 +84,7 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           skip-go-installation: true
+          only-new-issues: true
 
   check-diff:
     runs-on: ubuntu-24.04
@@ -122,24 +106,6 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Find the Go Build Cache
-        id: go-cache-paths
-        run: |
-          echo "::set-output name=go-build::$(make go.cachedir)"
-          echo "::set-output name=go-mod::$(make go.mod.cachedir)"
-
-      - name: Cache the Go Build Cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-build }}
-          key: ${{ runner.os }}-build-check-diff-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
-
-      - name: Cache Go Dependencies
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-pkg-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
 
       - name: Vendor Dependencies
         run: make vendor vendor.check
@@ -170,24 +136,6 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Find the Go Build Cache
-        id: go-cache-paths
-        run: |
-          echo "::set-output name=go-build::$(make go.cachedir)"
-          echo "::set-output name=go-mod::$(make go.mod.cachedir)"
-
-      - name: Cache the Go Build Cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-build }}
-          key: ${{ runner.os }}-build-unit-tests-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
-
-      - name: Cache Go Dependencies
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-pkg-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
 
       - name: Vendor Dependencies
         run: make vendor vendor.check
@@ -232,24 +180,6 @@ jobs:
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Find the Go Build Cache
-        id: go-cache-paths
-        run: |
-          echo "::set-output name=go-build::$(make go.cachedir)"
-          echo "::set-output name=go-mod::$(make go.mod.cachedir)"
-
-      - name: Cache the Go Build Cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-build }}
-          key: ${{ runner.os }}-build-publish-artifacts-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
-
-      - name: Cache Go Dependencies
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4
-        with:
-          path: ${{ steps.go-cache-paths.outputs.go-mod }}
-          key: ${{ runner.os }}-pkg-${{ hashFiles('**/go.sum') }}-${{ env.GO_CACHE_BUSTER }}
 
       - name: Vendor Dependencies
         run: make vendor vendor.check

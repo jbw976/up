@@ -42,8 +42,8 @@ type destroyCmd struct {
 	Registry registryFlags     `embed:""`
 	Kube     upbound.KubeFlags `embed:""`
 
-	Confirmed bool `name:"yes-really-delete-space-and-all-data" type:"bool" help:"Bypass safety checks and destroy Spaces"`
-	Orphan    bool `name:"orphan" type:"bool" help:"Remove Space components but retain Control Planes and data"`
+	Confirmed bool `help:"Bypass safety checks and destroy Spaces"                    name:"yes-really-delete-space-and-all-data" type:"bool"`
+	Orphan    bool `help:"Remove Space components but retain Control Planes and data" name:"orphan"                               type:"bool"`
 }
 
 // AfterApply sets default values in command after assignment and validation.

@@ -42,7 +42,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
-
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
@@ -77,10 +76,10 @@ type connectCmd struct {
 	Upbound upbound.Flags     `embed:""`
 	Kube    upbound.KubeFlags `embed:""`
 
-	Space string `arg:"" optional:"" help:"Name of the Upbound Space. If name is not a supplied, one is generated."`
-	Token string `name:"robot-token" optional:"" hidden:"" help:"The Upbound robot token contents used to authenticate the connection."`
+	Space string `arg:""                                                                       help:"Name of the Upbound Space. If name is not a supplied, one is generated." optional:""`
+	Token string `help:"The Upbound robot token contents used to authenticate the connection." hidden:""                                                                      name:"robot-token" optional:""`
 
-	Environment string `name:"up-environment" env:"UP_ENVIRONMENT" default:"prod" hidden:"" help:"Override the default Upbound Environment."`
+	Environment string `default:"prod" env:"UP_ENVIRONMENT" help:"Override the default Upbound Environment." hidden:"" name:"up-environment"`
 }
 
 func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
@@ -438,6 +437,7 @@ func (c *connectCmd) deleteNamespace(ctx context.Context, p pterm.TextPrinter, k
 func getConnectConfigmap(ctx context.Context, kClient *kubernetes.Clientset, ns, name string) (*corev1.ConfigMap, error) {
 	return kClient.CoreV1().ConfigMaps(ns).Get(ctx, name, metav1.GetOptions{})
 }
+
 func createConnectConfigmap(ctx context.Context, p pterm.TextPrinter, kClient *kubernetes.Clientset, ns, name string, u undo.Undoer) (*corev1.ConfigMap, error) {
 	cm, err := getConnectConfigmap(ctx, kClient, ns, name)
 	if err == nil {

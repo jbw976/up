@@ -23,8 +23,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
 
 func TestNewAvailable(t *testing.T) {
@@ -90,7 +91,6 @@ func TestNewAvailable(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		got := tc.args.i.newAvailable(tc.args.local, tc.args.remote)
 
 		if diff := cmp.Diff(tc.want.update, got); diff != "" {
@@ -143,7 +143,6 @@ func TestGetCurrent(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
 		version, err := tc.args.i.getCurrent(context.Background())
 
 		if diff := cmp.Diff(tc.want.version, version); diff != "" {

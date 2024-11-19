@@ -24,23 +24,20 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/go-logr/logr"
+	"github.com/spf13/afero"
 	"go.uber.org/zap/zapcore"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xplogging "github.com/crossplane/crossplane-runtime/pkg/logging"
 
-	"github.com/upbound/up/internal/logging"
-
-	"github.com/spf13/afero"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"github.com/upbound/up-sdk-go"
-
 	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/logging"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/version"
 )
@@ -101,7 +98,7 @@ type Context struct {
 	zl                  logr.Logger
 }
 
-// Option modifies a Context
+// Option modifies a Context.
 type Option func(*Context)
 
 // AllowMissingProfile indicates that Context should still be returned even if a
@@ -231,7 +228,7 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) { //nolint:gocyclo
 	return c, nil
 }
 
-// SetupLogging sets up the logger in controller-runtime and kube's klog
+// SetupLogging sets up the logger in controller-runtime and kube's klog.
 func (c *Context) SetupLogging() {
 	if c.DebugLevel > 1 {
 		logging.SetKlogLogger(c.DebugLevel, c.zl)
@@ -265,10 +262,11 @@ func (c *Context) buildSDKConfig(endpoint *url.URL) (*up.Config, error) {
 		return nil, err
 	}
 	if c.Profile.Session != "" {
-		cj.SetCookies(c.APIEndpoint, []*http.Cookie{{
-			Name:  CookieName,
-			Value: c.Profile.Session,
-		},
+		cj.SetCookies(c.APIEndpoint, []*http.Cookie{
+			{
+				Name:  CookieName,
+				Value: c.Profile.Session,
+			},
 		})
 	}
 	var tr http.RoundTripper = &http.Transport{

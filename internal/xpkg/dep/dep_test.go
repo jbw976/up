@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )
@@ -138,7 +139,6 @@ func TestNew(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			d := NewWithType(tc.args.pkg, tc.args.t)
 
 			if diff := cmp.Diff(tc.want.dep, d); diff != "" {

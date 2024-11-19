@@ -19,8 +19,6 @@ import (
 	"embed"
 	"testing"
 
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
@@ -31,6 +29,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -38,10 +39,8 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-var (
-	//go:embed testdata/packages/*
-	packagesFS embed.FS
-)
+//go:embed testdata/packages/*
+var packagesFS embed.FS
 
 type addTestCase struct {
 	inputDeps    []pkgmetav1.Dependency
@@ -50,7 +49,6 @@ type addTestCase struct {
 	packageType  pkgv1beta1.PackageType
 	expectedDeps []pkgmetav1.Dependency
 	expectError  bool // Add this field to indicate whether an error is expected
-
 }
 
 func TestAdd(t *testing.T) {
@@ -392,7 +390,7 @@ func (tc *addTestCase) Run(t *testing.T, makePkg func(deps []pkgmetav1.Dependenc
 	inputPkg := makePkg(tc.inputDeps)
 	bs, err := yaml.Marshal(inputPkg)
 	assert.NilError(t, err)
-	err = afero.WriteFile(fs, "/project/meta.yaml", bs, 0644)
+	err = afero.WriteFile(fs, "/project/meta.yaml", bs, 0o644)
 	assert.NilError(t, err)
 
 	ws, err := workspace.New("/project", workspace.WithFS(fs), workspace.WithPermissiveParser())

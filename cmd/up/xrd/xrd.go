@@ -14,7 +14,7 @@
 
 package xrd
 
-// Cmd contains commands for xrd cmd
+// Cmd contains commands for xrd cmd.
 type Cmd struct {
 	Generate generateCmd `cmd:"" help:"Generate an XRD from a Composite Resource (XR) or Claim (XRC)."`
 }

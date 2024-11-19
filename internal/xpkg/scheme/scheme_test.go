@@ -17,10 +17,11 @@ package scheme
 import (
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 type mockHub struct{ runtime.Object }

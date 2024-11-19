@@ -15,11 +15,11 @@
 package resources
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // HostCluster represents the HostCluster CustomResource and extends an

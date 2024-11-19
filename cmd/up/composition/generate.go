@@ -24,9 +24,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/gobuffalo/flect"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
@@ -36,6 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
@@ -111,14 +112,14 @@ var patTemplate = `{
 }`
 
 type generateCmd struct {
-	Resource string `arg:"" required:"" help:"File path to Composite Resource Claim (XRC) or Composite Resource (XR) or CompositeResourceDefinition (XRD)."`
-	Name     string `optional:"" help:"Name for the new composition."`
-	Plural   string `optional:"" help:"Optional custom plural for the CompositeTypeRef.Kind"`
+	Resource string `arg:""                                                      help:"File path to Composite Resource Claim (XRC) or Composite Resource (XR) or CompositeResourceDefinition (XRD)." required:""`
+	Name     string `help:"Name for the new composition."                        optional:""`
+	Plural   string `help:"Optional custom plural for the CompositeTypeRef.Kind" optional:""`
 
-	Path        string `optional:""  help:"Optional path to the output file where the generated Composition will be saved."`
-	ProjectFile string `short:"f" help:"Path to project definition file." default:"upbound.yaml"`
-	Output      string `help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o" default:"file" enum:"file,yaml,json"`
-	CacheDir    string `short:"d" help:"Directory used for caching dependency images." default:"~/.up/cache/" env:"CACHE_DIR" type:"path"`
+	Path        string `help:"Optional path to the output file where the generated Composition will be saved." optional:""`
+	ProjectFile string `default:"upbound.yaml"                                                                 help:"Path to project definition file." short:"f"`
+	Output      string `default:"file"                                                                         enum:"file,yaml,json"                   help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
+	CacheDir    string `default:"~/.up/cache/"                                                                 env:"CACHE_DIR"                         help:"Directory used for caching dependency images."                                                                                    short:"d" type:"path"`
 
 	projFS afero.Fs
 	apisFS afero.Fs
@@ -168,7 +169,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 	)
-
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
 	pterm.EnableStyling()
 	composition, plural, err := c.newComposition(ctx)
 	if err != nil {
@@ -233,7 +233,6 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 
 		// If the file exists, prompt the user for confirmation to overwrite
 		if exists {
-
 			pterm.Println() // Blank line for spacing
 			confirm := pterm.DefaultInteractiveConfirm
 			confirm.DefaultText = fmt.Sprintf("The Composition file '%s' already exists. Do you want to overwrite its contents?", afero.FullBaseFsPath(c.apisFS.(*afero.BasePathFs), filePath))
@@ -247,12 +246,12 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 			}
 		}
 
-		if err := c.apisFS.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		if err := c.apisFS.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 			return errors.Wrap(err, "failed to create directories for the specified output path")
 		}
 
 		// Write the YAML to the specified output file
-		if err := afero.WriteFile(c.apisFS, filePath, compositionYAML, 0644); err != nil {
+		if err := afero.WriteFile(c.apisFS, filePath, compositionYAML, 0o644); err != nil {
 			return errors.Wrap(err, "failed to write composition to file")
 		}
 
@@ -275,8 +274,8 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { // n
 	return nil
 }
 
-// newComposition to create a new Composition
-func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, string, error) { // nolint:gocyclo
+// newComposition to create a new Composition.
+func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, string, error) { //nolint:gocyclo
 	group, version, kind, plural, matchLabels, err := c.processResource()
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to load resource")
@@ -320,7 +319,7 @@ func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, stri
 	return composition, plural, nil
 }
 
-func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.PipelineStep, error) { // nolint:gocyclo
+func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.PipelineStep, error) { //nolint:gocyclo
 	maxSteps := len(c.proj.Spec.DependsOn)
 	pipelineSteps := make([]v1.PipelineStep, 0, maxSteps)
 	foundAutoReadyFunction := false
@@ -380,7 +379,6 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 				return nil, errors.Wrap(err, "failed to write auto-ready dependency to project")
 			}
 		}
-
 	}
 
 	for _, dep := range deps {
@@ -425,7 +423,7 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 	return reorderPipelineSteps(pipelineSteps), nil
 }
 
-// reorderPipelineSteps ensures the step with functionref.name == "crossplane-contrib-function-auto-ready" is the last one
+// reorderPipelineSteps ensures the step with functionref.name == "crossplane-contrib-function-auto-ready" is the last one.
 func reorderPipelineSteps(pipelineSteps []v1.PipelineStep) []v1.PipelineStep {
 	var reorderedSteps []v1.PipelineStep
 	var autoReadyStep *v1.PipelineStep
@@ -449,7 +447,7 @@ func reorderPipelineSteps(pipelineSteps []v1.PipelineStep) []v1.PipelineStep {
 	return reorderedSteps
 }
 
-func (c *generateCmd) setRawExtension(crd apiextensionsv1.CustomResourceDefinition) (*runtime.RawExtension, error) { // nolint:gocyclo
+func (c *generateCmd) setRawExtension(crd apiextensionsv1.CustomResourceDefinition) (*runtime.RawExtension, error) { //nolint:gocyclo
 	var rawExtensionContent string
 	// Get the version using the modified getVersion function
 	version, err := xcrd.GetCRDVersion(crd)
@@ -504,7 +502,6 @@ func (c *generateCmd) processResource() (string, string, string, string, map[str
 
 	// Check if obj is a CompositeResourceDefinition by examining its "kind"
 	if unstructuredObj.GetKind() == "CompositeResourceDefinition" {
-
 		// Convert unstructured to CompositeResourceDefinition
 		var xrd v1.CompositeResourceDefinition
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, &xrd); err != nil {

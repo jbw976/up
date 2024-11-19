@@ -34,7 +34,7 @@ import (
 
 // listCmd lists repository permissions for a team on Upbound.
 type listCmd struct {
-	TeamName string `arg:"" required:"" help:"Name of the team."`
+	TeamName string `arg:"" help:"Name of the team." required:""`
 }
 
 // fieldNames for the list output.

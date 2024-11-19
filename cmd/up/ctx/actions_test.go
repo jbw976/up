@@ -398,7 +398,8 @@ func TestDisconnectedControlPlaneAccept(t *testing.T) {
 				Clusters: map[string]*clientcmdapi.Cluster{
 					"upbound":          {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/group/controlplanes/ctp/k8s", CertificateAuthorityData: []byte{1, 2, 3}},
 					"upbound-previous": {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/group/controlplanes/ctp/k8s", CertificateAuthorityData: []byte{1, 2, 3}},
-					"profile":          {Server: "profile"}},
+					"profile":          {Server: "profile"},
+				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": {Token: "profile"}, "upbound-previous": {Token: "token1"}, "profile": {Token: "profile"}},
 			},
 			wantLast: "upbound-previous",
@@ -599,7 +600,8 @@ func TestCloudControlPlaneAccept(t *testing.T) {
 				Clusters: map[string]*clientcmdapi.Cluster{
 					"upbound":          {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/group/controlplanes/ctp/k8s", CertificateAuthorityData: []byte{1, 2, 3}},
 					"upbound-previous": {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/group/controlplanes/ctp/k8s", CertificateAuthorityData: []byte{1, 2, 3}},
-					"profile":          {Server: "profile"}},
+					"profile":          {Server: "profile"},
+				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": {Token: "profile"}, "upbound-previous": {Token: "token1"}, "profile": {Token: "profile"}},
 			},
 			wantLast: "upbound-previous",

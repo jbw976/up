@@ -28,7 +28,6 @@ import (
 	xpcommonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-
 	"github.com/upbound/up/cmd/up/controlplane/connector"
 	"github.com/upbound/up/cmd/up/controlplane/pkg"
 	"github.com/upbound/up/cmd/up/controlplane/pullsecret"
@@ -38,9 +37,7 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-var (
-	spacefieldNames = []string{"GROUP", "NAME", "CROSSPLANE", "READY", "HEALTHY", "MESSAGE", "AGE"}
-)
+var spacefieldNames = []string{"GROUP", "NAME", "CROSSPLANE", "READY", "HEALTHY", "MESSAGE", "AGE"}
 
 // BeforeReset is the first hook to run.
 func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
@@ -111,11 +108,11 @@ type Cmd struct {
 
 	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a managed control plane."`
 
-	Simulation simulation.Cmd       `cmd:"" maturity:"alpha" aliases:"sim" help:"Manage control plane simulations."`
-	Simulate   simulation.CreateCmd `cmd:"" maturity:"alpha" help:"Alias for 'up controlplane simulation create'."`
+	Simulation simulation.Cmd       `aliases:"sim" cmd:""                                                help:"Manage control plane simulations." maturity:"alpha"`
+	Simulate   simulation.CreateCmd `cmd:""        help:"Alias for 'up controlplane simulation create'." maturity:"alpha"`
 
-	Configuration pkg.Cmd `cmd:"" set:"package_type=Configuration" help:"Manage Configurations."`
-	Provider      pkg.Cmd `cmd:"" set:"package_type=Provider" help:"Manage Providers."`
+	Configuration pkg.Cmd `cmd:"" help:"Manage Configurations." set:"package_type=Configuration"`
+	Provider      pkg.Cmd `cmd:"" help:"Manage Providers."      set:"package_type=Provider"`
 
 	PullSecret pullsecret.Cmd `cmd:"" help:"Manage package pull secrets."`
 

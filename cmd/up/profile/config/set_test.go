@@ -18,9 +18,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestSetValidateInput(t *testing.T) {
@@ -79,7 +80,6 @@ func TestSetValidateInput(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-
 			c := &setCmd{
 				Key:   tc.args.key,
 				Value: tc.args.value,

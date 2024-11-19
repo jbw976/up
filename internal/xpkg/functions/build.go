@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -35,6 +34,8 @@ import (
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg"
