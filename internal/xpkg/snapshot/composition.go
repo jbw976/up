@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package snapshot contains functions for xpls validation
 package snapshot
 
 import (
@@ -135,13 +136,22 @@ func (c *CompositionValidator) validatePipeline(ctx context.Context, comp *xpext
 // validatePipelineFunctionRefs validates that each pipeline step refers to a
 // function that is a dependency of the package.
 func (c *CompositionValidator) validatePipelineFunctionRefs(comp *xpextv1.Composition) []error {
-	var errs []error
+	var (
+		errs []error
+		deps []v1beta1.Dependency
+		err  error
+	)
+	meta := c.s.wsview.Meta()
+	if meta == nil {
+		return nil
+	}
 
-	deps, err := c.s.wsview.Meta().DependsOn()
+	deps, err = meta.DependsOn()
 	if err != nil {
 		errs = append(errs, errors.Wrap(err, "failed to get dependencies"))
 		return errs
 	}
+
 	// Create embedded function dependencies so we know the valid embedded
 	// function names below.
 	embeddedFns, err := c.collectFunctionDeps()
@@ -216,7 +226,7 @@ func (c *CompositionValidator) collectFunctionDeps() ([]v1beta1.Dependency, erro
 
 // validatePipelineFunctionInputs validates that each pipeline step's input is
 // of the correct type for the function it uses.
-func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Context, comp *xpextv1.Composition) []error { //nolint:gocyclo
+func (c *CompositionValidator) validatePipelineFunctionInputs(ctx context.Context, comp *xpextv1.Composition) []error { //nolint:gocyclo // validation logic,
 	var errs []error
 
 	for stepIdx, step := range comp.Spec.Pipeline {
@@ -366,7 +376,7 @@ func (c *CompositionValidator) marshal(data any) (*xpextv1.Composition, error) {
 }
 
 type compositionValidator interface {
-	validate(context.Context, int, resource.Composed) []error
+	validate(ctx context.Context, stepIndex int, resource resource.Composed) []error
 }
 
 // PatchesValidator validates the patches fields of a Composition.
