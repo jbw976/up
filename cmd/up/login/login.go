@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package login contains commands for managing login sessions.
 package login
 
 import (
@@ -68,6 +69,7 @@ func (c *LoginCmd) BeforeApply() error {
 	return nil
 }
 
+// AfterApply parses flags and sets defaults.
 func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags, upbound.AllowMissingProfile())
 	if err != nil {
@@ -81,7 +83,7 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 	// SDK so that we can be consistent across all commands.
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: upCtx.InsecureSkipTLSVerify, //nolint:gosec
+			InsecureSkipVerify: upCtx.InsecureSkipTLSVerify, //nolint:gosec // Let the user be insecure.
 		},
 	}
 	c.client = &http.Client{
@@ -109,7 +111,7 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 
 // LoginCmd adds a user or token profile with session token to the up config
 // file if a username is passed, but defaults to launching a web browser to authenticate with Upbound.
-type LoginCmd struct {
+type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `LogoutCmd` is also in this package.
 	client   uphttp.Client
 	stdin    io.Reader
 	prompter input.Prompter
@@ -124,7 +126,7 @@ type LoginCmd struct {
 }
 
 // Run executes the login command.
-func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
 		return c.simpleAuth(ctx, upCtx)
@@ -144,7 +146,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	if err != nil {
 		return errors.Wrap(err, errLoginFailed)
 	}
-	defer cb.shutdownServer(ctx) //nolint:errcheck
+	defer cb.shutdownServer(ctx) //nolint:errcheck // Exiting right after defer anyway.
 
 	resultEP := c.accountsEndpoint
 	resultEP.Path = loginResultEndpoint
@@ -153,8 +155,8 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	if err := browser.OpenURL(getEndpoint(c.accountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
 		ep := getEndpoint(c.accountsEndpoint, *upCtx.APIEndpoint, "")
 		qrterminal.Generate(ep, qrterminal.L, os.Stdout)
-		fmt.Println("Could not open a browser!")
-		fmt.Println("Please go to", ep, "and then enter code manually")
+		p.Println("Could not open a browser!")
+		p.Println("Please go to", ep, "and then enter code manually")
 		// TODO(nullable-eth): Add a prompter with timeout?  Difficult to know when they actually
 		// finished login to know when the TOTP would expire
 		t, err := c.prompter.Prompt("Code", false)
@@ -271,7 +273,7 @@ func inferOrganization(ctx context.Context, upCtx *upbound.Context) (string, err
 		return "", err
 	}
 	if len(orgs) == 0 {
-		return "", errors.Errorf("You must create an organization to use Upbound. Visit https://accounts.%s to create one.", upCtx.Domain.Host)
+		return "", errors.Errorf("You must create an organization to use Upbound. Visit https://accounts.%s to create one.", upCtx.Domain.Host) //nolint:revive // Intentionally human-friendly error.
 	}
 
 	// Use the first org in the list as the default. The user can access other
@@ -377,9 +379,9 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.C
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close() //nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
 
-	var user map[string]interface{} = make(map[string]interface{})
+	user := make(map[string]interface{})
 	if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
 		return err
 	}
@@ -432,12 +434,7 @@ func (cb *callbackServer) startServer() (err error) {
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,
 	}
-	go func() error {
-		if err := cb.srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-		return nil
-	}() //nolint:errcheck
+	go cb.srv.ListenAndServe() //nolint:errcheck // Intentionally not waiting for this to return.
 
 	return nil
 }
@@ -452,7 +449,7 @@ func (cb *callbackServer) getPort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer server.Close() //nolint:errcheck
+	defer server.Close() //nolint:errcheck // Can't do anything useful with this error.
 
 	// Split the host from the port
 	_, portString, err := net.SplitHostPort(server.Addr().String())
@@ -500,6 +497,6 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 	if err != nil {
 		return errors.Wrap(err, errLoginFailed)
 	}
-	defer res.Body.Close() //nolint:gosec,errcheck
+	defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
 	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID), errLoginFailed)
 }

@@ -41,6 +41,8 @@ type Flags struct {
 	RegistryEndpoint *url.URL `env:"OVERRIDE_REGISTRY_ENDPOINT" help:"Overrides the default registry endpoint." hidden:"" json:"registryEndpoint,omitempty" name:"override-registry-endpoint"`
 }
 
+// KubeFlags are common flags used by commands that interact with
+// Kubernetes-like APIs.
 type KubeFlags struct {
 	// Kubeconfig is the kubeconfig file path to read. If empty, it refers to
 	// client-go's default kubeconfig location.
@@ -55,6 +57,7 @@ type KubeFlags struct {
 	namespace string
 }
 
+// AfterApply applies defaults to KubeFlags.
 func (f *KubeFlags) AfterApply() error {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	rules.ExplicitPath = f.Kubeconfig
@@ -106,6 +109,7 @@ func (f *KubeFlags) GetContext() string {
 	return f.context
 }
 
+// Namespace gets the namespace flag.
 func (f *KubeFlags) Namespace() string {
 	return f.namespace
 }

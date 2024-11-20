@@ -12,25 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package profile contains types for up CLI configuration profiles.
 package profile
 
 import (
 	"encoding/json"
 )
 
-const (
-	NoSpacesContextMsg = "This cluster does not have spaces installed, use `up space init` to install spaces."
-	NoGroupMsg         = "The current kubeconfig context does not point to a group, use `up ctx` to select a group."
-)
-
 // TokenType is a type of Upbound session token format.
 type TokenType string
 
 const (
-	// Types of profiles.
-	TokenTypeUser  TokenType = "user"
+	// TokenTypeUser is the user type of token.
+	TokenTypeUser TokenType = "user"
+	// TokenTypeToken is the token type of token.
 	TokenTypeToken TokenType = "token"
 
+	// DefaultName is the default profile name.
 	DefaultName = "default"
 )
 

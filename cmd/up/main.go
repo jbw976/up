@@ -60,7 +60,7 @@ import (
 )
 
 // AfterApply configures global settings before executing commands.
-func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
+func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong requires an error return.
 	if c.Quiet {
 		ctx.Stdout, ctx.Stderr = io.Discard, io.Discard
 	}
@@ -143,7 +143,7 @@ func (h *helpCmd) Run(ctx *kong.Context) error {
 
 // BeforeReset runs before all other hooks. If command has alpha as an ancestor,
 // maturity level will be set to alpha.
-func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam
+func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam // Kong requires an error return.
 	ctx.Bind(feature.Alpha)
 	return nil
 }

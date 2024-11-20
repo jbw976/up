@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package run provides the `up project run` command.
 package run
 
 import (
@@ -65,11 +66,7 @@ const (
 	devControlPlaneClass = "small"
 )
 
-var ctpSchemeBuilders = []*scheme.Builder{
-	xpkgv1.SchemeBuilder,
-	xpkgv1beta1.SchemeBuilder,
-}
-
+// Cmd is the `up project run` command.
 type Cmd struct {
 	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."         short:"f"`
 	Repository        string        `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
@@ -93,7 +90,8 @@ type Cmd struct {
 	organization string // the Upbound organization in the current kubecontext
 }
 
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //todo: Break down
+// AfterApply processes flags and sets defaults.
+func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -187,7 +185,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //todo:
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocyclo // Yeah, we're doing a lot here.
+// Run is the body of the command.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	if c.MaxConcurrency == 0 {
 		c.MaxConcurrency = 1
 	}
@@ -399,7 +398,7 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch
 //
 // TODO(adamwg): Mostly copied from simulations; this should be factored out
 // into our kube package.
-func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp types.NamespacedName) (client.Client, error) { //nolint:gocyclo
+func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp types.NamespacedName) (client.Client, error) {
 	po := clientcmd.NewDefaultPathOptions()
 	var err error
 
@@ -440,6 +439,10 @@ func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp type
 		return nil, err
 	}
 
+	ctpSchemeBuilders := []*scheme.Builder{
+		xpkgv1.SchemeBuilder,
+		xpkgv1beta1.SchemeBuilder,
+	}
 	for _, bld := range ctpSchemeBuilders {
 		if err := bld.AddToScheme(ctpClient.Scheme()); err != nil {
 			return nil, err

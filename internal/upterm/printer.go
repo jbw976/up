@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package upterm contains helpers for working with the terminal, primarily
+// printing output.
 package upterm
 
 import (
@@ -51,11 +53,14 @@ type ObjectPrinter struct {
 	TablePrinter *pterm.TablePrinter
 }
 
+// DefaultObjPrinter is the default object printer.
+//
+//nolint:gochecknoglobals // TODO(adamwg): Make this a function returning the default printer.
 var DefaultObjPrinter = ObjectPrinter{
 	Quiet:        false,
 	Pretty:       false,
 	DryRun:       false,
-	Format:       config.Default,
+	Format:       config.FormatDefault,
 	TablePrinter: pterm.DefaultTable.WithSeparator("   "),
 }
 
@@ -83,16 +88,19 @@ func (p *ObjectPrinter) Print(obj any, fieldNames []string, extractFields func(a
 	}
 
 	// Step 3: Print the object with the appropriate formatting.
-	switch p.Format { //nolint:exhaustive
-	case config.JSON:
+	switch p.Format {
+	case config.FormatJSON:
 		return printJSON(obj)
-	case config.YAML:
+	case config.FormatYAML:
 		return printYAML(obj)
+	case config.FormatDefault:
+		fallthrough
 	default:
 		return p.printDefault(obj, fieldNames, extractFields)
 	}
 }
 
+// PrintTemplate prints an object using a go template.
 func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
 	// Step 1: If user specified quiet, skip printing entirely
 	if p.Quiet {
@@ -106,11 +114,13 @@ func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
 	}
 
 	// Step 3: Print the object with the appropriate formatting.
-	switch p.Format { //nolint:exhaustive
-	case config.JSON:
+	switch p.Format {
+	case config.FormatJSON:
 		return printJSON(obj)
-	case config.YAML:
+	case config.FormatYAML:
 		return printYAML(obj)
+	case config.FormatDefault:
+		fallthrough
 	default:
 		templ, err := template.New("out").Parse(tmpl)
 		if err != nil {
@@ -121,8 +131,12 @@ func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
 		if err := templ.Execute(w, obj); err != nil {
 			return err
 		}
-		w.Write([]byte("\n")) //nolint:errcheck
-		w.Flush()             //nolint:errcheck
+		if _, err := w.Write([]byte("\n")); err != nil {
+			return err
+		}
+		if err := w.Flush(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -132,7 +146,7 @@ func printJSON(obj any) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Println(string(js))
+	_, err = fmt.Println(string(js)) //nolint:forbidigo // This is a printing library.
 	return err
 }
 
@@ -141,7 +155,7 @@ func printYAML(obj any) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Println(string(ys))
+	_, err = fmt.Println(string(ys)) //nolint:forbidigo // This is a printing library.
 	return err
 }
 
@@ -178,11 +192,13 @@ func NewNopObjectPrinter() Printer { return nopObjectPrinter{} }
 
 type nopObjectPrinter struct{}
 
-func (p nopObjectPrinter) Print(obj any, fieldNames []string, extractFields func(any) []string) error {
+// Print prints.
+func (p nopObjectPrinter) Print(_ any, _ []string, _ func(any) []string) error {
 	return nil
 }
 
-func (p nopObjectPrinter) PrintTemplate(obj any, template string) error {
+// PrintTemplate prints with a template.
+func (p nopObjectPrinter) PrintTemplate(_ any, _ string) error {
 	return nil
 }
 
@@ -191,36 +207,36 @@ func NewNopTextPrinter() pterm.TextPrinter { return nopTextPrinter{} }
 
 type nopTextPrinter struct{}
 
-func (p nopTextPrinter) Sprint(a ...interface{}) string                   { return "" }
-func (p nopTextPrinter) Sprintln(a ...interface{}) string                 { return "" }
-func (p nopTextPrinter) Sprintf(format string, a ...interface{}) string   { return "" }
-func (p nopTextPrinter) Sprintfln(format string, a ...interface{}) string { return "" }
-func (p nopTextPrinter) Print(a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) Sprint(_ ...interface{}) string              { return "" }
+func (p nopTextPrinter) Sprintln(_ ...interface{}) string            { return "" }
+func (p nopTextPrinter) Sprintf(_ string, _ ...interface{}) string   { return "" }
+func (p nopTextPrinter) Sprintfln(_ string, _ ...interface{}) string { return "" }
+func (p nopTextPrinter) Print(_ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
 
-func (p nopTextPrinter) Println(a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) Println(_ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
 
-func (p nopTextPrinter) Printf(format string, a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) Printf(_ string, _ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
 
-func (p nopTextPrinter) Printfln(format string, a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) Printfln(_ string, _ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
 
-func (p nopTextPrinter) PrintOnError(a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) PrintOnError(_ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
 
-func (p nopTextPrinter) PrintOnErrorf(format string, a ...interface{}) *pterm.TextPrinter {
+func (p nopTextPrinter) PrintOnErrorf(_ string, _ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
 }
