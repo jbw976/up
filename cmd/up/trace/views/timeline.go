@@ -130,13 +130,6 @@ func (t *TimeLine) Draw(screen tcell.Screen) { //nolint:gocyclo // TODO: splitup
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (t *TimeLine) mapTS(ts time.Time, x0, w int) int {
 	rightTS := t.model.TimeLine.FixedTime
 	if rightTS.IsZero() {

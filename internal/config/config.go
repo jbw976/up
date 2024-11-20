@@ -86,14 +86,14 @@ type Upbound struct {
 }
 
 // AddOrUpdateUpboundProfile adds or updates an Upbound profile to the Config.
-func (c *Config) AddOrUpdateUpboundProfile(name string, new profile.Profile) error {
-	if err := new.Validate(); err != nil {
+func (c *Config) AddOrUpdateUpboundProfile(name string, p profile.Profile) error {
+	if err := p.Validate(); err != nil {
 		return err
 	}
 	if c.Upbound.Profiles == nil {
 		c.Upbound.Profiles = map[string]profile.Profile{}
 	}
-	c.Upbound.Profiles[name] = new
+	c.Upbound.Profiles[name] = p
 	return nil
 }
 
