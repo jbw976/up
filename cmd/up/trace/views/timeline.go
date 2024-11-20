@@ -70,7 +70,7 @@ func (t *TimeLine) Draw(screen tcell.Screen) { //nolint:gocyclo // TODO: splitup
 	x0, y0, w, h := t.Box.GetInnerRect()
 
 	// draw life-cycle
-	for line := 0; line < h; line++ {
+	for line := range h {
 		o := t.scrolling.ObjectAt(line)
 		if o == nil {
 			continue

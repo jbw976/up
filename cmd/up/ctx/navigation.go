@@ -288,7 +288,7 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	items := make([]list.Item, 0)
 	unselectableItems := make([]list.Item, 0)
 	ch := make(chan upboundv1alpha1.Space, len(l.Items))
-	for i := 0; i < min(20, len(l.Items)); i++ {
+	for range min(20, len(l.Items)) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
