@@ -48,8 +48,8 @@ import (
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
-	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -341,7 +341,7 @@ func getCurrentSpaceNavigation(ctx context.Context, upCtx *upbound.Context) (ctx
 	if err != nil {
 		return nil, err
 	}
-	return ctxcmd.DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	return ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 }
 
 func parseRepository(repository string, defaultRegistry string) (registry, org, repoName string, err error) {
@@ -406,7 +406,7 @@ func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp type
 	if err != nil {
 		return nil, err
 	}
-	state, err := ctxcmd.DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	state, err := ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return nil, err
 	}

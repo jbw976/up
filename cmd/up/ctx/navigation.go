@@ -41,6 +41,7 @@ import (
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	upboundv1alpha1 "github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
 	"github.com/upbound/up-sdk-go/service/organizations"
+	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
@@ -229,7 +230,7 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 
 	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	ingressHost, ingressCA, err := profile.GetIngressHost(reqCtx, cl)
+	ingressHost, ingressCA, err := kube.GetIngressHost(reqCtx, cl)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, nil

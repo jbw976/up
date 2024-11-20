@@ -34,7 +34,6 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -116,7 +115,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	if err != nil {
 		return err
 	}
-	initialState, err := DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	initialState, err := DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return err
 	}
@@ -130,7 +129,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	// user is logged into a different account than the last ctx they selected),
 	// start the user at the top level.
 	if _, err := initialState.Items(ctx, upCtx, navCtx); err != nil {
-		initialState, err = DeriveNewState(ctx, conf, profile.GetIngressHost)
+		initialState, err = DeriveNewState(ctx, conf, kube.GetIngressHost)
 		if err != nil {
 			return err
 		}
@@ -168,7 +167,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	}
 
 	// write kubeconfig
-	state, err := DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	state, err := DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return err
 	}

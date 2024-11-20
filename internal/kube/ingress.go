@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package profile
+// Package kube contains helpers for working with Kubernetes.
+package kube
 
 import (
 	"context"

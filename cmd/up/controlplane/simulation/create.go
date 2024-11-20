@@ -49,7 +49,6 @@ import (
 	upctx "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -538,7 +537,7 @@ func getControlPlaneConfig(ctx context.Context, upCtx *upbound.Context, ctp type
 	if err != nil {
 		return nil, err
 	}
-	state, err := upctx.DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	state, err := upctx.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return nil, err
 	}
