@@ -86,7 +86,7 @@ func TestCompositionValidationResources(t *testing.T) {
 			want: want{
 				&validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.WarningTypeCode,
 							Message:  "no definition found for resource (database.aws.crossplane.io/v1beta1, Kind=RDSInstance)",
 							Name:     "spec.resources[0].base.apiVersion",
@@ -134,7 +134,7 @@ func TestCompositionValidationResources(t *testing.T) {
 			want: want{
 				&validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: 602,
 							Message:  "spec.writeConnectionSecretToRef.name in body is required (acm.aws.crossplane.io/v1alpha1, Kind=Certificate)",
 							Name:     "spec.resources[0].base.spec.writeConnectionSecretToRef.name",
@@ -335,7 +335,7 @@ func TestCompositionValidationResources(t *testing.T) {
 			want: want{
 				&validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.ErrorTypeCode,
 							Message:  "spec.resources[1].name: Required value: cannot mix named and anonymous resources, all resources must have a name or none must have a name",
 							Name:     "spec.resources",
@@ -371,7 +371,7 @@ func TestCompositionValidationResources(t *testing.T) {
 			want: want{
 				&validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.ErrorTypeCode,
 							Message:  `spec.resources[1].name: Duplicate value: "r1"`,
 							Name:     "spec.resources",
@@ -503,7 +503,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			want: want{
 				result: &validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.WarningTypeCode,
 							Message:  `package does not depend on function "acme-co-custom-function"`,
 							Name:     "spec.pipeline[0].functionRef.name",
@@ -549,7 +549,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			want: want{
 				result: &validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.WarningTypeCode,
 							Message:  `function "crossplane-contrib-function-auto-ready" does not take input`,
 							Name:     "spec.pipeline[0].input",
@@ -622,7 +622,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			want: want{
 				result: &validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.WarningTypeCode,
 							Message:  `Object 'Kind' is missing in '{"apiVersion":"v1"}'`,
 							Name:     "spec.pipeline[0].input",
@@ -695,7 +695,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			want: want{
 				result: &validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: validator.WarningTypeCode,
 							Message:  `incorrect input type for step "auto-ready"; valid inputs: [my-function.com/v1alpha1, Kind=Input]`,
 							Name:     "spec.pipeline[0].input.apiVersion",
@@ -780,7 +780,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 			want: want{
 				result: &validate.Result{
 					Errors: []error{
-						&validator.Validation{
+						&validator.ValidationError{
 							TypeCode: 601, // This is a type code from the openapi validation library.
 							Message:  `boolField in body must be of type boolean: "string" (my-function.com/v1alpha1, Kind=Input)`,
 							Name:     "spec.pipeline[0].input.boolField",

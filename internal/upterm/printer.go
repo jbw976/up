@@ -160,7 +160,7 @@ func (p *ObjectPrinter) printDefaultList(obj any, fieldNames []string, extractFi
 
 	data := make([][]string, l+1)
 	data[0] = fieldNames
-	for i := 0; i < l; i++ {
+	for i := range l {
 		data[i+1] = extractFields(s.Index(i).Interface())
 	}
 	return p.TablePrinter.WithHasHeader().WithData(data).Render()

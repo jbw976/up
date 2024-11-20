@@ -140,7 +140,7 @@ type metaValidator interface {
 func validateAPIVersion(o runtime.Object) error {
 	switch o.(type) {
 	case *v1alpha1.Configuration:
-		return &validator.Validation{
+		return &validator.ValidationError{
 			Name: apiVersionField,
 			Message: fmt.Sprintf(
 				errAPIVersionDeprecatedFmt,
@@ -150,7 +150,7 @@ func validateAPIVersion(o runtime.Object) error {
 			TypeCode: validator.WarningTypeCode,
 		}
 	case *v1alpha1.Provider:
-		return &validator.Validation{
+		return &validator.ValidationError{
 			Name: apiVersionField,
 			Message: fmt.Sprintf(
 				errAPIVersionDeprecatedFmt,
@@ -183,7 +183,7 @@ func (v *TypeValidator) validate(_ context.Context, i int, d v1beta1.Dependency)
 		return nil
 	}
 	if got.Type() != d.Type {
-		return &validator.Validation{
+		return &validator.ValidationError{
 			Name: fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(d.Type))),
 			Message: fmt.Sprintf(errWrongPkgTypeFmt,
 				strings.ToLower(string(d.Type)),
@@ -219,13 +219,13 @@ func (v *VersionValidator) validate(ctx context.Context, i int, d v1beta1.Depend
 		return nil //nolint:nilerr
 	}
 	if len(vers) == 0 {
-		return &validator.Validation{
+		return &validator.ValidationError{
 			Name:    fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(d.Type))),
 			Message: fmt.Sprintf(errPackageDNEFmt, d.Package),
 		}
 	}
 	if !versionMatch(d.Constraints, vers) {
-		return &validator.Validation{
+		return &validator.ValidationError{
 			Name:    fmt.Sprintf(dependsOnPathFmt, i, versionField),
 			Message: fmt.Sprintf(errVersionDENFmt, d.Constraints),
 		}

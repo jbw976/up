@@ -18,9 +18,10 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	"github.com/upbound/up/internal/upbound"

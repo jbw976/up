@@ -23,13 +23,14 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/kube"
@@ -123,8 +124,8 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 
 	// Make sure the initial state is usable. If it's broken (e.g., because the
-	// user is is logged into a different account than the last ctx they
-	// selected), start the user at the top level.
+	// user is logged into a different account than the last ctx they selected),
+	// start the user at the top level.
 	if _, err := initialState.Items(ctx, upCtx, navCtx); err != nil {
 		initialState, err = DeriveNewState(ctx, conf, profile.GetIngressHost)
 		if err != nil {

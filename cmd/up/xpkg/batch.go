@@ -152,11 +152,10 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	defer close(chErr)
 	concurrency := make(chan struct{}, c.Concurrency)
 	defer close(concurrency)
-	for i := uint(0); i < c.Concurrency; i++ {
+	for range c.Concurrency {
 		concurrency <- struct{}{}
 	}
 	for _, s := range c.SmallerProviders {
-		s := s
 		go func() { //nolint:contextcheck
 			// if concurrency is limited
 			if c.Concurrency != 0 {
@@ -314,7 +313,7 @@ func (c *batchCmd) pushWithRetry(p pterm.TextPrinter, upCtx *upbound.Context, im
 	t := c.getPackageURL(s)
 	tries := c.PushRetry + 1
 	retryMsg := ""
-	for i := uint(0); i < tries; i++ {
+	for i := range tries {
 		p.Printfln("Pushing xpkg to %s.%s", t, retryMsg)
 		err := PushImages(p, upCtx, imgs, t, c.Create, c.Flags.Profile)
 		if err == nil {
@@ -435,7 +434,7 @@ func (c *batchCmd) getAuthBackend(ax string) (parser.Backend, error) {
 	// we silently skip if a valid authentication extension
 	// is not specified as before
 	if err != nil {
-		return nil, nil 
+		return nil, nil
 	}
 
 	defer func() { _ = axf.Close() }()

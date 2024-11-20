@@ -41,7 +41,7 @@ func getCmdOptions(cmd any) string {
 
 	var options string
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := typeOfCmd.Field(i)
 		value := v.Field(i)
 		if !value.CanInterface() {

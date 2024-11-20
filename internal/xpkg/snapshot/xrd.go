@@ -117,7 +117,7 @@ func (v *XRDSchemaValidator) validate(ctx context.Context, xrd *xpextv1.Composit
 			fieldValue := fe.Field
 
 			path := cleanFieldPath(fieldValue)
-			errList = append(errList, &validator.Validation{
+			errList = append(errList, &validator.ValidationError{
 				TypeCode: validator.ErrorTypeCode,
 				Name:     path,
 				Message:  fmt.Sprintf("%s %s", path, fe.ErrorBody()),

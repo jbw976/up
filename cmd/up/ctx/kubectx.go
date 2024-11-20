@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 func kubectxPrevCtxFile() (string, error) {
@@ -51,8 +51,8 @@ func writeLastContext(value string) error {
 		return err
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil { // nolint:gosec // it's ok
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // it's ok
 		return errors.Wrap(err, "failed to create parent directories")
 	}
-	return os.WriteFile(path, []byte(value), 0o644) // nolint:gosec // it's ok
+	return os.WriteFile(path, []byte(value), 0o644) //nolint:gosec // it's ok
 }

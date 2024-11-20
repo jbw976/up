@@ -119,7 +119,7 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCon
 		// We want `up ctx` to be usable for disconnected spaces even if the
 		// user isn't logged in or can't connect to Upbound. Return a friendly
 		// message instead of an error.
-		items = append(items, item{ 
+		items = append(items, item{
 			text:          "Could not list Upbound organizations; are you logged in?",
 			notSelectable: true,
 		})
@@ -288,7 +288,7 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	items := make([]list.Item, 0)
 	unselectableItems := make([]list.Item, 0)
 	ch := make(chan upboundv1alpha1.Space, len(l.Items))
-	for i := 0; i < min(20, len(l.Items)); i++ {
+	for range min(20, len(l.Items)) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -327,7 +327,7 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 				ingress, err := navCtx.ingressReader.Get(ctx, space)
 				if err != nil {
 					mu.Lock()
-					if errors.Is(err, spaces.SpaceConnectionError) {
+					if errors.Is(err, spaces.ErrSpaceConnection) {
 						unselectableItems = append(unselectableItems, item{
 							text:          space.GetObjectMeta().GetName() + " (unreachable)",
 							kind:          "space",

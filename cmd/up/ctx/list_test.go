@@ -90,7 +90,6 @@ func TestNewList_InitialCursorPlacement(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -227,7 +226,6 @@ func TestMoveToSelectableItem(t *testing.T) {
 	}
 
 	for name, test := range tests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 

@@ -136,7 +136,7 @@ func (t *TopLevel) Draw(screen tcell.Screen) { //nolint:gocyclo // draw methods 
 	// collect grid items
 	fv := reflect.ValueOf(t.Grid).Elem().FieldByName("items")
 	prims := map[int64]map[int64]reflect.Value{}
-	for i := 0; i < fv.Len(); i++ {
+	for i := range fv.Len() {
 		item := fv.Index(i).Elem()
 		row := item.FieldByName("Row").Int()
 		col := item.FieldByName("Column").Int()
@@ -190,7 +190,7 @@ func (t *TopLevel) Draw(screen tcell.Screen) { //nolint:gocyclo // draw methods 
 	}
 	if err != nil {
 		w, h := screen.Size()
-		for x := 0; x < w; x++ {
+		for x := range w {
 			screen.SetCell(x, h-1, tcell.StyleDefault.Background(style.ErrorBarBackground), ' ')
 		}
 		tview.Print(screen, err.Error(), 0, h-1, w, tview.AlignCenter, style.ErrorBarForeground)
@@ -199,10 +199,10 @@ func (t *TopLevel) Draw(screen tcell.Screen) { //nolint:gocyclo // draw methods 
 
 	// draw F1-F10 hints
 	w, h := screen.Size()
-	for x := 0; x < w; x++ {
+	for x := range w {
 		screen.SetCell(x, h-1, tcell.StyleDefault.Background(style.BottomKeys), ' ')
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		text := fmt.Sprintf("[lightgray::]F%d[-] %s", i+1, t.Commands[i])
 		tview.Print(screen, text, w/10*i, h-1, w/10, tview.AlignLeft, tcell.ColorWhite)
 	}

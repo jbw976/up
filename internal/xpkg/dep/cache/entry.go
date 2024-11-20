@@ -232,7 +232,7 @@ func (e *entry) writeObjects(objs []runtime.Object) (*flushstats, error) { //nol
 			return stats, err
 		}
 
-		name := ""
+		var name string
 		switch crd := o.(type) {
 		case *v1beta1ext.CustomResourceDefinition:
 			name = crd.GetName()

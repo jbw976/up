@@ -70,7 +70,7 @@ func (t *TimeLine) Draw(screen tcell.Screen) { //nolint:gocyclo // TODO: splitup
 	x0, y0, w, h := t.Box.GetInnerRect()
 
 	// draw life-cycle
-	for line := 0; line < h; line++ {
+	for line := range h {
 		o := t.scrolling.ObjectAt(line)
 		if o == nil {
 			continue
@@ -128,13 +128,6 @@ func (t *TimeLine) Draw(screen tcell.Screen) { //nolint:gocyclo // TODO: splitup
 			}
 		}
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (t *TimeLine) mapTS(ts time.Time, x0, w int) int {

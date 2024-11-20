@@ -17,7 +17,7 @@ import (
 func SetKlogLogger(debugLevel int, log logr.Logger) {
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	klog.InitFlags(fs)
-	_ = fs.Parse([]string{fmt.Sprintf("--v=%d", debugLevel+3)}) 
+	_ = fs.Parse([]string{fmt.Sprintf("--v=%d", debugLevel+3)})
 
 	klogr := logr.New(&klogFilter{LogSink: log.GetSink()})
 	klog.SetLogger(klogr)

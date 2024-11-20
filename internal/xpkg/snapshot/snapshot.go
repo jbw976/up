@@ -472,7 +472,7 @@ func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVer
 				message: fmt.Sprintf("%s (%s)", et.Error(), gvk),
 				name:    et.Name,
 			}
-		case *validator.Validation:
+		case *validator.ValidationError:
 			e = &verror{
 				code:    et.Code(),
 				message: et.Error(),
@@ -509,9 +509,10 @@ func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVer
 			}
 			tok := node.GetToken()
 			if tok != nil {
-				startCh, endCh := tok.Position.Column-1, 0
+				startCh := tok.Position.Column - 1
 
 				// end character can be unmatched if we have doublequotes
+				var endCh int
 				switch tok.Type { //nolint:exhaustive
 				case token.DoubleQuoteType:
 					endCh = tok.Position.Column + len(tok.Value) + 1

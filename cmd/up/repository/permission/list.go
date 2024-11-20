@@ -21,9 +21,10 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"

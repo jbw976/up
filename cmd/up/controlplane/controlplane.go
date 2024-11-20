@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pkg/errors"
 	"github.com/posener/complete"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpcommonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/connector"

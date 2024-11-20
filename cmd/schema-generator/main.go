@@ -117,7 +117,6 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 	g, gCtx := errgroup.WithContext(ctx)
 
 	for _, desc := range indexManifest.Manifests {
-		desc := desc
 		g.Go(func() error {
 			digestRef := indexRef.Context().Digest(desc.Digest.String())
 			img, err := remote.Image(digestRef, keychain)
