@@ -76,57 +76,6 @@
       ],
       "datasourceTemplate": "github-tags",
       "depNameTemplate": "kubernetes-sigs/kind",
-    },
-    {
-      "customType": "regex",
-      "description": "Bump cert-manager version installed in CI.",
-      "fileMatch": [
-        "^cluster/local/config/certs/deploy.sh$"
-      ],
-      "matchStrings": [
-        "https://github.com/cert-manager/cert-manager/releases/download/(?<currentValue>.*?)/cert-manager.yaml\\n"
-      ],
-      "datasourceTemplate": "github-tags",
-      "depNameTemplate": "cert-manager/cert-manager",
-    },
-    {
-      "customType": "regex",
-      "description": "Bump ingress-nginx version installed in CI.",
-      "fileMatch": [
-        "^cluster/local/config/ingress/deploy.sh$"
-      ],
-      "matchStrings": [
-        "https://raw.githubusercontent.com/kubernetes/ingress-nginx/(?<currentValue>.*?)/deploy/static/provider/kind/deploy.yaml\\n",
-      ],
-      "extractVersionTemplate": "^helm-chart-(?<version>.*)$",
-      "datasourceTemplate": "github-tags",
-      "depNameTemplate": "kubernetes/ingress-nginx",
-    },
-    {
-      "customType": "regex",
-      "description": "Bump CloudNativePG version installed in CI.",
-      "fileMatch": [
-        "^cluster/local/config/postgres/deploy.sh$"
-      ],
-      "matchStrings": [
-        "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/(?<currentValue>.*?)/cnpg-(\\d+.\\d+.\\d)+.yaml\\n",
-      ],
-      "autoReplaceStringTemplate": "https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v{{{newValue}}}/cnpg-{{{newValue}}}.yaml",
-      "extractVersionTemplate": "(?<version>\\d+.\\d+.\\d+)",
-      "datasourceTemplate": "github-tags",
-      "depNameTemplate": "cloudnative-pg/cloudnative-pg",
-    },
-    {
-      "customType": "regex",
-      "description": "Bump OpenTelemetry version installed in CI.",
-      "fileMatch": [
-        "^cluster/local/config/telemetry/deploy.sh$"
-      ],
-      "matchStrings": [
-        "https://github.com/open-telemetry/opentelemetry-operator/releases/download/(?<currentValue>.*?)/opentelemetry-operator.yaml",
-      ],
-      "datasourceTemplate": "github-tags",
-      "depNameTemplate": "open-telemetry/opentelemetry-operator",
     }
   ],
   "crossplane": {
