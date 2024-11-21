@@ -15,7 +15,6 @@
 package ctx
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"reflect"
@@ -23,6 +22,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/ptr"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
 )
@@ -42,7 +43,7 @@ func (p *printWriter) Write(config *clientcmdapi.Config) error {
 		return err
 	}
 
-	fmt.Print(string(b))
+	fmt.Print(string(b)) //nolint:forbidigo // The printWriter is allowed to print.
 	return nil
 }
 
@@ -82,9 +83,7 @@ func (f *fileWriter) Write(config *clientcmdapi.Config) error {
 		return err
 	}
 
-	if err := f.writeLastContext(prevContext); err != nil { //nolint:staticcheck
-		// ignore error because now everything has happened already.
-	}
+	_ = f.writeLastContext(prevContext) // ignore error because now everything has happened already.
 	return nil
 }
 

@@ -16,7 +16,6 @@ package ctx
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -26,6 +25,8 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
@@ -637,14 +638,14 @@ func TestSwapContext(t *testing.T) {
 func TestDeriveNewState(t *testing.T) {
 	hubAuth := clientcmdapi.AuthInfo{}
 
-	ingressFound := func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
+	ingressFound := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
 		return "eu-west-1.ibm-cloud.com", []byte(ingressCA), nil
 	}
-	ingressPublicNotFound := func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
+	ingressPublicNotFound := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
 		return "", nil, kerrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "ingress-public")
 	}
-	ingressErr := func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
-		return "", nil, errors.New("unknown error!")
+	ingressErr := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
+		return "", nil, errors.New("unknown error")
 	}
 
 	tests := map[string]struct {
@@ -774,7 +775,7 @@ func TestDeriveNewState(t *testing.T) {
 func TestDeriveExistingDisconnectedState(t *testing.T) {
 	hubAuth := clientcmdapi.AuthInfo{}
 
-	ingressFound := func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
+	ingressFound := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
 		return "eu-west-1.ibm-cloud.com", []byte(ingressCA), nil
 	}
 

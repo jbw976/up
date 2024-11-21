@@ -17,7 +17,6 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/crossplane/crossplane/xcrd"
 
@@ -95,7 +95,7 @@ func (x *XRDValidator) Marshal(data any) (*xpextv1.CompositeResourceDefinition, 
 }
 
 type xrdValidator interface {
-	validate(context.Context, *xpextv1.CompositeResourceDefinition) []error
+	validate(ctx context.Context, xrd *xpextv1.CompositeResourceDefinition) []error
 }
 
 // XRDSchemaValidator validates XRD schema definitions.

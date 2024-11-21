@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ndjson contains an ndjson package parser.
 package ndjson
 
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"io"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // LineReader represents a reader that reads from the underlying reader

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package undo implements undoable actions.
 package undo
 
 import (
-	"errors"
 	"sync"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // Undoer allows registring undo functions.

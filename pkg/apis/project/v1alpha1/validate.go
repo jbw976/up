@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package v1alpha1 contains v1alpha1 of the Upbound project type.
 package v1alpha1
 
 import (
-	"errors"
 	"path/filepath"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
+// Validate validates a project, first applying defaults.
 func (p *Project) Validate() error {
 	var errs []error
 
@@ -36,6 +39,7 @@ func (p *Project) Validate() error {
 	return errors.Join(errs...)
 }
 
+// Validate validates a project's spec.
 func (s *ProjectSpec) Validate() error {
 	var errs []error
 
@@ -58,10 +62,12 @@ func (s *ProjectSpec) Validate() error {
 	return errors.Join(errs...)
 }
 
+// Default applies defaults for a project.
 func (p *Project) Default() {
 	p.Spec.Default()
 }
 
+// Default applies defaults for a project's spec.
 func (s *ProjectSpec) Default() {
 	if s == nil {
 		return

@@ -12,26 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package gcp contains a usage implementation using GCP infrastructure.
 package gcp
 
 import (
 	"compress/gzip"
 	"context"
-	"errors"
 	"io"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/usage/encoding/json"
 	"github.com/upbound/up/internal/usage/event"
 	"github.com/upbound/up/internal/usage/model"
 )
 
+// ErrEOF indicates EOF.
 var ErrEOF = event.ErrEOF
 
 var _ event.Reader = &QueryEventReader{}
 
+// QueryEventReader is an event reader.
 type QueryEventReader struct {
 	Bucket *storage.BucketHandle
 	Query  *storage.Query
@@ -45,6 +49,7 @@ func (r *QueryEventReader) Read(ctx context.Context) (model.MXPGVKEvent, error) 
 	return r.reader.Read(ctx)
 }
 
+// Close closes the reader.
 func (r *QueryEventReader) Close() error {
 	if r.reader == nil {
 		return nil
@@ -54,6 +59,7 @@ func (r *QueryEventReader) Close() error {
 
 var _ event.Reader = &ObjectIteratorEventReader{}
 
+// ObjectIteratorEventReader is an event reader.
 type ObjectIteratorEventReader struct {
 	Bucket     *storage.BucketHandle
 	Iterator   *storage.ObjectIterator
@@ -79,6 +85,7 @@ func (r *ObjectIteratorEventReader) Read(ctx context.Context) (model.MXPGVKEvent
 	}
 }
 
+// Close closes the reader.
 func (r *ObjectIteratorEventReader) Close() error {
 	if r.currReader == nil {
 		return nil
@@ -88,6 +95,7 @@ func (r *ObjectIteratorEventReader) Close() error {
 
 var _ event.Reader = &ObjectHandleEventReader{}
 
+// ObjectHandleEventReader is an event reader.
 type ObjectHandleEventReader struct {
 	Object  *storage.ObjectHandle
 	Attrs   *storage.ObjectAttrs
@@ -134,6 +142,7 @@ func (r *ObjectHandleEventReader) Read(ctx context.Context) (model.MXPGVKEvent, 
 	return r.decoder.Decode()
 }
 
+// Close closes the reader.
 func (r *ObjectHandleEventReader) Close() error {
 	// Close closers in reverse.
 	for i := len(r.closers) - 1; i >= 0; i-- {

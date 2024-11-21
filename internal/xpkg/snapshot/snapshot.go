@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,6 +36,7 @@ import (
 	verrors "k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
@@ -60,8 +60,8 @@ const (
 
 // DepManager defines the API necessary for working with the dependency manager.
 type DepManager interface {
-	View(context.Context, []v1beta1.Dependency) (*manager.View, error)
-	Versions(context.Context, v1beta1.Dependency) ([]string, error)
+	View(ctx context.Context, deps []v1beta1.Dependency) (*manager.View, error)
+	Versions(ctx context.Context, dep v1beta1.Dependency) ([]string, error)
 	Watch() <-chan cache.Event
 }
 
@@ -344,7 +344,7 @@ func (s *Snapshot) updateChanges(_ context.Context, uri span.URI, changes []prot
 
 // loadWSValidators processes the details from the parsed workspace, extracting
 // the corresponding validators and applying them to the workspace.
-func (s *Snapshot) loadWSValidators(ctx context.Context) error { //nolint:gocyclo
+func (s *Snapshot) loadWSValidators(ctx context.Context) error {
 	for _, d := range s.wsview.FileDetails() {
 		validators, err := s.validatorsFromBytes(ctx, d.Body)
 		if err != nil {
@@ -426,7 +426,7 @@ func (s *Snapshot) ValidateMeta(ctx context.Context) (span.URI, []protocol.Diagn
 // for any validation errors encountered.
 // TODO(hasheddan): consider decoupling forming diagnostics from getting
 // validation errors.
-func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagnostic, error) { //nolint:gocyclo
+func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagnostic, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	diags := []protocol.Diagnostic{}
@@ -461,11 +461,11 @@ func (s *Snapshot) Validate(ctx context.Context, uri span.URI) ([]protocol.Diagn
 // errors.
 // TODO(@tnthornton) this function is getting pretty complex. We should work
 // towards breaking it up.
-func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVersionKind) []protocol.Diagnostic { //nolint:gocyclo
+func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVersionKind) []protocol.Diagnostic { //nolint:gocognit // See comment above.
 	diags := []protocol.Diagnostic{}
 	for _, err := range res.Errors {
 		var e *verror
-		switch et := err.(type) { //nolint:errorlint
+		switch et := err.(type) { //nolint:errorlint // TODO(adamwg): Swtich to errors.As.
 		case *verrors.Validation:
 			e = &verror{
 				code:    et.Code(),
@@ -513,7 +513,7 @@ func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVer
 
 				// end character can be unmatched if we have doublequotes
 				var endCh int
-				switch tok.Type { //nolint:exhaustive
+				switch tok.Type { //nolint:exhaustive // No need to adjust endCh for other types.
 				case token.DoubleQuoteType:
 					endCh = tok.Position.Column + len(tok.Value) + 1
 				default:
@@ -538,12 +538,12 @@ func validationDiagnostics(res *validate.Result, n ast.Node, gvk schema.GroupVer
 				diags = append(diags, protocol.Diagnostic{
 					Range: protocol.Range{
 						Start: protocol.Position{
-							Line:      uint32(tok.Position.Line - 1), //nolint:gosec
-							Character: uint32(startCh),               //nolint:gosec
+							Line:      uint32(tok.Position.Line - 1), //nolint:gosec // Overflow not dangerous.
+							Character: uint32(startCh),               //nolint:gosec // Overflow not dangerous.
 						},
 						End: protocol.Position{
-							Line:      uint32(tok.Position.Line - 1), //nolint:gosec
-							Character: uint32(endCh),                 //nolint:gosec
+							Line:      uint32(tok.Position.Line - 1), //nolint:gosec // Overflow not dangerous.
+							Character: uint32(endCh),                 //nolint:gosec // Overflow not dangerous.
 						},
 					},
 					Message:  e.Error(),

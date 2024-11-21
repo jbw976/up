@@ -17,7 +17,6 @@ package snapshot
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 	"sigs.k8s.io/yaml"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
@@ -133,7 +133,7 @@ func (m *MetaValidator) Marshal(ctx context.Context, data any) (metav1.Pkg, runt
 }
 
 type metaValidator interface {
-	validate(context.Context, int, v1beta1.Dependency) error
+	validate(ctx context.Context, i int, dep v1beta1.Dependency) error
 }
 
 // validateAPIVersion tests if the provided object is a deprecated version.
@@ -216,7 +216,7 @@ func (v *VersionValidator) validate(ctx context.Context, i int, d v1beta1.Depend
 	vers, err := v.manager.Versions(ctx, d)
 	if err != nil {
 		// TODO(@tnthornton) add debug logging here
-		return nil //nolint:nilerr
+		return nil //nolint:nilerr // Error will be raised elsewhere if there's no version.
 	}
 	if len(vers) == 0 {
 		return &validator.ValidationError{

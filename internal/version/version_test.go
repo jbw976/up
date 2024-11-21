@@ -17,7 +17,6 @@ package version
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +24,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
 
@@ -160,7 +160,7 @@ type mockClient struct {
 	err     error
 }
 
-func (m *mockClient) Do(r *http.Request) (*http.Response, error) {
+func (m *mockClient) Do(_ *http.Request) (*http.Response, error) {
 	return &http.Response{
 		// NOTE(@tnthornton) the response from the real cli.upbound.io includes a `\n`
 		Body: io.NopCloser(bytes.NewBufferString(fmt.Sprintf("%s\n", m.version))),
