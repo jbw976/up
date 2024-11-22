@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package functions contains functions for building functions
 package functions
 
 import (
@@ -60,6 +61,8 @@ type realIdentifier struct{}
 
 // DefaultIdentifier is the default builder identifier, suitable for production
 // use.
+//
+//nolint:gochecknoglobals // we want to keep this global
 var DefaultIdentifier = realIdentifier{}
 
 func (realIdentifier) Identify(fromFS afero.Fs) (Builder, error) {
@@ -86,9 +89,11 @@ type nopIdentifier struct{}
 
 // FakeIdentifier is an identifier that always returns a fake builder. This is
 // for use in tests where we don't want to do real builds.
+//
+//nolint:gochecknoglobals // we want to keep this global
 var FakeIdentifier = nopIdentifier{}
 
-func (nopIdentifier) Identify(fromFS afero.Fs) (Builder, error) {
+func (nopIdentifier) Identify(_ afero.Fs) (Builder, error) {
 	return &fakeBuilder{}, nil
 }
 
@@ -118,7 +123,7 @@ func (b *dockerBuilder) match(fromFS afero.Fs) (bool, error) {
 	return afero.Exists(fromFS, "Dockerfile")
 }
 
-func (b *dockerBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error) {
+func (b *dockerBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, _ string) ([]v1.Image, error) {
 	cl, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to docker daemon")
@@ -381,7 +386,7 @@ func setImageEnvvar(image v1.Image, key string, value string) (v1.Image, error) 
 
 func newKCLBuilder() *kclBuilder {
 	return &kclBuilder{
-		baseImage: "xpkg.upbound.io/upbound/function-kcl-base:v0.10.8-up.1",
+		baseImage: "xpkg.upbound.io/upbound/function-kcl-base:v0.10.8-up.2",
 		transport: http.DefaultTransport,
 	}
 }
@@ -406,11 +411,11 @@ func (b *fakeBuilder) Name() string {
 	return "fake"
 }
 
-func (b *fakeBuilder) match(fromFS afero.Fs) (bool, error) {
+func (b *fakeBuilder) match(_ afero.Fs) (bool, error) {
 	return true, nil
 }
 
-func (b *fakeBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error) {
+func (b *fakeBuilder) Build(_ context.Context, _ afero.Fs, architectures []string, _ string) ([]v1.Image, error) {
 	images := make([]v1.Image, len(architectures))
 	for i, arch := range architectures {
 		baseImg := empty.Image
