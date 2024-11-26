@@ -15,7 +15,6 @@
 package meta
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"

@@ -12,59 +12,70 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package defaults contains defaults for Spaces.
 package defaults
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/pterm/pterm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
+// CloudType is a type of (usually cloud-hosted) Kubernetes cluster.
 type CloudType string
 
+// CloudConfig contains cloud-specific configuration settings for Spaces.
 type CloudConfig struct {
 	SpacesValues  map[string]string
 	PublicIngress bool
 }
 
 const (
+	// AmazonEKS is the EKS type of cluster.
 	AmazonEKS CloudType = "eks"
-	AzureAKS  CloudType = "aks"
-	Generic   CloudType = "generic"
+	// AzureAKS is the AKS type of cluster.
+	AzureAKS CloudType = "aks"
+	// Generic is a generic cluster.
+	Generic CloudType = "generic"
+	// GoogleGKE is the GKE type of cluster.
 	GoogleGKE CloudType = "gke"
-	Kind      CloudType = "kind"
+	// Kind is the kind type of cluster.
+	Kind CloudType = "kind"
 
+	// ClusterTypeStr is the configuration key for the cloud type.
 	ClusterTypeStr = "clusterType"
 )
 
-var vendorDefaults = map[CloudType]map[string]string{
-	AmazonEKS: {
-		ClusterTypeStr: string(AmazonEKS),
-	},
-	AzureAKS: {
-		ClusterTypeStr: string(AzureAKS),
-	},
-	GoogleGKE: {
-		ClusterTypeStr: string(GoogleGKE),
-	},
-	Kind: {
-		ClusterTypeStr: string(Kind),
-	},
-
-	Generic: {},
-}
-
 func (ct *CloudType) getSpaceValues() map[string]string {
+	vendorDefaults := map[CloudType]map[string]string{
+		AmazonEKS: {
+			ClusterTypeStr: string(AmazonEKS),
+		},
+		AzureAKS: {
+			ClusterTypeStr: string(AzureAKS),
+		},
+		GoogleGKE: {
+			ClusterTypeStr: string(GoogleGKE),
+		},
+		Kind: {
+			ClusterTypeStr: string(Kind),
+		},
+
+		Generic: {},
+	}
+
 	if v, ok := vendorDefaults[*ct]; ok {
 		return v
 	}
 	return nil
 }
 
+// Defaults returns the defaults for a given type of cluster.
 func (ct *CloudType) Defaults() CloudConfig {
 	publicIngress := true
 	if *ct == Generic || *ct == Kind {
@@ -76,6 +87,8 @@ func (ct *CloudType) Defaults() CloudConfig {
 	}
 }
 
+// GetConfig returns the Spaces configuration to use for a cluster based on its
+// type, inferred from its Kubernetes client.
 func GetConfig(kClient kubernetes.Interface, override string) (*CloudConfig, error) {
 	if kClient == nil {
 		return nil, errors.New("no kubernetes client")

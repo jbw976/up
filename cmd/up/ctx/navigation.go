@@ -16,11 +16,11 @@ package ctx
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +36,8 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	upboundv1alpha1 "github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
 	"github.com/upbound/up-sdk-go/service/organizations"
@@ -46,17 +48,29 @@ import (
 )
 
 var (
+	//nolint:gochecknoglobals // We'd make these consts if we could.
 	upboundBrandColor = lipgloss.AdaptiveColor{Light: "#5e3ba5", Dark: "#af7efd"}
-	neutralColor      = lipgloss.AdaptiveColor{Light: "#4e5165", Dark: "#9a9ca7"}
-	dimColor          = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	neutralColor = lipgloss.AdaptiveColor{Light: "#4e5165", Dark: "#9a9ca7"}
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	dimColor = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
 )
 
 var (
 	// all adaptive colors have a minimum of 7:1 against #fff or #000.
-	upboundRootStyle         = lipgloss.NewStyle().Foreground(upboundBrandColor)
+
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
+	//nolint:gochecknoglobals // We'd make these consts if we could.
 	pathInactiveSegmentStyle = lipgloss.NewStyle().Foreground(neutralColor)
-	pathSegmentStyle         = lipgloss.NewStyle()
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	pathSegmentStyle = lipgloss.NewStyle()
 )
+
+// TODO(adamwg): All the nav states here should probably be unexported. Today we
+// do use them a bit outside of the ctx command, but that's a bit of a smell -
+// those bits should probably be factored out into an internal package. For now
+// we have a bunch of nolints because we mix exported and unexported types.
 
 // NavigationState is a model state that provides a list of items for a navigation node.
 type NavigationState interface {
@@ -77,12 +91,6 @@ type Back interface {
 	BackLabel() string
 }
 
-type AcceptingFunc func(ctx context.Context, upCtx *upbound.Context) error
-
-func (f AcceptingFunc) Accept(ctx context.Context, upCtx *upbound.Context) error {
-	return f(ctx, upCtx)
-}
-
 // breadcrumbStyle defines the styles to be used in the breadcrumbs of a list.
 type breadcrumbStyle struct {
 	// previousLevel is the style of the previous levels in the path (higher
@@ -97,14 +105,17 @@ type breadcrumbStyle struct {
 	currentLevel lipgloss.Style
 }
 
+//nolint:gochecknoglobals // We'd make this a const if we could.
 var defaultBreadcrumbStyle = breadcrumbStyle{
 	previousLevel: pathInactiveSegmentStyle,
 	currentLevel:  pathSegmentStyle,
 }
 
+// Root is the root nav state.
 type Root struct{}
 
-func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
+// Items returns items for the root nav state.
+func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return nil, err
@@ -132,7 +143,7 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCon
 		}})
 	}
 
-	sort.Sort(sortedItems(items))
+	slices.SortFunc(items, itemSortFunc)
 	return append(items, item{
 		text: "Disconnected Spaces",
 		onEnter: func(m model) (model, error) {
@@ -146,13 +157,16 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCon
 	}), nil
 }
 
+// Breadcrumbs returns breadcrumbs for the root nav state.
 func (r *Root) Breadcrumbs() string {
 	return ""
 }
 
+// Disconnected is the nav state containing disconnected spaces.
 type Disconnected struct{}
 
-func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
+// Items returns items for the disconnected nav state.
+func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
 	kubeconfig, err := upCtx.Kubecfg.RawConfig()
 	if err != nil {
 		return nil, err
@@ -180,7 +194,7 @@ func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	}
 	wg.Wait()
 
-	sort.Sort(sortedItems(items))
+	slices.SortFunc(items, itemSortFunc)
 	return items, nil
 }
 
@@ -240,26 +254,31 @@ func (d *Disconnected) breadcrumbs(styles breadcrumbStyle) string {
 	return styles.currentLevel.Render("disconnected/")
 }
 
+// Breadcrumbs returns breadcrumbs for the disconnected nav state.
 func (d *Disconnected) Breadcrumbs() string {
 	return d.breadcrumbs(defaultBreadcrumbStyle)
 }
 
-func (d *Disconnected) Back(m model) (model, error) {
+// Back returns the parent of the disconnected nav state.
+func (d *Disconnected) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
 	m.state = &Root{}
 	return m, nil
 }
 
+// BackLabel returns the label for the back item in the disconnected nav state.
 func (d *Disconnected) BackLabel() string {
 	return "home"
 }
 
 var _ Back = &Organization{}
 
+// Organization is the nav state containing an organization's spaces.
 type Organization struct {
 	Name string
 }
 
-func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) { //nolint:gocyclo
+// Items returns items for an organization nav state.
+func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) { //nolint:gocognit // TODO: refactor.
 	cloudCfg, err := upCtx.BuildControllerClientConfig()
 	if err != nil {
 		return nil, err
@@ -366,8 +385,8 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	close(ch)
 	wg.Wait()
 
-	sort.Sort(sortedItems(items))
-	sort.Sort(sortedItems(unselectableItems))
+	slices.SortFunc(items, itemSortFunc)
+	slices.SortFunc(unselectableItems, itemSortFunc)
 
 	ret := []list.Item{item{text: "..", kind: o.BackLabel(), onEnter: o.Back, back: true}}
 	ret = append(ret, items...)
@@ -375,11 +394,13 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	return ret, nil
 }
 
-func (o *Organization) Back(m model) (model, error) {
+// Back returns the parent of an organization nav state.
+func (o *Organization) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
 	m.state = &Root{}
 	return m, nil
 }
 
+// BackLabel returns the label for the back item of an organization nav state.
 func (o *Organization) BackLabel() string {
 	return "home"
 }
@@ -388,15 +409,23 @@ func (o *Organization) breadcrumbs(styles breadcrumbStyle) string {
 	return styles.currentLevel.Render(fmt.Sprintf("%s/", o.Name))
 }
 
+// Breadcrumbs returns breadcrumbs for an organization nav state.
 func (o *Organization) Breadcrumbs() string {
 	return o.breadcrumbs(defaultBreadcrumbStyle)
 }
 
-type sortedItems []list.Item
+func itemSortFunc(a, b list.Item) int {
+	aitem, aok := a.(item)
+	bitem, bok := b.(item)
 
-func (s sortedItems) Len() int           { return len(s) }
-func (s sortedItems) Less(i, j int) bool { return s[i].(item).text < s[j].(item).text }
-func (s sortedItems) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+	// If either item is not our item type we can't compare them, so treat them
+	// as equal.
+	if !aok || !bok {
+		return 0
+	}
+
+	return strings.Compare(aitem.text, bitem.text)
+}
 
 var _ Back = &Space{}
 
@@ -413,7 +442,8 @@ type Space struct {
 	HubContext string
 }
 
-func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
+// Items returns items for a space nav state.
+func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
 	cl, err := s.GetClient(upCtx)
 	if err != nil {
 		return nil, err
@@ -448,7 +478,8 @@ func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navCo
 	return items, nil
 }
 
-func (s *Space) Back(m model) (model, error) {
+// Back returns the parent of a space nav state.
+func (s *Space) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
 	if s.IsCloud() {
 		m.state = &s.Org
 	} else {
@@ -457,10 +488,12 @@ func (s *Space) Back(m model) (model, error) {
 	return m, nil
 }
 
+// BackLabel returns the label for the back item of a space nav state.
 func (s *Space) BackLabel() string {
 	return "spaces"
 }
 
+// IsCloud returns true if the given space nav state references a cloud space.
 func (s *Space) IsCloud() bool {
 	return s.Org.Name != ""
 }
@@ -471,14 +504,14 @@ func (s *Space) breadcrumbs(styles breadcrumbStyle) string {
 			currentLevel:  styles.previousLevel,
 			previousLevel: styles.previousLevel,
 		}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
-	} else {
-		return (&Disconnected{}).breadcrumbs(breadcrumbStyle{
-			currentLevel:  styles.previousLevel,
-			previousLevel: styles.previousLevel,
-		}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
 	}
+	return (&Disconnected{}).breadcrumbs(breadcrumbStyle{
+		currentLevel:  styles.previousLevel,
+		previousLevel: styles.previousLevel,
+	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
 }
 
+// Breadcrumbs returns breadcrumbs for a space nav state.
 func (s *Space) Breadcrumbs() string {
 	return s.breadcrumbs(defaultBreadcrumbStyle)
 }
@@ -499,12 +532,12 @@ func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
 	return client.New(rest, client.Options{})
 }
 
-// buildSpacesClient creates a new kubeconfig hardcoded to match the provided
-// spaces access configuration and pointed directly at the resource. If the
-// resource only specifies a namespace, then the client will point at the space
-// and the context will be set at the group. If the resource specifies both a
-// namespace and a name, then the client will point directly at the control
-// plane ingress and set the namespace to "default".
+// BuildClient creates a new kubeconfig hardcoded to match the provided spaces
+// access configuration and pointed directly at the resource. If the resource
+// only specifies a namespace, then the client will point at the space and the
+// context will be set at the group. If the resource specifies both a namespace
+// and a name, then the client will point directly at the control plane ingress
+// and set the namespace to "default".
 func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedName) (clientcmd.ClientConfig, error) {
 	// reference name for all context, cluster and authinfo for in-memory
 	// kubeconfig
@@ -590,7 +623,8 @@ var (
 	_ Back      = &Group{}
 )
 
-func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
+// Items returns the items for a group nav state.
+func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
 	cl, err := g.Space.GetClient(upCtx)
 	if err != nil {
 		return nil, err
@@ -633,15 +667,18 @@ func (g *Group) breadcrumbs(styles breadcrumbStyle) string {
 	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", g.Name))
 }
 
+// Breadcrumbs returns breadcrumbs for a group nav state.
 func (g *Group) Breadcrumbs() string {
 	return g.breadcrumbs(defaultBreadcrumbStyle)
 }
 
-func (g *Group) Back(m model) (model, error) {
+// Back returns the parent of a group nav state.
+func (g *Group) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
 	m.state = &g.Space
 	return m, nil
 }
 
+// BackLabel returns the label for the back item of a group nav state.
 func (g *Group) BackLabel() string {
 	return "groups"
 }
@@ -657,7 +694,8 @@ var (
 	_ Back      = &ControlPlane{}
 )
 
-func (ctp *ControlPlane) Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error) {
+// Items returns items for a control plane nav state.
+func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
 	return []list.Item{
 		item{text: "..", kind: ctp.BackLabel(), onEnter: ctp.Back, back: true},
 		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: KeyFunc(func(m model) (model, error) {
@@ -678,19 +716,24 @@ func (ctp *ControlPlane) breadcrumbs(styles breadcrumbStyle) string {
 	}) + styles.currentLevel.Render(ctp.Name)
 }
 
+// Breadcrumbs returns breadcrumbs for a control plane nav state.
 func (ctp *ControlPlane) Breadcrumbs() string {
 	return ctp.breadcrumbs(defaultBreadcrumbStyle)
 }
 
-func (ctp *ControlPlane) Back(m model) (model, error) {
+// Back returns the parent of a control plane nav state.
+func (ctp *ControlPlane) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
 	m.state = &ctp.Group
 	return m, nil
 }
 
+// BackLabel returns the label for the back item of a control plane nav state.
 func (ctp *ControlPlane) BackLabel() string {
 	return "controlplanes"
 }
 
+// NamespacedName returns a Kubernetes name within a space for the control plane
+// referred to by a control plane nav state.
 func (ctp *ControlPlane) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: ctp.Name, Namespace: ctp.Group.Name}
 }

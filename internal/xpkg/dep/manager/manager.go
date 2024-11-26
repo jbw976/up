@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package manager contains a dependency manager for crossplane packages on
+// local disk.
 package manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/spf13/afero"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
@@ -39,7 +41,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/utils"
 )
 
-var defaultCacheRoot = ".up/cache"
+const defaultCacheRoot = ".up/cache"
 
 const (
 	defaultWatchInterval = "100ms"
@@ -63,25 +65,25 @@ type Manager struct {
 
 // Cache defines the API contract for working with a Cache.
 type Cache interface {
-	Get(v1beta1.Dependency) (*xpkg.ParsedPackage, error)
-	Store(v1beta1.Dependency, *xpkg.ParsedPackage) error
-	Versions(v1beta1.Dependency) ([]string, error)
+	Get(dep v1beta1.Dependency) (*xpkg.ParsedPackage, error)
+	Store(dep v1beta1.Dependency, pkg *xpkg.ParsedPackage) error
+	Versions(dep v1beta1.Dependency) ([]string, error)
 	Watch() <-chan cache.Event
 }
 
 // ImageResolver defines the API contract for working with an
 // ImageResolver.
 type ImageResolver interface {
-	ResolveDigest(context.Context, v1beta1.Dependency) (string, error)
-	ResolveImage(context.Context, v1beta1.Dependency) (string, v1.Image, error)
-	ResolveTag(context.Context, v1beta1.Dependency) (string, error)
+	ResolveDigest(ctx context.Context, dep v1beta1.Dependency) (string, error)
+	ResolveImage(ctx context.Context, dep v1beta1.Dependency) (string, v1.Image, error)
+	ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error)
 }
 
 // XpkgMarshaler defines the API contract for working with an
 // xpkg.ParsedPackage marshaler.
 type XpkgMarshaler interface {
-	FromImage(ixpkg.Image) (*xpkg.ParsedPackage, error)
-	FromDir(afero.Fs, string) (*xpkg.ParsedPackage, error)
+	FromImage(img ixpkg.Image) (*xpkg.ParsedPackage, error)
+	FromDir(fs afero.Fs, path string) (*xpkg.ParsedPackage, error)
 }
 
 // New returns a new Manager.
@@ -205,7 +207,7 @@ func (m *Manager) View(ctx context.Context, deps []v1beta1.Dependency) (*View, e
 
 // Versions returns the dependency versions corresponding to the supplied
 // v1beta1.Dependency that currently exist locally.
-func (m *Manager) Versions(ctx context.Context, d v1beta1.Dependency) ([]string, error) {
+func (m *Manager) Versions(_ context.Context, d v1beta1.Dependency) ([]string, error) {
 	return m.c.Versions(d)
 }
 
@@ -272,6 +274,7 @@ func (m *Manager) AddAll(ctx context.Context, d v1beta1.Dependency) (v1beta1.Dep
 	return ud, m.acc, nil
 }
 
+// AddModels adds models for a given language to the manager's cache.
 func (m *Manager) AddModels(language string, fromFS afero.Fs) error {
 	if m.cacheModels == nil {
 		return nil

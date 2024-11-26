@@ -16,15 +16,14 @@ package user
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/pterm/pterm"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up/internal/input"
-	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/upterm"
 )
 
 // removeCmd removes a user from an organization.
@@ -51,7 +50,7 @@ func (c *removeCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *removeCmd) AfterApply(p pterm.TextPrinter) error {
+func (c *removeCmd) AfterApply() error {
 	if c.Force {
 		return nil
 	}
@@ -69,7 +68,7 @@ func (c *removeCmd) AfterApply(p pterm.TextPrinter) error {
 }
 
 // Run executes the remove command.
-func (c *removeCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *removeCmd) Run(ctx context.Context, p pterm.TextPrinter, oc *organizations.Client) error {
 	orgID, err := oc.GetOrgID(ctx, c.OrgName)
 	if err != nil {
 		return err

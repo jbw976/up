@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package yaml contains a yaml package parser.
 package yaml
 
 import (
-	"errors"
-
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 
 	"github.com/upbound/up/internal/xpkg/scheme"

@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package reader contains an event reader.
 package reader
 
 import (
 	"context"
-	"errors"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/usage/event"
 	"github.com/upbound/up/internal/usage/model"
 )
 
+// ErrEOF indicates EOF.
 var ErrEOF = event.ErrEOF
 
 var _ event.Reader = &MultiReader{}
@@ -51,6 +54,7 @@ func (r *MultiReader) Read(ctx context.Context) (model.MXPGVKEvent, error) {
 	}
 }
 
+// Close closes the reader.
 func (r *MultiReader) Close() error {
 	for _, er := range r.Readers {
 		if err := er.Close(); err != nil {

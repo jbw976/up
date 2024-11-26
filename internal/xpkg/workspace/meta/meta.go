@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package meta contains abstractions for working with package metadata.
 package meta
 
 import (
-	"errors"
-
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	pkgmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
@@ -95,7 +95,7 @@ func (m *Meta) Object() runtime.Object {
 // upsertDeps takes a v1beta1.Dependency and a runtime.Object of type that can
 // be converted to a v1.Pkg and returns an updated runtime.Object with a slice
 // of dependencies that includes the provided dependency d.
-func upsertDeps(d v1beta1.Dependency, o runtime.Object) error { //nolint:gocyclo
+func upsertDeps(d v1beta1.Dependency, o runtime.Object) error {
 	p, ok := scheme.TryConvertToPkg(o,
 		&pkgmetav1.Provider{},
 		&pkgmetav1.Configuration{},
