@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package schemarunner contains functions for handling containers for schema generation
 package schemarunner
 
 import (
@@ -41,9 +42,9 @@ type SchemaRunner interface {
 // RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
 type RealSchemaRunner struct{}
 
-// RunContainer runs the containerized tool (e.g., KCL, Python) for schema generation.
-func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, imageName string, command []string) error { //nolint:gocyclo
-	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+// Generate runs the containerized language tool for schema generation.
+func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, imageName string, command []string) error { //nolint:gocyclo // start container
+	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
 	if err != nil {
 		return errors.Wrapf(err, "failed to use the docker client")
 	}
@@ -115,7 +116,7 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	// Copy the results back from the container to the in-memory filesystem
-	if err := copyFromContainerToFs(cli, ctx, resp.ID, "/data/input", fromFS); err != nil {
+	if err := copyFromContainerToFs(ctx, cli, resp.ID, "/data/input", fromFS); err != nil {
 		return errors.Wrapf(err, "failed to copy tar from container")
 	}
 
@@ -129,13 +130,12 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 }
 
 // copyFromContainerToFs copies files from the container back to the Afero filesystem.
-func copyFromContainerToFs(cli *client.Client, ctx context.Context, containerID, containerPath string, fs afero.Fs) error { //nolint:gocyclo
+func copyFromContainerToFs(ctx context.Context, cli *client.Client, containerID, containerPath string, fs afero.Fs) error { //nolint:gocyclo // copy from container
 	// Copy the files from the container
 	reader, _, err := cli.CopyFromContainer(ctx, containerID, containerPath)
 	if err != nil {
 		return err
 	}
-	defer func() {}()
 
 	tarReader := tar.NewReader(reader)
 	const maxFileSize = 10 * 1024 * 1024 // Set a max size (e.g., 10MB)
@@ -167,12 +167,12 @@ func copyFromContainerToFs(cli *client.Client, ctx context.Context, containerID,
 			limitedReader := io.LimitReader(tarReader, maxFileSize)
 			if _, err := io.Copy(outFile, limitedReader); err != nil {
 				if cerr := outFile.Close(); cerr != nil {
-					err = errors.Wrapf(cerr, "error while closing file")
+					err = errors.Wrap(cerr, "error while closing file")
 				}
 				return err
 			}
 			if cerr := outFile.Close(); cerr != nil {
-				return fmt.Errorf("error closing file %s: %w", cleanedPath, cerr)
+				return errors.Wrapf(cerr, "error closing file %s", cleanedPath)
 			}
 		}
 	}

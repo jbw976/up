@@ -124,7 +124,7 @@ func (b *dockerBuilder) match(fromFS afero.Fs) (bool, error) {
 }
 
 func (b *dockerBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, _ string) ([]v1.Image, error) {
-	cl, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	cl, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to connect to docker daemon")
 	}
