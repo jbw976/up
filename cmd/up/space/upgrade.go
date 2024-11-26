@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package space contains functions for handling spaces
 package space
 
 import (
@@ -83,7 +84,7 @@ func (c *upgradeCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo
+func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
 	if err := c.Kube.AfterApply(); err != nil {
 		return err
 	}
@@ -129,7 +130,7 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) e
 
 	base := map[string]any{}
 	if c.File != nil {
-		defer c.File.Close() //nolint:errcheck,gosec
+		defer c.File.Close() //nolint:errcheck // nothing we do with the err
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)
@@ -308,7 +309,7 @@ func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
 	}
 
 	// If there's a warning, prompt for confirmation
-	return warnAndConfirm(warning) //nolint:govet
+	return warnAndConfirm(warning) //nolint:govet // w
 }
 
 // warnAndConfirm displays a warning and prompts for confirmation.

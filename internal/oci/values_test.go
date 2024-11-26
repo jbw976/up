@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package oci contains functions for handling remote oci artifacts
 package oci
 
 import (
@@ -19,18 +20,17 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/alecthomas/assert/v2"
 	"helm.sh/helm/v3/pkg/chart"
 )
 
 // MockPathNavigator is a mock implementation of PathNavigator for testing.
 type MockPathNavigator struct {
-	SupportedVersions []string `json:"supportedVersions"`
+	Extractors []string `json:"extractors"`
 }
 
-func (m *MockPathNavigator) GetSupportedVersions() ([]string, error) {
-	return m.SupportedVersions, nil
+func (m *MockPathNavigator) Extractor() ([]string, error) {
+	return m.Extractors, nil
 }
 
 // Mock functions.
@@ -45,7 +45,7 @@ func mockLoaderLoad(name string) (*chart.Chart, error) {
 	}, nil
 }
 
-func mockPullRun(src, version string) (string, error) {
+func mockPullRun(_, _, _, _ string) (string, error) {
 	dir, err := os.MkdirTemp("", "mock")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary directory: %w", err)
@@ -53,82 +53,94 @@ func mockPullRun(src, version string) (string, error) {
 	return dir, nil
 }
 
-// TestGetValuesFromChart tests the GetValuesFromChart function.
-func TestGetValuesFromChart(t *testing.T) {
-	// Setup mock functions and data
-	chartName := "test-chart"
-	version := "1.0.0"
-	supportedVersions := []string{"v1", "v2", "v3"}
-
-	mockNavigator := &MockPathNavigator{}
-	mockNavigator.SupportedVersions = supportedVersions
-
-	// Run the function
-	versions, err := getValuesFromChartWithLoaderAndPull(chartName, version, mockNavigator, mockLoaderLoad, mockPullRun)
-	require.NoError(t, err)
-	assert.Equal(t, supportedVersions, versions)
-}
-
-// TestGetValuesFromChart_PullError tests the GetValuesFromChart function when Pull fails.
-func TestGetValuesFromChart_PullError(t *testing.T) {
-	// Setup mock functions and data
-	chartName := "test-chart"
-	version := "1.0.0"
-
-	mockNavigator := &MockPathNavigator{}
-
-	// Mock Pull function to simulate an error
-	mockPullRunError := func(src, version string) (string, error) {
-		return "", fmt.Errorf("failed to pull chart")
-	}
-
-	// Run the function
-	_, err := getValuesFromChartWithLoaderAndPull(chartName, version, mockNavigator, mockLoaderLoad, mockPullRunError)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to pull chart")
-}
-
-// TestGetValuesFromChart_LoadError tests the GetValuesFromChart function when Load fails.
-func TestGetValuesFromChart_LoadError(t *testing.T) {
-	// Setup mock functions and data
-	chartName := "test-chart"
-	version := "1.0.0"
-
-	mockNavigator := &MockPathNavigator{}
-
-	// Mock the loader function to simulate an error
-	loaderFuncError := func(name string) (*chart.Chart, error) {
-		return nil, fmt.Errorf("failed to load chart")
-	}
-
-	// Run the function
-	_, err := getValuesFromChartWithLoaderAndPull(chartName, version, mockNavigator, loaderFuncError, mockPullRun)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to load chart")
-}
-
-// TestGetValuesFromChart_JSONError tests the GetValuesFromChart function when JSON unmarshalling fails.
-func TestGetValuesFromChart_JSONError(t *testing.T) {
-	// Setup mock functions and data
-	chartName := "test-chart"
-	version := "1.0.0"
-
-	mockNavigator := &MockPathNavigator{}
-
-	// Mock chart values with invalid JSON
-	loaderFuncError := func(name string) (*chart.Chart, error) {
-		return &chart.Chart{
-			Metadata: &chart.Metadata{
-				Name: name,
+func TestGetValuesFromChartWithLoaderAndPull(t *testing.T) {
+	tests := []struct {
+		name          string
+		chartName     string
+		version       string
+		mockNavigator *MockPathNavigator
+		mockLoader    func(name string) (*chart.Chart, error)
+		mockPull      func(_, _, _, _ string) (string, error)
+		username      string
+		password      string
+		expected      []string
+		expectedErr   string
+	}{
+		{
+			name:      "Success",
+			chartName: "test-chart",
+			version:   "1.0.0",
+			mockNavigator: &MockPathNavigator{
+				Extractors: []string{"v1", "v2", "v3"},
 			},
-			Values: map[string]interface{}{
-				"supportedVersions": func() {}, // Invalid type for JSON marshaling
+			mockLoader: mockLoaderLoad,
+			mockPull:   mockPullRun,
+			username:   "",
+			password:   "",
+			expected:   []string{"v1", "v2", "v3"},
+		},
+		{
+			name:          "PullError",
+			chartName:     "test-chart",
+			version:       "1.0.0",
+			mockNavigator: &MockPathNavigator{},
+			mockLoader:    mockLoaderLoad,
+			mockPull: func(_, _, _, _ string) (string, error) {
+				return "", fmt.Errorf("failed to pull chart")
 			},
-		}, nil
+			username:    "",
+			password:    "",
+			expectedErr: "failed to pull chart",
+		},
+		{
+			name:          "LoadError",
+			chartName:     "test-chart",
+			version:       "1.0.0",
+			mockNavigator: &MockPathNavigator{},
+			mockLoader: func(_ string) (*chart.Chart, error) {
+				return nil, fmt.Errorf("failed to load chart")
+			},
+			mockPull:    mockPullRun,
+			username:    "",
+			password:    "",
+			expectedErr: "failed to load chart",
+		},
+		{
+			name:          "JSONError",
+			chartName:     "test-chart",
+			version:       "1.0.0",
+			mockNavigator: &MockPathNavigator{},
+			mockLoader: func(name string) (*chart.Chart, error) {
+				return &chart.Chart{
+					Metadata: &chart.Metadata{
+						Name: name,
+					},
+					Values: map[string]interface{}{
+						"supportedVersions": func() {}, // Invalid type for JSON marshaling
+					},
+				}, nil
+			},
+			mockPull:    mockPullRun,
+			username:    "",
+			password:    "",
+			expectedErr: "failed to marshal chart values",
+		},
 	}
 
-	// Run the function
-	_, err := getValuesFromChartWithLoaderAndPull(chartName, version, mockNavigator, loaderFuncError, mockPullRun)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to marshal chart values")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			versions, err := getValuesFromChartWithLoaderAndPull(tt.chartName, tt.version, tt.mockNavigator, tt.mockLoader, tt.mockPull, tt.username, tt.password)
+			if tt.expectedErr != "" {
+				if err == nil {
+					t.Fatalf("expected error: %v, got none", tt.expectedErr)
+				}
+				assert.Contains(t, err.Error(), tt.expectedErr)
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				assert.Equal(t, tt.expected, versions)
+			}
+		})
+	}
 }

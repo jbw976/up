@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package space contains functions for handling spaces
 package space
 
 import (

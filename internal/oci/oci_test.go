@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package oci contains functions for handling remote oci artifacts
 package oci
 
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/alecthomas/assert/v2"
-	"github.com/google/go-containerregistry/pkg/crane"
 )
 
 // TestGetArtifactName tests the GetArtifactName function.
@@ -83,93 +81,6 @@ func TestRemoveDomainAndOrg(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RemoveDomainAndOrg(tt.src)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// TestTagExists tests the TagExists function.
-func TestTagExists(t *testing.T) {
-	tests := []struct {
-		name     string
-		tags     []string
-		version  string
-		expected bool
-	}{
-		{
-			name:     "Tag Exists",
-			tags:     []string{"1.0.0", "1.1.0", "1.2.0"},
-			version:  "1.1.0",
-			expected: true,
-		},
-		{
-			name:     "Tag Does Not Exist",
-			tags:     []string{"1.0.0", "1.1.0", "1.2.0"},
-			version:  "2.0.0",
-			expected: false,
-		},
-		{
-			name:     "Empty Tags",
-			tags:     []string{},
-			version:  "1.0.0",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := TagExists(tt.tags, tt.version)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// TestListTags tests the ListTags function.
-func TestListTags(t *testing.T) {
-	tests := []struct {
-		name       string
-		repository string
-		mockTags   []string
-		mockError  error
-		expected   []string
-		expectErr  bool
-	}{
-		{
-			name:       "Successful Tag Listing",
-			repository: "spaces",
-			mockTags:   []string{"1.0.0", "1.1.0", "1.2.0"},
-			mockError:  nil,
-			expected:   []string{"1.0.0", "1.1.0", "1.2.0"},
-			expectErr:  false,
-		},
-		{
-			name:       "Error in Tag Listing",
-			repository: "spaces",
-			mockTags:   nil,
-			mockError:  errors.New("failed to list tags"),
-			expected:   nil,
-			expectErr:  true,
-		},
-	}
-
-	originalListTags := DefaultListTags
-	defer func() { DefaultListTags = originalListTags }()
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			DefaultListTags = func(repo string, options ...crane.Option) ([]string, error) {
-				if repo == tt.repository {
-					return tt.mockTags, tt.mockError
-				}
-				return nil, nil
-			}
-
-			result, err := ListTags(context.Background(), tt.repository)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
-			}
 		})
 	}
 }

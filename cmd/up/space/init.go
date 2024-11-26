@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package space contains functions for handling spaces
 package space
 
 import (
@@ -30,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -62,6 +62,7 @@ const (
 	hcResourcePlural = "xhostclusters"
 )
 
+//nolint:gochecknoglobals // global variables for space initialization.
 var (
 	watcherTimeout int64 = 600
 
@@ -111,7 +112,7 @@ type initCmd struct {
 func init() {
 	// NOTE(tnthornton) we override the runtime.ErrorHandlers so that Helm
 	// doesn't leak Println logs.
-	kruntime.ErrorHandlers = []runtime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {}} //nolint:reassign
+	kruntime.ErrorHandlers = []kruntime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...interface{}) {}} //nolint:reassign // disable logging
 
 	kruntime.Must(upboundv1alpha1.AddToScheme(scheme.Scheme))
 }
@@ -123,7 +124,7 @@ func (c *initCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo
+func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
 	if err := c.Kube.AfterApply(); err != nil {
 		return err
 	}
@@ -194,7 +195,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) erro
 
 	base := map[string]any{}
 	if c.File != nil {
-		defer c.File.Close() //nolint:errcheck,gosec
+		defer c.File.Close() //nolint:errcheck // nothing we do with the err
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)
@@ -225,7 +226,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) erro
 }
 
 // Run executes the install command.
-func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // lot of checks
 	overrideRegistry(c.Registry.Repository.String(), c.helmParams)
 	ensureAccount(upCtx, c.helmParams)
 
@@ -300,8 +301,8 @@ func installPrereqs(status *prerequisites.Status) error {
 			upterm.CheckmarkSuccessSpinner,
 			p.Install,
 		); err != nil {
-			fmt.Println()
-			fmt.Println()
+			pterm.Println()
+			pterm.Println()
 			return err
 		}
 	}
@@ -337,8 +338,8 @@ func (c *initCmd) applySecret(ctx context.Context, regFlags *authorizedRegistryF
 		upterm.CheckmarkSuccessSpinner,
 		creatPullSecret,
 	); err != nil {
-		fmt.Println()
-		fmt.Println()
+		pterm.Println()
+		pterm.Println()
 		return err
 	}
 	return nil

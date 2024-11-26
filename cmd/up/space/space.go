@@ -18,7 +18,6 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/cmd/up/space/billing"
-	"github.com/upbound/up/cmd/up/space/mirror"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -36,13 +35,14 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // Cmd contains commands for interacting with spaces.
 type Cmd struct {
-	Connect    connectCmd    `aliases:"attach" cmd:""                                                help:"Connect an Upbound Space to the Upbound web console."`
-	Destroy    destroyCmd    `cmd:""           help:"Remove the Upbound Spaces deployment."`
-	Disconnect disconnectCmd `aliases:"detach" cmd:""                                                help:"Disconnect an Upbound Space from the Upbound web console."`
-	Init       initCmd       `cmd:""           help:"Initialize an Upbound Spaces deployment."`
-	List       listCmd       `cmd:""           help:"List all accessible spaces in Upbound."`
-	Mirror     mirror.Cmd    `cmd:""           help:"List of all OCI artifacts required for Spaces." maturity:"alpha"`
-	Upgrade    upgradeCmd    `cmd:""           help:"Upgrade the Upbound Spaces deployment."`
+	Connect    connectCmd    `aliases:"attach" cmd:"" help:"Connect an Upbound Space to the Upbound web console."`
+	Disconnect disconnectCmd `aliases:"detach" cmd:"" help:"Disconnect an Upbound Space from the Upbound web console."`
+
+	Destroy destroyCmd `cmd:"" help:"Remove the Upbound Spaces deployment."`
+	Init    initCmd    `cmd:"" help:"Initialize an Upbound Spaces deployment."`
+	List    listCmd    `cmd:"" help:"List all accessible spaces in Upbound."`
+	Mirror  mirrorCmd  `cmd:"" help:"Managing the mirroring of artifacts to local storage or private container registries."`
+	Upgrade upgradeCmd `cmd:"" help:"Upgrade the Upbound Spaces deployment."`
 
 	Billing billing.Cmd `cmd:""`
 }

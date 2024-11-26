@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mirror
+// Package space contains functions for handling spaces
+package space
 
 import (
 	"encoding/json"
@@ -25,10 +26,10 @@ import (
 
 // Embed the YAML file.
 //
-//go:embed config.yaml
+//go:embed mirrorconfig.yaml
 var configFile []byte
 
-type UXPVersionsPath struct {
+type uxpVersionsPath struct {
 	Controller struct {
 		Crossplane struct {
 			SupportedVersions []string `json:"supportedVersions"`
@@ -36,65 +37,65 @@ type UXPVersionsPath struct {
 	} `json:"controller"`
 }
 
-type KubeVersionPath struct {
+type kubeVersionPath struct {
 	ControlPlanes struct {
-		K8sVersion StringOrArray `json:"k8sVersion"`
+		K8sVersion stringOrArray `json:"k8sVersion"`
 	} `json:"controlPlanes"`
 }
 
-type XgqlVersionPath struct {
+type xgqlVersionPath struct {
 	ControlPlanes struct {
 		Uxp struct {
 			Xgql struct {
-				Version StringOrArray `json:"version"`
+				Version stringOrArray `json:"version"`
 			} `json:"xgql"`
 		} `json:"uxp"`
 	} `json:"controlPlanes"`
 }
 
-type ImageTag struct {
+type imageTag struct {
 	Image struct {
-		Tag StringOrArray `json:"tag"`
+		Tag stringOrArray `json:"tag"`
 	} `json:"image"`
 }
 
-type RegisterImageTag struct {
+type registerImageTag struct {
 	Registration struct {
 		Image struct {
-			Tag StringOrArray `json:"tag"`
+			Tag stringOrArray `json:"tag"`
 		} `json:"image"`
 	} `json:"registration"`
 }
 
-func (j *UXPVersionsPath) GetSupportedVersions() ([]string, error) {
+func (j *uxpVersionsPath) Extractor() ([]string, error) {
 	if len(j.Controller.Crossplane.SupportedVersions) == 0 {
 		return nil, errors.New("no supported versions found in UXPVersionsPath")
 	}
 	return j.Controller.Crossplane.SupportedVersions, nil
 }
 
-func (k *KubeVersionPath) GetSupportedVersions() ([]string, error) {
+func (k *kubeVersionPath) Extractor() ([]string, error) {
 	if len(k.ControlPlanes.K8sVersion) == 0 {
 		return nil, errors.New("no supported versions found in KubeVersionPath")
 	}
 	return k.ControlPlanes.K8sVersion, nil
 }
 
-func (k *XgqlVersionPath) GetSupportedVersions() ([]string, error) {
+func (k *xgqlVersionPath) Extractor() ([]string, error) {
 	if len(k.ControlPlanes.Uxp.Xgql.Version) == 0 {
 		return nil, errors.New("no supported versions found in XgqlVersionPath")
 	}
 	return k.ControlPlanes.Uxp.Xgql.Version, nil
 }
 
-func (k *ImageTag) GetSupportedVersions() ([]string, error) {
+func (k *imageTag) Extractor() ([]string, error) {
 	if len(k.Image.Tag) == 0 {
 		return nil, errors.New("no supported versions found in ImageTag")
 	}
 	return k.Image.Tag, nil
 }
 
-func (k *RegisterImageTag) GetSupportedVersions() ([]string, error) {
+func (k *registerImageTag) Extractor() ([]string, error) {
 	if len(k.Registration.Image.Tag) == 0 {
 		return nil, errors.New("no supported versions found in RegisterImageTag")
 	}
@@ -104,17 +105,17 @@ func (k *RegisterImageTag) GetSupportedVersions() ([]string, error) {
 // init function to return byte slice and oci.PathNavigator.
 func initConfig() ([]byte, map[string]reflect.Type) {
 	return configFile, map[string]reflect.Type{
-		"uxpVersionsPath":  reflect.TypeOf(UXPVersionsPath{}),
-		"kubeVersionPath":  reflect.TypeOf(KubeVersionPath{}),
-		"xgqlVersionPath":  reflect.TypeOf(XgqlVersionPath{}),
-		"imageTag":         reflect.TypeOf(ImageTag{}),
-		"registerImageTag": reflect.TypeOf(RegisterImageTag{}),
+		"uxpVersionsPath":  reflect.TypeOf(uxpVersionsPath{}),
+		"kubeVersionPath":  reflect.TypeOf(kubeVersionPath{}),
+		"xgqlVersionPath":  reflect.TypeOf(xgqlVersionPath{}),
+		"imageTag":         reflect.TypeOf(imageTag{}),
+		"registerImageTag": reflect.TypeOf(registerImageTag{}),
 	}
 }
 
-type StringOrArray []string
+type stringOrArray []string
 
-func (s *StringOrArray) UnmarshalJSON(data []byte) error {
+func (s *stringOrArray) UnmarshalJSON(data []byte) error {
 	var single string
 	if err := json.Unmarshal(data, &single); err == nil {
 		*s = []string{single}

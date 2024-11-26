@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package space contains functions for handling spaces
 package space
 
 import (
@@ -143,10 +144,10 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the connect command.
-func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kubernetes.Clientset, upCtx *upbound.Context, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, rc *robots.Client, rest *rest.Config) (rErr error) { //nolint:gocyclo
+func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kubernetes.Clientset, upCtx *upbound.Context, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, rc *robots.Client, rest *rest.Config) (rErr error) { //nolint:gocyclo // lot of checks
 	spacesCM, err := kClient.CoreV1().ConfigMaps(agentNs).Get(ctx, spacesConfigMap, metav1.GetOptions{})
 	if kerrors.IsNotFound(err) {
-		return errors.New("failed to detect Space. Please run `up space init` first.")
+		return errors.New("failed to detect space; please run `up space init` first")
 	} else if err != nil {
 		return errors.Wrapf(err, `failed to get ConfigMap "%s/%s"`, agentNs, spacesConfigMap)
 	}
@@ -160,7 +161,7 @@ func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kube
 	}
 
 	if sc.Account != upCtx.Account {
-		return errors.Errorf("account of the Space %q and account of the profile %q mismatch. Use `--account=%s` to connect to the right organization.", sc.Account, c.Upbound.Account, sc.Account)
+		return errors.Errorf("account of the space %q and account of the profile %q mismatch; use `--account=%s` to connect to the right organization", sc.Account, c.Upbound.Account, sc.Account)
 	}
 
 	connectSpinner, err := upterm.CheckmarkSuccessSpinner.Start("Connecting Space to Upbound Console...")
@@ -312,7 +313,7 @@ func (c *connectCmd) prepareToken(ctx context.Context, connectSpinner *pterm.Spi
 	return nil
 }
 
-func (c *connectCmd) prepareSpace(ctx context.Context, connectSpinner *pterm.SpinnerPrinter, kClient *kubernetes.Clientset, a *accounts.AccountResponse, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, sc client.Client, u undo.Undoer, cmr **corev1.ConfigMap) error { //nolint:gocyclo
+func (c *connectCmd) prepareSpace(ctx context.Context, connectSpinner *pterm.SpinnerPrinter, kClient *kubernetes.Clientset, a *accounts.AccountResponse, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, sc client.Client, u undo.Undoer, cmr **corev1.ConfigMap) error { //nolint:gocyclo // lot of checks
 	cm := *cmr
 	space := &upboundv1alpha1.Space{
 		ObjectMeta: metav1.ObjectMeta{

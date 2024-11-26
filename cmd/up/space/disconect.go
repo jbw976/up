@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package space contains functions for handling spaces
 package space
 
 import (
@@ -285,7 +286,7 @@ func (c *disconnectCmd) deleteAgentRobot(ctx context.Context, p pterm.TextPrinte
 	return nil
 }
 
-func (c *disconnectCmd) deleteGeneratedSpace(ctx context.Context, disconnectSpinner *pterm.SpinnerPrinter, kClient *kubernetes.Clientset, upCtx *upbound.Context, sc client.Client, cmr **corev1.ConfigMap) error { //nolint:gocyclo
+func (c *disconnectCmd) deleteGeneratedSpace(ctx context.Context, disconnectSpinner *pterm.SpinnerPrinter, kClient *kubernetes.Clientset, upCtx *upbound.Context, sc client.Client, cmr **corev1.ConfigMap) error { //nolint:gocyclo // lot of checks
 	cm := *cmr
 	v, ok := cm.Data[keySpace]
 	if !ok {

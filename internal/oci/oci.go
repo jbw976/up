@@ -12,20 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package oci contains functions for handling remote oci artifacts
 package oci
 
 import (
-	"context"
 	"strings"
-
-	"github.com/google/go-containerregistry/pkg/crane"
 )
-
-// ListTagsFunc is a type for the ListTags function.
-type ListTagsFunc func(repo string, options ...crane.Option) ([]string, error)
-
-// DefaultListTags is the default implementation of ListTagsFunc.
-var DefaultListTags ListTagsFunc = crane.ListTags
 
 // GetArtifactName extracts the artifact name from the chart reference and replaces ':' with '-'.
 func GetArtifactName(artifact string) string {
@@ -44,19 +36,4 @@ func RemoveDomainAndOrg(src string) string {
 		return parts[1]
 	}
 	return src
-}
-
-// TagExists checks if a specific version exists in the list of tags.
-func TagExists(tags []string, version string) bool {
-	for _, tag := range tags {
-		if tag == version {
-			return true
-		}
-	}
-	return false
-}
-
-// ListTags lists the tags for a given repository.
-func ListTags(ctx context.Context, repository string) ([]string, error) {
-	return DefaultListTags(repository)
 }
