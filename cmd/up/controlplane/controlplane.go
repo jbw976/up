@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controlplane contains functions for handling controlplane actions
 package controlplane
 
 import (
@@ -37,8 +38,6 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-var spacefieldNames = []string{"GROUP", "NAME", "CROSSPLANE", "READY", "HEALTHY", "MESSAGE", "AGE"}
-
 // BeforeReset is the first hook to run.
 func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 	return feature.HideMaturity(p, maturity)
@@ -55,11 +54,33 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 	kongCtx.Bind(upCtx)
 
-	// we can't use control planes from inside a control plane
-	if _, ctp, isSpace := upCtx.GetCurrentSpaceContextScope(); isSpace && ctp.Name != "" {
-		return errors.New("cannot view control planes from inside a control plane context. Use 'up ctx ..' to go up to the group context")
-	}
+	// Pre-check the space context and control plane name
+	_, ctp, isSpace := upCtx.GetCurrentSpaceContextScope()
 
+	if isSpace { // Check if we are operating in a "space" context.
+		// Define entities that require a control plane context.
+		requiresControlPlane := map[string]bool{
+			"function":      true,
+			"provider":      true,
+			"configuration": true,
+			"pull-secret":   true,
+		}
+
+		// Get the selected parent's name.
+		parentName := kongCtx.Selected().Parent.Name
+
+		if requiresControlPlane[parentName] {
+			// Ensure a control plane context is defined.
+			if ctp.Name == "" {
+				return errors.New("no control plane context is defined. Use 'up ctx' to set a control plane context")
+			}
+		} else {
+			// Ensure we are not in a control plane context when one is not required.
+			if ctp.Name != "" {
+				return errors.New("cannot view control planes from inside a control plane context. Use 'up ctx ..' to go up to the group context")
+			}
+		}
+	}
 	cl, err := upCtx.BuildCurrentContextClient()
 	if err != nil {
 		return errors.Wrap(err, "unable to get kube client")
@@ -69,8 +90,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictControlPlanes provides a predictor for control planes.
+// This function is used by the kongplete.Complete package for shell autocompletion.
 func PredictControlPlanes() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil
@@ -101,18 +124,19 @@ func PredictControlPlanes() complete.Predictor {
 
 // Cmd contains commands for interacting with control planes.
 type Cmd struct {
-	Create createCmd `cmd:"" help:"Create a managed control plane."`
+	Create createCmd `cmd:"" help:"Create a control plane."`
 	Delete deleteCmd `cmd:"" help:"Delete a control plane."`
-	List   listCmd   `cmd:"" help:"List control planes for the account."`
+	List   listCmd   `cmd:"" help:"List control planes for the organization."`
 	Get    getCmd    `cmd:"" help:"Get a single control plane."`
 
-	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a managed control plane."`
+	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane."`
 
 	Simulation simulation.Cmd       `aliases:"sim" cmd:""                                                help:"Manage control plane simulations." maturity:"alpha"`
 	Simulate   simulation.CreateCmd `cmd:""        help:"Alias for 'up controlplane simulation create'." maturity:"alpha"`
 
 	Configuration pkg.Cmd `cmd:"" help:"Manage Configurations." set:"package_type=Configuration"`
 	Provider      pkg.Cmd `cmd:"" help:"Manage Providers."      set:"package_type=Provider"`
+	Function      pkg.Cmd `cmd:"" help:"Manage Functions."      set:"package_type=Function"`
 
 	PullSecret pullsecret.Cmd `cmd:"" help:"Manage package pull secrets."`
 
@@ -124,6 +148,8 @@ type Cmd struct {
 	Flags upbound.Flags `embed:""`
 }
 
+// Help returns the help text for the command.
+// This method is required by the kong framework to provide command-line help functionality.
 func (c *Cmd) Help() string {
 	return `
 Interact with control planes of the current profile. Use the "up ctx" command to
@@ -160,6 +186,15 @@ func formatAge(age *time.Duration) string {
 	return duration.HumanDuration(*age)
 }
 
-func tabularPrint(obj any, printer upterm.ObjectPrinter, upCtx *upbound.Context) error {
+func tabularPrint(obj any, printer upterm.ObjectPrinter) error {
+	spacefieldNames := []string{
+		"GROUP",
+		"NAME",
+		"CROSSPLANE",
+		"READY",
+		"HEALTHY",
+		"MESSAGE",
+		"AGE",
+	}
 	return printer.Print(obj, spacefieldNames, extractSpaceFields)
 }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package pkg contains functions for handling install crossplane packages
 package pkg
 
 import (
@@ -23,73 +24,49 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
-	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/version"
 	"github.com/upbound/up/internal/xpkg"
+	"github.com/upbound/up/internal/xpkg/dep"
+	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )
 
 const errUnknownPkgType = "provided package type is unknown"
-
-// Supported package kinds.
-const (
-	ConfigurationKind = "Configuration"
-	ProviderKind      = "Provider"
-)
-
-var (
-	providerGVR = schema.GroupVersionResource{
-		Group:    "pkg.crossplane.io",
-		Version:  "v1",
-		Resource: "providers",
-	}
-
-	configurationGVR = schema.GroupVersionResource{
-		Group:    "pkg.crossplane.io",
-		Version:  "v1",
-		Resource: "configurations",
-	}
-)
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	switch kongCtx.Selected().Vars()["package_type"] {
-	case ProviderKind:
-		c.gvr = providerGVR
-		c.kind = ProviderKind
-	case ConfigurationKind:
-		c.gvr = configurationGVR
-		c.kind = ConfigurationKind
+	case xpv1.ProviderKind:
+		c.gvr = xpv1.ProviderGroupVersionKind.GroupVersion().WithResource("providers")
+		c.kind = xpv1.ProviderKind
+	case xpv1.ConfigurationKind:
+		c.gvr = xpv1.ConfigurationGroupVersionKind.GroupVersion().WithResource("configurations")
+		c.kind = xpv1.ConfigurationKind
+	case xpv1.FunctionKind:
+		c.gvr = xpv1.FunctionGroupVersionKind.GroupVersion().WithResource("functions")
+		c.kind = xpv1.FunctionKind
 	default:
 		return errors.New(errUnknownPkgType)
 	}
 
-	if c.Kubeconfig != "" {
-		return errors.New("--kubeconfig has been deprecated in favour of setting the KUBECONFIG environment variable")
-	}
+	c.i = image.NewResolver()
 
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	cl, err := upCtx.BuildCurrentContextClient()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to get kube client")
 	}
-	kubeconfig.UserAgent = version.UserAgent()
+	kongCtx.BindTo(cl, (*client.Client)(nil))
 
-	// todo(redbackthomson): Migrate to using client.Client for standardization
-	client, err := dynamic.NewForConfig(kubeconfig)
-	if err != nil {
-		return err
-	}
-	c.r = client.Resource(c.gvr)
 	return nil
 }
 
@@ -98,71 +75,91 @@ type installCmd struct {
 	gvr  schema.GroupVersionResource
 	kind string
 
-	r dynamic.NamespaceableResourceInterface
+	i *image.Resolver
 
 	Package string `arg:"" help:"Reference to the ${package_type}."`
 
 	// NOTE(hasheddan): kong automatically cleans paths tagged with existingfile.
-	Kubeconfig         string        `help:"Deprecated: Override default kubeconfig path."              hidden:"" type:"existingfile"`
 	Name               string        `help:"Name of ${package_type}."`
 	PackagePullSecrets []string      `help:"List of secrets used to pull ${package_type}."`
 	Wait               time.Duration `help:"Wait duration for successful ${package_type} installation." short:"w"`
 }
 
 // Run executes the install command.
-func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, client client.Client) error {
+	// Resolve tag to handle latest cases
+	d := dep.New(c.Package)
+	tag, err := c.i.ResolveTag(ctx, d)
+	if err != nil {
+		return err
+	}
+
+	// Parse and resolve reference
 	ref, err := name.ParseReference(c.Package, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Hostname()))
 	if err != nil {
 		return err
 	}
+
+	var updatedRef name.Tag
+	if tagRef, ok := ref.(name.Tag); ok {
+		updatedRef, err = name.NewTag(fmt.Sprintf("%s:%s", tagRef.Repository, tag), name.StrictValidation)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.Errorf("unsupported reference type: %T", ref)
+	}
+
+	// Set default name if not provided
 	if c.Name == "" {
 		c.Name = xpkg.ToDNSLabel(ref.Context().RepositoryStr())
 	}
+
+	// Prepare package pull secrets
 	packagePullSecrets := make([]corev1.LocalObjectReference, len(c.PackagePullSecrets))
 	for i, s := range c.PackagePullSecrets {
-		packagePullSecrets[i] = corev1.LocalObjectReference{
-			Name: s,
-		}
+		packagePullSecrets[i] = corev1.LocalObjectReference{Name: s}
 	}
-	if _, err := c.r.Create(ctx, &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "pkg.crossplane.io/v1",
-		"kind":       c.kind,
-		"metadata": map[string]interface{}{
-			"name": c.Name,
+
+	// Create the resource
+	resource := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "pkg.crossplane.io/v1",
+			"kind":       c.kind,
+			"metadata": map[string]interface{}{
+				"name": c.Name,
+			},
+			"spec": map[string]interface{}{
+				"package":            updatedRef.Name(),
+				"packagePullSecrets": packagePullSecrets,
+			},
 		},
-		"spec": map[string]interface{}{
-			"package":            ref.Name(),
-			"packagePullSecrets": packagePullSecrets,
-		},
-	}}, v1.CreateOptions{}); err != nil {
+	}
+	if err := client.Create(ctx, resource); err != nil {
 		return err
 	}
 
-	// Return early if wait duration is not provided.
+	// Return early if wait duration is not provided
 	if c.Wait == 0 {
 		p.Printfln("%s installed", c.Name)
 		return nil
 	}
 
-	s, _ := upterm.CheckmarkSuccessSpinner.Start(fmt.Sprintf("%s installed. Waiting to become healthy...", c.Name))
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	t := int64(c.Wait.Seconds())
-	errC, err := kube.DynamicWatch(ctx, c.r, &t, func(u *unstructured.Unstructured) (bool, error) {
-		pkg := resources.Package{Unstructured: *u}
-		if pkg.GetInstalled() && pkg.GetHealthy() {
-			return true, nil
+	// Wait for the resource to become healthy
+	p.Printfln("%s installed. Waiting to become healthy...", c.Name)
+	waitFunc := func(ctx context.Context) (bool, error) {
+		if err := client.Get(ctx, types.NamespacedName{Name: c.Name}, resource); err != nil {
+			return false, err
 		}
-		return false, nil
-	})
-	if err != nil {
-		return err
-	}
-	if err := <-errC; err != nil {
-		return err
+		// Convert resource to Package type to check conditions
+		pkg := resources.Package{Unstructured: *resource}
+		return pkg.GetInstalled() && pkg.GetHealthy(), nil
 	}
 
-	s.Success(fmt.Sprintf("%s installed and healthy", c.Name))
+	if err := wait.For(waitFunc, wait.WithImmediate(), wait.WithInterval(2*time.Second), wait.WithContext(ctx)); err != nil {
+		return errors.Wrap(err, "error while waiting for package to become healthy")
+	}
+
+	p.Printfln("%s installed and healthy", c.Name)
 	return nil
 }

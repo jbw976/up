@@ -53,7 +53,7 @@ type getCmd struct {
 }
 
 // Run executes the get command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, upCtx *upbound.Context, client client.Client) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client client.Client) error {
 	var ctp spacesv1beta1.ControlPlane
 	if err := client.Get(ctx, types.NamespacedName{Namespace: c.Group, Name: c.Name}, &ctp); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -63,7 +63,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.
 		return errors.Wrap(err, "error getting control plane")
 	}
 
-	return tabularPrint(ctp, printer, upCtx)
+	return tabularPrint(ctp, printer)
 }
 
 // EmptyControlPlaneConfiguration returns an empty ControlPlaneConfiguration with default values.
