@@ -42,7 +42,6 @@ import (
 	"github.com/upbound/up/cmd/up/team"
 	"github.com/upbound/up/cmd/up/trace"
 	tviewtemplate "github.com/upbound/up/cmd/up/tview-template"
-	"github.com/upbound/up/cmd/up/upbound"
 	"github.com/upbound/up/cmd/up/uxp"
 	v "github.com/upbound/up/cmd/up/version"
 	"github.com/upbound/up/cmd/up/xpkg"
@@ -152,7 +151,6 @@ type alpha struct {
 	// For now, we maintain compatibility for systems that may still use the alpha variant of `controlplane`.
 	// This nudges users towards the stable variant when they attempt to emit help.
 	ControlPlane  controlplane.Cmd  `aliases:"ctp" cmd:""                                                           help:"Interact with control planes in the current context, both in the cloud and in a local space." hidden:""        name:"controlplane"`
-	Upbound       upbound.Cmd       `cmd:""        help:"Interact with Upbound."                                    maturity:"alpha"`
 	Migration     migration.Cmd     `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes." maturity:"alpha"`
 	Trace         trace.Cmd         `cmd:""        help:"Trace a Crossplane resource."                              hidden:""                                                                                           maturity:"alpha"`
 	TviewTemplate tviewtemplate.Cmd `cmd:""        help:"TView example."                                            hidden:""                                                                                           maturity:"alpha"`
