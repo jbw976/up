@@ -236,6 +236,7 @@ func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response,
 		// Set session early so that it can be used to fetch user info if
 		// necessary.
 		Session: session,
+		Domain:  upCtx.Domain.String(),
 		// Carry over existing config.
 		BaseConfig: upCtx.Profile.BaseConfig,
 	}
