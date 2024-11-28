@@ -66,7 +66,7 @@ func (c *revokeCmd) AfterApply(p pterm.TextPrinter) error {
 
 // Run executes the delete command.
 func (c *revokeCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return errors.Wrap(err, "cannot get accounts")
 	}
@@ -90,10 +90,10 @@ func (c *revokeCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		}
 	}
 	if !teamFound {
-		return fmt.Errorf("could not find team %q in account %q", c.TeamName, upCtx.Account)
+		return fmt.Errorf("could not find team %q in account %q", c.TeamName, upCtx.Organization)
 	}
 
-	if err := rpc.Delete(ctx, upCtx.Account, teamID, repositorypermission.PermissionIdentifier{
+	if err := rpc.Delete(ctx, upCtx.Organization, teamID, repositorypermission.PermissionIdentifier{
 		Repository: c.RepositoryName,
 	}); err != nil {
 		return errors.Wrap(err, "cannot revoke permission")

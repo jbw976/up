@@ -193,7 +193,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	}
 	redirect <- resultEP.String()
 
-	p.Printfln("%s logged in to organization %s", upCtx.Profile.ID, upCtx.Account)
+	p.Printfln("%s logged in to organization %s", upCtx.Profile.ID, upCtx.Organization)
 
 	return nil
 }
@@ -207,7 +207,7 @@ func (c *LoginCmd) validateOrganization(ctx context.Context, upCtx *upbound.Cont
 	orgClient := organizations.NewClient(cfg)
 	// upCtx.Account is set during login, so should always contain an
 	// organization name.
-	_, err = orgClient.GetOrgID(ctx, upCtx.Account)
+	_, err = orgClient.GetOrgID(ctx, upCtx.Organization)
 	return err
 }
 
@@ -244,13 +244,13 @@ func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response,
 
 	// If the account (organization) is not set (by profile or flags), try to
 	// infer it.
-	if upCtx.Account == "" {
-		upCtx.Account, err = inferOrganization(ctx, upCtx)
+	if upCtx.Organization == "" {
+		upCtx.Organization, err = inferOrganization(ctx, upCtx)
 		if err != nil {
 			return err
 		}
 	}
-	upCtx.Profile.Organization = upCtx.Account
+	upCtx.Profile.Organization = upCtx.Organization
 
 	if err := upCtx.Cfg.AddOrUpdateUpboundProfile(upCtx.ProfileName, upCtx.Profile); err != nil {
 		return errors.Wrap(err, errLoginFailed)

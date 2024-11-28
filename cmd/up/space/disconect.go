@@ -145,7 +145,7 @@ func (c *disconnectCmd) Run(ctx context.Context, upCtx *upbound.Context, ac *acc
 	}
 	msg = "Space has been successfully disconnected from Upbound Console"
 	if c.Space != "" {
-		msg = fmt.Sprintf(`Space "%s/%s" has been successfully disconnected from Upbound Console`, upCtx.Account, c.Space)
+		msg = fmt.Sprintf(`Space "%s/%s" has been successfully disconnected from Upbound Console`, upCtx.Organization, c.Space)
 	}
 	disconnectSpinner.Success(msg)
 	return nil
@@ -156,11 +156,11 @@ func (c *disconnectCmd) disconnectSpace(ctx context.Context, disconnectSpinner *
 		if err := warnAndConfirmWithSpinner(disconnectSpinner,
 			`Not connected to a Space cluster, would you like to only remove the Space "%s/%s" from the Upbound Console?`+"\n\n"+
 				"  If the other Space cluster still exists, the Upbound agent will be left running and you will need to delete it manually.\n",
-			upCtx.Account, c.Space,
+			upCtx.Organization, c.Space,
 		); err != nil {
 			return err
 		}
-		return disconnectSpace(ctx, disconnectSpinner, ac, oc, rc, sc, upCtx.Account, c.Space)
+		return disconnectSpace(ctx, disconnectSpinner, ac, oc, rc, sc, upCtx.Organization, c.Space)
 	}
 	if err := c.deleteResources(ctx, kClient, disconnectSpinner, upCtx, ac, oc, rc, sc); err != nil {
 		return err
@@ -240,11 +240,11 @@ func (c *disconnectCmd) deleteResources(ctx context.Context, kClient *kubernetes
 		if err := warnAndConfirmWithSpinner(disconnectSpinner,
 			`We're unable to confirm if the Space "%s/%s" is currently connected to Upbound Console. Would you like to delete it anyway?`+"\n\n"+
 				"  If the other Space cluster still exists, the Upbound agent will be left running and you will need to delete it manually.\n",
-			upCtx.Account, c.Space,
+			upCtx.Organization, c.Space,
 		); err != nil {
 			return err
 		}
-		return disconnectSpace(ctx, disconnectSpinner, ac, oc, rc, sc, upCtx.Account, c.Space)
+		return disconnectSpace(ctx, disconnectSpinner, ac, oc, rc, sc, upCtx.Organization, c.Space)
 	}
 
 	disconnectSpinner.InfoPrinter.Printfln(`ConfigMap "%s/%s" found`, agentNs, agentSecret)
@@ -298,8 +298,8 @@ func (c *disconnectCmd) deleteGeneratedSpace(ctx context.Context, disconnectSpin
 	}
 	ns, name := parts[0], parts[1]
 	disconnectSpinner.InfoPrinter.Printfln(`Space "%s/%s" is currently connected`, ns, name)
-	if (c.Space != "" && c.Space != name) || ns != upCtx.Account {
-		return fmt.Errorf(`cannot disconnect Space "%s/%s", currently connected to Space "%s/%s"`, upCtx.Account, c.Space, ns, name)
+	if (c.Space != "" && c.Space != name) || ns != upCtx.Organization {
+		return fmt.Errorf(`cannot disconnect Space "%s/%s", currently connected to Space "%s/%s"`, upCtx.Organization, c.Space, ns, name)
 	}
 	disconnectSpinner.UpdateText(fmt.Sprintf(`Deleting Space "%s/%s" in the Upbound Console...`, ns, name))
 	c.Space = name

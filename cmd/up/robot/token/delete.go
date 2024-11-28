@@ -49,7 +49,7 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) erro
 	}
 
 	if input.InputYes(confirm) {
-		p.Printfln("Deleting robot token %s/%s/%s. This cannot be undone.", upCtx.Account, c.RobotName, c.TokenName)
+		p.Printfln("Deleting robot token %s/%s/%s. This cannot be undone.", upCtx.Organization, c.RobotName, c.TokenName)
 		return nil
 	}
 
@@ -68,7 +68,7 @@ type deleteCmd struct {
 
 // Run executes the delete command.
 func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *tokens.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 	// TODO(hasheddan): because this API does not guarantee name uniqueness, we
 	// must guarantee that exactly one robot exists in the specified account
@@ -90,7 +90,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	for _, r := range rs {
 		if r.Name == c.RobotName {
 			if rid != nil {
-				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Account)
+				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Organization)
 			}
 			// Pin range variable so that we can take address.
 			r := r
@@ -98,7 +98,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		}
 	}
 	if rid == nil {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	ts, err := rc.ListTokens(ctx, *rid)
@@ -106,7 +106,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 	}
 
 	// TODO(hasheddan): because this API does not guarantee name uniqueness, we
@@ -117,7 +117,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	for _, t := range ts.DataSet {
 		if fmt.Sprint(t.AttributeSet["name"]) == c.TokenName {
 			if tid != nil && !c.Force {
-				return errors.Errorf(errMultipleTokenFmt, c.TokenName, c.RobotName, upCtx.Account)
+				return errors.Errorf(errMultipleTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 			}
 			// Pin range variable so that we can take address.
 			t := t
@@ -125,12 +125,12 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		}
 	}
 	if tid == nil {
-		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 	}
 
 	if err := tc.Delete(ctx, *tid); err != nil {
 		return err
 	}
-	p.Printfln("%s/%s/%s deleted", upCtx.Account, c.RobotName, c.TokenName)
+	p.Printfln("%s/%s/%s deleted", upCtx.Organization, c.RobotName, c.TokenName)
 	return nil
 }

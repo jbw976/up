@@ -38,7 +38,7 @@ type createCmd struct {
 
 // Run executes the create command.
 func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, rc *robots.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -61,6 +61,6 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	}); err != nil {
 		return err
 	}
-	p.Printfln("%s/%s created", upCtx.Account, c.Name)
+	p.Printfln("%s/%s created", upCtx.Organization, c.Name)
 	return nil
 }

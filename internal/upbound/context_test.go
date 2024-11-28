@@ -173,7 +173,7 @@ func TestNewFromFlags(t *testing.T) {
 			},
 			want: want{
 				c: &Context{
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),
@@ -209,7 +209,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:      "not-here",
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),
@@ -232,7 +232,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "",
+					Organization:          "",
 					APIEndpoint:           withURL("https://api.upbound.io"),
 					Domain:                withURL("https://upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -261,7 +261,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "",
+					Organization:          "",
 					APIEndpoint:           withURL("https://api.local.upbound.io"),
 					Domain:                withURL("https://local.upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -291,7 +291,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "my-org",
+					Organization:          "my-org",
 					APIEndpoint:           withURL("https://api.upbound.io"),
 					Domain:                withURL("https://upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -321,7 +321,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "my-org",
+					Organization:          "my-org",
 					APIEndpoint:           withURL("https://api.upbound.io"),
 					Domain:                withURL("https://upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -351,7 +351,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "my-org",
+					Organization:          "my-org",
 					APIEndpoint:           withURL("https://api.local.upbound.io"),
 					Domain:                withURL("https://local.upbound.io"),
 					InsecureSkipTLSVerify: true,
@@ -390,7 +390,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "cool-profile",
-					Account:               "not-my-org",
+					Organization:          "not-my-org",
 					APIEndpoint:           withURL("http://not.a.url"),
 					Domain:                withURL("http://a.domain.org"),
 					InsecureSkipTLSVerify: true,
@@ -422,7 +422,7 @@ func TestNewFromFlags(t *testing.T) {
 			},
 			want: want{
 				c: &Context{
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),

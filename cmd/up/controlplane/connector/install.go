@@ -123,7 +123,7 @@ func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 	// Cloud control plane. We leave them consistent since they won't impact
 	// our ability to point the connector at Space control plane.
 	params["mcp"] = map[string]any{
-		"account":   upCtx.Account,
+		"account":   upCtx.Organization,
 		"name":      c.Name,
 		"namespace": c.Namespace,
 		"host":      fmt.Sprintf("%s://%s", upCtx.ProxyEndpoint.Scheme, upCtx.ProxyEndpoint.Host),

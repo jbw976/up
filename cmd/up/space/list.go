@@ -76,7 +76,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 
 // Run executes the list command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, p pterm.TextPrinter, upCtx *upbound.Context) error {
-	a, err := upbound.GetOrganization(ctx, c.ac, upCtx.Account)
+	a, err := upbound.GetOrganization(ctx, c.ac, upCtx.Organization)
 	var uerr *uerrors.Error
 	if errors.As(err, &uerr) {
 		if uerr.Status == http.StatusUnauthorized {

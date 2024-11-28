@@ -71,12 +71,12 @@ const (
 // Context includes common data that Upbound consumers may utilize.
 type Context struct {
 	// Profile fields
-	ProfileName string
-	Profile     profile.Profile
-	Token       string
-	Cfg         *config.Config
-	CfgSrc      config.Source
-	Account     string
+	ProfileName  string
+	Profile      profile.Profile
+	Token        string
+	Cfg          *config.Config
+	CfgSrc       config.Source
+	Organization string
 
 	// Kubeconfig fields
 	Kubecfg clientcmd.ClientConfig
@@ -174,17 +174,17 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 
 	// Use flag values for account and domain if they're set - these override
 	// the settings in the profile.
-	c.Account = of.Account
+	c.Organization = of.Account
 	c.Domain = of.Domain
 
 	// If account has not already been set, use the profile default.
-	if c.Account == "" {
+	if c.Organization == "" {
 		// TODO(adamwg): Clean up when we get rid of the Account field in the
 		// profile.
 		if c.Profile.Organization != "" {
-			c.Account = c.Profile.Organization
+			c.Organization = c.Profile.Organization
 		} else {
-			c.Account = c.Profile.Account //nolint:staticcheck // Migration path from account to org.
+			c.Organization = c.Profile.Account //nolint:staticcheck // Migration path from account to org.
 		}
 	}
 	// If domain has not already been set, use the profile default. If the

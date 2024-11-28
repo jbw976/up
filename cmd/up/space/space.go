@@ -66,8 +66,8 @@ func ensureAccount(upCtx *upbound.Context, params map[string]any) {
 	}
 
 	// Get the account from the active profile if it's set.
-	if upCtx.Account != "" {
-		params["account"] = upCtx.Account
+	if upCtx.Organization != "" {
+		params["account"] = upCtx.Organization
 		return
 	}
 

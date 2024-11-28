@@ -46,7 +46,7 @@ type getCmd struct {
 
 // Run executes the get robot token command.
 func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	// We pick the first robot account with this name, though there
@@ -74,7 +74,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 		}
 	}
 	if rid == nil {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	ts, err := rc.ListTokens(ctx, *rid)
@@ -82,7 +82,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 	}
 
 	// We pick the first token with this name, though there may be more
@@ -98,7 +98,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 		}
 	}
 	if theToken == nil {
-		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 	}
 	return printer.Print(*theToken, fieldNames, extractFields)
 }

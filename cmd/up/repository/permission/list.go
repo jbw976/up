@@ -47,7 +47,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 // Run executes the list command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	// Get account details
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return errors.Wrap(err, "cannot get accounts")
 	}
@@ -78,16 +78,16 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		}
 	}
 	if !teamFound {
-		return fmt.Errorf("could not find team %s in account %s", c.TeamName, upCtx.Account)
+		return fmt.Errorf("could not find team %s in account %s", c.TeamName, upCtx.Organization)
 	}
 
 	// List repository permissions for the team
-	resp, err := rpc.List(ctx, upCtx.Account, teamID)
+	resp, err := rpc.List(ctx, upCtx.Organization, teamID)
 	if err != nil {
 		return errors.Wrap(err, "cannot list permissions")
 	}
 	if len(resp.Permissions) == 0 {
-		p.Printfln("No repository permissions found for team %s in account %s", c.TeamName, upCtx.Account)
+		p.Printfln("No repository permissions found for team %s in account %s", c.TeamName, upCtx.Organization)
 		return nil
 	}
 

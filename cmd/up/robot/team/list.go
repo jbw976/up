@@ -44,7 +44,7 @@ type listCmd struct {
 
 // Run executes the get robot command to get all team memberships for a specific robot.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *teams.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	var rid *uuid.UUID
@@ -69,7 +69,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		}
 	}
 	if rid == nil {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	robot, err := rc.Get(ctx, *rid)

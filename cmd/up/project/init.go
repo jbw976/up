@@ -207,8 +207,8 @@ func (c *initCmd) Run(upCtx *upbound.Context, p pterm.TextPrinter) error { //nol
 	}
 
 	project.ObjectMeta.Name = c.Name
-	if upCtx != nil && upCtx.Account != "" {
-		project.Spec.Repository = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Account, c.Name)
+	if upCtx != nil && upCtx.Organization != "" {
+		project.Spec.Repository = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)
 	} else {
 		project.Spec.Repository = fmt.Sprintf("xpkg.upbound.io/<YOUR ORGANIZATION>/%s", c.Name)
 	}

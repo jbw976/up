@@ -50,7 +50,7 @@ type listCmd struct {
 
 // Run executes the list robot tokens command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 	// TODO(hasheddan): because this API does not guarantee name uniqueness, we
 	// must guarantee that exactly one robot exists in the specified account
@@ -72,7 +72,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 	for _, r := range rs {
 		if r.Name == c.RobotName {
 			if rid != nil {
-				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Account)
+				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Organization)
 			}
 			// Pin range variable so that we can take address.
 			r := r
@@ -80,7 +80,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		}
 	}
 	if rid == nil {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	ts, err := rc.ListTokens(ctx, *rid)
@@ -88,7 +88,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		p.Printfln("No tokens found for robot %s in %s", c.RobotName, upCtx.Account)
+		p.Printfln("No tokens found for robot %s in %s", c.RobotName, upCtx.Organization)
 		return nil
 	}
 	return printer.Print(ts.DataSet, fieldNames, extractFields)

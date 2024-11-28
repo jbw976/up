@@ -53,7 +53,7 @@ func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) erro
 	}
 
 	if input.InputYes(confirm) {
-		p.Printfln("Deleting team %s/%s. ", upCtx.Account, c.Name)
+		p.Printfln("Deleting team %s/%s. ", upCtx.Organization, c.Name)
 		return nil
 	}
 
@@ -71,7 +71,7 @@ type deleteCmd struct {
 
 // Run executes the delete command.
 func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, tc *teams.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,14 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindTeamFmt, c.Name, upCtx.Account)
+		return errors.Errorf(errFindTeamFmt, c.Name, upCtx.Organization)
 	}
 
 	var id *uuid.UUID
 	for _, r := range rs {
 		if r.Name == c.Name {
 			if id != nil && !c.Force {
-				return errors.Errorf(errMultipleTeamFmt, c.Name, upCtx.Account)
+				return errors.Errorf(errMultipleTeamFmt, c.Name, upCtx.Organization)
 			}
 			r := r
 			id = &r.ID
@@ -100,12 +100,12 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	}
 
 	if id == nil {
-		return errors.Errorf(errFindTeamFmt, c.Name, upCtx.Account)
+		return errors.Errorf(errFindTeamFmt, c.Name, upCtx.Organization)
 	}
 
 	if err := tc.Delete(ctx, *id); err != nil {
 		return err
 	}
-	p.Printfln("%s/%s deleted", upCtx.Account, c.Name)
+	p.Printfln("%s/%s deleted", upCtx.Organization, c.Name)
 	return nil
 }

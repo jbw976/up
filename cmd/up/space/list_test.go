@@ -69,7 +69,7 @@ func TestListCommand(t *testing.T) {
 					}),
 				},
 				upCtx: &upbound.Context{
-					Account: "some-account",
+					Organization: "some-account",
 				},
 			},
 			want: want{
@@ -94,7 +94,7 @@ func TestListCommand(t *testing.T) {
 					}),
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{
@@ -118,7 +118,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{
@@ -142,7 +142,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{},
@@ -174,7 +174,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{},
