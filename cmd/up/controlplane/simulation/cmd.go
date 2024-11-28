@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package simulation contains commands for working with control plane
+// simulations.
 package simulation
 
 import (
@@ -32,8 +34,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
-
-var fieldNames = []string{"GROUP", "NAME", "SOURCE", "SIMULATED", "ACCEPTING-CHANGES", "STATE", "AGE"}
 
 func init() {
 	kruntime.Must(spacesv1alpha1.AddToScheme(scheme.Scheme))
@@ -78,6 +78,7 @@ type Cmd struct {
 	Flags upbound.Flags `embed:""`
 }
 
+// Help prints help.
 func (c *Cmd) Help() string {
 	return `
 Manage control plane simulations. Simulations allow you to "simulate" what
@@ -117,5 +118,6 @@ func formatAge(age *time.Duration) string {
 }
 
 func tabularPrint(obj any, printer upterm.ObjectPrinter) error {
+	fieldNames := []string{"GROUP", "NAME", "SOURCE", "SIMULATED", "ACCEPTING-CHANGES", "STATE", "AGE"}
 	return printer.Print(obj, fieldNames, extractFields)
 }

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package upbound contains common CLI configuration for working with Upbound
+// services.
 package upbound
 
 import (
@@ -118,7 +120,7 @@ func HideLogging() Option {
 }
 
 // NewFromFlags constructs a new context from flags.
-func NewFromFlags(f Flags, opts ...Option) (*Context, error) { //nolint:gocyclo
+func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 	p, err := config.GetDefaultPath()
 	if err != nil {
 		return nil, err
@@ -170,23 +172,46 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) { //nolint:gocyclo
 		return nil, err
 	}
 
+	// Use flag values for account and domain if they're set - these override
+	// the settings in the profile.
+	c.Account = of.Account
+	c.Domain = of.Domain
+
+	// If account has not already been set, use the profile default.
+	if c.Account == "" {
+		c.Account = c.Profile.Account
+	}
+	// If domain has not already been set, use the profile default. If the
+	// profile doesn't have a domain, use the global default.
+	if c.Domain == nil {
+		domain := c.Profile.Domain
+		if domain == "" {
+			domain = config.DefaultDomain
+		}
+
+		c.Domain, err = url.Parse(domain)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid domain in profile")
+		}
+	}
+
 	c.APIEndpoint = of.APIEndpoint
 	if c.APIEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = apiSubdomain + u.Host
 		c.APIEndpoint = &u
 	}
 
 	c.AuthEndpoint = of.AuthEndpoint
 	if c.AuthEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = authSubdomain + u.Host
 		c.AuthEndpoint = &u
 	}
 
 	c.ProxyEndpoint = of.ProxyEndpoint
 	if c.ProxyEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = proxySubdomain + u.Host
 		u.Path = proxyPath
 		c.ProxyEndpoint = &u
@@ -194,17 +219,9 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) { //nolint:gocyclo
 
 	c.RegistryEndpoint = of.RegistryEndpoint
 	if c.RegistryEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = xpkgSubdomain + u.Host
 		c.RegistryEndpoint = &u
-	}
-
-	c.Account = of.Account
-	c.Domain = of.Domain
-
-	// If account has not already been set, use the profile default.
-	if c.Account == "" {
-		c.Account = c.Profile.Account
 	}
 
 	c.InsecureSkipTLSVerify = of.InsecureSkipTLSVerify
@@ -271,7 +288,7 @@ func (c *Context) buildSDKConfig(endpoint *url.URL) (*up.Config, error) {
 	}
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec
+			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec // Let the user be unsafe.
 		},
 	}
 	client := up.NewClient(func(u *up.HTTPClient) {
@@ -306,7 +323,7 @@ func (rt *cookieImpersonatingRoundTripper) RoundTrip(req *http.Request) (*http.R
 func (c *Context) BuildControllerClientConfig() (*rest.Config, error) {
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec
+			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec // Let the user be unsafe.
 		},
 	}
 
@@ -370,12 +387,12 @@ func (f Flags) MarshalJSON() ([]byte, error) {
 		Domain                string `json:"domain,omitempty"`
 		Profile               string `json:"profile,omitempty"`
 		Account               string `json:"account,omitempty"`
-		InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"`
+		InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"` //nolint:tagliatelle // Not a k8s JSON.
 		Debug                 int    `json:"debug,omitempty"`
-		APIEndpoint           string `json:"override_api_endpoint,omitempty"`
-		AuthEndpoint          string `json:"override_auth_endpoint,omitempty"`
-		ProxyEndpoint         string `json:"override_proxy_endpoint,omitempty"`
-		RegistryEndpoint      string `json:"override_registry_endpoint,omitempty"`
+		APIEndpoint           string `json:"override_api_endpoint,omitempty"`      //nolint:tagliatelle // Not a k8s JSON.
+		AuthEndpoint          string `json:"override_auth_endpoint,omitempty"`     //nolint:tagliatelle // Not a k8s JSON.
+		ProxyEndpoint         string `json:"override_proxy_endpoint,omitempty"`    //nolint:tagliatelle // Not a k8s JSON.
+		RegistryEndpoint      string `json:"override_registry_endpoint,omitempty"` //nolint:tagliatelle // Not a k8s JSON.
 	}{
 		Domain:                nullableURL(f.Domain),
 		Profile:               f.Profile,

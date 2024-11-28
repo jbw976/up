@@ -34,7 +34,6 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -49,6 +48,7 @@ func init() {
 	kruntime.Must(spacesv1beta1.AddToScheme(scheme.Scheme))
 }
 
+// Cmd is the `up ctx` command.
 type Cmd struct {
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
@@ -59,6 +59,7 @@ type Cmd struct {
 	File        string `help:"Kubeconfig to modify when saving a new context" name:"kubeconfig"                                                                                                 short:"f"`
 }
 
+// AfterApply processes flags and sets defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
@@ -106,6 +107,7 @@ func (m model) WithTermination(msg string, err error) model {
 	return m
 }
 
+// Run runs the command.
 func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// find profile and derive controlplane from kubeconfig
 	po := clientcmd.NewDefaultPathOptions()
@@ -113,7 +115,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	if err != nil {
 		return err
 	}
-	initialState, err := DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	initialState, err := DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return err
 	}
@@ -127,7 +129,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	// user is logged into a different account than the last ctx they selected),
 	// start the user at the top level.
 	if _, err := initialState.Items(ctx, upCtx, navCtx); err != nil {
-		initialState, err = DeriveNewState(ctx, conf, profile.GetIngressHost)
+		initialState, err = DeriveNewState(ctx, conf, kube.GetIngressHost)
 		if err != nil {
 			return err
 		}
@@ -136,7 +138,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	// non-interactive mode via positional argument
 	switch c.Argument {
 	case "-":
-		return c.RunSwap(ctx, upCtx, navCtx)
+		return c.RunSwap(ctx, upCtx)
 	case "":
 		return c.RunInteractive(ctx, kongCtx, upCtx, navCtx, initialState)
 	default:
@@ -144,7 +146,8 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 }
 
-func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) error { //nolint:gocyclo // TODO: shorten
+// RunSwap runs the quick swap version of `up ctx`.
+func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: shorten
 	last, err := readLastContext()
 	if err != nil {
 		return err
@@ -164,7 +167,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, navCtx *navCo
 	}
 
 	// write kubeconfig
-	state, err := DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	state, err := DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return err
 	}
@@ -175,9 +178,9 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, navCtx *navCo
 		return err
 	}
 	if c.Short {
-		fmt.Println(state.Breadcrumbs())
+		fmt.Println(state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
 	} else {
-		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs()))
+		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs())) //nolint:forbidigo // Interactive command.
 	}
 	return nil
 }
@@ -186,7 +189,7 @@ func withUpboundPrefix(s string) string {
 	return fmt.Sprintf("%s %s", upboundRootStyle.Render("Upbound"), s)
 }
 
-func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext string) (newConf *clientcmdapi.Config, newLastContext string, err error) { //nolint:gocyclo // little long, but well tested
+func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext string) (newConf *clientcmdapi.Config, newLastContext string, err error) { //nolint:gocognit // little long, but well tested
 	// switch to non-upbound last context trivially via CurrentContext e.g.
 	// - upbound <-> other
 	// - something <-> other
@@ -272,7 +275,8 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 	return conf, newLastContext, nil
 }
 
-func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error { //nolint:gocyclo // a bit long but ¯\_(ツ)_/¯
+// RunNonInteractive runs the non-interactive version of `up ctx`.
+func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error { //nolint:gocognit // a bit long but ¯\_(ツ)_/¯
 	// begin from root unless we're starting from a relative . or ..
 	state := initialState
 	if !strings.HasPrefix(c.Argument, ".") {
@@ -344,15 +348,16 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 	if c.File != "-" {
 		// don't print anything else or we are going to pollute stdout
 		if c.Short {
-			fmt.Println(m.state.Breadcrumbs())
+			fmt.Println(m.state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
 		} else {
-			fmt.Print(msg)
+			fmt.Print(msg) //nolint:forbidigo // Interactive command.
 		}
 	}
 
 	return nil
 }
 
+// RunInteractive runs the interactive version of `up ctx`.
 func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error {
 	upCtx.HideLogging()
 
@@ -380,7 +385,9 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 		return fmt.Errorf("unexpected model type: %T", result)
 	} else if m.termination != nil {
 		if m.termination.Message != "" {
-			fmt.Fprint(kongCtx.Stderr, m.termination.Message)
+			if _, err := fmt.Fprint(kongCtx.Stderr, m.termination.Message); err != nil {
+				return err
+			}
 		}
 		return m.termination.Err
 	}
@@ -443,18 +450,18 @@ func DeriveNewState(ctx context.Context, conf *clientcmdapi.Config, getIngressHo
 
 	rest, err := clientcmd.NewDefaultClientConfig(*conf, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
-		return &Root{}, nil //nolint:nilerr
+		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 	}
 
 	cl, err := corev1client.NewForConfig(rest)
 	if err != nil {
-		return &Root{}, nil //nolint:nilerr
+		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 	}
 
 	ingress, ca, err := getIngressHost(ctx, cl)
 	if err != nil {
 		// ingress inaccessible or doesn't exist
-		return &Root{}, nil //nolint:nilerr
+		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 	}
 
 	return &Space{
@@ -493,18 +500,18 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 			CurrentContext: disconnected.HubContext,
 		}).ClientConfig()
 		if err != nil {
-			return &Root{}, nil //nolint:nilerr
+			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 		}
 
 		cl, err := corev1client.NewForConfig(rest)
 		if err != nil {
-			return &Root{}, nil //nolint:nilerr
+			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 		}
 
 		ingress, ca, err = getIngressHost(ctx, cl)
 		if err != nil {
 			// ingress inaccessible or doesn't exist
-			return &Root{}, nil //nolint:nilerr
+			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 		}
 	}
 
@@ -547,7 +554,7 @@ func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config,
 
 	// the exec was modified or wasn't produced by up
 	if cloud == nil || cloud.Organization == "" {
-		return &Root{}, nil // nolint:nilerr
+		return &Root{}, nil
 	}
 
 	org := &Organization{

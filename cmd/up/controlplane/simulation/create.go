@@ -17,6 +17,7 @@ package simulation
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -48,7 +49,6 @@ import (
 	upctx "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -72,13 +72,11 @@ const (
 	simulationCompleteReason = "SimulationComplete"
 )
 
-var stepSpinner = upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
-
 // failOnCondition is the simulation condition that signals a failure in the
 // simulation command.
 type failOnCondition string
 
-var (
+const (
 	// failOnNone signals that the command should never return a failure exit
 	// code regardless of the results of the simulation.
 	failOnNone failOnCondition = "none"
@@ -138,15 +136,15 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 		c.Group = ns
 	}
 
-	if c.Flags.Debug > 0 {
-		fmt.Fprintf(kongCtx.Stderr, "debug logging enabled\n")
-	}
+	c.debugPrintf(kongCtx.Stderr, "debug logging enabled\n")
 
 	return nil
 }
 
 // Run executes the create command.
-func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client) error { //nolint:gocyclo
+func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client) error { //nolint:gocyclo // TODO: simplify this
+	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
+
 	var srcCtp spacesv1beta1.ControlPlane
 	if err := spacesClient.Get(ctx, types.NamespacedName{Name: c.SourceName, Namespace: c.Group}, &srcCtp); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -160,7 +158,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		totalSteps = 2
 	}
 	if c.TerminateOnFinish {
-		totalSteps += 1
+		totalSteps++
 	}
 
 	sim, err := c.createSimulation(ctx, spacesClient)
@@ -209,9 +207,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	// compute + print diff
 	s, _ := stepSpinner.Start(upterm.StepCounter("Computing simulated differences", 4, totalSteps))
 
-	if c.Flags.Debug > 0 {
-		fmt.Fprintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(sim.Status.Changes))
-	}
+	c.debugPrintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(sim.Status.Changes))
 
 	diffSet, err := c.createResourceDiffSet(ctx, kongCtx, simConfig, sim.Status.Changes)
 	if err != nil {
@@ -219,9 +215,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	}
 	s.Success()
 
-	if c.Flags.Debug > 0 {
-		fmt.Fprintf(kongCtx.Stderr, "created resource diff set of size: %d\n", len(diffSet))
-	}
+	c.debugPrintf(kongCtx.Stderr, "created resource diff set of size: %d\n", len(diffSet))
 
 	if c.TerminateOnFinish {
 		// terminate simulation
@@ -234,7 +228,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		}
 	}
 
-	if err := c.outputDiff(diffSet); err != nil {
+	if err := c.outputDiff(kongCtx, diffSet); err != nil {
 		return errors.Wrap(err, "failed to write diff to output")
 	}
 
@@ -373,11 +367,11 @@ func (c *CreateCmd) removeFieldsForDiff(u *unstructured.Unstructured) error {
 
 	// expand each wildcard path and add to list to trim
 	for _, wildcard := range wildcards {
-		if expanded, err := p.ExpandWildcards(wildcard); err != nil {
+		expanded, err := p.ExpandWildcards(wildcard)
+		if err != nil {
 			return errors.Wrap(err, "unable to expand wildcards in ignored fields")
-		} else {
-			trim = append(trim, expanded...)
 		}
+		trim = append(trim, expanded...)
 	}
 
 	for _, path := range trim {
@@ -393,7 +387,7 @@ func (c *CreateCmd) removeFieldsForDiff(u *unstructured.Unstructured) error {
 // status and looks up the difference between the initial version of the
 // resource and the version currently in the API server (at the time of the
 // function call).
-func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { //nolint:gocyclo
+func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { //nolint:gocyclo // TODO: simplify this
 	lookup, err := kube.NewDiscoveryResourceLookup(config)
 	if err != nil {
 		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to create resource lookup client")
@@ -406,9 +400,7 @@ func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Con
 
 	diffSet := make([]diff.ResourceDiff, 0, len(changes))
 
-	if c.Flags.Debug > 0 {
-		fmt.Fprintf(kongCtx.Stderr, "iterating over %d changes\n", len(changes))
-	}
+	c.debugPrintf(kongCtx.Stderr, "iterating over %d changes\n", len(changes))
 
 	// stores a list of resources that we want to filter in the diff, that
 	// aren't being filtered in the reconciler
@@ -423,36 +415,28 @@ func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Con
 		// todo(redbackthomson): Remove this logic once we have done a better
 		// job of filtering in the reconciler
 		if slices.Contains(trimKind, gvk) {
-			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "skipping gvk %+v\n", gvk)
-			}
+			c.debugPrintf(kongCtx.Stderr, "skipping gvk %+v\n", gvk)
 			continue
 		}
 
 		rs, err := lookup.Get(gvk)
 		if err != nil {
-			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "unable to find gvk from lookup %q\n", gvk)
-			}
+			c.debugPrintf(kongCtx.Stderr, "unable to find gvk from lookup %q\n", gvk)
 			return []diff.ResourceDiff{}, err
 		}
 
-		switch change.Change { //nolint:exhaustive
+		switch change.Change { //nolint:exhaustive // Proceed with the rest of the loop if other.
 		case spacesv1alpha1.SimulationChangeTypeCreate:
 			diffSet = append(diffSet, diff.ResourceDiff{
 				SimulationChange: change,
 			})
-			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "appended create to diff set for %v\n", change.ObjectReference)
-			}
+			c.debugPrintf(kongCtx.Stderr, "appended create to diff set for %v\n", change.ObjectReference)
 			continue
 		case spacesv1alpha1.SimulationChangeTypeDelete:
 			diffSet = append(diffSet, diff.ResourceDiff{
 				SimulationChange: change,
 			})
-			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "appended delete to diff set for %v\n", change.ObjectReference)
-			}
+			c.debugPrintf(kongCtx.Stderr, "appended delete to diff set for %v\n", change.ObjectReference)
 			continue
 		}
 
@@ -475,9 +459,7 @@ func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Con
 
 		beforeRaw, ok := after.GetAnnotations()[annotationKeyClonedState]
 		if !ok {
-			if c.Flags.Debug > 0 {
-				fmt.Fprintf(kongCtx.Stderr, "object %v is missing the previous cloned state annotation\n", change.ObjectReference)
-			}
+			c.debugPrintf(kongCtx.Stderr, "object %v is missing the previous cloned state annotation\n", change.ObjectReference)
 			continue
 		}
 		beforeObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, []byte(beforeRaw))
@@ -485,7 +467,10 @@ func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Con
 			return []diff.ResourceDiff{}, errors.Wrapf(err, "previous cloned state annotation on %v could not be decoded", change.ObjectReference)
 		}
 
-		before := beforeObj.(*unstructured.Unstructured)
+		before, ok := beforeObj.(*unstructured.Unstructured)
+		if !ok {
+			return []diff.ResourceDiff{}, errors.Wrap(err, "before object not unstructured")
+		}
 		if err := c.removeFieldsForDiff(after); err != nil {
 			return []diff.ResourceDiff{}, errors.Wrapf(err, "unable to remove fields before diff")
 		}
@@ -508,16 +493,14 @@ func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Con
 			SimulationChange: change,
 			Diff:             diffd,
 		})
-		if c.Flags.Debug > 0 {
-			fmt.Fprintf(kongCtx.Stderr, "appended update to diff set for %v\n", change.ObjectReference)
-		}
+		c.debugPrintf(kongCtx.Stderr, "appended update to diff set for %v\n", change.ObjectReference)
 	}
 	return diffSet, nil
 }
 
 // outputDiff outputs the diff to the location, and in the format, specified by
 // the command line arguments.
-func (c *CreateCmd) outputDiff(diffSet []diff.ResourceDiff) error {
+func (c *CreateCmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) error {
 	stdout := c.Output == ""
 
 	// todo(redbackthomson): Use a different printer for JSON or YAML output
@@ -526,12 +509,22 @@ func (c *CreateCmd) outputDiff(diffSet []diff.ResourceDiff) error {
 	_ = writer.Write(diffSet)
 
 	if stdout {
-		fmt.Printf("\n\n")
-		fmt.Print(buf.String())
+		if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
+			return errors.Wrap(err, "failed to write output")
+		}
+		if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
+			return errors.Wrap(err, "failed to write output")
+		}
 		return nil
 	}
 
 	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec // nothing system sensitive in the file
+}
+
+func (c *CreateCmd) debugPrintf(stderr io.Writer, format string, args ...any) {
+	if c.Flags.Debug > 0 {
+		fmt.Fprintf(stderr, format, args...) //nolint:errcheck // Fine if debug output fails to print.
+	}
 }
 
 // getControlPlaneConfig gets a REST config for a given control plane within
@@ -544,7 +537,7 @@ func getControlPlaneConfig(ctx context.Context, upCtx *upbound.Context, ctp type
 	if err != nil {
 		return nil, err
 	}
-	state, err := upctx.DeriveState(ctx, upCtx, conf, profile.GetIngressHost)
+	state, err := upctx.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
 	if err != nil {
 		return nil, err
 	}

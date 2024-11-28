@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config handles the up CLI configuration file and types.
 package config
 
 import (
@@ -40,16 +41,25 @@ const (
 	errNoProfilesFound    = "no profiles found"
 )
 
+const (
+	// DefaultDomain is the default Upbound domain used for constructing API
+	// endpoints.
+	DefaultDomain = "https://upbound.io"
+)
+
 // QuietFlag provides a named boolean type for the QuietFlag.
 type QuietFlag bool
 
-// Allowed values for the global format option.
+// Format represents allowed values for the global output format option.
 type Format string
 
 const (
-	Default Format = "default"
-	JSON    Format = "json"
-	YAML    Format = "yaml"
+	// FormatDefault is the default, human-friendly, output format.
+	FormatDefault Format = "default"
+	// FormatJSON is the JSON output format.
+	FormatJSON Format = "json"
+	// FormatYAML is the YAML output format.
+	FormatYAML Format = "yaml"
 )
 
 // Config is format for the up configuration file.
@@ -207,4 +217,12 @@ func (c *Config) BaseToJSON(name string) (io.Reader, error) {
 	}
 
 	return &buf, nil
+}
+
+func (c *Config) applyDefaults() {
+	for _, p := range c.Upbound.Profiles {
+		if p.Domain == "" {
+			p.Domain = DefaultDomain
+		}
+	}
 }
