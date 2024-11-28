@@ -26,9 +26,9 @@ import (
 // Flags are common flags used by commands that interact with Upbound.
 type Flags struct {
 	// Optional
-	Domain  *url.URL `default:"https://upbound.io" env:"UP_DOMAIN"                         help:"Root Upbound domain." json:"domain,omitempty"`
-	Profile string   `env:"UP_PROFILE"             help:"Profile used to execute command." json:"profile,omitempty"    predictor:"profiles"`
-	Account string   `env:"UP_ACCOUNT"             help:"Account used to execute command." json:"account,omitempty"    short:"a"`
+	Domain  *url.URL `env:"UP_DOMAIN"  help:"Root Upbound domain. Overrides the current profile's domain."              json:"domain,omitempty"`
+	Profile string   `env:"UP_PROFILE" help:"Profile used to execute command."                                          json:"profile,omitempty" predictor:"profiles"`
+	Account string   `env:"UP_ACCOUNT" help:"Account used to execute command. Overrides the current profile's account." json:"account,omitempty" short:"a"`
 
 	// Insecure
 	InsecureSkipTLSVerify bool `env:"UP_INSECURE_SKIP_TLS_VERIFY" help:"[INSECURE] Skip verifying TLS certificates."                                                                          json:"insecureSkipTLSVerify,omitempty"`

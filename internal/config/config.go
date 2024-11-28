@@ -41,6 +41,12 @@ const (
 	errNoProfilesFound    = "no profiles found"
 )
 
+const (
+	// DefaultDomain is the default Upbound domain used for constructing API
+	// endpoints.
+	DefaultDomain = "https://upbound.io"
+)
+
 // QuietFlag provides a named boolean type for the QuietFlag.
 type QuietFlag bool
 
@@ -211,4 +217,12 @@ func (c *Config) BaseToJSON(name string) (io.Reader, error) {
 	}
 
 	return &buf, nil
+}
+
+func (c *Config) applyDefaults() {
+	for _, p := range c.Upbound.Profiles {
+		if p.Domain == "" {
+			p.Domain = DefaultDomain
+		}
+	}
 }

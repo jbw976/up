@@ -116,6 +116,9 @@ func (src *FSSource) GetConfig() (*Config, error) {
 	if err := json.Unmarshal(b, conf); err != nil {
 		return nil, err
 	}
+
+	conf.applyDefaults()
+
 	return conf, nil
 }
 

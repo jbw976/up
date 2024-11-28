@@ -172,23 +172,46 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		return nil, err
 	}
 
+	// Use flag values for account and domain if they're set - these override
+	// the settings in the profile.
+	c.Account = of.Account
+	c.Domain = of.Domain
+
+	// If account has not already been set, use the profile default.
+	if c.Account == "" {
+		c.Account = c.Profile.Account
+	}
+	// If domain has not already been set, use the profile default. If the
+	// profile doesn't have a domain, use the global default.
+	if c.Domain == nil {
+		domain := c.Profile.Domain
+		if domain == "" {
+			domain = config.DefaultDomain
+		}
+
+		c.Domain, err = url.Parse(domain)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid domain in profile")
+		}
+	}
+
 	c.APIEndpoint = of.APIEndpoint
 	if c.APIEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = apiSubdomain + u.Host
 		c.APIEndpoint = &u
 	}
 
 	c.AuthEndpoint = of.AuthEndpoint
 	if c.AuthEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = authSubdomain + u.Host
 		c.AuthEndpoint = &u
 	}
 
 	c.ProxyEndpoint = of.ProxyEndpoint
 	if c.ProxyEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = proxySubdomain + u.Host
 		u.Path = proxyPath
 		c.ProxyEndpoint = &u
@@ -196,17 +219,9 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 
 	c.RegistryEndpoint = of.RegistryEndpoint
 	if c.RegistryEndpoint == nil {
-		u := *of.Domain
+		u := *c.Domain
 		u.Host = xpkgSubdomain + u.Host
 		c.RegistryEndpoint = &u
-	}
-
-	c.Account = of.Account
-	c.Domain = of.Domain
-
-	// If account has not already been set, use the profile default.
-	if c.Account == "" {
-		c.Account = c.Profile.Account
 	}
 
 	c.InsecureSkipTLSVerify = of.InsecureSkipTLSVerify

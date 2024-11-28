@@ -46,6 +46,10 @@ type Profile struct {
 	// Account is the default account to use when this profile is selected.
 	Account string `json:"account,omitempty"`
 
+	// Domain is the base domain used to construct URLs when this profile is
+	// selected.
+	Domain string `json:"domain,omitempty"`
+
 	// BaseConfig represent persisted settings for this profile.
 	// For example:
 	// * flags

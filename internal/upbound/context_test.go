@@ -46,6 +46,20 @@ var (
 		}
 	  }
 	`
+	domainConfigJSON = `{
+		"upbound": {
+		  "default": "default",
+		  "profiles": {
+			"default": {
+			  "id": "someone@upbound.io",
+			  "type": "user",
+			  "session": "a token",
+			  "domain": "https://local.upbound.io"
+			}
+		  }
+		}
+	  }
+	`
 	baseConfigJSON = `{
 		"upbound": {
 		  "default": "default",
@@ -203,6 +217,36 @@ func TestNewFromFlags(t *testing.T) {
 					AuthEndpoint:     withURL("https://auth.upbound.io"),
 					ProxyEndpoint:    withURL("https://proxy.upbound.io/v1/controlPlanes"),
 					RegistryEndpoint: withURL("https://xpkg.upbound.io"),
+					Token:            "",
+				},
+			},
+		},
+		"PreExistingProfileWithDomain": {
+			reason: "We should successfully return a Context if a pre-existing profile exists with a domain configured",
+			args: args{
+				flags: []string{},
+				opts: []Option{
+					withConfig(domainConfigJSON),
+					withPath("/.up/config.json"),
+				},
+			},
+			want: want{
+				c: &Context{
+					ProfileName:           "default",
+					Account:               "",
+					APIEndpoint:           withURL("https://api.local.upbound.io"),
+					Domain:                withURL("https://local.upbound.io"),
+					InsecureSkipTLSVerify: false,
+					Profile: profile.Profile{
+						ID:        "someone@upbound.io",
+						TokenType: profile.TokenTypeUser,
+						Session:   "a token",
+						Account:   "",
+						Domain:    "https://local.upbound.io",
+					},
+					AuthEndpoint:     withURL("https://auth.local.upbound.io"),
+					ProxyEndpoint:    withURL("https://proxy.local.upbound.io/v1/controlPlanes"),
+					RegistryEndpoint: withURL("https://xpkg.local.upbound.io"),
 					Token:            "",
 				},
 			},
