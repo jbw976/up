@@ -250,7 +250,7 @@ func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response,
 			return err
 		}
 	}
-	upCtx.Profile.Account = upCtx.Account
+	upCtx.Profile.Organization = upCtx.Account
 
 	if err := upCtx.Cfg.AddOrUpdateUpboundProfile(upCtx.ProfileName, upCtx.Profile); err != nil {
 		return errors.Wrap(err, errLoginFailed)

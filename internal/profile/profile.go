@@ -44,7 +44,11 @@ type Profile struct {
 	Session string `json:"session,omitempty"`
 
 	// Account is the default account to use when this profile is selected.
+	//
+	// Deprecated: Use Organization instead.
 	Account string `json:"account,omitempty"`
+	// Organization is the organization associated with this profile.
+	Organization string `json:"organization,omitempty"`
 
 	// Domain is the base domain used to construct URLs when this profile is
 	// selected.
