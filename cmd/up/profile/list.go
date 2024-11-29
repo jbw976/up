@@ -33,11 +33,11 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 type listCmd struct{}
 
 // Run executes the list command.
-func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, ctx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println(errNoProfiles)
-		return nil //nolint:nilerr
+		return nil //nolint:nilerr // Successfully list nothing if there are no profiles.
 	}
 
 	redacted := make(map[string]profile.Redacted)

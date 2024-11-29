@@ -35,7 +35,7 @@ type joinCmd struct {
 }
 
 // Run executes the create command.
-func (c *joinCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *joinCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
 		return err

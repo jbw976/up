@@ -30,10 +30,11 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
+//nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "CREATED"}
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -64,6 +65,6 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 }
 
 func extractFields(obj any) []string {
-	r := obj.(organizations.Team)
+	r := obj.(organizations.Team) //nolint:forcetypeassert // Assertion will always be true due to printer.Print call above.
 	return []string{r.Name, r.ID.String(), duration.HumanDuration(time.Since(r.CreatedAt))}
 }

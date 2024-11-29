@@ -37,7 +37,7 @@ func (c *leaveCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *leaveCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *leaveCmd) AfterApply(p pterm.TextPrinter) error {
 	if c.Force {
 		return nil
 	}
@@ -66,7 +66,7 @@ type leaveCmd struct {
 }
 
 // Run executes the delete command.
-func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
 		return err

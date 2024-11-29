@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package profile contains commands for working with configuration profiles.
 package profile
 
 import (
@@ -49,8 +50,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictProfiles is the completion predictor for profiles.
 func PredictProfiles() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil

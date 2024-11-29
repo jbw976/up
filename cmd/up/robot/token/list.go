@@ -34,10 +34,11 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
+//nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "CREATED"}
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -48,7 +49,7 @@ type listCmd struct {
 }
 
 // Run executes the list robot tokens command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
 		return err
@@ -94,7 +95,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 }
 
 func extractFields(obj any) []string {
-	t := obj.(common.DataSet)
+	t := obj.(common.DataSet) //nolint:forcetypeassert // Type assertion will always be true because of what's passed to printer.Print above.
 
 	n := fmt.Sprint(t.AttributeSet["name"])
 	c := "n/a"

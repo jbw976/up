@@ -38,17 +38,14 @@ type listCmd struct {
 	TeamName string `arg:"" help:"Name of the team." required:""`
 }
 
-// fieldNames for the list output.
-var fieldNames = []string{"TEAM", "REPOSITORY", "PERMISSION", "CREATED", "UPDATED"}
-
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	// Get account details
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
@@ -94,6 +91,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return nil
 	}
 
+	fieldNames := []string{"TEAM", "REPOSITORY", "PERMISSION", "CREATED", "UPDATED"}
 	return printer.Print(resp.Permissions, fieldNames, func(obj any) []string {
 		return extractFields(obj, teamIDToName)
 	})
@@ -101,7 +99,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 
 // extractFields extracts the fields for printing.
 func extractFields(obj any, teamIDToName map[uuid.UUID]string) []string {
-	p := obj.(repositorypermission.Permission)
+	p := obj.(repositorypermission.Permission) //nolint:forcetypeassert // Type assertion will always be true because of what's passed to printer.Print above.
 
 	updated := "n/a"
 	if p.UpdatedAt != nil {

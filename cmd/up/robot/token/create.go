@@ -28,7 +28,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
-	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -42,7 +41,7 @@ type createCmd struct {
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *tokens.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
 		return err
@@ -110,7 +109,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck // Can't do anything useful with this error.
 	return json.NewEncoder(f).Encode(&upbound.TokenFile{
 		AccessID: access,
 		Token:    token,

@@ -30,7 +30,7 @@ import (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }

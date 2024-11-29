@@ -46,7 +46,7 @@ func (c *revokeCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *revokeCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *revokeCmd) AfterApply(p pterm.TextPrinter) error {
 	if c.Force {
 		return nil
 	}

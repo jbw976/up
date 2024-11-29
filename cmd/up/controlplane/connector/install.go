@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
@@ -37,7 +36,7 @@ import (
 	"github.com/upbound/up/internal/version"
 )
 
-var mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts")
+var mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts") //nolint:gochecknoglobals // Would make this a const if we could.
 
 const (
 	connectorName = "mcp-connector"
@@ -47,7 +46,7 @@ const (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *installCmd) AfterApply() error {
 	if c.ClusterName == "" {
 		c.ClusterName = c.Namespace
 	}
@@ -75,7 +74,7 @@ func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) e
 
 	base := map[string]any{}
 	if c.File != nil {
-		defer c.File.Close() //nolint:errcheck,gosec
+		defer c.File.Close() //nolint:errcheck // Can't do anything useful with this error.
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)
@@ -135,7 +134,10 @@ func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 	// the mcp-kubeconfig secret in favor of the supplied secret name.
 	if c.ControlPlaneSecret != "" {
 		v := params["mcp"]
-		param := v.(map[string]any)
+		param, ok := v.(map[string]any)
+		if !ok {
+			return errors.New("expected mcp params to be a map")
+		}
 		param["secret"] = map[string]any{
 			"name":      c.ControlPlaneSecret,
 			"provision": false,

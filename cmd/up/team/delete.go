@@ -70,7 +70,7 @@ type deleteCmd struct {
 }
 
 // Run executes the delete command.
-func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, tc *teams.Client, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, tc *teams.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Account)
 	if err != nil {
 		return err
