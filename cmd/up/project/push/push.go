@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package push contains the `up project push` command.
 package push
 
 import (
@@ -22,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
@@ -30,11 +32,13 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
+// Cmd is the `up project push` command.
 type Cmd struct {
 	ProjectFile    string        `default:"upbound.yaml"                                                                help:"Path to project definition file."                                            short:"f"`
 	Repository     string        `help:"Repository to push to. Overrides the repository specified in the project file." optional:""`
@@ -47,8 +51,10 @@ type Cmd struct {
 	projFS    afero.Fs
 	packageFS afero.Fs
 	transport http.RoundTripper
+	keychain  authn.Keychain
 }
 
+// AfterApply processes flags and sets defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
@@ -78,11 +84,21 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	c.transport = http.DefaultTransport
+	c.keychain = authn.NewMultiKeychain(
+		authn.NewKeychainFromHelper(
+			credhelper.New(
+				credhelper.WithDomain(upCtx.Domain.Hostname()),
+				credhelper.WithProfile(upCtx.ProfileName),
+			),
+		),
+		authn.DefaultKeychain,
+	)
 
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error {
+// Run is the body of the command.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	pterm.EnableStyling()
 
 	if c.MaxConcurrency == 0 {
@@ -120,6 +136,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	pusher := project.NewPusher(
 		project.PushWithUpboundContext(upCtx),
 		project.PushWithTransport(c.transport),
+		project.PushWithAuthKeychain(c.keychain),
 		project.PushWithMaxConcurrency(c.MaxConcurrency),
 	)
 

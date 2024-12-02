@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package project contains types for working with Upbound development projects.
 package project
 
 import (
@@ -31,7 +32,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
@@ -61,10 +61,21 @@ func PushWithMaxConcurrency(n uint) PusherOption {
 	}
 }
 
-// PushWithUpboundContext provides Upbound credentials to be used by the pusher.
+// PushWithUpboundContext provides an Upbound context to be used during the
+// push. It is used to determine whether repository names are in the Upbound
+// registry or not, and for Upbound API credentials. Registry credentials are
+// provided separately, using `WithAuthKeychain`.
 func PushWithUpboundContext(upCtx *upbound.Context) PusherOption {
 	return func(p *realPusher) {
 		p.upCtx = upCtx
+	}
+}
+
+// PushWithAuthKeychain provides a registry credentail source to be used by the
+// push.
+func PushWithAuthKeychain(kc authn.Keychain) PusherOption {
+	return func(p *realPusher) {
+		p.keychain = kc
 	}
 }
 
@@ -103,6 +114,7 @@ func PushWithCreatePublicRepositories(public bool) PushOption {
 
 type realPusher struct {
 	upCtx          *upbound.Context
+	keychain       authn.Keychain
 	transport      http.RoundTripper
 	maxConcurrency uint
 }
@@ -225,16 +237,6 @@ func (p *realPusher) createRepository(ctx context.Context, repo name.Repository,
 }
 
 func (p *realPusher) pushIndex(ctx context.Context, tag name.Tag, imgs ...v1.Image) error {
-	kc := authn.NewMultiKeychain(
-		authn.NewKeychainFromHelper(
-			credhelper.New(
-				credhelper.WithDomain(p.upCtx.Domain.Hostname()),
-				credhelper.WithProfile(p.upCtx.ProfileName),
-			),
-		),
-		authn.DefaultKeychain,
-	)
-
 	// Build an index. This is a little superfluous if there's only one image
 	// (single architecture), but we generate configuration dependencies on
 	// embedded functions assuming there's an index, so we push an index
@@ -261,30 +263,20 @@ func (p *realPusher) pushIndex(ctx context.Context, tag name.Tag, imgs ...v1.Ima
 	// on it by digest, so this isn't necessary for things to work correctly,
 	// but it makes the Marketplace experience more intuitive for the user.
 	return remote.WriteIndex(tag, idx,
-		remote.WithAuthFromKeychain(kc),
+		remote.WithAuthFromKeychain(p.keychain),
 		remote.WithContext(ctx),
 		remote.WithTransport(p.transport),
 	)
 }
 
 func (p *realPusher) pushImage(ctx context.Context, ref name.Reference, img v1.Image) error {
-	kc := authn.NewMultiKeychain(
-		authn.NewKeychainFromHelper(
-			credhelper.New(
-				credhelper.WithDomain(p.upCtx.Domain.Hostname()),
-				credhelper.WithProfile(p.upCtx.ProfileName),
-			),
-		),
-		authn.DefaultKeychain,
-	)
-
 	img, err := xpkg.AnnotateImage(img)
 	if err != nil {
 		return err
 	}
 
 	return remote.Write(ref, img,
-		remote.WithAuthFromKeychain(kc),
+		remote.WithAuthFromKeychain(p.keychain),
 		remote.WithContext(ctx),
 		remote.WithTransport(p.transport),
 	)
@@ -321,7 +313,7 @@ func sortImages(imgMap ImageTagMap, repo string) (cfgImage v1.Image, fnImages ma
 }
 
 // NewPusher returns a new project Pusher.
-func NewPusher(opts ...PusherOption) *realPusher {
+func NewPusher(opts ...PusherOption) Pusher {
 	p := &realPusher{
 		transport:      http.DefaultTransport,
 		maxConcurrency: 8,
