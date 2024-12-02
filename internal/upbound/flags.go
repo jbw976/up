@@ -29,8 +29,8 @@ type Flags struct {
 	Domain  *url.URL `env:"UP_DOMAIN"  help:"Root Upbound domain. Overrides the current profile's domain." json:"domain,omitempty"`
 	Profile string   `env:"UP_PROFILE" help:"Profile used to execute command."                             json:"profile,omitempty" predictor:"profiles"`
 	// Deprecated: Prefer Organization and fall back to Account if necessary.
-	Account      string `env:"UP_ACCOUNT"      help:"Deprecated. Use organization instead."                                               json:"account,omitempty"      short:"a"`
-	Organization string `env:"UP_ORGANIZATION" help:"Organization used to execute command. Overrides the current profile's organization." json:"organization,omitempty"`
+	Account      string `env:"UP_ACCOUNT" help:"Deprecated. Use organization instead." json:"account,omitempty"                                                                   short:"a"`
+	Organization string `alias:"org"      env:"UP_ORGANIZATION"                        help:"Organization used to execute command. Overrides the current profile's organization." json:"organization,omitempty"`
 
 	// Insecure
 	InsecureSkipTLSVerify bool `env:"UP_INSECURE_SKIP_TLS_VERIFY" help:"[INSECURE] Skip verifying TLS certificates."                                                                          json:"insecureSkipTLSVerify,omitempty"`
