@@ -25,7 +25,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
@@ -44,6 +43,8 @@ var demoProject embed.FS
 var embeddedFunctions embed.FS
 
 func TestPush(t *testing.T) {
+	t.Parallel()
+
 	// Start a test registry so we can actually do a push.
 	regSrv, err := registry.TLS("localhost")
 	assert.NilError(t, err)
@@ -95,7 +96,7 @@ func TestPush(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(context.Background(), upCtx, &pterm.DefaultBasicText)
+			err = c.Run(context.Background(), upCtx)
 			assert.NilError(t, err)
 
 			// Pull the configuration image from the server and unpack its
