@@ -33,11 +33,11 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 type listCmd struct{}
 
 // Run executes the list command.
-func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, ctx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println(errNoProfiles)
-		return nil //nolint:nilerr
+		return nil //nolint:nilerr // Successfully list nothing if there are no profiles.
 	}
 
 	redacted := make(map[string]profile.Redacted)
@@ -64,13 +64,13 @@ func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, ctx *kong.Con
 	data := make([][]string, len(redacted)+1)
 	cursor := ""
 
-	data[0] = []string{"CURRENT", "NAME", "TYPE", "ACCOUNT"}
+	data[0] = []string{"CURRENT", "NAME", "TYPE", "ORGANIZATION"}
 	for i, name := range profileNames {
 		if name == dprofile {
 			cursor = "*"
 		}
 		prof := redacted[name]
-		data[i+1] = []string{cursor, name, string(prof.TokenType), prof.Account}
+		data[i+1] = []string{cursor, name, string(prof.TokenType), prof.Organization}
 
 		cursor = "" // reset cursor
 	}

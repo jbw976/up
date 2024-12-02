@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package token contains commands for working with robot tokens.
 package token
 
 import (

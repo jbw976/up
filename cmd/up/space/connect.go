@@ -160,8 +160,8 @@ func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kube
 		return errors.Wrap(err, "cannot unmarshal spaces config")
 	}
 
-	if sc.Account != upCtx.Account {
-		return errors.Errorf("account of the space %q and account of the profile %q mismatch; use `--account=%s` to connect to the right organization", sc.Account, c.Upbound.Account, sc.Account)
+	if sc.Account != upCtx.Organization {
+		return errors.Errorf("account of the space %q and account of the profile %q mismatch; use `--organization=%s` to connect to the right organization", sc.Account, upCtx.Organization, sc.Account)
 	}
 
 	connectSpinner, err := upterm.CheckmarkSuccessSpinner.Start("Connecting Space to Upbound Console...")
@@ -179,7 +179,7 @@ func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kube
 			return err
 		}
 
-		a, err := upbound.GetOrganization(ctx, ac, upCtx.Account)
+		a, err := upbound.GetOrganization(ctx, ac, upCtx.Organization)
 		if err != nil {
 			return err
 		}

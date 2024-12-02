@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package team contains commands for manipulating a robot token's team
+// assignments.
 package team
 
 import (

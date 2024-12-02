@@ -26,7 +26,7 @@ import (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -38,7 +38,7 @@ type getCmd struct {
 
 // Run executes the get command.
 func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, rc *repos.Client, upCtx *upbound.Context) error {
-	repo, err := rc.Get(ctx, upCtx.Account, c.Name)
+	repo, err := rc.Get(ctx, upCtx.Organization, c.Name)
 	if err != nil {
 		return err
 	}

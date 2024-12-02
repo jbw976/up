@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package robot contains commands for working with robots.
 package robot
 
 import (
@@ -52,8 +53,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictRobots is the completion predictor for robots.
 func PredictRobots() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil
@@ -75,7 +77,7 @@ func PredictRobots() complete.Predictor {
 			return nil
 		}
 
-		account, err := ac.Get(context.Background(), upCtx.Account)
+		account, err := ac.Get(context.Background(), upCtx.Organization)
 		if err != nil {
 			return nil
 		}

@@ -31,10 +31,8 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-var fieldNames = []string{"TEAMS"}
-
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -45,8 +43,8 @@ type listCmd struct {
 }
 
 // Run executes the get robot command to get all team memberships for a specific robot.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *teams.Client, upCtx *upbound.Context) error { //nolint:gocyclo
-	a, err := ac.Get(ctx, upCtx.Account)
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *teams.Client, upCtx *upbound.Context) error {
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -59,7 +57,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	var rid *uuid.UUID
@@ -71,7 +69,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		}
 	}
 	if rid == nil {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	robot, err := rc.Get(ctx, *rid)
@@ -118,10 +116,10 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		teamInfos = append(teamInfos, *team)
 	}
 
-	return printer.Print(teamInfos, fieldNames, extractFields)
+	return printer.Print(teamInfos, []string{"TEAMS"}, extractFields)
 }
 
 func extractFields(obj any) []string {
-	team := obj.(teams.TeamResponse)
+	team := obj.(teams.TeamResponse) //nolint:forcetypeassert // Type assertion will always be true because of what's passed to printer.Print above.
 	return []string{team.Name}
 }

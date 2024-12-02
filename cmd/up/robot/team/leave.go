@@ -37,7 +37,7 @@ func (c *leaveCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *leaveCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *leaveCmd) AfterApply(p pterm.TextPrinter) error {
 	if c.Force {
 		return nil
 	}
@@ -66,8 +66,8 @@ type leaveCmd struct {
 }
 
 // Run executes the delete command.
-func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error { //nolint:gocyclo
-	a, err := ac.Get(ctx, upCtx.Account)
+func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Cl
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	var robotID uuid.UUID
@@ -92,10 +92,10 @@ func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Cl
 		}
 	}
 	if robotCount == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 	if robotCount > 1 {
-		return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Organization)
 	}
 
 	ts, err := oc.ListTeams(ctx, a.Organization.ID)
@@ -113,7 +113,7 @@ func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Cl
 		}
 	}
 	if !teamFound {
-		return errors.Errorf(errFindTeamFmt, c.TeamName, upCtx.Account)
+		return errors.Errorf(errFindTeamFmt, c.TeamName, upCtx.Organization)
 	}
 
 	if err := rc.DeleteTeamMembership(ctx, robotID, &robots.RobotTeamMembershipResourceIdentifier{

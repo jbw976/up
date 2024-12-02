@@ -49,10 +49,10 @@ func (c *grantCmd) Validate() error {
 // Run executes the create command.
 func (c *grantCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	if err := c.Validate(); err != nil {
-		return fmt.Errorf("permission validation failed for team %q in account %q: %w", c.TeamName, upCtx.Account, err)
+		return fmt.Errorf("permission validation failed for team %q in account %q: %w", c.TeamName, upCtx.Organization, err)
 	}
 
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return errors.Wrap(err, "cannot get accounts")
 	}
@@ -76,10 +76,10 @@ func (c *grantCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Cl
 		}
 	}
 	if !teamFound {
-		return fmt.Errorf("could not find team %q in account %q", c.TeamName, upCtx.Account)
+		return fmt.Errorf("could not find team %q in account %q", c.TeamName, upCtx.Organization)
 	}
 
-	if err := rpc.Create(ctx, upCtx.Account, teamID, repositorypermission.CreatePermission{
+	if err := rpc.Create(ctx, upCtx.Organization, teamID, repositorypermission.CreatePermission{
 		Repository: c.RepositoryName,
 		Permission: repositorypermission.RepositoryPermission{
 			Permission: repositorypermission.PermissionType(c.Permission),
@@ -87,6 +87,6 @@ func (c *grantCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Cl
 	}); err != nil {
 		return errors.Wrap(err, "cannot grant permission")
 	}
-	p.Printfln("Permission %q granted to team %q for repository %q in account %q", c.Permission, c.TeamName, c.RepositoryName, upCtx.Account)
+	p.Printfln("Permission %q granted to team %q for repository %q in account %q", c.Permission, c.TeamName, c.RepositoryName, upCtx.Organization)
 	return nil
 }

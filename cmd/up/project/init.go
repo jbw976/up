@@ -15,7 +15,6 @@
 package project
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ type initCmd struct {
 	RefName   string `default:"main"                                                                                help:"The branch or tag to clone from the template repository."       name:"ref-name"`
 
 	Method   string `default:"https"                                                                                                                                                                  help:"Specify the method to access the repository: 'https' or 'ssh'."`
-	SshKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
+	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
 	Username string `default:"git"                                                                                                                                                                    help:"Optional. Specify a username for HTTP(S) authentication. Used when the method is 'https' and an SSH key is not provided."`
 	Password string `help:"Optional. Specify a password for authentication. Used with the username when the method is 'https', or with an SSH key that requires a password when the method is 'ssh'."`
 
@@ -100,7 +99,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *initCmd) Run(upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocognit // TODO(adamwg): Split this a bit.
 	// use name as directory
 	if c.Directory == "" {
 		c.Directory = c.Name
@@ -115,12 +114,12 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextP
 	if c.Method == "ssh" {
 		// SSH URLs provide access to a Git repository via SSH, a secure protocol.
 		// To use these URLs, you **must** generate an SSH keypair on your computer and add the public key to your GitHub account.
-		if len(c.SshKey) == 0 {
+		if len(c.SSHKey) == 0 {
 			return errors.New("SSH key must be specified when using SSH method")
 		}
 		// It's acceptable to have a Password as the passphrase for the SSH key.
 	} else if c.Method == "https" {
-		if len(c.SshKey) > 0 {
+		if len(c.SSHKey) > 0 {
 			return errors.New("cannot specify SSH key when using HTTPS method")
 		}
 	}
@@ -149,9 +148,9 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextP
 		repoURL = c.Template
 	}
 
-	var authMethod interface{} = nil
+	var authMethod interface{}
 	if c.Method == "ssh" {
-		publicKey, err := ssh.NewPublicKeysFromFile(c.Username, c.SshKey, c.Password)
+		publicKey, err := ssh.NewPublicKeysFromFile(c.Username, c.SSHKey, c.Password)
 		if err != nil {
 			return errors.Wrapf(err, "failed to create public key from SSH key file")
 		}
@@ -208,8 +207,8 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextP
 	}
 
 	project.ObjectMeta.Name = c.Name
-	if upCtx != nil && upCtx.Account != "" {
-		project.Spec.Repository = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Account, c.Name)
+	if upCtx != nil && upCtx.Organization != "" {
+		project.Spec.Repository = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)
 	} else {
 		project.Spec.Repository = fmt.Sprintf("xpkg.upbound.io/<YOUR ORGANIZATION>/%s", c.Name)
 	}

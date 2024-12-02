@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package repository holds commands for working with xpkg repositories.
 package repository
 
 import (
@@ -44,8 +45,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictRepos is the completion predictor for repositories.
 func PredictRepos() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil
@@ -62,7 +64,7 @@ func PredictRepos() complete.Predictor {
 			return nil
 		}
 
-		repos, err := rc.List(context.Background(), upCtx.Account, common.WithSize(maxItems))
+		repos, err := rc.List(context.Background(), upCtx.Organization, common.WithSize(maxItems))
 		if err != nil {
 			return nil
 		}

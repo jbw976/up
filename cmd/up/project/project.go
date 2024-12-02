@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package project contains commands for working with development projects.
 package project
 
 import (
@@ -21,6 +22,7 @@ import (
 	"github.com/upbound/up/cmd/up/project/run"
 )
 
+// Cmd is the top-level project command.
 type Cmd struct {
 	Init  initCmd   `cmd:"" help:"Initialize a new project."`
 	Build build.Cmd `cmd:"" help:"Build a project into a Crossplane package."`

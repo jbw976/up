@@ -31,9 +31,7 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-var (
-	spacelistFieldNames = []string{"NAME", "MODE", "PROVIDER", "REGION"}
-
+const (
 	errListSpaces = "unable to list Upbound Spaces"
 )
 
@@ -78,7 +76,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 
 // Run executes the list command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, p pterm.TextPrinter, upCtx *upbound.Context) error {
-	a, err := upbound.GetOrganization(ctx, c.ac, upCtx.Account)
+	a, err := upbound.GetOrganization(ctx, c.ac, upCtx.Organization)
 	var uerr *uerrors.Error
 	if errors.As(err, &uerr) {
 		if uerr.Status == http.StatusUnauthorized {
@@ -102,7 +100,8 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, p pterm.TextP
 		return nil
 	}
 
-	return printer.Print(l.Items, spacelistFieldNames, extractSpaceListFields)
+	fieldNames := []string{"NAME", "MODE", "PROVIDER", "REGION"}
+	return printer.Print(l.Items, fieldNames, extractSpaceListFields)
 }
 
 func extractSpaceListFields(obj any) []string {

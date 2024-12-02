@@ -60,6 +60,34 @@ var (
 		}
 	  }
 	`
+	accountConfigJSON = `{
+		"upbound": {
+		  "default": "default",
+		  "profiles": {
+			"default": {
+			  "id": "someone@upbound.io",
+			  "type": "user",
+			  "session": "a token",
+			  "account": "my-org"
+			}
+		  }
+		}
+	  }
+	`
+	organizationConfigJSON = `{
+		"upbound": {
+		  "default": "default",
+		  "profiles": {
+			"default": {
+			  "id": "someone@upbound.io",
+			  "type": "user",
+			  "session": "a token",
+			  "organization": "my-org"
+			}
+		  }
+		}
+	  }
+	`
 	baseConfigJSON = `{
 		"upbound": {
 		  "default": "default",
@@ -145,7 +173,7 @@ func TestNewFromFlags(t *testing.T) {
 			},
 			want: want{
 				c: &Context{
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),
@@ -181,7 +209,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:      "not-here",
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),
@@ -204,7 +232,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "",
+					Organization:          "",
 					APIEndpoint:           withURL("https://api.upbound.io"),
 					Domain:                withURL("https://upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -233,7 +261,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "",
+					Organization:          "",
 					APIEndpoint:           withURL("https://api.local.upbound.io"),
 					Domain:                withURL("https://local.upbound.io"),
 					InsecureSkipTLSVerify: false,
@@ -251,6 +279,66 @@ func TestNewFromFlags(t *testing.T) {
 				},
 			},
 		},
+		"PreExistingProfileWithAccount": {
+			reason: "We should successfully return a Context if a pre-existing profile exists with a (deprecated) account configured",
+			args: args{
+				flags: []string{},
+				opts: []Option{
+					withConfig(accountConfigJSON),
+					withPath("/.up/config.json"),
+				},
+			},
+			want: want{
+				c: &Context{
+					ProfileName:           "default",
+					Organization:          "my-org",
+					APIEndpoint:           withURL("https://api.upbound.io"),
+					Domain:                withURL("https://upbound.io"),
+					InsecureSkipTLSVerify: false,
+					Profile: profile.Profile{
+						ID:        "someone@upbound.io",
+						TokenType: profile.TokenTypeUser,
+						Session:   "a token",
+						Account:   "my-org",
+						Domain:    "",
+					},
+					AuthEndpoint:     withURL("https://auth.upbound.io"),
+					ProxyEndpoint:    withURL("https://proxy.upbound.io/v1/controlPlanes"),
+					RegistryEndpoint: withURL("https://xpkg.upbound.io"),
+					Token:            "",
+				},
+			},
+		},
+		"PreExistingProfileWithOrganization": {
+			reason: "We should successfully return a Context if a pre-existing profile exists with an organization configured",
+			args: args{
+				flags: []string{},
+				opts: []Option{
+					withConfig(organizationConfigJSON),
+					withPath("/.up/config.json"),
+				},
+			},
+			want: want{
+				c: &Context{
+					ProfileName:           "default",
+					Organization:          "my-org",
+					APIEndpoint:           withURL("https://api.upbound.io"),
+					Domain:                withURL("https://upbound.io"),
+					InsecureSkipTLSVerify: false,
+					Profile: profile.Profile{
+						ID:           "someone@upbound.io",
+						TokenType:    profile.TokenTypeUser,
+						Session:      "a token",
+						Organization: "my-org",
+						Domain:       "",
+					},
+					AuthEndpoint:     withURL("https://auth.upbound.io"),
+					ProxyEndpoint:    withURL("https://proxy.upbound.io/v1/controlPlanes"),
+					RegistryEndpoint: withURL("https://xpkg.upbound.io"),
+					Token:            "",
+				},
+			},
+		},
 		"PreExistingProfileBaseConfigSetProfile": {
 			reason: "We should return a Context that includes the persisted Profile from base config",
 			args: args{
@@ -263,7 +351,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "default",
-					Account:               "my-org",
+					Organization:          "my-org",
 					APIEndpoint:           withURL("https://api.local.upbound.io"),
 					Domain:                withURL("https://local.upbound.io"),
 					InsecureSkipTLSVerify: true,
@@ -302,7 +390,7 @@ func TestNewFromFlags(t *testing.T) {
 			want: want{
 				c: &Context{
 					ProfileName:           "cool-profile",
-					Account:               "not-my-org",
+					Organization:          "not-my-org",
 					APIEndpoint:           withURL("http://not.a.url"),
 					Domain:                withURL("http://a.domain.org"),
 					InsecureSkipTLSVerify: true,
@@ -334,7 +422,7 @@ func TestNewFromFlags(t *testing.T) {
 			},
 			want: want{
 				c: &Context{
-					Account:          "",
+					Organization:     "",
 					APIEndpoint:      withURL("https://api.upbound.io"),
 					Cfg:              &config.Config{},
 					Domain:           withURL("https://upbound.io"),

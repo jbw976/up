@@ -25,7 +25,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/repositories"
-	repos "github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -35,7 +34,7 @@ const (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -43,23 +42,24 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 // listCmd lists repositories in an account on Upbound.
 type listCmd struct{}
 
+//nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "TYPE", "PUBLIC", "UPDATED"}
 
 // Run executes the list command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, rc *repositories.Client, upCtx *upbound.Context) error {
-	rList, err := rc.List(ctx, upCtx.Account, common.WithSize(maxItems))
+	rList, err := rc.List(ctx, upCtx.Organization, common.WithSize(maxItems))
 	if err != nil {
 		return err
 	}
 	if len(rList.Repositories) == 0 {
-		p.Printfln("No repositories found in %s", upCtx.Account)
+		p.Printfln("No repositories found in %s", upCtx.Organization)
 		return nil
 	}
 	return printer.Print(rList.Repositories, fieldNames, extractFields)
 }
 
 func extractFields(obj any) []string {
-	r := obj.(repos.Repository)
+	r := obj.(repositories.Repository) //nolint:forcetypeassert // Type assertion will always be true because of what's passed to printer.Print above.
 
 	rt := "unknown"
 	if r.Type != nil {

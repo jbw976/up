@@ -28,7 +28,6 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"
-	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -42,8 +41,8 @@ type createCmd struct {
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *tokens.Client, upCtx *upbound.Context) error { //nolint:gocyclo
-	a, err := ac.Get(ctx, upCtx.Account)
+func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, upCtx *upbound.Context) error {
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -55,7 +54,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 		return err
 	}
 	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 	// TODO(hasheddan): because this API does not guarantee name uniqueness, we
 	// must guarantee that exactly one robot exists in the specified account
@@ -66,14 +65,14 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	for _, r := range rs {
 		if r.Name == c.RobotName {
 			if found {
-				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Account)
+				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Organization)
 			}
 			id = r.ID
 			found = true
 		}
 	}
 	if !found {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Account)
+		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
 	}
 	res, err := tc.Create(ctx, &tokens.TokenCreateParameters{
 		Attributes: tokens.TokenAttributes{
@@ -91,7 +90,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	if err != nil {
 		return err
 	}
-	p.Printfln("%s/%s/%s created", upCtx.Account, c.RobotName, c.TokenName)
+	p.Printfln("%s/%s/%s created", upCtx.Organization, c.RobotName, c.TokenName)
 	if c.Output == "" {
 		p.Printfln("Refusing to emit sensitive output. Please specify output location.")
 		return nil
@@ -110,7 +109,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.C
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck,gosec
+	defer f.Close() //nolint:errcheck // Can't do anything useful with this error.
 	return json.NewEncoder(f).Encode(&upbound.TokenFile{
 		AccessID: access,
 		Token:    token,

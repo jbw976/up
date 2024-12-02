@@ -30,10 +30,11 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
+//nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "CREATED"}
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	return nil
 }
@@ -43,7 +44,7 @@ type listCmd struct{}
 
 // Run executes the list teams command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Account)
+	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
 	}
@@ -57,13 +58,13 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(rs) == 0 {
-		p.Printfln("No teams found in %s", upCtx.Account)
+		p.Printfln("No teams found in %s", upCtx.Organization)
 		return nil
 	}
 	return printer.Print(rs, fieldNames, extractFields)
 }
 
 func extractFields(obj any) []string {
-	r := obj.(organizations.Team)
+	r := obj.(organizations.Team) //nolint:forcetypeassert // Assertion will always be true due to printer.Print call above.
 	return []string{r.Name, r.ID.String(), duration.HumanDuration(time.Since(r.CreatedAt))}
 }

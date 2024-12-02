@@ -69,7 +69,7 @@ func TestListCommand(t *testing.T) {
 					}),
 				},
 				upCtx: &upbound.Context{
-					Account: "some-account",
+					Organization: "some-account",
 				},
 			},
 			want: want{
@@ -94,7 +94,7 @@ func TestListCommand(t *testing.T) {
 					}),
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{
@@ -108,7 +108,7 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(req *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj interface{}) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
@@ -118,7 +118,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{
@@ -132,7 +132,7 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(req *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj interface{}) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
@@ -142,7 +142,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{},
@@ -154,13 +154,13 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(req *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj interface{}) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
 					}),
 					kc: &test.MockClient{
-						MockList: func(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) error {
+						MockList: func(_ context.Context, obj client.ObjectList, _ ...client.ListOption) error {
 							list := obj.(*upboundv1alpha1.SpaceList)
 							list.Items = []upboundv1alpha1.Space{
 								{
@@ -174,7 +174,7 @@ func TestListCommand(t *testing.T) {
 					},
 				},
 				upCtx: &upbound.Context{
-					Account: acc,
+					Organization: acc,
 				},
 			},
 			want: want{},

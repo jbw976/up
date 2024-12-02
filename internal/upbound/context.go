@@ -71,12 +71,12 @@ const (
 // Context includes common data that Upbound consumers may utilize.
 type Context struct {
 	// Profile fields
-	ProfileName string
-	Profile     profile.Profile
-	Token       string
-	Cfg         *config.Config
-	CfgSrc      config.Source
-	Account     string
+	ProfileName  string
+	Profile      profile.Profile
+	Token        string
+	Cfg          *config.Config
+	CfgSrc       config.Source
+	Organization string
 
 	// Kubeconfig fields
 	Kubecfg clientcmd.ClientConfig
@@ -174,12 +174,22 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 
 	// Use flag values for account and domain if they're set - these override
 	// the settings in the profile.
-	c.Account = of.Account
+	c.Organization = of.Organization
+	// Fall back to the deprecated account flag.
+	if c.Organization == "" {
+		c.Organization = of.Account
+	}
 	c.Domain = of.Domain
 
 	// If account has not already been set, use the profile default.
-	if c.Account == "" {
-		c.Account = c.Profile.Account
+	if c.Organization == "" {
+		// TODO(adamwg): Clean up when we get rid of the Account field in the
+		// profile.
+		if c.Profile.Organization != "" {
+			c.Organization = c.Profile.Organization
+		} else {
+			c.Organization = c.Profile.Account //nolint:staticcheck // Migration path from account to org.
+		}
 	}
 	// If domain has not already been set, use the profile default. If the
 	// profile doesn't have a domain, use the global default.
@@ -387,6 +397,7 @@ func (f Flags) MarshalJSON() ([]byte, error) {
 		Domain                string `json:"domain,omitempty"`
 		Profile               string `json:"profile,omitempty"`
 		Account               string `json:"account,omitempty"`
+		Organization          string `json:"organization,omitempty"`
 		InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"` //nolint:tagliatelle // Not a k8s JSON.
 		Debug                 int    `json:"debug,omitempty"`
 		APIEndpoint           string `json:"override_api_endpoint,omitempty"`      //nolint:tagliatelle // Not a k8s JSON.
@@ -397,6 +408,7 @@ func (f Flags) MarshalJSON() ([]byte, error) {
 		Domain:                nullableURL(f.Domain),
 		Profile:               f.Profile,
 		Account:               f.Account,
+		Organization:          f.Organization,
 		InsecureSkipTLSVerify: f.InsecureSkipTLSVerify,
 		Debug:                 f.Debug,
 		APIEndpoint:           nullableURL(f.APIEndpoint),

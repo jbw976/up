@@ -35,9 +35,9 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, rc *repositori
 	if c.Private {
 		visibility = repositories.WithPrivate()
 	}
-	if err := rc.CreateOrUpdateWithOptions(ctx, upCtx.Account, c.Name, visibility); err != nil {
+	if err := rc.CreateOrUpdateWithOptions(ctx, upCtx.Organization, c.Name, visibility); err != nil {
 		return err
 	}
-	p.Printfln("%s/%s created", upCtx.Account, c.Name)
+	p.Printfln("%s/%s created", upCtx.Organization, c.Name)
 	return nil
 }

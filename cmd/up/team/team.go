@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package team contains commands for working with teams.
 package team
 
 import (
@@ -50,8 +51,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictTeams is the completion predictor for teams.
 func PredictTeams() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil
@@ -73,7 +75,7 @@ func PredictTeams() complete.Predictor {
 			return nil
 		}
 
-		account, err := ac.Get(context.Background(), upCtx.Account)
+		account, err := ac.Get(context.Background(), upCtx.Organization)
 		if err != nil {
 			return nil
 		}
