@@ -30,6 +30,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	sdkerrs "github.com/upbound/up-sdk-go/errors"
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/upbound"
@@ -205,7 +206,7 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 }
 
 func (p *realPusher) createRepository(ctx context.Context, repo name.Repository, public bool) error {
-	account, repoName, ok := strings.Cut(repo.RepositoryStr(), "/")
+	org, repoName, ok := strings.Cut(repo.RepositoryStr(), "/")
 	if !ok {
 		return errors.New("invalid repository: must be of the form <organization>/<name>")
 	}
@@ -216,8 +217,8 @@ func (p *realPusher) createRepository(ctx context.Context, repo name.Repository,
 	client := repositories.NewClient(cfg)
 
 	// Check if the repository exists
-	existingRepo, err := client.Get(ctx, account, repoName)
-	if err != nil {
+	existingRepo, err := client.Get(ctx, org, repoName)
+	if err != nil && !sdkerrs.IsNotFound(err) {
 		return errors.Wrap(err, "failed to search repository")
 	}
 
@@ -229,7 +230,7 @@ func (p *realPusher) createRepository(ctx context.Context, repo name.Repository,
 	if public {
 		visibility = repositories.WithPublic()
 	}
-	if err := client.CreateOrUpdateWithOptions(ctx, account, repoName, visibility); err != nil {
+	if err := client.CreateOrUpdateWithOptions(ctx, org, repoName, visibility); err != nil {
 		return errors.Wrap(err, "failed to create repository")
 	}
 
