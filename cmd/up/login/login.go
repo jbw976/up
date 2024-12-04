@@ -77,6 +77,17 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 
+	// Avoid changing the organization for a profile. Encourage the user to
+	// create a new profile if they have a second organization.
+	profileOrg := upCtx.Profile.Organization
+	if profileOrg == "" {
+		profileOrg = upCtx.Profile.Account //nolint:staticcheck // Fallback to deprecated field.
+	}
+	if profileOrg != "" && upCtx.Organization != "" && upCtx.Organization != profileOrg {
+		return errors.Errorf("requested organization %q does not match profile organization %q; create a new profile by passing --profile or update the organization with `up profile set`",
+			upCtx.Organization, profileOrg)
+	}
+
 	// NOTE(hasheddan): client timeout is handled with request context.
 	// TODO(hasheddan): we can't use the typical up-sdk-go client here because
 	// we need to read session cookie from body. We should add support in the
@@ -102,9 +113,6 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 		c.Password = password
 		return nil
 	}
-	u := *upCtx.Domain
-	u.Host = "accounts." + u.Host
-	c.accountsEndpoint = u
 
 	return nil
 }
@@ -120,7 +128,6 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 	Password string `env:"UP_PASSWORD" help:"Password for specified user. '-' to read from stdin."                                       short:"p"`
 	Token    string `env:"UP_TOKEN"    help:"Upbound API token (personal access token) used to execute command. '-' to read from stdin." short:"t" xor:"identifier"`
 
-	accountsEndpoint url.URL
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
 }
@@ -148,12 +155,12 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	}
 	defer cb.shutdownServer(ctx) //nolint:errcheck // Exiting right after defer anyway.
 
-	resultEP := c.accountsEndpoint
+	resultEP := *upCtx.AccountsEndpoint
 	resultEP.Path = loginResultEndpoint
 	browser.Stderr = nil
 	browser.Stdout = nil
-	if err := browser.OpenURL(getEndpoint(c.accountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
-		ep := getEndpoint(c.accountsEndpoint, *upCtx.APIEndpoint, "")
+	if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
+		ep := getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, "")
 		qrterminal.Generate(ep, qrterminal.L, os.Stdout)
 		p.Println("Could not open a browser!")
 		p.Println("Please go to", ep, "and then enter code manually")

@@ -29,10 +29,10 @@ type Cmd struct {
 	List    listCmd    `cmd:"" help:"List Upbound Profiles."`
 	Use     useCmd     `cmd:"" help:"Select an Upbound Profile as the default."`
 	View    viewCmd    `cmd:"" help:"View the Upbound Profile settings across profiles."`
+	Set     setCmd     `cmd:"" help:"Set Upbound Profile parameters."`
+	Delete  deleteCmd  `cmd:"" help:"Delete an Upbound Profile."`
+	Rename  renameCmd  `cmd:"" help:"Rename an Upbound Profile."`
 	Config  config.Cmd `cmd:"" help:"Interact with the current Upbound Profile's config."`
-
-	// Deprecated
-	Set setCmd `cmd:"" help:"Deprecated: Set an Upbound Profile for use with a Space."`
 
 	Flags upbound.Flags `embed:""`
 }

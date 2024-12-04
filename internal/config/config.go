@@ -37,8 +37,9 @@ const (
 	errDefaultNotExist    = "profile specified as default does not exist"
 	errNoDefaultSpecified = "no default profile specified"
 
-	errProfileNotFoundFmt = "profile not found with identifier: %s"
-	errNoProfilesFound    = "no profiles found"
+	errProfileNotFoundFmt      = "profile not found with identifier: %s"
+	errProfileAlreadyExistsFmt = "profile already exists with identifier: %s"
+	errNoProfilesFound         = "no profiles found"
 )
 
 const (
@@ -104,6 +105,59 @@ func (c *Config) AddOrUpdateUpboundProfile(name string, p profile.Profile) error
 		c.Upbound.Profiles = map[string]profile.Profile{}
 	}
 	c.Upbound.Profiles[name] = p
+	return nil
+}
+
+// DeleteUpboundProfile deletes an Upbound profile from the Config. If it is the
+// current profile, an arbitrary remaining profile will be chosen as the new
+// default.
+func (c *Config) DeleteUpboundProfile(name string) error {
+	if c.Upbound.Profiles == nil {
+		return errors.Errorf(errProfileNotFoundFmt, name)
+	}
+	if _, ok := c.Upbound.Profiles[name]; !ok {
+		return errors.Errorf(errProfileNotFoundFmt, name)
+	}
+
+	delete(c.Upbound.Profiles, name)
+	// If the deleted profile was the default, set the default to an arbitrary
+	// profile, or empty it if there are no profiles remaining.
+	if c.Upbound.Default == name {
+		c.Upbound.Default = ""
+		for k := range c.Upbound.Profiles {
+			c.Upbound.Default = k
+			break
+		}
+	}
+
+	return nil
+}
+
+// RenameUpboundProfile renames an Upbound profile in the Config. If it is the
+// current profile the default will be updated to match. If a profile with the
+// new name already exists an error will be returned.
+func (c *Config) RenameUpboundProfile(from, to string) error {
+	if c.Upbound.Profiles == nil {
+		return errors.Errorf(errProfileNotFoundFmt, from)
+	}
+	p, ok := c.Upbound.Profiles[from]
+	if !ok {
+		return errors.Errorf(errProfileNotFoundFmt, from)
+	}
+	if from == to {
+		return nil
+	}
+	if _, ok := c.Upbound.Profiles[to]; ok {
+		return errors.Errorf(errProfileAlreadyExistsFmt, to)
+	}
+
+	c.Upbound.Profiles[to] = p
+	delete(c.Upbound.Profiles, from)
+
+	if c.Upbound.Default == from {
+		c.Upbound.Default = to
+	}
+
 	return nil
 }
 

@@ -54,14 +54,15 @@ const (
 	authSubdomain = "auth."
 	// Default proxy subdomain.
 	proxySubdomain = "proxy."
+	// Default registry subdomain.
+	xpkgSubdomain = "xpkg."
+	// Default accounts subdomain.
+	accountsSubdomain = "accounts."
 
 	// Base path for proxy.
 	proxyPath = "/v1/controlPlanes"
 	// Base path for all controller client requests.
 	controllerClientPath = "/apis"
-
-	// Default registry subdomain.
-	xpkgSubdomain = "xpkg."
 )
 
 const (
@@ -87,6 +88,7 @@ type Context struct {
 	AuthEndpoint          *url.URL
 	ProxyEndpoint         *url.URL
 	RegistryEndpoint      *url.URL
+	AccountsEndpoint      *url.URL
 	InsecureSkipTLSVerify bool
 
 	// Logging
@@ -232,6 +234,13 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		u := *c.Domain
 		u.Host = xpkgSubdomain + u.Host
 		c.RegistryEndpoint = &u
+	}
+
+	c.AccountsEndpoint = of.AccountsEndpoint
+	if c.AccountsEndpoint == nil {
+		u := *c.Domain
+		u.Host = accountsSubdomain + u.Host
+		c.AccountsEndpoint = &u
 	}
 
 	c.InsecureSkipTLSVerify = of.InsecureSkipTLSVerify

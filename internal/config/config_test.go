@@ -87,6 +87,303 @@ func TestAddOrUpdateUpboundProfile(t *testing.T) {
 	}
 }
 
+func TestDeleteUpboundProfile(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		reason string
+		cfg    *Config
+		name   string
+		err    error
+		want   *Config
+	}{
+		"NilProfiles": {
+			reason: "If the profiles map is nil, an error should be returned.",
+			cfg:    &Config{},
+			name:   "default",
+			err:    errors.Errorf(errProfileNotFoundFmt, "default"),
+			want:   &Config{},
+		},
+		"EmptyProfiles": {
+			reason: "If there are no profiles, an error should be returned.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Profiles: map[string]profile.Profile{},
+				},
+			},
+			name: "default",
+			err:  errors.Errorf(errProfileNotFoundFmt, "default"),
+			want: &Config{
+				Upbound: Upbound{
+					Profiles: map[string]profile.Profile{},
+				},
+			},
+		},
+		"NotFound": {
+			reason: "If the profile is not found, an error should be returned.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"not-default": {},
+					},
+				},
+			},
+			name: "default",
+			err:  errors.Errorf(errProfileNotFoundFmt, "default"),
+			want: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"not-default": {},
+					},
+				},
+			},
+		},
+		"DefaultProfile": {
+			reason: "If the profile is the default profile, it should be deleted and the default updated.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			name: "default",
+			want: &Config{
+				Upbound: Upbound{
+					Default: "not-default",
+					Profiles: map[string]profile.Profile{
+						"not-default": {},
+					},
+				},
+			},
+		},
+		"NonDefaultProfile": {
+			reason: "If the profile is not the default, it should be deleted and the default unchanged.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			name: "not-default",
+			want: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default": {},
+					},
+				},
+			},
+		},
+		"LastProfile": {
+			reason: "If the profile is the last profile in the config, it should be deleted and the default unset.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default": {},
+					},
+				},
+			},
+			name: "default",
+			want: &Config{
+				Upbound: Upbound{
+					Default:  "",
+					Profiles: map[string]profile.Profile{},
+				},
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.cfg.DeleteUpboundProfile(tc.name)
+			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\nDeleteUpboundProfile(...): -want error, +got error:\n%s", tc.reason, diff)
+			}
+			if diff := cmp.Diff(tc.want, tc.cfg); diff != "" {
+				t.Errorf("\n%s\nDeleteUpboundProfile(...): -want, +got:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestRenameUpboundProfile(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		reason string
+		cfg    *Config
+		from   string
+		to     string
+		err    error
+		want   *Config
+	}{
+		"NilProfiles": {
+			reason: "If the profiles map is nil, an error should be returned.",
+			cfg:    &Config{},
+			from:   "default",
+			to:     "not-default",
+			err:    errors.Errorf(errProfileNotFoundFmt, "default"),
+			want:   &Config{},
+		},
+		"EmptyProfiles": {
+			reason: "If there are no profiles, an error should be returned.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Profiles: map[string]profile.Profile{},
+				},
+			},
+			from: "default",
+			to:   "not-default",
+			err:  errors.Errorf(errProfileNotFoundFmt, "default"),
+			want: &Config{
+				Upbound: Upbound{
+					Profiles: map[string]profile.Profile{},
+				},
+			},
+		},
+		"NotFound": {
+			reason: "If the profile is not found, an error should be returned.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "not-default",
+					Profiles: map[string]profile.Profile{
+						"not-default": {},
+					},
+				},
+			},
+			from: "default",
+			to:   "not-default",
+			err:  errors.Errorf(errProfileNotFoundFmt, "default"),
+			want: &Config{
+				Upbound: Upbound{
+					Default: "not-default",
+					Profiles: map[string]profile.Profile{
+						"not-default": {},
+					},
+				},
+			},
+		},
+		"Overwrite": {
+			reason: "If the new profile name already exists, an error should be returned.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			from: "default",
+			to:   "not-default",
+			err:  errors.Errorf(errProfileAlreadyExistsFmt, "not-default"),
+			want: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+		},
+		"NoOp": {
+			reason: "If from and to are the same, the config is unchanged.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			from: "default",
+			to:   "default",
+			want: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+		},
+		"NonDefaultProfile": {
+			reason: "If the profile is not the default, it should be renamed and the default unchanged.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			from: "not-default",
+			to:   "new-profile",
+			want: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"new-profile": {},
+					},
+				},
+			},
+		},
+		"DefaultProfile": {
+			reason: "If the profile is the default, it should be renamed and the default updated.",
+			cfg: &Config{
+				Upbound: Upbound{
+					Default: "default",
+					Profiles: map[string]profile.Profile{
+						"default":     {},
+						"not-default": {},
+					},
+				},
+			},
+			from: "default",
+			to:   "new-profile",
+			want: &Config{
+				Upbound: Upbound{
+					Default: "new-profile",
+					Profiles: map[string]profile.Profile{
+						"new-profile": {},
+						"not-default": {},
+					},
+				},
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.cfg.RenameUpboundProfile(tc.from, tc.to)
+			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\nDeleteUpboundProfile(...): -want error, +got error:\n%s", tc.reason, diff)
+			}
+			if diff := cmp.Diff(tc.want, tc.cfg); diff != "" {
+				t.Errorf("\n%s\nDeleteUpboundProfile(...): -want, +got:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
 func TestGetDefaultUpboundProfile(t *testing.T) {
 	name := "cool-profile"
 	profOne := profile.Profile{

@@ -39,6 +39,9 @@ import (
 func TestRun(t *testing.T) {
 	errBoom := errors.New("boom")
 	defaultURL, _ := url.Parse("https://test.com")
+	// NOTE: This *must* be empty, otherwise the test will try to open a
+	// browser.
+	accountsURL, _ := url.Parse("")
 
 	cases := map[string]struct {
 		reason string
@@ -50,7 +53,7 @@ func TestRun(t *testing.T) {
 			reason: "If Upbound Cloud endpoint is ",
 			cmd: &LoginCmd{
 				client: &mocks.MockClient{
-					DoFn: func(req *http.Request) (*http.Response, error) {
+					DoFn: func(_ *http.Request) (*http.Response, error) {
 						return nil, errBoom
 					},
 				},
@@ -58,7 +61,8 @@ func TestRun(t *testing.T) {
 				Password: "cool-pass",
 			},
 			ctx: &upbound.Context{
-				APIEndpoint: defaultURL,
+				APIEndpoint:      defaultURL,
+				AccountsEndpoint: accountsURL,
 			},
 			err: errors.Wrap(errBoom, errLoginFailed),
 		},
@@ -66,7 +70,7 @@ func TestRun(t *testing.T) {
 			reason: "non-interactive terminals won't prompt",
 			cmd: &LoginCmd{
 				client: &mocks.MockClient{
-					DoFn: func(req *http.Request) (*http.Response, error) {
+					DoFn: func(_ *http.Request) (*http.Response, error) {
 						return nil, errBoom
 					},
 				},
@@ -74,7 +78,8 @@ func TestRun(t *testing.T) {
 				Username: "",
 			},
 			ctx: &upbound.Context{
-				APIEndpoint: defaultURL,
+				APIEndpoint:      defaultURL,
+				AccountsEndpoint: accountsURL,
 			},
 			err: errors.Wrap(errors.New(inputmocks.ErrCannotPrompt), errLoginFailed),
 		},

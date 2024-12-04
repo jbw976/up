@@ -41,6 +41,7 @@ type Flags struct {
 	AuthEndpoint     *url.URL `env:"OVERRIDE_AUTH_ENDPOINT"     help:"Overrides the default auth endpoint."     hidden:"" json:"authEndpoint,omitempty"     name:"override-auth-endpoint"`
 	ProxyEndpoint    *url.URL `env:"OVERRIDE_PROXY_ENDPOINT"    help:"Overrides the default proxy endpoint."    hidden:"" json:"proxyEndpoint,omitempty"    name:"override-proxy-endpoint"`
 	RegistryEndpoint *url.URL `env:"OVERRIDE_REGISTRY_ENDPOINT" help:"Overrides the default registry endpoint." hidden:"" json:"registryEndpoint,omitempty" name:"override-registry-endpoint"`
+	AccountsEndpoint *url.URL `env:"OVERRIDE_ACCOUNTS_ENDPOINT" help:"Overrides the default accounts endpoint." hidden:"" json:"accountsEndpoint,omitempty" name:"override-accounts-endpoint"`
 }
 
 // KubeFlags are common flags used by commands that interact with
