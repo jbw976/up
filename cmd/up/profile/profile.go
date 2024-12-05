@@ -30,6 +30,7 @@ type Cmd struct {
 	Use     useCmd     `cmd:"" help:"Select an Upbound Profile as the default."`
 	View    viewCmd    `cmd:"" help:"View the Upbound Profile settings across profiles."`
 	Set     setCmd     `cmd:"" help:"Set Upbound Profile parameters."`
+	Create  createCmd  `cmd:"" help:"Create a new Upbound Profile without logging in."`
 	Delete  deleteCmd  `cmd:"" help:"Delete an Upbound Profile."`
 	Rename  renameCmd  `cmd:"" help:"Rename an Upbound Profile."`
 	Config  config.Cmd `cmd:"" help:"Interact with the current Upbound Profile's config."`
@@ -46,7 +47,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 
-	kongCtx.Bind(upCtx)
+	// Let subcommands access the raw flags, in case they want to use different
+	// defaults than the profile.
+	kongCtx.Bind(upCtx, c.Flags)
 	return nil
 }
 
