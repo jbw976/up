@@ -17,6 +17,10 @@ package profile
 
 import (
 	"encoding/json"
+
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
 // TokenType is a type of Upbound session token format.
@@ -32,10 +36,25 @@ const (
 	DefaultName = "default"
 )
 
+// Type distinguishes cloud profiles from disconnected profiles. Cloud profiles
+// are used to interact with Upbound cloud and connected Spaces, while
+// disconnected profiles interact with self-hosted, disconnected Spaces.
+type Type string
+
+const (
+	// TypeCloud is the profile type for cloud profiles.
+	TypeCloud Type = "cloud"
+	// TypeDisconnected is the profile type for disconnected profiles.
+	TypeDisconnected Type = "disconnected"
+)
+
 // A Profile is a set of credentials.
 type Profile struct {
 	// ID is the referencable name of the profile.
 	ID string `json:"id,omitempty"`
+
+	// Type is the type of profile. If empty, cloud is assumed.
+	Type Type `json:"profileType,omitempty"`
 
 	// TokenType is the type of token in the profile.
 	TokenType TokenType `json:"type"`
@@ -54,6 +73,10 @@ type Profile struct {
 	// selected.
 	Domain string `json:"domain,omitempty"`
 
+	// SpaceKubeconfig is the kubeconfig for the disconnected space in a
+	// disconnected profile. It must not be set for cloud profiles.
+	SpaceKubeconfig *clientcmdapi.Config `json:"spaceKubeconfig,omitempty"`
+
 	// BaseConfig represent persisted settings for this profile.
 	// For example:
 	// * flags
@@ -63,6 +86,21 @@ type Profile struct {
 
 // Validate returns an error if the profile is invalid.
 func (p Profile) Validate() error {
+	switch p.Type {
+	case TypeDisconnected:
+		if p.SpaceKubeconfig == nil {
+			return errors.New("kubeconfig must be set for disconnected profiles")
+		}
+
+	case TypeCloud:
+		if p.SpaceKubeconfig != nil {
+			return errors.New("kubeconfig must not be set for cloud profiles")
+		}
+		if p.Organization == "" {
+			return errors.New("organization must be set for cloud profiles")
+		}
+	}
+
 	return nil
 }
 
@@ -84,5 +122,10 @@ func (p Redacted) MarshalJSON() ([]byte, error) {
 		s = "REDACTED"
 	}
 	pc.Session = s
+	if pc.SpaceKubeconfig != nil {
+		if err := clientcmdapi.RedactSecrets(pc.SpaceKubeconfig); err != nil {
+			return nil, errors.Wrap(err, "failed to redact kubeconfig")
+		}
+	}
 	return json.Marshal(&pc)
 }
