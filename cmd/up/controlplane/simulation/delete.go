@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +36,7 @@ type deleteCmd struct {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *deleteCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *deleteCmd) AfterApply(upCtx *upbound.Context) error {
 	if c.Group == "" {
 		ns, _, err := upCtx.Kubecfg.Namespace()
 		if err != nil {
@@ -49,7 +48,7 @@ func (c *deleteCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 }
 
 // Run executes the delete command.
-func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, client client.Client) error {
+func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, client client.Client) error {
 	ctp := &spacesv1alpha1.Simulation{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.Name,

@@ -72,6 +72,7 @@ type versionInfo struct {
 	Server *serverVersion `json:"server,omitempty" yaml:"server,omitempty"`
 }
 
+// Cmd is the `up version` command.
 type Cmd struct {
 	Client bool `env:"" help:"If true, shows client version only (no server required)." json:"client,omitempty"`
 
@@ -79,6 +80,7 @@ type Cmd struct {
 	Flags upbound.Flags `embed:""`
 }
 
+// AfterApply parses flags and applies defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
@@ -98,6 +100,7 @@ func (c *Cmd) BeforeApply() error {
 	return nil
 }
 
+// Help returns help for the command.
 func (c *Cmd) Help() string {
 	return `
 Options:
@@ -109,7 +112,7 @@ Usage:
 `
 }
 
-func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v versionInfo) {
+func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v versionInfo) {
 	v.Client = clientVersion{
 		Version:   version.Version(),
 		Arch:      runtime.GOARCH,
@@ -124,26 +127,26 @@ func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 
 	context, _, _, ok := upCtx.GetCurrentContext()
 	if !ok || context == nil {
-		fmt.Fprintln(kongCtx.Stderr, errKubeConfig)
+		fmt.Fprintln(kongCtx.Stderr, errKubeConfig) //nolint:errcheck // Debug logging.
 		return v
 	}
 
 	rest, err := upCtx.Kubecfg.ClientConfig()
 	if err != nil {
-		fmt.Fprintln(kongCtx.Stderr, errCreateK8sClient)
+		fmt.Fprintln(kongCtx.Stderr, errCreateK8sClient) //nolint:errcheck // Debug logging.
 		return v
 	}
 
 	clientset, err := kubernetes.NewForConfig(rest)
 	if err != nil {
-		fmt.Fprintln(kongCtx.Stderr, errCreateK8sClient)
+		fmt.Fprintln(kongCtx.Stderr, errCreateK8sClient) //nolint:errcheck // Debug logging.
 		return v
 	}
 
 	v.Server = &serverVersion{}
 	v.Server.CrossplaneVersion, err = FetchCrossplaneVersion(ctx, *clientset)
 	if err != nil {
-		fmt.Fprintln(kongCtx.Stderr, errGetCrossplaneVersion)
+		fmt.Fprintln(kongCtx.Stderr, errGetCrossplaneVersion) //nolint:errcheck // Debug logging.
 	}
 	if v.Server.CrossplaneVersion == "" {
 		v.Server.CrossplaneVersion = versionUnknown
@@ -151,7 +154,7 @@ func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 
 	v.Server.SpacesControllerVersion, err = FetchSpacesVersion(ctx, context, *clientset)
 	if err != nil {
-		fmt.Fprintln(kongCtx.Stderr, errGetSpacesVersion)
+		fmt.Fprintln(kongCtx.Stderr, errGetSpacesVersion) //nolint:errcheck // Debug logging.
 	}
 	if v.Server.SpacesControllerVersion == "" {
 		v.Server.SpacesControllerVersion = versionUnknown
@@ -160,8 +163,9 @@ func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 	return v
 }
 
+// Run is the implementation of the command.
 func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.Printer) error {
-	v := c.BuildVersionInfo(ctx, kongCtx, upCtx)
+	v := c.buildVersionInfo(ctx, kongCtx, upCtx)
 
 	return printer.PrintTemplate(v, versionTemplate)
 }

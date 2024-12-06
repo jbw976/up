@@ -75,7 +75,7 @@ func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, client client.Client) error {
+func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, client client.Client) error {
 	ctp := &spacesv1beta1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.Name,

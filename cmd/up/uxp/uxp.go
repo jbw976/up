@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package uxp contains commands for working with UXP.
 package uxp
 
 import (
@@ -30,7 +31,10 @@ const (
 )
 
 var (
-	RepoURL, _            = url.Parse("https://charts.upbound.io/stable")
+	// RepoURL is the URL of the stable helm chart repository.
+	//nolint:gochecknoglobals // Would make this a const if possible.
+	RepoURL, _ = url.Parse("https://charts.upbound.io/stable")
+	//nolint:gochecknoglobals // Would make this a const if possible.
 	uxpUnstableRepoURL, _ = url.Parse("https://charts.upbound.io/main")
 )
 
