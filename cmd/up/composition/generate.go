@@ -86,30 +86,29 @@ const (
 	outputJSON            = "json"
 	errInvalidPkgName     = "invalid package dependency supplied"
 	functionAutoReadyXpkg = "xpkg.upbound.io/crossplane-contrib/function-auto-ready"
+	kclTemplate           = `{
+		"apiVersion": "template.fn.crossplane.io/v1beta1",
+		"kind": "KCLInput",
+		"spec": {
+			"source": ""
+		}
+	}`
+
+	goTemplate = `{
+		"apiVersion": "gotemplating.fn.crossplane.io/v1beta1",
+		"kind": "GoTemplate",
+		"source": "Inline",
+		"inline": {
+			"template": ""
+		}
+	}`
+
+	patTemplate = `{
+		"apiVersion": "pt.fn.crossplane.io/v1beta1",
+		"kind": "Resources",
+		"resources": []
+	}`
 )
-
-var kclTemplate = `{
-    "apiVersion": "template.fn.crossplane.io/v1beta1",
-    "kind": "KCLInput",
-    "spec": {
-        "source": ""
-    }
-}`
-
-var goTemplate = `{
-    "apiVersion": "gotemplating.fn.crossplane.io/v1beta1",
-    "kind": "GoTemplate",
-    "source": "Inline",
-    "inline": {
-        "template": ""
-    }
-}`
-
-var patTemplate = `{
-    "apiVersion": "pt.fn.crossplane.io/v1beta1",
-    "kind": "Resources",
-    "resources": []
-}`
 
 type generateCmd struct {
 	Resource string `arg:""                                                      help:"File path to Composite Resource Claim (XRC) or Composite Resource (XR) or CompositeResourceDefinition (XRD)." required:""`
@@ -131,7 +130,7 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -144,7 +143,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	projDirPath := filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
-	// The location of the co position defines the root of the composition.
+	// parse the project
 	proj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
 		return err
@@ -200,7 +199,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo // multiple output options
 	pterm.EnableStyling()
 	composition, plural, err := c.newComposition(ctx)
 	if err != nil {
@@ -235,7 +234,12 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 		if exists {
 			pterm.Println() // Blank line for spacing
 			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The Composition file '%s' already exists. Do you want to overwrite its contents?", afero.FullBaseFsPath(c.apisFS.(*afero.BasePathFs), filePath))
+
+			baseApisFS, ok := c.apisFS.(*afero.BasePathFs)
+			if !ok {
+				return errors.New("failed to construct the path")
+			}
+			confirm.DefaultText = fmt.Sprintf("The Composition file '%s' already exists. Do you want to overwrite its contents?", afero.FullBaseFsPath(baseApisFS, filePath))
 			confirm.DefaultValue = false
 
 			result, _ := confirm.Show() // Display confirmation prompt
@@ -255,7 +259,11 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 			return errors.Wrap(err, "failed to write composition to file")
 		}
 
-		p.Printfln("successfully created Composition and saved to %s", afero.FullBaseFsPath(c.apisFS.(*afero.BasePathFs), filePath))
+		baseApisFS, ok := c.apisFS.(*afero.BasePathFs)
+		if !ok {
+			return fmt.Errorf("failed to assert c.apisFS to *afero.BasePathFs")
+		}
+		p.Printfln("successfully created Composition and saved to %s", afero.FullBaseFsPath(baseApisFS, filePath))
 
 	case outputYAML:
 		p.Println(string(compositionYAML))
@@ -275,7 +283,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 }
 
 // newComposition to create a new Composition.
-func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, string, error) { //nolint:gocyclo
+func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, string, error) { //nolint:gocyclo // construct the composition
 	group, version, kind, plural, matchLabels, err := c.processResource()
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to load resource")
@@ -319,7 +327,7 @@ func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, stri
 	return composition, plural, nil
 }
 
-func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.PipelineStep, error) { //nolint:gocyclo
+func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.PipelineStep, error) { //nolint:gocognit // ToDo(haarchri): refactor this
 	maxSteps := len(c.proj.Spec.DependsOn)
 	pipelineSteps := make([]v1.PipelineStep, 0, maxSteps)
 	foundAutoReadyFunction := false
@@ -447,8 +455,9 @@ func reorderPipelineSteps(pipelineSteps []v1.PipelineStep) []v1.PipelineStep {
 	return reorderedSteps
 }
 
-func (c *generateCmd) setRawExtension(crd apiextensionsv1.CustomResourceDefinition) (*runtime.RawExtension, error) { //nolint:gocyclo
+func (c *generateCmd) setRawExtension(crd apiextensionsv1.CustomResourceDefinition) (*runtime.RawExtension, error) { //nolint:gocyclo // find the input for functions
 	var rawExtensionContent string
+
 	// Get the version using the modified getVersion function
 	version, err := xcrd.GetCRDVersion(crd)
 	if err != nil {
