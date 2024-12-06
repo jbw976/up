@@ -154,7 +154,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	}
 
 	// load kubeconfig
-	confRaw, err := upCtx.Kubecfg.RawConfig()
+	confRaw, err := upCtx.GetRawKubeconfig()
 	if err != nil {
 		return err
 	}

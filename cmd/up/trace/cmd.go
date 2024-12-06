@@ -31,7 +31,6 @@ import (
 	"github.com/upbound/up/cmd/up/query"
 	"github.com/upbound/up/cmd/up/query/resource"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/version"
 )
 
 // Cmd is the `up alpha trace` command.
@@ -84,11 +83,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 // Run is the implementation of the command.
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // TODO: split up
 	// create client
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
-	kubeconfig.UserAgent = version.UserAgent()
 
 	_, ctp, isSpace := upCtx.GetCurrentSpaceContextScope()
 

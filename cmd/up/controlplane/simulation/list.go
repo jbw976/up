@@ -41,7 +41,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 	if c.AllGroups {
 		c.Group = ""
 	} else if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}

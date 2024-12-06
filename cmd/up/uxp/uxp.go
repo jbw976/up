@@ -21,7 +21,6 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/install"
-	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -47,7 +46,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 
-	kubeconfig, err := kube.GetKubeConfig(c.Kubeconfig)
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
@@ -64,8 +63,7 @@ type Cmd struct {
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
 
-	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
-	Namespace  string `default:"upbound-system"                 env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
+	Namespace string `default:"upbound-system" env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

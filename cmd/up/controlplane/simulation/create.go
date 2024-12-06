@@ -129,7 +129,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 	upterm.DefaultObjPrinter.Pretty = true
 
 	if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}

@@ -16,11 +16,6 @@ package upbound
 
 import (
 	"net/url"
-
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/upbound/up/internal/version"
 )
 
 // Flags are common flags used by commands that interact with Upbound.
@@ -42,6 +37,8 @@ type Flags struct {
 	ProxyEndpoint    *url.URL `env:"OVERRIDE_PROXY_ENDPOINT"    help:"Overrides the default proxy endpoint."    hidden:"" json:"proxyEndpoint,omitempty"    name:"override-proxy-endpoint"`
 	RegistryEndpoint *url.URL `env:"OVERRIDE_REGISTRY_ENDPOINT" help:"Overrides the default registry endpoint." hidden:"" json:"registryEndpoint,omitempty" name:"override-registry-endpoint"`
 	AccountsEndpoint *url.URL `env:"OVERRIDE_ACCOUNTS_ENDPOINT" help:"Overrides the default accounts endpoint." hidden:"" json:"accountsEndpoint,omitempty" name:"override-accounts-endpoint"`
+
+	Kube KubeFlags `embed:""`
 }
 
 // KubeFlags are common flags used by commands that interact with
@@ -53,66 +50,4 @@ type KubeFlags struct {
 	// Context is the context within Kubeconfig to read. If empty, it refers
 	// to the default context.
 	Context string `help:"Override default kubeconfig context." name:"kubecontext"`
-
-	// set by AfterApply
-	config    *rest.Config
-	context   string
-	namespace string
-}
-
-// AfterApply applies defaults to KubeFlags.
-func (f *KubeFlags) AfterApply() error {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	rules.ExplicitPath = f.Kubeconfig
-	loader := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		rules,
-		&clientcmd.ConfigOverrides{CurrentContext: f.Context},
-	)
-
-	f.context = f.Context
-	if f.context == "" {
-		// Get the name of the default context so we can set it explicitly.
-		rawConfig, err := loader.RawConfig()
-		if err != nil {
-			return err
-		}
-		f.context = rawConfig.CurrentContext
-	}
-
-	restConfig, err := loader.ClientConfig()
-	if err != nil {
-		return err
-	}
-	restConfig.UserAgent = version.UserAgent()
-	f.config = restConfig
-
-	ns, _, err := loader.Namespace()
-	if err != nil {
-		return err
-	}
-	f.namespace = ns
-
-	return nil
-}
-
-// GetConfig returns the *rest.Config from KubeFlags. Returns nil unless
-// AfterApply has been called.
-func (f *KubeFlags) GetConfig() *rest.Config {
-	return f.config
-}
-
-// GetContext returns the kubeconfig context from KubeFlags. Returns empty
-// string unless AfterApply has been called. Returns KubeFlags.Context if it's
-// defined, otherwise the name of the default context in the config resolved
-// from KubeFlags.Kubeconfig.
-// NOTE(branden): This ensures that a profile created from this context will
-// continue to work with the same cluster if the kubeconfig's default context
-// is changed.
-func (f *KubeFlags) GetContext() string {
-	return f.context
-}
-
-// Namespace gets the namespace flag.
-func (f *KubeFlags) Namespace() string {
-	return f.namespace
 }

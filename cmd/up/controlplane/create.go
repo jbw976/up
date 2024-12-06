@@ -65,7 +65,7 @@ func (c *createCmd) Validate() error {
 func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}

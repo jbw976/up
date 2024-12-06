@@ -20,6 +20,7 @@ import (
 
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,15 +50,29 @@ func (c *Context) HasValidContext() bool {
 	return clientcmd.ConfirmUsable(config, "") == nil
 }
 
+// GetKubeconfig returns a Kubernetes rest config for the current context.
+func (c *Context) GetKubeconfig() (*rest.Config, error) {
+	r, err := c.Kubecfg.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	r.UserAgent = version.UserAgent()
+
+	return r, nil
+}
+
+// GetRawKubeconfig returns the raw kubeconfig for the current context.
+func (c *Context) GetRawKubeconfig() (clientcmdapi.Config, error) {
+	return c.Kubecfg.RawConfig()
+}
+
 // BuildCurrentContextClient creates a K8s client using the current Kubeconfig
 // defaulting to the current Kubecontext.
 func (c *Context) BuildCurrentContextClient() (client.Client, error) {
-	rest, err := c.Kubecfg.ClientConfig()
+	rest, err := c.GetKubeconfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get kube config")
 	}
-
-	rest.UserAgent = version.UserAgent()
 
 	// todo(redbackthomson): Delete once spaces-api is able to accept protobuf
 	// requests
@@ -70,9 +85,8 @@ func (c *Context) BuildCurrentContextClient() (client.Client, error) {
 	return sc, nil
 }
 
+// GetCurrentContextName returns the name of the current kubeconfig context.
 func (c *Context) GetCurrentContextName() (string, error) {
-	// todo: Add support for overriding current context as part of CLI args
-
 	config, err := c.Kubecfg.RawConfig()
 	if err != nil {
 		return "", err
@@ -81,9 +95,9 @@ func (c *Context) GetCurrentContextName() (string, error) {
 	return config.CurrentContext, nil
 }
 
+// GetCurrentContext returns the current kubeconfig context along with the
+// cluster and auth to which it refers.
 func (c *Context) GetCurrentContext() (context *clientcmdapi.Context, cluster *clientcmdapi.Cluster, auth *clientcmdapi.AuthInfo, exists bool) {
-	// todo: Add support for overriding current context as part of CLI args
-
 	config, err := c.Kubecfg.RawConfig()
 	if err != nil {
 		return nil, nil, nil, false
@@ -109,6 +123,18 @@ func (c *Context) GetCurrentContext() (context *clientcmdapi.Context, cluster *c
 	return context, cluster, auth, exists
 }
 
+// GetCurrentContextNamespace returns the default namespace in the current
+// kubeconfig context.
+func (c *Context) GetCurrentContextNamespace() (string, error) {
+	ns, _, err := c.Kubecfg.Namespace()
+	return ns, err
+}
+
+// GetCurrentSpaceContextScope checks whether the current kubeconfig context
+// refers to a Space or a Control Plane within a Space. It returns the ingress
+// host for the Space. If the context refers to a Group, its Namespace is also
+// returned. If the context refers to a Control Plane, a reference to the
+// ControlPlane resource is also returned.
 func (c *Context) GetCurrentSpaceContextScope() (ingressHost string, ctp types.NamespacedName, inSpace bool) {
 	context, cluster, _, exists := c.GetCurrentContext()
 	if !exists {

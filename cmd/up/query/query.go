@@ -63,7 +63,7 @@ func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //
 
 	kongCtx.Bind(upCtx)
 
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}

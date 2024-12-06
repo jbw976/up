@@ -74,8 +74,7 @@ const (
 type connectCmd struct {
 	Registry authorizedRegistryFlags `embed:""`
 
-	Upbound upbound.Flags     `embed:""`
-	Kube    upbound.KubeFlags `embed:""`
+	Upbound upbound.Flags `embed:""`
 
 	Space string `arg:""                                                                       help:"Name of the Upbound Space. If name is not a supplied, one is generated." optional:""`
 	Token string `help:"The Upbound robot token contents used to authenticate the connection." hidden:""                                                                      name:"robot-token" optional:""`
@@ -84,9 +83,6 @@ type connectCmd struct {
 }
 
 func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
-	if err := c.Kube.AfterApply(); err != nil {
-		return err
-	}
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
@@ -117,7 +113,10 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 	pterm.EnableStyling()
 	upterm.DefaultObjPrinter.Pretty = true
 
-	kubeconfig := c.Kube.GetConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
+	if err != nil {
+		return err
+	}
 
 	kClient, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {

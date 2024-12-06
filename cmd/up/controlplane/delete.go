@@ -38,7 +38,7 @@ type deleteCmd struct {
 // AfterApply sets default values in command after assignment and validation.
 func (c *deleteCmd) AfterApply(upCtx *upbound.Context) error {
 	if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}

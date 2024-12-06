@@ -131,7 +131,7 @@ func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 		return v
 	}
 
-	rest, err := upCtx.Kubecfg.ClientConfig()
+	rest, err := upCtx.GetKubeconfig()
 	if err != nil {
 		fmt.Fprintln(kongCtx.Stderr, errCreateK8sClient) //nolint:errcheck // Debug logging.
 		return v
