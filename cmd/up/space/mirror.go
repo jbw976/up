@@ -386,12 +386,12 @@ func (h *registryMirror) handle(artifact string) error {
 	return nil
 }
 
-// StaticKeychain is a simple keychain that returns different credentials for specific registries
+// StaticKeychain is a simple keychain that returns different credentials for specific registries.
 type StaticKeychain struct {
 	credentials map[string]authn.AuthConfig
 }
 
-// Resolve returns an authenticator for the given registry
+// Resolve returns an authenticator for the given registry.
 func (s *StaticKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
 	if creds, ok := s.credentials[target.RegistryStr()]; ok {
 		return authn.FromConfig(creds), nil
