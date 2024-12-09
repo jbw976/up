@@ -101,16 +101,21 @@ func (c *mirrorCmd) AfterApply() error {
 	}
 	// remove leading v
 	c.Version = strings.TrimPrefix(c.Version, "v")
-	c.craneOpts = []crane.Option{
-		crane.WithAuthFromKeychain(authn.DefaultKeychain),
-	}
+	multiKeychain := authn.NewMultiKeychain(authn.DefaultKeychain)
 
 	if c.Registry.TokenFile != nil {
-		c.craneOpts = append(c.craneOpts, crane.WithAuth(&authn.Basic{
-			Username: c.Registry.Username,
-			Password: c.Registry.Password,
-		}))
+		staticKeychain := &StaticKeychain{
+			credentials: map[string]authn.AuthConfig{
+				c.Registry.Endpoint.Host: {
+					Username: c.Registry.Username,
+					Password: c.Registry.Password,
+				},
+			},
+		}
+		multiKeychain = authn.NewMultiKeychain(multiKeychain, staticKeychain)
 	}
+
+	c.craneOpts = append(c.craneOpts, crane.WithAuthFromKeychain(multiKeychain))
 
 	if c.OutputDir != "" {
 		fs := afero.NewBasePathFs(afero.NewOsFs(), c.OutputDir)
@@ -379,4 +384,17 @@ func (h *registryMirror) handle(artifact string) error {
 	}
 	pterm.Printfln("Successfully mirrored artifact '%s' to destination '%s'", artifact, registry)
 	return nil
+}
+
+// StaticKeychain is a simple keychain that returns different credentials for specific registries
+type StaticKeychain struct {
+	credentials map[string]authn.AuthConfig
+}
+
+// Resolve returns an authenticator for the given registry
+func (s *StaticKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	if creds, ok := s.credentials[target.RegistryStr()]; ok {
+		return authn.FromConfig(creds), nil
+	}
+	return authn.Anonymous, nil // Fallback to anonymous if no match is found
 }
