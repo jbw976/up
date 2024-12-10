@@ -55,7 +55,6 @@ const (
 
 // upgradeCmd upgrades Upbound.
 type upgradeCmd struct {
-	Kube     upbound.KubeFlags       `embed:""`
 	Registry authorizedRegistryFlags `embed:""`
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
@@ -85,9 +84,6 @@ func (c *upgradeCmd) BeforeApply() error {
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
-	if err := c.Kube.AfterApply(); err != nil {
-		return err
-	}
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
@@ -104,7 +100,10 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) e
 
 	kongCtx.Bind(upCtx)
 
-	kubeconfig := c.Kube.GetConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
+	if err != nil {
+		return err
+	}
 
 	kClient, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {

@@ -37,7 +37,7 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 	// default to group pointed by current context
 	if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}

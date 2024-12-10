@@ -41,7 +41,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 	if c.AllGroups {
 		c.Group = ""
 	} else if c.Group == "" {
-		ns, _, err := upCtx.Kubecfg.Namespace()
+		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, upCtx *upbound.Context, cl client.Client) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, cl client.Client) error {
 	var l spacesv1alpha1.SimulationList
 	if err := cl.List(ctx, &l, client.InNamespace(c.Group)); err != nil {
 		return errors.Wrap(err, "error getting simulations")

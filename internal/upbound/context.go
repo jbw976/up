@@ -79,7 +79,10 @@ type Context struct {
 	CfgSrc       config.Source
 	Organization string
 
-	// Kubeconfig fields
+	// Kubeconfig fields. Direct access to this should be a last resort, used
+	// when the actual kubeconfig file needs to be accessed or modified. Prefer
+	// the helper methods attached to the Context, which will set appropriate
+	// defaults such as the UserAgent when constructing clients.
 	Kubecfg clientcmd.ClientConfig
 
 	// Upbound API connection URLs
@@ -256,9 +259,11 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		c.Log = xplogging.NewLogrLogger(c.zl)
 	}
 
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules.ExplicitPath = f.Kube.Kubeconfig
 	c.Kubecfg = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
+		rules,
+		&clientcmd.ConfigOverrides{CurrentContext: f.Kube.Context},
 	)
 
 	return c, nil

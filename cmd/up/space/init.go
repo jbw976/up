@@ -90,7 +90,6 @@ const (
 
 // initCmd installs Upbound Spaces.
 type initCmd struct {
-	Kube     upbound.KubeFlags       `embed:""`
 	Registry authorizedRegistryFlags `embed:""`
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
@@ -125,9 +124,6 @@ func (c *initCmd) BeforeApply() error {
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
-	if err := c.Kube.AfterApply(); err != nil {
-		return err
-	}
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
@@ -144,7 +140,10 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) erro
 
 	kongCtx.Bind(upCtx)
 
-	kubeconfig := c.Kube.GetConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
+	if err != nil {
+		return err
+	}
 
 	kClient, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {

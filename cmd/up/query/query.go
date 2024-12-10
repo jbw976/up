@@ -17,6 +17,8 @@
 // We're keeping the code here for now, so they're easily resurrected.
 // The upbound commands were meant to support the Upbound self-hosted option.
 
+// Package query contains commands for querying control plane resources via the
+// Query API.
 package query
 
 import (
@@ -32,6 +34,9 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
+// QueryCmd is the `up alpha query` command.
+//
+//nolint:revive // QueryCmd stutters, but differentiates this command from GetCmd.
 type QueryCmd struct {
 	cmd
 
@@ -58,7 +63,7 @@ func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //
 
 	kongCtx.Bind(upCtx)
 
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
@@ -66,15 +71,15 @@ func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //
 	// where are we?
 	base, ctp, isSpace := upCtx.GetCurrentSpaceContextScope()
 	if !isSpace {
-		return errors.New("not connected to a Space. Use 'up ctx' to switch to a Space or control plane context.")
+		return errors.New("not connected to a Space; use 'up ctx' to switch to a Space or control plane context")
 	}
 	if ctp.Namespace != "" && ctp.Name != "" {
 		// on a controlplane
 		if c.AllGroups {
-			return errors.Errorf("cannot use --all-groups in a control plane context. Use `up ctx ..' to switch to the Space.")
+			return errors.Errorf("cannot use --all-groups in a control plane context; use `up ctx ..' to switch to the Space")
 		}
 		if c.Group != "" {
-			return errors.Errorf("cannot use --group in a control plane context. Use `up ctx ..' to switch to the Space.")
+			return errors.Errorf("cannot use --group in a control plane context; use `up ctx ..' to switch to the Space")
 		}
 		c.Group = ctp.Namespace
 		c.ControlPlane = ctp.Name
@@ -142,8 +147,9 @@ func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //
 	return c.afterApply()
 }
 
+// Help returns help for the query command.
 func (c *QueryCmd) Help() string {
-	s, err := help("up alpha query") // nolint:errcheck // nothing we can do here.
+	s, err := help("up alpha query")
 	if err != nil {
 		return err.Error()
 	}

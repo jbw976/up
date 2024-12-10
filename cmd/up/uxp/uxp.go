@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package uxp contains commands for working with UXP.
 package uxp
 
 import (
@@ -20,7 +21,6 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/install"
-	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -30,7 +30,10 @@ const (
 )
 
 var (
-	RepoURL, _            = url.Parse("https://charts.upbound.io/stable")
+	// RepoURL is the URL of the stable helm chart repository.
+	//nolint:gochecknoglobals // Would make this a const if possible.
+	RepoURL, _ = url.Parse("https://charts.upbound.io/stable")
+	//nolint:gochecknoglobals // Would make this a const if possible.
 	uxpUnstableRepoURL, _ = url.Parse("https://charts.upbound.io/main")
 )
 
@@ -43,7 +46,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 
-	kubeconfig, err := kube.GetKubeConfig(c.Kubeconfig)
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
@@ -60,8 +63,7 @@ type Cmd struct {
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
 
-	Kubeconfig string `help:"Override default kubeconfig path." type:"existingfile"`
-	Namespace  string `default:"upbound-system"                 env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
+	Namespace string `default:"upbound-system" env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

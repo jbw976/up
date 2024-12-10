@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package trace contains the `up alpha trace` command.
 package trace
 
 import (
@@ -30,9 +31,9 @@ import (
 	"github.com/upbound/up/cmd/up/query"
 	"github.com/upbound/up/cmd/up/query/resource"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/version"
 )
 
+// Cmd is the `up alpha trace` command.
 type Cmd struct {
 	ControlPlane string `description:"Controlplane to query"                                      env:"UPBOUND_CONTROLPLANE" long:"controlplane" short:"c"`
 	Group        string `description:"Group to query"                                             env:"UPBOUND_GROUP"        long:"group"        short:"g"`
@@ -45,6 +46,7 @@ type Cmd struct {
 	Flags upbound.Flags `embed:""`
 }
 
+// Help returns help for the trace command.
 func (c *Cmd) Help() string {
 	return `Examples:
   # Trace all buckets.
@@ -78,13 +80,13 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: split up
+// Run is the implementation of the command.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // TODO: split up
 	// create client
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
-	kubeconfig.UserAgent = version.UserAgent()
 
 	_, ctp, isSpace := upCtx.GetCurrentSpaceContextScope()
 

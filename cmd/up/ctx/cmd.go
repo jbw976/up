@@ -53,10 +53,10 @@ type Cmd struct {
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
 
-	Argument    string `arg:""                                                help:".. to move to the parent, '-' for the previous context, '.' for the current context, or any relative path." optional:""`
-	Short       bool   `env:"UP_SHORT"                                        help:"Short output."                                                                                              name:"short"                             short:"s"`
-	KubeContext string `default:"upbound"                                     env:"UP_CONTEXT"                                                                                                  help:"Kubernetes context to operate on." name:"context"`
-	File        string `help:"Kubeconfig to modify when saving a new context" name:"kubeconfig"                                                                                                 short:"f"`
+	Argument    string `arg:""                                                                                                                       help:".. to move to the parent, '-' for the previous context, '.' for the current context, or any relative path." optional:""`
+	Short       bool   `env:"UP_SHORT"                                                                                                               help:"Short output."                                                                                              name:"short"                             short:"s"`
+	KubeContext string `default:"upbound"                                                                                                            env:"UP_CONTEXT"                                                                                                  help:"Kubernetes context to operate on." name:"context"`
+	File        string `help:"Kubeconfig to modify when saving a new context. Overrides the --kubeconfig flag. Use '-' to write to standard output." short:"f"`
 }
 
 // AfterApply processes flags and sets defaults.
@@ -154,7 +154,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	}
 
 	// load kubeconfig
-	confRaw, err := upCtx.Kubecfg.RawConfig()
+	confRaw, err := upCtx.GetRawKubeconfig()
 	if err != nil {
 		return err
 	}

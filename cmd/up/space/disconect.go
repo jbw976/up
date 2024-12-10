@@ -47,21 +47,12 @@ import (
 type disconnectCmd struct {
 	Registry registryFlags `embed:""`
 
-	Upbound upbound.Flags     `embed:""`
-	Kube    upbound.KubeFlags `embed:""`
+	Upbound upbound.Flags `embed:""`
 
 	Space string `arg:"" help:"Name of the Upbound Space. If name is not a supplied, it will be determined from the connection info in the space." optional:""`
 }
 
 func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
-	needsKube := true
-	if err := c.Kube.AfterApply(); err != nil {
-		if c.Space == "" {
-			return errors.Wrap(err, "failed to get kube config")
-		}
-		needsKube = false
-	}
-
 	// NOTE(tnthornton) we currently only have support for stylized output.
 	pterm.EnableStyling()
 	upterm.DefaultObjPrinter.Pretty = true
@@ -71,6 +62,15 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 	upCtx.SetupLogging()
+
+	needsKube := true
+	kubeconfig, err := upCtx.GetKubeconfig()
+	if err != nil {
+		if c.Space == "" {
+			return errors.Wrap(err, "failed to get kube config")
+		}
+		needsKube = false
+	}
 
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
@@ -94,7 +94,6 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 		kongCtx.Bind((*helm.Installer)(nil))
 		return nil
 	}
-	kubeconfig := c.Kube.GetConfig()
 
 	kClient, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {

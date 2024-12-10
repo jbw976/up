@@ -29,7 +29,6 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/version"
 )
 
 const (
@@ -39,9 +38,8 @@ const (
 
 // destroyCmd uninstalls Upbound.
 type destroyCmd struct {
-	Upbound  upbound.Flags     `embed:""`
-	Registry registryFlags     `embed:""`
-	Kube     upbound.KubeFlags `embed:""`
+	Upbound  upbound.Flags `embed:""`
+	Registry registryFlags `embed:""`
 
 	Confirmed bool `help:"Bypass safety checks and destroy Spaces"                    name:"yes-really-delete-space-and-all-data" type:"bool"`
 	Orphan    bool `help:"Remove Space components but retain Control Planes and data" name:"orphan"                               type:"bool"`
@@ -49,21 +47,16 @@ type destroyCmd struct {
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
-	if err := c.Kube.AfterApply(); err != nil {
-		return err
-	}
-
 	upCtx, err := upbound.NewFromFlags(c.Upbound)
 	if err != nil {
 		return err
 	}
 	upCtx.SetupLogging()
 
-	kubeconfig, err := upCtx.Kubecfg.ClientConfig()
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
-	kubeconfig.UserAgent = version.UserAgent()
 
 	// todo(redbackthomson): Migrate to using client.Client for standardization
 	kClient, err := kubernetes.NewForConfig(kubeconfig)
