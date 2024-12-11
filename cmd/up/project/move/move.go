@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package move provides the `up project move` command.
 package move
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -29,15 +29,17 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
+// Cmd is the `up project move` command.
 type Cmd struct {
 	NewRepository string        `arg:""                 help:"The new repository for the project."`
 	ProjectFile   string        `default:"upbound.yaml" help:"Path to the project definition file." short:"f"`
 	Flags         upbound.Flags `embed:""`
 
-	newRepo name.Repository
+	newRepo string
 	projFS  afero.Fs
 }
 
+// AfterApply processes flags and sets defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
@@ -48,11 +50,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 	// Make sure the new repository name is valid, and apply the default
 	// registry if the user didn't provide a full path.
-	newRepo, err := name.NewRepository(c.NewRepository, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Host))
+	ref, org, repoName, err := upbound.ParseRepository(c.NewRepository, upCtx.RegistryEndpoint.Host)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse new repository")
 	}
-	c.newRepo = newRepo
+	c.newRepo = fmt.Sprintf("%s/%s/%s", ref, org, repoName)
 
 	// The location of the project file defines the root of the project.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -65,14 +67,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+// Run is the body of the command.
+func (c *Cmd) Run(ctx context.Context) error {
 	projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
 	proj, err := project.Parse(c.projFS, projFilePath)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse project file")
 	}
 
-	if err := project.Move(ctx, proj, c.projFS, c.newRepo.String()); err != nil {
+	if err := project.Move(ctx, proj, c.projFS, c.newRepo); err != nil {
 		return err
 	}
 

@@ -218,7 +218,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	// name that is owned by them. This gives users the maximum chance of `up
 	// project run` Just Working when they check out an example repo.
 	if c.Repository != "" {
-		reg, org, repoName, err := parseRepository(c.Repository, upCtx.RegistryEndpoint.Host)
+		reg, org, repoName, err := upbound.ParseRepository(c.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
 			return err
 		}
@@ -233,7 +233,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		// Make sure c.Repository is fully qualified.
 		c.Repository = strings.Join([]string{reg, c.organization, repoName}, "/")
 	} else {
-		_, _, repoName, err := parseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
+		_, _, repoName, err := upbound.ParseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
 			return err
 		}
@@ -343,18 +343,6 @@ func getCurrentSpaceNavigation(ctx context.Context, upCtx *upbound.Context) (ctx
 		return nil, err
 	}
 	return ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
-}
-
-func parseRepository(repository string, defaultRegistry string) (registry, org, repoName string, err error) {
-	ref, err := name.NewRepository(repository, name.WithDefaultRegistry(defaultRegistry))
-	if err != nil {
-		return "", "", "", errors.Wrap(err, "failed to parse repository")
-	}
-	reg := ref.Registry.String()
-	repo := ref.RepositoryStr()
-	repoParts := strings.SplitN(repo, "/", 2)
-
-	return reg, repoParts[0], repoParts[1], nil
 }
 
 func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, allowProd bool, ch async.EventChannel) (client.Client, error) {
