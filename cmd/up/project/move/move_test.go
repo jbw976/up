@@ -21,8 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
@@ -43,18 +41,16 @@ func TestMove(t *testing.T) {
 		"testdata/project-embedded-functions",
 	)
 	projFS = afero.NewCopyOnWriteFs(projFS, afero.NewMemMapFs())
-
-	newRepo, err := name.NewRepository("docker.io/my-org/my-project")
-	assert.NilError(t, err)
+	newRepo := "docker.io/my-org/my-project"
 
 	c := &Cmd{
 		projFS:        projFS,
-		NewRepository: newRepo.String(),
+		NewRepository: newRepo,
 		newRepo:       newRepo,
 		ProjectFile:   "upbound.yaml",
 	}
 
-	err = c.Run(context.Background(), &pterm.DefaultBasicText)
+	err := c.Run(context.Background())
 	assert.NilError(t, err)
 
 	// Validate that the repository was updated in the project metadata.
