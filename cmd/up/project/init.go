@@ -42,7 +42,7 @@ type initCmd struct {
 
 	Method   string `default:"https"                                                                                                                                                                  enum:"ssh,https" help:"Specify the method to access the repository: 'https' or 'ssh'."`
 	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
-	Username string `help:"Optional. Specify a username for HTTP(S) authentication. Used when the method is 'https' and an SSH key is not provided."`
+	Username string `help:"Optional. Specify a username for authentication. Used when the method is 'https' and an SSH key is not provided, or with an SSH key when the method is 'ssh'."`
 	Password string `help:"Optional. Specify a password for authentication. Used with the username when the method is 'https', or with an SSH key that requires a password when the method is 'ssh'."`
 
 	Flags upbound.Flags `embed:""`

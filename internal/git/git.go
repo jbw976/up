@@ -64,7 +64,19 @@ type SSHAuthProvider struct {
 
 // GetAuthMethod returns the SSH PublicKey transport method.
 func (a *SSHAuthProvider) GetAuthMethod() (transport.AuthMethod, error) {
-	return ssh.NewPublicKeysFromFile(a.Username, a.PrivateKeyPath, a.Passphrase)
+	// Use default username if none is provided
+	username := a.Username
+	if username == "" {
+		username = "git"
+	}
+
+	// Attempt to create public key auth method
+	authMethod, err := ssh.NewPublicKeysFromFile(username, a.PrivateKeyPath, a.Passphrase)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create SSH public key auth method for user %q", username)
+	}
+
+	return authMethod, nil
 }
 
 // Cloner can clone git repositories with (optional) authentication.
