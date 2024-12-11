@@ -75,6 +75,7 @@ type Cmd struct {
 	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                        help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
+	AllowProduction   bool          `help:"Allow running on a production class control plane. By default only development control planes will be used."`
 	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                 help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Flags             upbound.Flags `embed:""`
@@ -270,7 +271,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, ch)
+			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.AllowProduction, ch)
 			return err
 		})
 
@@ -356,7 +357,7 @@ func parseRepository(repository string, defaultRegistry string) (registry, org, 
 	return reg, repoParts[0], repoParts[1], nil
 }
 
-func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch async.EventChannel) (client.Client, error) {
+func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, allowProd bool, ch async.EventChannel) (client.Client, error) {
 	var ctp spacesv1beta1.ControlPlane
 	nn := types.NamespacedName{
 		Namespace: c.ControlPlaneGroup,
@@ -367,8 +368,8 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, ch
 	switch {
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
-		if ctp.Spec.Class != "small" {
-			return nil, errors.New("control plane exists but is not a development control plane")
+		if ctp.Spec.Class != "small" && !allowProd {
+			return nil, errors.New("control plane exists but is not a development control plane; use --allow-production to skip this check")
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
