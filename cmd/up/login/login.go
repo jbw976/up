@@ -236,16 +236,25 @@ func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response,
 		upCtx.ProfileName = profile.DefaultName
 	}
 
+	// Don't overwrite the profile type if there is one. Default to cloud if
+	// this is a new profile or it wasn't set.
+	profileType := upCtx.Profile.Type
+	if profileType == "" {
+		profileType = profile.TypeCloud
+	}
+
 	// Re-initialize profile for this login.
 	profile := profile.Profile{
 		ID:        authID,
+		Type:      profileType,
 		TokenType: tokenType,
 		// Set session early so that it can be used to fetch user info if
 		// necessary.
 		Session: session,
 		Domain:  upCtx.Domain.String(),
 		// Carry over existing config.
-		BaseConfig: upCtx.Profile.BaseConfig,
+		BaseConfig:      upCtx.Profile.BaseConfig,
+		SpaceKubeconfig: upCtx.Profile.SpaceKubeconfig,
 	}
 	upCtx.Profile = profile
 

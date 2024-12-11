@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -50,6 +51,7 @@ import (
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -230,12 +232,12 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	ensureAccount(upCtx, c.helmParams)
 
 	if c.helmParams["account"] == defaultAcct {
-		pterm.Warning.Println("No account name was provided. Spaces initialized without an account name cannot be attached to the Upbound console! This cannot be changed later.")
+		pterm.Warning.Println("No Upbound organization name was provided. Spaces initialized without an organization cannot be attached to the Upbound console! This cannot be changed later.")
 		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("Would you like to proceed with the default account name %q?", defaultAcct)
+		confirm.DefaultText = fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct)
 		result, _ := confirm.Show()
 		if !result {
-			pterm.Error.Println("Not proceeding without an account name; use --account or `up login` to create a profile.")
+			pterm.Error.Println("Not proceeding without an Upbound organization; pass the --organization flag or create a profile (`up login` or `up profile create`).")
 			return nil
 		}
 	}
@@ -282,7 +284,13 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	if err := c.deploySpace(ctx, c.helmParams); err != nil {
 		return err
 	}
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Println("Your Upbound Space is Ready!")
+
+	profileName, err := c.ensureProfile(upCtx)
+	if err != nil {
+		return err
+	}
+
+	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("Your Upbound Space is Ready! Using new Upbound profile %q for your new Space.", profileName)
 
 	outputNextSteps()
 
@@ -405,6 +413,54 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 	}
 	hcSpinner.Success()
 	return nil
+}
+
+func (c *initCmd) ensureProfile(upCtx *upbound.Context) (string, error) {
+	// If the user is already in a disconnected profile, and it has a
+	// kubeconfig, assume the user created a profile for this space init and
+	// wants to keep it.
+	if upCtx.Profile.Type == profile.TypeDisconnected && upCtx.Profile.SpaceKubeconfig != nil {
+		return upCtx.ProfileName, nil
+	}
+
+	// Otherwise, create a new disconnected profile for interacting with the new
+	// space.
+	kubeconfig, err := upCtx.GetRawKubeconfig()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get kubeconfig")
+	}
+	if err := clientcmdapi.MinifyConfig(&kubeconfig); err != nil {
+		return "", errors.Wrap(err, "failed to create kubeconfig for Upbound profile")
+	}
+
+	p := &profile.Profile{
+		Type: profile.TypeDisconnected,
+		// If the user already has a logged in profile, copy the login data over
+		// to the disconnected profile.
+		ID:        upCtx.Profile.ID,
+		TokenType: upCtx.Profile.TokenType,
+		Session:   upCtx.Profile.Session,
+		// Use the domain and org that the space was initialized with. The org
+		// might be empty if this space isn't going to be connected; that's
+		// fine.
+		Domain:       upCtx.Domain.String(),
+		Organization: upCtx.Organization,
+		// Give the profile a kubeconfig containing only the active context.
+		SpaceKubeconfig: &kubeconfig,
+	}
+
+	if err := upCtx.Cfg.AddOrUpdateUpboundProfile(kubeconfig.CurrentContext, *p); err != nil {
+		return "", errors.Wrap(err, "failed to create profile for new space")
+	}
+	if err := upCtx.Cfg.SetDefaultUpboundProfile(kubeconfig.CurrentContext); err != nil {
+		return "", errors.Wrap(err, "failed to select default profile")
+	}
+
+	if err := upCtx.CfgSrc.UpdateConfig(upCtx.Cfg); err != nil {
+		return "", errors.Wrap(err, "failed to save configuration")
+	}
+
+	return kubeconfig.CurrentContext, nil
 }
 
 func outputNextSteps() {
