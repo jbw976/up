@@ -39,7 +39,6 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	upboundv1alpha1 "github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
-	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
@@ -110,116 +109,28 @@ type Back interface {
 	BackLabel() string
 }
 
-// Root is the root nav state.
-type Root struct{}
+// rootState returns the root state for the active profile.
+func rootState(ctx context.Context, upCtx *upbound.Context) (NavigationState, error) {
+	switch upCtx.Profile.Type {
+	case profile.TypeCloud:
+		return &Organization{
+			Name: upCtx.Organization,
+		}, nil
 
-// Items returns items for the root nav state.
-func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cfg, err := upCtx.BuildSDKConfig()
-	if err != nil {
-		return nil, err
+	case profile.TypeDisconnected:
+		return disconnectedSpaceFromKubeconfig(ctx, *upCtx.Profile.SpaceKubeconfig)
+
+	default:
+		return nil, errors.New("unknown profile type")
 	}
-
-	client := organizations.NewClient(cfg)
-
-	items := make([]list.Item, 0, 1)
-
-	orgs, err := client.List(ctx)
-	if err != nil {
-		// We want `up ctx` to be usable for disconnected spaces even if the
-		// user isn't logged in or can't connect to Upbound. Return a friendly
-		// message instead of an error.
-		items = append(items, item{
-			text:          "Could not list Upbound organizations; are you logged in?",
-			notSelectable: true,
-		})
-	}
-
-	for _, org := range orgs {
-		items = append(items, item{text: org.DisplayName, kind: "organization", matchingTerms: []string{org.Name}, onEnter: func(m model) (model, error) {
-			m.state = &Organization{Name: org.Name}
-			return m, nil
-		}})
-	}
-
-	slices.SortFunc(items, itemSortFunc)
-	return append(items, item{
-		text: "Disconnected Spaces",
-		onEnter: func(m model) (model, error) {
-			m.state = &Disconnected{}
-			return m, nil
-		},
-		padding: padding{
-			top: 1,
-		},
-		matchingTerms: []string{"disconnected"},
-	}), nil
 }
 
-// Breadcrumbs returns breadcrumbs for the root nav state.
-func (r *Root) Breadcrumbs() Breadcrumbs {
-	return []string{}
-}
-
-// Disconnected is the nav state containing disconnected spaces.
-type Disconnected struct{}
-
-// Items returns items for the disconnected nav state.
-func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	kubeconfig, err := upCtx.Kubecfg.RawConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]list.Item, 0, 1)
-	items = append(items, item{text: "..", kind: d.BackLabel(), onEnter: d.Back, back: true})
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	for name := range kubeconfig.Contexts {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			itm, err := spaceItemFromKubeContext(ctx, kubeconfig, name)
-			if err != nil || itm == nil {
-				// Context is not a Space, or we can't tell due to an error.
-				return
-			}
-
-			mu.Lock()
-			items = append(items, itm)
-			mu.Unlock()
-		}(name)
-	}
-	wg.Wait()
-
-	slices.SortFunc(items, itemSortFunc)
-	return items, nil
-}
-
-func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Config, ctxName string) (list.Item, error) {
+func disconnectedSpaceFromKubeconfig(ctx context.Context, kubeconfig clientcmdapi.Config) (*DisconnectedSpace, error) {
 	var cfg clientcmdapi.Config
 	kubeconfig.DeepCopyInto(&cfg)
-	cfg.CurrentContext = ctxName
 	if err := clientcmdapi.MinifyConfig(&cfg); err != nil {
 		return nil, err
 	}
-
-	kubectx := cfg.Contexts[ctxName]
-	spacesExt, err := upbound.GetSpaceExtension(kubectx)
-	if err != nil {
-		return nil, err
-	}
-	if spacesExt != nil {
-		// This is an up-managed context, which means it's either a cloud
-		// Space, or a disconnected Space represented by some other
-		// kubeconfig context, which we'll find later.
-		return nil, nil
-	}
-
-	// If the context points at a Space, it will have a ConfigMap containing
-	// the Space's ingress information. If we can't fetch the ConfigMap for
-	// any reason, assume the context isn't a Space.
 
 	rest, err := clientcmd.NewDefaultClientConfig(cfg, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
@@ -241,35 +152,14 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 		return nil, err
 	}
 
-	return item{text: ctxName, kind: "space", onEnter: func(m model) (model, error) {
-		m.state = &DisconnectedSpace{
-			BaseKubeconfig: &cfg,
-			Ingress: spaces.SpaceIngress{
-				Host:   ingressHost,
-				CAData: ingressCA,
-			},
-		}
-		return m, nil
-	}}, nil
+	return &DisconnectedSpace{
+		BaseKubeconfig: &cfg,
+		Ingress: spaces.SpaceIngress{
+			Host:   ingressHost,
+			CAData: ingressCA,
+		},
+	}, nil
 }
-
-// Breadcrumbs returns breadcrumbs for the disconnected nav state.
-func (d *Disconnected) Breadcrumbs() Breadcrumbs {
-	return []string{"disconnected"}
-}
-
-// Back returns the parent of the disconnected nav state.
-func (d *Disconnected) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &Root{}
-	return m, nil
-}
-
-// BackLabel returns the label for the back item in the disconnected nav state.
-func (d *Disconnected) BackLabel() string {
-	return "home"
-}
-
-var _ Back = &Organization{}
 
 // Organization is the nav state containing an organization's spaces.
 type Organization struct {
@@ -387,21 +277,7 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	slices.SortFunc(items, itemSortFunc)
 	slices.SortFunc(unselectableItems, itemSortFunc)
 
-	ret := []list.Item{item{text: "..", kind: o.BackLabel(), onEnter: o.Back, back: true}}
-	ret = append(ret, items...)
-	ret = append(ret, unselectableItems...)
-	return ret, nil
-}
-
-// Back returns the parent of an organization nav state.
-func (o *Organization) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &Root{}
-	return m, nil
-}
-
-// BackLabel returns the label for the back item of an organization nav state.
-func (o *Organization) BackLabel() string {
-	return "home"
+	return append(items, unselectableItems...), nil
 }
 
 // Breadcrumbs returns breadcrumbs for an organization nav state.
@@ -603,8 +479,7 @@ func (s *DisconnectedSpace) Items(ctx context.Context, _ *upbound.Context, _ *na
 		return nil, err
 	}
 
-	items := make([]list.Item, 0, len(groups)+2)
-	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	items := make([]list.Item, 0, len(groups)+1)
 	for _, group := range groups {
 		items = append(items, item{text: group.Name, kind: "group", onEnter: func(m model) (model, error) {
 			m.state = group
@@ -625,17 +500,6 @@ func (s *DisconnectedSpace) Items(ctx context.Context, _ *upbound.Context, _ *na
 	}})
 
 	return items, nil
-}
-
-// Back returns the parent of a space nav state.
-func (s *DisconnectedSpace) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &Disconnected{}
-	return m, nil
-}
-
-// BackLabel returns the label for the back item of a space nav state.
-func (s *DisconnectedSpace) BackLabel() string {
-	return "spaces"
 }
 
 // Breadcrumbs returns breadcrumbs for a space nav state.
