@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/pterm/pterm"
@@ -48,6 +49,7 @@ import (
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
@@ -86,6 +88,7 @@ type Cmd struct {
 	schemaRunner       schemarunner.SchemaRunner
 	transport          http.RoundTripper
 	m                  *manager.Manager
+	keychain           authn.Keychain
 
 	spaceClient  client.Client
 	organization string // the Upbound organization in the current kubecontext
@@ -115,6 +118,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.schemaRunner = schemarunner.RealSchemaRunner{}
 	c.transport = http.DefaultTransport
+	c.keychain = authn.NewMultiKeychain(
+		authn.NewKeychainFromHelper(
+			credhelper.New(
+				credhelper.WithDomain(upCtx.Domain.Hostname()),
+				credhelper.WithProfile(upCtx.ProfileName),
+			),
+		),
+		authn.DefaultKeychain,
+	)
 
 	fs := afero.NewOsFs()
 	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
@@ -306,6 +318,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	pusher := project.NewPusher(
 		project.PushWithUpboundContext(upCtx),
 		project.PushWithTransport(c.transport),
+		project.PushWithAuthKeychain(c.keychain),
 		project.PushWithMaxConcurrency(c.MaxConcurrency),
 	)
 
