@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package migration contains functions for migration
 package migration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pterm/pterm"
 	"k8s.io/client-go/discovery"
@@ -41,6 +41,8 @@ type importCmd struct {
 	Input string `default:"xp-state.tar.gz" help:"Specifies the file path of the archive to be imported. The default path is 'xp-state.tar.gz'." short:"i"`
 
 	UnpauseAfterImport bool `default:"false" help:"When set to true, automatically unpauses all managed resources that were paused during the import process. This helps in resuming normal operations post-import. Defaults to false, requiring manual unpausing of resources if needed."`
+
+	SkipTargetCheck bool `default:"false" help:"When set to true, skips the check for a local or managed control plane during import." hidden:""`
 }
 
 func (c *importCmd) Help() string {
@@ -66,8 +68,10 @@ func (c *importCmd) BeforeApply() error {
 func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { //nolint:gocyclo // Just a lot of error handling.
 	cfg := migCtx.Kubeconfig
 
-	if !isAllowedImportTarget(cfg.Host) {
-		return errors.New("not a local or managed control plane, import not supported!")
+	if !c.SkipTargetCheck {
+		if !isAllowedImportTarget(cfg.Host) {
+			return errors.New("not a local or managed control plane, import not supported")
+		}
 	}
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
@@ -93,9 +97,9 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 
 	errs := i.PreflightChecks(ctx)
 	if len(errs) > 0 {
-		fmt.Println("Preflight checks failed:")
+		pterm.Println("Preflight checks failed:")
 		for _, err := range errs {
-			fmt.Println("- " + err.Error())
+			pterm.Println("- " + err.Error())
 		}
 		if !c.Yes {
 			pterm.Println() // Blank line
