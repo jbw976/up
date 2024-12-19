@@ -91,8 +91,8 @@ Examples:
 }
 
 type renderCmd struct {
-	Composition       string `arg:"" help:"A YAML file specifying the Composition to use to render the Composite Resource (XR)."`
-	CompositeResource string `arg:"" help:"A YAML file specifying the Composite Resource (XR) to render."`
+	Composition       string `arg:"" help:"A YAML file specifying the Composition to use to render the Composite Resource (XR)." type:"existingfile"`
+	CompositeResource string `arg:"" help:"A YAML file specifying the Composite Resource (XR) to render."                        type:"existingfile"`
 
 	ContextFiles           map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be files containing JSON."                           mapsep:""`
 	ContextValues          map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be JSON. Keys take precedence over --context-files." mapsep:""`
@@ -117,6 +117,12 @@ type renderCmd struct {
 	functionIdentifier functions.Identifier
 	schemaRunner       schemarunner.SchemaRunner
 	concurrency        uint
+
+	compositionRel         string
+	compositeResourceRel   string
+	observedResourcesRel   string
+	extraResourcesRel      string
+	functionCredentialsRel string
 
 	m  *manager.Manager
 	r  manager.ImageResolver
@@ -149,6 +155,23 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error
 	c.proj = proj
 
 	fs := afero.NewOsFs()
+
+	pathMappings := []struct {
+		pathField string
+		relField  *string
+	}{
+		{c.Composition, &c.compositionRel},
+		{c.CompositeResource, &c.compositeResourceRel},
+		{c.FunctionCredentials, &c.functionCredentialsRel},
+		{c.ObservedResources, &c.observedResourcesRel},
+		{c.ExtraResources, &c.extraResourcesRel},
+	}
+
+	for _, mapping := range pathMappings {
+		if err := c.setRelativePath(mapping.pathField, mapping.relField); err != nil {
+			return err
+		}
+	}
 
 	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
 	if err != nil {
@@ -202,14 +225,14 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	xr, err := xprender.LoadCompositeResource(c.projFS, c.CompositeResource)
+	xr, err := xprender.LoadCompositeResource(c.projFS, c.compositeResourceRel)
 	if err != nil {
-		return errors.Wrapf(err, "cannot load composite resource from %q", c.CompositeResource)
+		return errors.Wrapf(err, "cannot load composite resource from %q", c.compositeResourceRel)
 	}
 
-	comp, err := xprender.LoadComposition(c.projFS, c.Composition)
+	comp, err := xprender.LoadComposition(c.projFS, c.compositionRel)
 	if err != nil {
-		return errors.Wrapf(err, "cannot load Composition from %q", c.Composition)
+		return errors.Wrapf(err, "cannot load Composition from %q", c.compositionRel)
 	}
 
 	// load functions from project upbound.yaml dependsOn
@@ -220,25 +243,25 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 
 	fcreds := []corev1.Secret{}
 	if c.FunctionCredentials != "" {
-		fcreds, err = xprender.LoadCredentials(c.projFS, c.FunctionCredentials)
+		fcreds, err = xprender.LoadCredentials(c.projFS, c.functionCredentialsRel)
 		if err != nil {
-			return errors.Wrapf(err, "cannot load secrets from %q", c.FunctionCredentials)
+			return errors.Wrapf(err, "cannot load secrets from %q", c.functionCredentialsRel)
 		}
 	}
 
 	ors := []composed.Unstructured{}
 	if c.ObservedResources != "" {
-		ors, err = xprender.LoadObservedResources(c.projFS, c.ObservedResources)
+		ors, err = xprender.LoadObservedResources(c.projFS, c.observedResourcesRel)
 		if err != nil {
-			return errors.Wrapf(err, "cannot load observed composed resources from %q", c.ObservedResources)
+			return errors.Wrapf(err, "cannot load observed composed resources from %q", c.observedResourcesRel)
 		}
 	}
 
 	ers := []unstructured.Unstructured{}
 	if c.ExtraResources != "" {
-		ers, err = xprender.LoadExtraResources(c.projFS, c.ExtraResources)
+		ers, err = xprender.LoadExtraResources(c.projFS, c.extraResourcesRel)
 		if err != nil {
-			return errors.Wrapf(err, "cannot load extra resources from %q", c.ExtraResources)
+			return errors.Wrapf(err, "cannot load extra resources from %q", c.extraResourcesRel)
 		}
 	}
 
@@ -437,4 +460,16 @@ func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, 
 	}
 
 	return functions, nil
+}
+
+// Helper function to calculate the relative path and handle errors.
+func (c *renderCmd) setRelativePath(fieldValue string, relativePath *string) error {
+	if fieldValue != "" {
+		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), fieldValue)
+		if err != nil {
+			return errors.Wrap(err, "failed to make file path relative to project filesystem")
+		}
+		*relativePath = relPath
+	}
+	return nil
 }
