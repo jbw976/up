@@ -371,7 +371,7 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 	if err != nil {
 		return err
 	}
-	m.list = NewList(items)
+	m.list = newList(items)
 	m.list.KeyMap.Quit = key.NewBinding(key.WithDisabled())
 	if _, ok := m.state.(Accepting); ok {
 		m.list.KeyMap.Quit = quitBinding

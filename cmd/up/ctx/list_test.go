@@ -94,7 +94,7 @@ func TestNewList_InitialCursorPlacement(t *testing.T) {
 			t.Parallel()
 
 			m := model{
-				list: NewList(test.items),
+				list: newList(test.items),
 			}
 
 			assert.Equal(t, m.list.Index(), test.expectedIndex)
@@ -230,7 +230,7 @@ func TestMoveToSelectableItem(t *testing.T) {
 			t.Parallel()
 
 			m := model{
-				list: NewList(test.items),
+				list: newList(test.items),
 			}
 			m.list.Select(test.startingIndex)
 			// Make sure Select() did what we want so our test is valid.

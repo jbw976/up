@@ -29,33 +29,43 @@ import (
 )
 
 var (
-	itemStyle             = lipgloss.NewStyle()
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	itemStyle = lipgloss.NewStyle()
+	//nolint:gochecknoglobals // We'd make these consts if we could.
 	unselectableItemStyle = lipgloss.NewStyle().Foreground(dimColor)
-	kindStyle             = lipgloss.NewStyle().Foreground(neutralColor)
-	selectedItemStyle     = lipgloss.NewStyle().Foreground(upboundBrandColor)
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	kindStyle = lipgloss.NewStyle().Foreground(neutralColor)
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	selectedItemStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
 )
 
-var backNavBinding = key.NewBinding(
-	key.WithKeys("left", "h"),
-	key.WithHelp("←/h", "back"),
+var (
+	//nolint:gochecknoglobals // We'd make  consts if we could.
+	backNavBinding = key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("←/h", "back"),
+	)
+
+	//nolint:gochecknoglobals // We'd make  consts if we could.
+	selectNavBinding = key.NewBinding(
+		key.WithKeys("right", "enter", "l"),
+		key.WithHelp("→/l/enter", "select"),
+	)
+
+	//nolint:gochecknoglobals // We'd make  consts if we could.
+	exitBinding = key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc/ctrl+c", "exit"),
+	)
+
+	//nolint:gochecknoglobals // We'd make  consts if we could.
+	quitBinding = key.NewBinding(
+		key.WithKeys("q", "f10"),
+		key.WithHelp("q/f10", "switch context & quit"),
+	)
 )
 
-var selectNavBinding = key.NewBinding(
-	key.WithKeys("right", "enter", "l"),
-	key.WithHelp("→/l/enter", "select"),
-)
-
-var exitBinding = key.NewBinding(
-	key.WithKeys("esc", "ctrl+c"),
-	key.WithHelp("esc/ctrl+c", "exit"),
-)
-
-var quitBinding = key.NewBinding(
-	key.WithKeys("q", "f10"),
-	key.WithHelp("q/f10", "switch context & quit"),
-)
-
-type KeyFunc func(m model) (model, error)
+type keyFunc func(m model) (model, error)
 
 type padding struct {
 	top    int
@@ -68,7 +78,7 @@ type item struct {
 	text string
 	kind string
 
-	onEnter KeyFunc
+	onEnter keyFunc
 
 	padding padding
 
@@ -116,13 +126,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		kind = fmt.Sprintf("[%s]", str.kind)
 	}
 
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, // nolint:staticcheck
+	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, //nolint:errcheck // Can't do anything useful with this error.
 		kindStyle.Render(fmt.Sprintf("%15s ", kind)),
 		mainStyle.Render(str.text),
 	))
 }
 
-func NewList(items []list.Item) list.Model {
+func newList(items []list.Item) list.Model {
 	l := list.New(items, itemDelegate{}, 80, 3)
 
 	l.SetShowTitle(true)
@@ -159,7 +169,10 @@ func NewList(items []list.Item) list.Model {
 func (m model) ListHeight() int {
 	lines := 2 // title bar
 	for _, i := range m.list.Items() {
-		itm := i.(item)
+		itm, ok := i.(item)
+		if !ok {
+			continue
+		}
 		lines += 1 + strings.Count(itm.text, "\n")
 		lines += itm.padding.top + itm.padding.bottom
 	}
@@ -270,7 +283,7 @@ func (m model) withNavEnabled() model {
 	return m
 }
 
-func (m model) updateListState(fn KeyFunc) func() tea.Msg {
+func (m model) updateListState(fn keyFunc) func() tea.Msg {
 	return func() tea.Msg {
 		newState, err := fn(m)
 		if err != nil {
@@ -286,7 +299,7 @@ func (m model) updateListState(fn KeyFunc) func() tea.Msg {
 		}
 
 		// recreate the list to reset the cursor position
-		m.list = NewList(items)
+		m.list = newList(items)
 		m.list.SetHeight(min(m.windowHeight-2, m.ListHeight()))
 		if _, ok := m.state.(Accepting); ok {
 			m.list.KeyMap.Quit = quitBinding
@@ -305,7 +318,8 @@ func (m model) moveToSelectableItem(msg tea.Msg) list.Model {
 	}
 
 	itemSelectable := func(cur list.Item) bool {
-		return !cur.(item).notSelectable
+		itm, ok := cur.(item)
+		return ok && !itm.notSelectable
 	}
 
 	switch {

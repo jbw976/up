@@ -699,7 +699,7 @@ var (
 func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
 	return []list.Item{
 		item{text: "..", kind: ctp.BackLabel(), onEnter: ctp.Back, back: true},
-		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: KeyFunc(func(m model) (model, error) {
+		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: keyFunc(func(m model) (model, error) {
 			msg, err := ctp.Accept(m.upCtx, m.navContext)
 			if err != nil {
 				return m, err
