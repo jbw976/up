@@ -68,10 +68,8 @@ func (c *importCmd) BeforeApply() error {
 func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { //nolint:gocyclo // Just a lot of error handling.
 	cfg := migCtx.Kubeconfig
 
-	if !c.SkipTargetCheck {
-		if !isAllowedImportTarget(cfg.Host) {
-			return errors.New("not a local or managed control plane, import not supported")
-		}
+	if !c.SkipTargetCheck && !isAllowedImportTarget(cfg.Host) {
+		return errors.New("not a local or managed control plane, import not supported")
 	}
 
 	dynamicClient, err := dynamic.NewForConfig(cfg)
