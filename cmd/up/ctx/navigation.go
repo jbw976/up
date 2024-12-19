@@ -57,16 +57,8 @@ var (
 	dimColor = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
 )
 
-var (
-	// all adaptive colors have a minimum of 7:1 against #fff or #000.
-
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	pathInactiveSegmentStyle = lipgloss.NewStyle().Foreground(neutralColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	pathSegmentStyle = lipgloss.NewStyle()
-)
+//nolint:gochecknoglobals // We'd make these consts if we could.
+var upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
 
 // TODO(adamwg): All the nav states here should probably be unexported. Today we
 // do use them a bit outside of the ctx command, but that's a bit of a smell -
@@ -76,7 +68,34 @@ var (
 // NavigationState is a model state that provides a list of items for a navigation node.
 type NavigationState interface {
 	Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error)
-	Breadcrumbs() string
+	Breadcrumbs() Breadcrumbs
+}
+
+// Breadcrumbs represents the path through the tree of contexts for a given
+// navigation state.
+type Breadcrumbs []string
+
+// String returns the canonical slash-separated string representation of the
+// breadcrumbs.
+func (b Breadcrumbs) String() string {
+	return strings.Join(b, "/")
+}
+
+// styledString returns a pretty string version of the breadcrumbs.
+func (b Breadcrumbs) styledString() string {
+	pathInactiveSegmentStyle := lipgloss.NewStyle().Foreground(neutralColor)
+	pathSegmentStyle := lipgloss.NewStyle()
+
+	switch len(b) {
+	case 0:
+		return ""
+	case 1:
+		return pathSegmentStyle.Render(b[0])
+	default:
+		inactive := strings.Join(b[:len(b)-1], "/")
+		inactive += "/"
+		return pathInactiveSegmentStyle.Render(inactive) + pathSegmentStyle.Render(b[len(b)-1])
+	}
 }
 
 // Accepting is a model state that provides a method to accept a navigation node.
@@ -90,26 +109,6 @@ type Back interface {
 	NavigationState
 	Back(m model) (model, error)
 	BackLabel() string
-}
-
-// breadcrumbStyle defines the styles to be used in the breadcrumbs of a list.
-type breadcrumbStyle struct {
-	// previousLevel is the style of the previous levels in the path (higher
-	// order items). For example, when listing control planes then the
-	// breadcrumb labels for groups, spaces, orgs and root will be rendered with
-	// this style.
-	previousLevel lipgloss.Style
-
-	// currentLevel is the style of the current level in the path. For example,
-	// when listing control planes then the breadcrumb label for control planes
-	// will be rendered with this style.
-	currentLevel lipgloss.Style
-}
-
-//nolint:gochecknoglobals // We'd make this a const if we could.
-var defaultBreadcrumbStyle = breadcrumbStyle{
-	previousLevel: pathInactiveSegmentStyle,
-	currentLevel:  pathSegmentStyle,
 }
 
 // Root is the root nav state.
@@ -159,8 +158,8 @@ func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext)
 }
 
 // Breadcrumbs returns breadcrumbs for the root nav state.
-func (r *Root) Breadcrumbs() string {
-	return ""
+func (r *Root) Breadcrumbs() Breadcrumbs {
+	return []string{}
 }
 
 // Disconnected is the nav state containing disconnected spaces.
@@ -251,13 +250,9 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 	}}, nil
 }
 
-func (d *Disconnected) breadcrumbs(styles breadcrumbStyle) string {
-	return styles.currentLevel.Render("disconnected/")
-}
-
 // Breadcrumbs returns breadcrumbs for the disconnected nav state.
-func (d *Disconnected) Breadcrumbs() string {
-	return d.breadcrumbs(defaultBreadcrumbStyle)
+func (d *Disconnected) Breadcrumbs() Breadcrumbs {
+	return []string{"disconnected"}
 }
 
 // Back returns the parent of the disconnected nav state.
@@ -406,13 +401,9 @@ func (o *Organization) BackLabel() string {
 	return "home"
 }
 
-func (o *Organization) breadcrumbs(styles breadcrumbStyle) string {
-	return styles.currentLevel.Render(fmt.Sprintf("%s/", o.Name))
-}
-
 // Breadcrumbs returns breadcrumbs for an organization nav state.
-func (o *Organization) Breadcrumbs() string {
-	return o.breadcrumbs(defaultBreadcrumbStyle)
+func (o *Organization) Breadcrumbs() Breadcrumbs {
+	return []string{o.Name}
 }
 
 func itemSortFunc(a, b list.Item) int {
@@ -499,22 +490,16 @@ func (s *Space) IsCloud() bool {
 	return s.Org.Name != ""
 }
 
-func (s *Space) breadcrumbs(styles breadcrumbStyle) string {
-	if s.IsCloud() {
-		return s.Org.breadcrumbs(breadcrumbStyle{
-			currentLevel:  styles.previousLevel,
-			previousLevel: styles.previousLevel,
-		}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
-	}
-	return (&Disconnected{}).breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
-}
-
 // Breadcrumbs returns breadcrumbs for a space nav state.
-func (s *Space) Breadcrumbs() string {
-	return s.breadcrumbs(defaultBreadcrumbStyle)
+func (s *Space) Breadcrumbs() Breadcrumbs {
+	var base NavigationState
+	if s.IsCloud() {
+		base = &s.Org
+	} else {
+		base = &Disconnected{}
+	}
+
+	return append(base.Breadcrumbs(), s.Name)
 }
 
 // GetClient returns a kube client pointed at the current space.
@@ -661,16 +646,9 @@ func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 	return items, nil
 }
 
-func (g *Group) breadcrumbs(styles breadcrumbStyle) string {
-	return g.Space.breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", g.Name))
-}
-
 // Breadcrumbs returns breadcrumbs for a group nav state.
-func (g *Group) Breadcrumbs() string {
-	return g.breadcrumbs(defaultBreadcrumbStyle)
+func (g *Group) Breadcrumbs() Breadcrumbs {
+	return append(g.Space.Breadcrumbs(), g.Name)
 }
 
 // Back returns the parent of a group nav state.
@@ -709,17 +687,9 @@ func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navCont
 	}, nil
 }
 
-func (ctp *ControlPlane) breadcrumbs(styles breadcrumbStyle) string {
-	// use current level to highlight the entire breadcrumb chain
-	return ctp.Group.breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(ctp.Name)
-}
-
 // Breadcrumbs returns breadcrumbs for a control plane nav state.
-func (ctp *ControlPlane) Breadcrumbs() string {
-	return ctp.breadcrumbs(defaultBreadcrumbStyle)
+func (ctp *ControlPlane) Breadcrumbs() Breadcrumbs {
+	return append(ctp.Group.Breadcrumbs(), ctp.Name)
 }
 
 // Back returns the parent of a control plane nav state.

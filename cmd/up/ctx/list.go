@@ -186,7 +186,7 @@ func (m model) View() string {
 		return ""
 	}
 
-	m.list.Title = m.state.Breadcrumbs()
+	m.list.Title = m.state.Breadcrumbs().styledString()
 	l := m.list.View()
 
 	if m.err != nil {

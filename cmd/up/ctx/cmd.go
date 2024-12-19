@@ -180,7 +180,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	if c.Short {
 		fmt.Println(state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
 	} else {
-		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs())) //nolint:forbidigo // Interactive command.
+		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString())) //nolint:forbidigo // Interactive command.
 	}
 	return nil
 }
@@ -331,8 +331,8 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 	}
 
 	// final step if we moved: accept the state
-	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(m.state.Breadcrumbs()))
-	if m.state.Breadcrumbs() != initialState.Breadcrumbs() || c.File == "-" {
+	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(m.state.Breadcrumbs().styledString()))
+	if m.state.Breadcrumbs().String() != initialState.Breadcrumbs().String() || c.File == "-" {
 		accepting, ok := m.state.(Accepting)
 		if !ok {
 			return fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
