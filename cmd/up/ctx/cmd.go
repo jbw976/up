@@ -137,6 +137,15 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 }
 
+func updateProfile(upCtx *upbound.Context, breadcrumbs Breadcrumbs) error {
+	path := breadcrumbs.String()
+	upCtx.Profile.CurrentKubeContext = path
+	if err := upCtx.Cfg.AddOrUpdateUpboundProfile(upCtx.ProfileName, upCtx.Profile); err != nil {
+		return err
+	}
+	return upCtx.CfgSrc.UpdateConfig(upCtx.Cfg)
+}
+
 // RunSwap runs the quick swap version of `up ctx`.
 func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: shorten
 	last, err := kube.ReadLastContext()
@@ -173,7 +182,8 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	} else {
 		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString())) //nolint:forbidigo // Interactive command.
 	}
-	return nil
+
+	return updateProfile(upCtx, state.Breadcrumbs())
 }
 
 func withUpboundPrefix(s string) string {
@@ -349,6 +359,9 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 		} else {
 			fmt.Print(msg) //nolint:forbidigo // Interactive command.
 		}
+		if err := updateProfile(upCtx, m.state.Breadcrumbs()); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -386,8 +399,12 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 				return err
 			}
 		}
-		return m.termination.Err
+		if m.termination.Err != nil {
+			return m.termination.Err
+		}
+		return updateProfile(upCtx, m.state.Breadcrumbs())
 	}
+
 	return nil
 }
 

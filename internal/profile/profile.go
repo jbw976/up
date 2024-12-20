@@ -77,6 +77,10 @@ type Profile struct {
 	// disconnected profile. It must not be set for cloud profiles.
 	SpaceKubeconfig *clientcmdapi.Config `json:"spaceKubeconfig,omitempty"`
 
+	// CurrentKubeContext is the current kubeconfig context for the profile, in
+	// the format used by non-interactive `up ctx`.
+	CurrentKubeContext string `json:"currentKubeContext,omitempty"`
+
 	// BaseConfig represent persisted settings for this profile.
 	// For example:
 	// * flags

@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
@@ -772,5 +773,35 @@ func TestDeriveExistingCloudState(t *testing.T) {
 				t.Errorf("DeriveExistingCloudState(...): -want conf, +got conf:\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestUpdateProfile(t *testing.T) {
+	breadcrumbs := Breadcrumbs{"my-org", "my-space", "my-group", "my-ctp"}
+
+	upCtx := &upbound.Context{
+		ProfileName: "default",
+		Profile:     profile.Profile{},
+		Cfg: &config.Config{
+			Upbound: config.Upbound{
+				Profiles: map[string]profile.Profile{
+					"default": {},
+				},
+			},
+		},
+		CfgSrc: &config.MockSource{
+			UpdateConfigFn: func(cfg *config.Config) error {
+				prof := cfg.Upbound.Profiles["default"]
+				if prof.CurrentKubeContext != breadcrumbs.String() {
+					t.Errorf("incorrect context %q, expected %q", prof.CurrentKubeContext, breadcrumbs)
+				}
+				return nil
+			},
+		},
+	}
+
+	err := updateProfile(upCtx, breadcrumbs)
+	if err != nil {
+		t.Errorf("updateProfile returned unexpected error %v", err)
 	}
 }
