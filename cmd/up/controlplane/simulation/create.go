@@ -543,19 +543,19 @@ func getControlPlaneConfig(ctx context.Context, upCtx *upbound.Context, ctp type
 	}
 
 	var ok bool
-	var space *upctx.Space
+	var space upctx.Space
 
-	if space, ok = state.(*upctx.Space); !ok {
+	if space, ok = state.(upctx.Space); !ok {
 		if group, ok := state.(*upctx.Group); ok {
-			space = &group.Space
+			space = group.Space
 		} else if ctp, ok := state.(*upctx.ControlPlane); ok {
-			space = &ctp.Group.Space
+			space = ctp.Group.Space
 		} else {
 			return nil, errors.New("current kubeconfig is not pointed at a space cluster")
 		}
 	}
 
-	spaceClient, err := space.BuildClient(upCtx, ctp)
+	spaceClient, err := space.BuildKubeconfig(ctp)
 	if err != nil {
 		return nil, err
 	}

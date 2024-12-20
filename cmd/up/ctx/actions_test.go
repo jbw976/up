@@ -133,8 +133,8 @@ func TestDisconnectedGroupAccept(t *testing.T) {
 				upCtx:            upCtx,
 				kubeContext:      tt.preferred,
 				writeLastContext: func(c string) error { last = c; return nil },
-				verify:           func(c *clientcmdapi.Config) error { return nil },
-				modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error {
+				verify:           func(_ *clientcmdapi.Config) error { return nil },
+				modifyConfig: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
 					conf = &newConfig
 					return nil
 				},
@@ -144,18 +144,19 @@ func TestDisconnectedGroupAccept(t *testing.T) {
 				ingressReader: &mockIngressReader{},
 			}
 
+			spaceKubeConfig := tt.conf.DeepCopy()
+			spaceKubeConfig.CurrentContext = "profile"
 			g := &Group{
-				Space: Space{
-					Name: "space",
+				Space: &DisconnectedSpace{
+					BaseKubeconfig: spaceKubeConfig,
 					Ingress: spaces.SpaceIngress{
 						Host:   "ingress",
 						CAData: []byte{1, 2, 3},
 					},
-					HubContext: "profile",
 				},
 				Name: tt.group,
 			}
-			_, err := g.Accept(upCtx, navCtx)
+			_, err := g.Accept(navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -273,8 +274,8 @@ func TestCloudGroupAccept(t *testing.T) {
 				upCtx:            upCtx,
 				kubeContext:      tt.preferred,
 				writeLastContext: func(c string) error { last = c; return nil },
-				verify:           func(c *clientcmdapi.Config) error { return nil },
-				modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error {
+				verify:           func(_ *clientcmdapi.Config) error { return nil },
+				modifyConfig: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
 					conf = &newConfig
 					return nil
 				},
@@ -285,9 +286,9 @@ func TestCloudGroupAccept(t *testing.T) {
 			}
 
 			g := &Group{
-				Space: Space{
+				Space: &CloudSpace{
 					Org:  Organization{Name: "org"},
-					Name: "space",
+					name: "space",
 					Ingress: spaces.SpaceIngress{
 						Host:   "ingress",
 						CAData: []byte{1, 2, 3},
@@ -296,7 +297,7 @@ func TestCloudGroupAccept(t *testing.T) {
 				},
 				Name: tt.group,
 			}
-			_, err := g.Accept(upCtx, navCtx)
+			_, err := g.Accept(navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -473,8 +474,8 @@ func TestDisconnectedControlPlaneAccept(t *testing.T) {
 				upCtx:            upCtx,
 				kubeContext:      tt.preferred,
 				writeLastContext: func(c string) error { last = c; return nil },
-				verify:           func(c *clientcmdapi.Config) error { return nil },
-				modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error {
+				verify:           func(_ *clientcmdapi.Config) error { return nil },
+				modifyConfig: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
 					conf = &newConfig
 					return nil
 				},
@@ -484,21 +485,22 @@ func TestDisconnectedControlPlaneAccept(t *testing.T) {
 				ingressReader: &mockIngressReader{},
 			}
 
+			spaceKubeConfig := tt.conf.DeepCopy()
+			spaceKubeConfig.CurrentContext = "profile"
 			ctp := &ControlPlane{
 				Group: Group{
-					Space: Space{
-						Name: "space",
+					Space: &DisconnectedSpace{
+						BaseKubeconfig: spaceKubeConfig,
 						Ingress: spaces.SpaceIngress{
 							Host:   "ingress",
 							CAData: []byte{1, 2, 3},
 						},
-						HubContext: "profile",
 					},
 					Name: tt.ctp.Namespace,
 				},
 				Name: tt.ctp.Name,
 			}
-			_, err := ctp.Accept(upCtx, navCtx)
+			_, err := ctp.Accept(navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -675,8 +677,8 @@ func TestCloudControlPlaneAccept(t *testing.T) {
 				upCtx:            upCtx,
 				kubeContext:      tt.preferred,
 				writeLastContext: func(c string) error { last = c; return nil },
-				verify:           func(c *clientcmdapi.Config) error { return nil },
-				modifyConfig: func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error {
+				verify:           func(_ *clientcmdapi.Config) error { return nil },
+				modifyConfig: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
 					conf = &newConfig
 					return nil
 				},
@@ -688,9 +690,9 @@ func TestCloudControlPlaneAccept(t *testing.T) {
 
 			ctp := &ControlPlane{
 				Group: Group{
-					Space: Space{
+					Space: &CloudSpace{
 						Org:  Organization{Name: "org"},
-						Name: "space",
+						name: "space",
 						Ingress: spaces.SpaceIngress{
 							Host:   "ingress",
 							CAData: []byte{1, 2, 3},
@@ -701,7 +703,7 @@ func TestCloudControlPlaneAccept(t *testing.T) {
 				},
 				Name: tt.ctp.Name,
 			}
-			_, err := ctp.Accept(upCtx, navCtx)
+			_, err := ctp.Accept(navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -719,7 +721,7 @@ var _ spaces.IngressReader = &mockIngressReader{}
 
 type mockIngressReader struct{}
 
-func (m *mockIngressReader) Get(ctx context.Context, space v1alpha1.Space) (ingress *spaces.SpaceIngress, err error) {
+func (m *mockIngressReader) Get(_ context.Context, _ v1alpha1.Space) (ingress *spaces.SpaceIngress, err error) {
 	return &spaces.SpaceIngress{
 		Host:   "ingress",
 		CAData: []byte{1, 2, 3},

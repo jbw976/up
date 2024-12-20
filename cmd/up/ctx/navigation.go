@@ -33,7 +33,6 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -101,7 +100,7 @@ func (b Breadcrumbs) styledString() string {
 // Accepting is a model state that provides a method to accept a navigation node.
 type Accepting interface {
 	NavigationState
-	Accept(upCtx *upbound.Context, navCtx *navContext) (string, error)
+	Accept(navCtx *navContext) (string, error)
 }
 
 // Back is a model state that provides a method to go back to the parent navigation node.
@@ -199,7 +198,14 @@ func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, _ *nav
 }
 
 func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Config, ctxName string) (list.Item, error) {
-	kubectx := kubeconfig.Contexts[ctxName]
+	var cfg clientcmdapi.Config
+	kubeconfig.DeepCopyInto(&cfg)
+	cfg.CurrentContext = ctxName
+	if err := clientcmdapi.MinifyConfig(&cfg); err != nil {
+		return nil, err
+	}
+
+	kubectx := cfg.Contexts[ctxName]
 	spacesExt, err := upbound.GetSpaceExtension(kubectx)
 	if err != nil {
 		return nil, err
@@ -215,9 +221,7 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 	// the Space's ingress information. If we can't fetch the ConfigMap for
 	// any reason, assume the context isn't a Space.
 
-	rest, err := clientcmd.NewDefaultClientConfig(kubeconfig, &clientcmd.ConfigOverrides{
-		CurrentContext: ctxName,
-	}).ClientConfig()
+	rest, err := clientcmd.NewDefaultClientConfig(cfg, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -238,13 +242,12 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 	}
 
 	return item{text: ctxName, kind: "space", onEnter: func(m model) (model, error) {
-		m.state = &Space{
-			Name: ctxName,
+		m.state = &DisconnectedSpace{
+			BaseKubeconfig: &cfg,
 			Ingress: spaces.SpaceIngress{
 				Host:   ingressHost,
 				CAData: ingressCA,
 			},
-			HubContext: ctxName,
 		}
 		return m, nil
 	}}, nil
@@ -363,9 +366,9 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 
 				mu.Lock()
 				items = append(items, item{text: space.GetObjectMeta().GetName(), kind: "space", onEnter: func(m model) (model, error) {
-					m.state = &Space{
+					m.state = &CloudSpace{
 						Org:      *o,
-						Name:     space.GetObjectMeta().GetName(),
+						name:     space.GetObjectMeta().GetName(),
 						Ingress:  *ingress,
 						AuthInfo: authInfo,
 					}
@@ -419,24 +422,18 @@ func itemSortFunc(a, b list.Item) int {
 	return strings.Compare(aitem.text, bitem.text)
 }
 
-var _ Back = &Space{}
+// Space abstracts over specific kinds of space contexts.
+type Space interface {
+	NavigationState
+	Accepting
 
-// Space provides the navigation node for a space.
-type Space struct {
-	Org  Organization
-	Name string
-
-	Ingress  spaces.SpaceIngress
-	AuthInfo *clientcmdapi.AuthInfo
-
-	// HubContext is an optional field that stores which context in the
-	// kubeconfig points at the hub
-	HubContext string
+	Name() string
+	BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error)
+	getClient() (client.Client, error)
 }
 
-// Items returns items for a space nav state.
-func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cl, err := s.GetClient(upCtx)
+func listGroupsInSpace(ctx context.Context, s Space) ([]*Group, error) {
+	cl, err := s.getClient()
 	if err != nil {
 		return nil, err
 	}
@@ -446,21 +443,50 @@ func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 		return nil, err
 	}
 
-	items := make([]list.Item, 0, len(nss.Items)+3)
-	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	groups := make([]*Group, 0, len(nss.Items))
 	for _, ns := range nss.Items {
-		items = append(items, item{text: ns.Name, kind: "group", onEnter: func(m model) (model, error) {
-			m.state = &Group{Space: *s, Name: ns.Name}
+		groups = append(groups, &Group{Space: s, Name: ns.Name})
+	}
+
+	return groups, nil
+}
+
+// CloudSpace provides the navigation node for a connected or cloud space.
+type CloudSpace struct {
+	Org  Organization
+	name string
+
+	Ingress  spaces.SpaceIngress
+	AuthInfo *clientcmdapi.AuthInfo
+}
+
+// Name returns the space's name.
+func (s *CloudSpace) Name() string {
+	return s.name
+}
+
+// Items returns items for a space nav state.
+func (s *CloudSpace) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	groups, err := listGroupsInSpace(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]list.Item, 0, len(groups)+3)
+	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	for _, group := range groups {
+		items = append(items, item{text: group.Name, kind: "group", onEnter: func(m model) (model, error) {
+			m.state = group
 			return m, nil
 		}})
 	}
 
-	if len(nss.Items) == 0 {
+	if len(groups) == 0 {
 		items = append(items, item{text: "No groups found", notSelectable: true})
 	}
 
-	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name), onEnter: func(m model) (model, error) {
-		msg, err := s.Accept(m.upCtx, m.navContext)
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
+		msg, err := s.Accept(m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -471,40 +497,24 @@ func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 }
 
 // Back returns the parent of a space nav state.
-func (s *Space) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	if s.IsCloud() {
-		m.state = &s.Org
-	} else {
-		m.state = &Disconnected{}
-	}
+func (s *CloudSpace) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
+	m.state = &s.Org
 	return m, nil
 }
 
 // BackLabel returns the label for the back item of a space nav state.
-func (s *Space) BackLabel() string {
+func (s *CloudSpace) BackLabel() string {
 	return "spaces"
 }
 
-// IsCloud returns true if the given space nav state references a cloud space.
-func (s *Space) IsCloud() bool {
-	return s.Org.Name != ""
-}
-
 // Breadcrumbs returns breadcrumbs for a space nav state.
-func (s *Space) Breadcrumbs() Breadcrumbs {
-	var base NavigationState
-	if s.IsCloud() {
-		base = &s.Org
-	} else {
-		base = &Disconnected{}
-	}
-
-	return append(base.Breadcrumbs(), s.Name)
+func (s *CloudSpace) Breadcrumbs() Breadcrumbs {
+	return append(s.Org.Breadcrumbs(), s.name)
 }
 
-// GetClient returns a kube client pointed at the current space.
-func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
-	conf, err := s.BuildClient(upCtx, types.NamespacedName{})
+// getClient returns a kube client pointed at the current space.
+func (s *CloudSpace) getClient() (client.Client, error) {
+	conf, err := s.BuildKubeconfig(types.NamespacedName{})
 	if err != nil {
 		return nil, err
 	}
@@ -518,21 +528,16 @@ func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
 	return client.New(rest, client.Options{})
 }
 
-// BuildClient creates a new kubeconfig hardcoded to match the provided spaces
+// BuildKubeconfig creates a new kubeconfig hardcoded to match the provided spaces
 // access configuration and pointed directly at the resource. If the resource
 // only specifies a namespace, then the client will point at the space and the
 // context will be set at the group. If the resource specifies both a namespace
 // and a name, then the client will point directly at the control plane ingress
 // and set the namespace to "default".
-func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedName) (clientcmd.ClientConfig, error) {
+func (s *CloudSpace) BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error) {
 	// reference name for all context, cluster and authinfo for in-memory
 	// kubeconfig
 	ref := "upbound"
-
-	prev, err := upCtx.Kubecfg.RawConfig()
-	if err != nil {
-		return nil, err
-	}
 
 	config := clientcmdapi.Config{
 		Kind:           "Config",
@@ -562,22 +567,8 @@ func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedNam
 		CertificateAuthorityData: s.Ingress.CAData,
 	}
 
-	// Use the space's authinfo if we have it, otherwise fall back to the hub
-	// context's auth.
-	switch {
-	case s.AuthInfo != nil:
-		config.AuthInfos[ref] = s.AuthInfo
-		refContext.AuthInfo = ref
-	case s.HubContext != "":
-		hubContext, ok := prev.Contexts[s.HubContext]
-		if ok {
-			// import the authinfo from the hub context
-			refContext.AuthInfo = hubContext.AuthInfo
-			config.AuthInfos[hubContext.AuthInfo] = ptr.To(*prev.AuthInfos[hubContext.AuthInfo])
-		}
-	default:
-		return nil, errors.New("no auth info for context")
-	}
+	config.AuthInfos[ref] = s.AuthInfo
+	refContext.AuthInfo = ref
 
 	if resource.Name == "" {
 		// point at the relevant namespace in the space hub
@@ -588,11 +579,141 @@ func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedNam
 		refContext.Namespace = "default"
 	}
 
-	if s.IsCloud() {
-		refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewCloudV1Alpha1SpaceExtension(s.Org.Name, s.Name)
-	} else {
-		refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewDisconnectedV1Alpha1SpaceExtension(s.HubContext)
+	refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewCloudV1Alpha1SpaceExtension(s.Org.Name, s.name)
+
+	config.Contexts[ref] = refContext
+	return clientcmd.NewDefaultClientConfig(config, &clientcmd.ConfigOverrides{}), nil
+}
+
+// DisconnectedSpace provides the navigation node for a disconnected space.
+type DisconnectedSpace struct {
+	BaseKubeconfig *clientcmdapi.Config
+	Ingress        spaces.SpaceIngress
+}
+
+// Name returns the space's name.
+func (s *DisconnectedSpace) Name() string {
+	return s.BaseKubeconfig.CurrentContext
+}
+
+// Items returns items for a space nav state.
+func (s *DisconnectedSpace) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	groups, err := listGroupsInSpace(ctx, s)
+	if err != nil {
+		return nil, err
 	}
+
+	items := make([]list.Item, 0, len(groups)+2)
+	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	for _, group := range groups {
+		items = append(items, item{text: group.Name, kind: "group", onEnter: func(m model) (model, error) {
+			m.state = group
+			return m, nil
+		}})
+	}
+
+	if len(groups) == 0 {
+		items = append(items, item{text: "No groups found", notSelectable: true})
+	}
+
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
+		msg, err := s.Accept(m.navContext)
+		if err != nil {
+			return m, err
+		}
+		return m.WithTermination(msg, nil), nil
+	}})
+
+	return items, nil
+}
+
+// Back returns the parent of a space nav state.
+func (s *DisconnectedSpace) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
+	m.state = &Disconnected{}
+	return m, nil
+}
+
+// BackLabel returns the label for the back item of a space nav state.
+func (s *DisconnectedSpace) BackLabel() string {
+	return "spaces"
+}
+
+// Breadcrumbs returns breadcrumbs for a space nav state.
+func (s *DisconnectedSpace) Breadcrumbs() Breadcrumbs {
+	return []string{"disconnected", s.Name()}
+}
+
+// getClient returns a kube client pointed at the current space.
+func (s *DisconnectedSpace) getClient() (client.Client, error) {
+	conf, err := s.BuildKubeconfig(types.NamespacedName{})
+	if err != nil {
+		return nil, err
+	}
+
+	rest, err := conf.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	rest.UserAgent = version.UserAgent()
+
+	return client.New(rest, client.Options{})
+}
+
+// BuildKubeconfig creates a new kubeconfig hardcoded to match the provided spaces
+// access configuration and pointed directly at the resource. If the resource
+// only specifies a namespace, then the client will point at the space and the
+// context will be set at the group. If the resource specifies both a namespace
+// and a name, then the client will point directly at the control plane ingress
+// and set the namespace to "default".
+func (s *DisconnectedSpace) BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error) {
+	// reference name for all context, cluster and authinfo for in-memory
+	// kubeconfig
+	ref := "upbound"
+
+	base := s.BaseKubeconfig
+	baseCtx := base.Contexts[base.CurrentContext]
+
+	config := clientcmdapi.Config{
+		Kind:           "Config",
+		APIVersion:     "v1",
+		CurrentContext: ref,
+		Clusters:       make(map[string]*clientcmdapi.Cluster),
+		Contexts:       make(map[string]*clientcmdapi.Context),
+		AuthInfos:      make(map[string]*clientcmdapi.AuthInfo),
+	}
+
+	// Build a new context with a new cluster that points to the space's
+	// ingress.
+	refContext := &clientcmdapi.Context{
+		Extensions: make(map[string]runtime.Object),
+		Cluster:    ref,
+	}
+
+	if s.Ingress.Host == "" {
+		return nil, errors.New("missing ingress address for context")
+	}
+	if len(s.Ingress.CAData) == 0 {
+		return nil, errors.New("missing ingress CA for context")
+	}
+
+	config.Clusters[ref] = &clientcmdapi.Cluster{
+		Server:                   profile.ToSpacesK8sURL(s.Ingress.Host, resource),
+		CertificateAuthorityData: s.Ingress.CAData,
+	}
+
+	config.AuthInfos[ref] = base.AuthInfos[baseCtx.AuthInfo]
+	refContext.AuthInfo = ref
+
+	if resource.Name == "" {
+		// point at the relevant namespace in the space hub
+		refContext.Namespace = resource.Namespace
+	} else {
+		// since we are pointing at an individual control plane, point at the
+		// "default" namespace inside it
+		refContext.Namespace = "default"
+	}
+
+	refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewDisconnectedV1Alpha1SpaceExtension(base.CurrentContext)
 
 	config.Contexts[ref] = refContext
 	return clientcmd.NewDefaultClientConfig(config, &clientcmd.ConfigOverrides{}), nil
@@ -610,8 +731,8 @@ var (
 )
 
 // Items returns the items for a group nav state.
-func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cl, err := g.Space.GetClient(upCtx)
+func (g *Group) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	cl, err := g.Space.getClient()
 	if err != nil {
 		return nil, err
 	}
@@ -635,8 +756,8 @@ func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 		items = append(items, item{text: fmt.Sprintf("No control planes found in group %q", g.Name), notSelectable: true})
 	}
 
-	items = append(items, item{text: fmt.Sprintf("Switch context to %q", fmt.Sprintf("%s/%s", g.Space.Name, g.Name)), onEnter: func(m model) (model, error) {
-		msg, err := g.Accept(m.upCtx, m.navContext)
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", fmt.Sprintf("%s/%s", g.Space.Name(), g.Name)), onEnter: func(m model) (model, error) {
+		msg, err := g.Accept(m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -653,7 +774,7 @@ func (g *Group) Breadcrumbs() Breadcrumbs {
 
 // Back returns the parent of a group nav state.
 func (g *Group) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &g.Space
+	m.state = g.Space
 	return m, nil
 }
 
@@ -678,7 +799,7 @@ func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navCont
 	return []list.Item{
 		item{text: "..", kind: ctp.BackLabel(), onEnter: ctp.Back, back: true},
 		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: keyFunc(func(m model) (model, error) {
-			msg, err := ctp.Accept(m.upCtx, m.navContext)
+			msg, err := ctp.Accept(m.navContext)
 			if err != nil {
 				return m, err
 			}

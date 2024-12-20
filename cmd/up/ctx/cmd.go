@@ -338,7 +338,7 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 			return fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
 		}
 		var err error
-		msg, err = accepting.Accept(m.upCtx, m.navContext)
+		msg, err = accepting.Accept(m.navContext)
 		if err != nil {
 			return err
 		}
@@ -464,14 +464,12 @@ func DeriveNewState(ctx context.Context, conf *clientcmdapi.Config, getIngressHo
 		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
 	}
 
-	return &Space{
-		Name: conf.CurrentContext,
+	return &DisconnectedSpace{
+		BaseKubeconfig: conf,
 		Ingress: spaces.SpaceIngress{
 			Host:   ingress,
 			CAData: ca,
 		},
-
-		HubContext: conf.CurrentContext,
 	}, nil
 }
 
@@ -515,14 +513,12 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 		}
 	}
 
-	space := Space{
-		Name: disconnected.HubContext,
+	space := DisconnectedSpace{
+		BaseKubeconfig: conf,
 		Ingress: spaces.SpaceIngress{
 			Host:   ingress,
 			CAData: ca,
 		},
-
-		HubContext: disconnected.HubContext,
 	}
 
 	// derive navigation state
@@ -530,14 +526,14 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 	case ctp.Namespace != "" && ctp.Name != "":
 		return &ControlPlane{
 			Group: Group{
-				Space: space,
+				Space: &space,
 				Name:  ctp.Namespace,
 			},
 			Name: ctp.Name,
 		}, nil
 	case ctp.Namespace != "":
 		return &Group{
-			Space: space,
+			Space: &space,
 			Name:  ctp.Namespace,
 		}, nil
 	default:
@@ -572,9 +568,9 @@ func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config,
 		// the old behavior of deriving it from the ingress URL.
 		spaceName = strings.TrimPrefix(strings.Split(ingress, ".")[0], "https://")
 	}
-	space := Space{
+	space := CloudSpace{
 		Org:  *org,
-		Name: spaceName,
+		name: spaceName,
 
 		Ingress: spaces.SpaceIngress{
 			Host:   strings.TrimPrefix(ingress, "https://"),
@@ -589,14 +585,14 @@ func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config,
 	case ctp.Namespace != "" && ctp.Name != "":
 		return &ControlPlane{
 			Group: Group{
-				Space: space,
+				Space: &space,
 				Name:  ctp.Namespace,
 			},
 			Name: ctp.Name,
 		}, nil
 	case ctp.Namespace != "":
 		return &Group{
-			Space: space,
+			Space: &space,
 			Name:  ctp.Namespace,
 		}, nil
 	default:

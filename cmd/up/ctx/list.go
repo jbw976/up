@@ -215,7 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //nolint:gocyclo // TO
 			return m, tea.Quit
 		case key.Matches(msg, quitBinding):
 			if state, ok := m.state.(Accepting); ok {
-				msg, err := state.Accept(m.upCtx, m.navContext)
+				msg, err := state.Accept(m.navContext)
 				if err != nil {
 					m.err = err
 					return m, nil

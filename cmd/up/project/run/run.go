@@ -152,16 +152,16 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	var ok bool
-	var space *ctxcmd.Space
+	var space ctxcmd.Space
 
-	if space, ok = spaceCtx.(*ctxcmd.Space); !ok {
+	if space, ok = spaceCtx.(ctxcmd.Space); !ok {
 		if group, ok := spaceCtx.(*ctxcmd.Group); ok {
-			space = &group.Space
+			space = group.Space
 			if c.ControlPlaneGroup == "" {
 				c.ControlPlaneGroup = group.Name
 			}
 		} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
-			space = &ctp.Group.Space
+			space = ctp.Group.Space
 			if c.ControlPlaneGroup == "" {
 				c.ControlPlaneGroup = ctp.Group.Name
 			}
@@ -169,7 +169,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
 		}
 	}
-	c.organization = space.Org.Name
+	if cs, ok := space.(*ctxcmd.CloudSpace); ok {
+		c.organization = cs.Org.Name
+	}
 
 	// fallback to the default "default" group
 	if c.ControlPlaneGroup == "" {
@@ -178,7 +180,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 	// Get the client for parent space, even if pointed at a group or a control
 	// plane
-	spaceClientConfig, err := space.BuildClient(upCtx, types.NamespacedName{
+	spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
 		Namespace: c.ControlPlaneGroup,
 	})
 	if err != nil {
@@ -414,19 +416,19 @@ func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp type
 	}
 
 	var ok bool
-	var space *ctxcmd.Space
+	var space ctxcmd.Space
 
-	if space, ok = state.(*ctxcmd.Space); !ok {
+	if space, ok = state.(ctxcmd.Space); !ok {
 		if group, ok := state.(*ctxcmd.Group); ok {
-			space = &group.Space
+			space = group.Space
 		} else if ctp, ok := state.(*ctxcmd.ControlPlane); ok {
-			space = &ctp.Group.Space
+			space = ctp.Group.Space
 		} else {
 			return nil, errors.New("current kubeconfig is not pointed at a space cluster")
 		}
 	}
 
-	spaceClient, err := space.BuildClient(upCtx, ctp)
+	spaceClient, err := space.BuildKubeconfig(ctp)
 	if err != nil {
 		return nil, err
 	}
