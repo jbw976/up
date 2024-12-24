@@ -159,14 +159,18 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) erro
 	if err != nil {
 		return err
 	}
-	// todo(avalanche123): Remove these defaults once we can default to using
-	// Upbound IAM, through connected spaces, to authenticate users in the
-	// cluster
-	defs.SpacesValues["authentication.hubIdentities"] = "true"
-	defs.SpacesValues["authorization.hubRBAC"] = "true"
+
+	spacesValues := map[string]string{
+		// todo(avalanche123): Remove these defaults once we can default to using
+		// Upbound IAM, through connected spaces, to authenticate users in the
+		// cluster
+		"authentication.hubIdentities": "true",
+		"authorization.hubRBAC":        "true",
+	}
+
 	// User supplied values always override the defaults
-	maps.Copy(defs.SpacesValues, c.Set)
-	c.Set = defs.SpacesValues
+	maps.Copy(spacesValues, c.Set)
+	c.Set = spacesValues
 	if !c.PublicIngress {
 		defs.PublicIngress = false
 	} else {

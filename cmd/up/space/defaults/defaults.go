@@ -31,7 +31,6 @@ type CloudType string
 
 // CloudConfig contains cloud-specific configuration settings for Spaces.
 type CloudConfig struct {
-	SpacesValues  map[string]string
 	PublicIngress bool
 }
 
@@ -51,30 +50,6 @@ const (
 	ClusterTypeStr = "clusterType"
 )
 
-func (ct *CloudType) getSpaceValues() map[string]string {
-	vendorDefaults := map[CloudType]map[string]string{
-		AmazonEKS: {
-			ClusterTypeStr: string(AmazonEKS),
-		},
-		AzureAKS: {
-			ClusterTypeStr: string(AzureAKS),
-		},
-		GoogleGKE: {
-			ClusterTypeStr: string(GoogleGKE),
-		},
-		Kind: {
-			ClusterTypeStr: string(Kind),
-		},
-
-		Generic: {},
-	}
-
-	if v, ok := vendorDefaults[*ct]; ok {
-		return v
-	}
-	return nil
-}
-
 // Defaults returns the defaults for a given type of cluster.
 func (ct *CloudType) Defaults() CloudConfig {
 	publicIngress := true
@@ -82,7 +57,6 @@ func (ct *CloudType) Defaults() CloudConfig {
 		publicIngress = false
 	}
 	return CloudConfig{
-		SpacesValues:  ct.getSpaceValues(),
 		PublicIngress: publicIngress,
 	}
 }
@@ -105,7 +79,6 @@ func GetConfig(kClient kubernetes.Interface, override string) (*CloudConfig, err
 		pterm.Info.Printfln("Applying settings for Managed Kubernetes on %s", strings.ToUpper(string(cloud)))
 	}
 	return &CloudConfig{
-		SpacesValues:  cloud.Defaults().SpacesValues,
 		PublicIngress: cloud.Defaults().PublicIngress,
 	}, nil
 }
