@@ -60,7 +60,7 @@ type IngressNginx struct {
 }
 
 // New constructs a new CertManager instance that can used to install the
-// cert-manager chart.
+// ingress chart.
 func New(config *rest.Config, svc ServiceType) (*IngressNginx, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
@@ -173,6 +173,7 @@ func getValues(svc ServiceType) map[string]any {
 	}
 	extraArgs := map[string]any{
 		"publish-status-address": "localhost",
+		"enable-ssl-passthrough": "",
 	}
 	pubAddress := false
 	if svc == LoadBalancer {
