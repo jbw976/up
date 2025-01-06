@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ingressnginx provides a Helm manager for installing the Ingress
 package ingressnginx
 
 import (
@@ -32,17 +33,18 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
+// ServiceType represents the type of service to expose the Ingress controller.
 type ServiceType string
 
 const (
-	// ServiceTypes are kubernetes supported service types.
+	// LoadBalancer service type is used to expose the service externally.
 	LoadBalancer ServiceType = "LoadBalancer"
-	NodePort     ServiceType = "NodePort"
+	// NodePort service type is used to expose the service on a static port.
+	NodePort ServiceType = "NodePort"
 )
 
-var (
-	chartName   = "ingress-nginx"
-	nginxURL, _ = url.Parse("https://kubernetes.github.io/ingress-nginx")
+const (
+	chartName = "ingress-nginx"
 
 	// Chart version to be installed.
 	version                 = "4.7.1"
@@ -62,6 +64,8 @@ type IngressNginx struct {
 // New constructs a new CertManager instance that can used to install the
 // ingress chart.
 func New(config *rest.Config, svc ServiceType) (*IngressNginx, error) {
+	nginxURL, _ := url.Parse("https://kubernetes.github.io/ingress-nginx")
+
 	mgr, err := helm.NewManager(config,
 		chartName,
 		nginxURL,
@@ -93,7 +97,7 @@ func (c *IngressNginx) GetName() string {
 }
 
 // Install performs a Helm install of the chart.
-func (c *IngressNginx) Install() error { //nolint:gocyclo
+func (c *IngressNginx) Install() error { //nolint:gocyclo // lots of checks but simple logic
 	installed, err := c.IsInstalled()
 	if err != nil {
 		return err
