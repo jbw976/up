@@ -177,7 +177,7 @@ func getValues(svc ServiceType) map[string]any {
 	}
 	extraArgs := map[string]any{
 		"publish-status-address": "localhost",
-		"enable-ssl-passthrough": "",
+		"enable-ssl-passthrough": "true",
 	}
 	pubAddress := false
 	if svc == LoadBalancer {
