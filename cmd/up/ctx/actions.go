@@ -18,8 +18,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/upbound/up/internal/upbound"
 )
 
 const (
@@ -28,8 +26,18 @@ const (
 
 // Accept upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the space.
-func (s *Space) Accept(upCtx *upbound.Context, navCtx *navContext) (msg string, err error) {
-	config, err := s.BuildClient(upCtx, types.NamespacedName{})
+func (s *CloudSpace) Accept(navCtx *navContext) (msg string, err error) {
+	return acceptSpace(s, navCtx)
+}
+
+// Accept upserts the "upbound" kubeconfig context and cluster to the chosen
+// kubeconfig, pointing to the space.
+func (s *DisconnectedSpace) Accept(navCtx *navContext) (msg string, err error) {
+	return acceptSpace(s, navCtx)
+}
+
+func acceptSpace(s Space, navCtx *navContext) (msg string, err error) {
+	config, err := s.BuildKubeconfig(types.NamespacedName{})
 	if err != nil {
 		return "", err
 	}
@@ -41,13 +49,13 @@ func (s *Space) Accept(upCtx *upbound.Context, navCtx *navContext) (msg string, 
 		return "", err
 	}
 
-	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(s.Breadcrumbs())), nil
+	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(s.Breadcrumbs().styledString())), nil
 }
 
 // Accept upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the group.
-func (g *Group) Accept(upCtx *upbound.Context, navCtx *navContext) (msg string, err error) {
-	config, err := g.Space.BuildClient(upCtx, types.NamespacedName{Namespace: g.Name})
+func (g *Group) Accept(navCtx *navContext) (msg string, err error) {
+	config, err := g.Space.BuildKubeconfig(types.NamespacedName{Namespace: g.Name})
 	if err != nil {
 		return "", err
 	}
@@ -59,12 +67,12 @@ func (g *Group) Accept(upCtx *upbound.Context, navCtx *navContext) (msg string, 
 		return "", err
 	}
 
-	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(g.Breadcrumbs())), nil
+	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(g.Breadcrumbs().styledString())), nil
 }
 
 // Accept upserts a controlplane context and cluster to the chosen kubeconfig.
-func (ctp *ControlPlane) Accept(upCtx *upbound.Context, navCtx *navContext) (msg string, err error) {
-	config, err := ctp.Group.Space.BuildClient(upCtx, ctp.NamespacedName())
+func (ctp *ControlPlane) Accept(navCtx *navContext) (msg string, err error) {
+	config, err := ctp.Group.Space.BuildKubeconfig(ctp.NamespacedName())
 	if err != nil {
 		return "", err
 	}
@@ -76,5 +84,5 @@ func (ctp *ControlPlane) Accept(upCtx *upbound.Context, navCtx *navContext) (msg
 		return "", err
 	}
 
-	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(ctp.Breadcrumbs())), nil
+	return fmt.Sprintf(contextSwitchedFmt, withUpboundPrefix(ctp.Breadcrumbs().styledString())), nil
 }

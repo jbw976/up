@@ -34,6 +34,7 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -125,16 +126,6 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 		contextWriter: c.kubeContextWriter(upCtx),
 	}
 
-	// Make sure the initial state is usable. If it's broken (e.g., because the
-	// user is logged into a different account than the last ctx they selected),
-	// start the user at the top level.
-	if _, err := initialState.Items(ctx, upCtx, navCtx); err != nil {
-		initialState, err = DeriveNewState(ctx, conf, kube.GetIngressHost)
-		if err != nil {
-			return err
-		}
-	}
-
 	// non-interactive mode via positional argument
 	switch c.Argument {
 	case "-":
@@ -180,7 +171,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	if c.Short {
 		fmt.Println(state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
 	} else {
-		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs())) //nolint:forbidigo // Interactive command.
+		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString())) //nolint:forbidigo // Interactive command.
 	}
 	return nil
 }
@@ -280,7 +271,13 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 	// begin from root unless we're starting from a relative . or ..
 	state := initialState
 	if !strings.HasPrefix(c.Argument, ".") {
-		state = &Root{}
+		s, err := rootState(ctx, upCtx)
+		if err != nil {
+			return err
+		}
+		state = s
+		// The root state isn't the empty path; prune it off of the argument.
+		c.Argument = strings.TrimPrefix(c.Argument, strings.Join(state.Breadcrumbs(), "/"))
 	}
 
 	m := model{
@@ -331,14 +328,14 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 	}
 
 	// final step if we moved: accept the state
-	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(m.state.Breadcrumbs()))
-	if m.state.Breadcrumbs() != initialState.Breadcrumbs() || c.File == "-" {
+	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(m.state.Breadcrumbs().styledString()))
+	if m.state.Breadcrumbs().String() != initialState.Breadcrumbs().String() || c.File == "-" {
 		accepting, ok := m.state.(Accepting)
 		if !ok {
 			return fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
 		}
 		var err error
-		msg, err = accepting.Accept(m.upCtx, m.navContext)
+		msg, err = accepting.Accept(m.navContext)
 		if err != nil {
 			return err
 		}
@@ -371,7 +368,7 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 	if err != nil {
 		return err
 	}
-	m.list = NewList(items)
+	m.list = newList(items)
 	m.list.KeyMap.Quit = key.NewBinding(key.WithDisabled())
 	if _, ok := m.state.(Accepting); ok {
 		m.list.KeyMap.Quit = quitBinding
@@ -419,60 +416,33 @@ func DeriveState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi
 	spaceExt, err := upbound.GetSpaceExtension(currentCtx)
 	if err != nil {
 		return nil, err
-	} else if spaceExt == nil {
-		return DeriveNewState(ctx, conf, getIngressHost)
+	}
+
+	if spaceExt == nil || !spaceInProfile(upCtx.Profile, spaceExt) {
+		return rootState(ctx, upCtx)
 	}
 
 	if spaceExt.Spec.Cloud != nil {
-		return DeriveExistingCloudState(upCtx, conf, spaceExt.Spec.Cloud)
+		return DeriveExistingCloudState(ctx, upCtx, conf, spaceExt.Spec.Cloud)
 	} else if spaceExt.Spec.Disconnected != nil {
 		return DeriveExistingDisconnectedState(ctx, upCtx, conf, spaceExt.Spec.Disconnected, getIngressHost)
 	}
 	return nil, errors.New("unable to derive state using context extension")
 }
 
-// DeriveNewState derives the current navigation state assuming that the current
-// context was created by a process other than the CLI.
-// Depending on what we are pointing at, there are a few options as to what to
-// do. If spaces **is not** installed in the cluster, then we fall back to root
-// Cloud navigation. If spaces **is** installed cluster, we should derive the
-// space information from the cluster. For all other cases and for all errors,
-// we should fall back to root Cloud navigation.
-// TODO(redbackthomson): Add support for passing a non-blocking error message
-// back if derivation was partially successful (maybe only when --debug is set?)
-func DeriveNewState(ctx context.Context, conf *clientcmdapi.Config, getIngressHost getIngressHostFn) (NavigationState, error) {
-	// if no current context, or current is pointing at an invalid context
-	if conf.CurrentContext == "" {
-		return &Root{}, nil
-	} else if _, exists := conf.Contexts[conf.CurrentContext]; !exists {
-		return &Root{}, nil
+func spaceInProfile(p profile.Profile, spaceExt *upbound.SpaceExtension) bool {
+	switch p.Type {
+	case profile.TypeCloud:
+		return spaceExt.Spec.Cloud != nil &&
+			spaceExt.Spec.Cloud.Organization == p.Organization
+
+	case profile.TypeDisconnected:
+		return spaceExt.Spec.Disconnected != nil &&
+			spaceExt.Spec.Disconnected.HubContext == p.SpaceKubeconfig.CurrentContext
+
+	default:
+		return false
 	}
-
-	rest, err := clientcmd.NewDefaultClientConfig(*conf, &clientcmd.ConfigOverrides{}).ClientConfig()
-	if err != nil {
-		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
-	}
-
-	cl, err := corev1client.NewForConfig(rest)
-	if err != nil {
-		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
-	}
-
-	ingress, ca, err := getIngressHost(ctx, cl)
-	if err != nil {
-		// ingress inaccessible or doesn't exist
-		return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
-	}
-
-	return &Space{
-		Name: conf.CurrentContext,
-		Ingress: spaces.SpaceIngress{
-			Host:   ingress,
-			CAData: ca,
-		},
-
-		HubContext: conf.CurrentContext,
-	}, nil
 }
 
 // DeriveExistingDisconnectedState derives the navigation state assuming the
@@ -500,29 +470,27 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 			CurrentContext: disconnected.HubContext,
 		}).ClientConfig()
 		if err != nil {
-			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
+			return rootState(ctx, upCtx)
 		}
 
 		cl, err := corev1client.NewForConfig(rest)
 		if err != nil {
-			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
+			return rootState(ctx, upCtx)
 		}
 
 		ingress, ca, err = getIngressHost(ctx, cl)
 		if err != nil {
 			// ingress inaccessible or doesn't exist
-			return &Root{}, nil //nolint:nilerr // Fall back to the root state on error.
+			return rootState(ctx, upCtx)
 		}
 	}
 
-	space := Space{
-		Name: disconnected.HubContext,
+	space := DisconnectedSpace{
+		BaseKubeconfig: upCtx.Profile.SpaceKubeconfig,
 		Ingress: spaces.SpaceIngress{
 			Host:   ingress,
 			CAData: ca,
 		},
-
-		HubContext: disconnected.HubContext,
 	}
 
 	// derive navigation state
@@ -530,14 +498,14 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 	case ctp.Namespace != "" && ctp.Name != "":
 		return &ControlPlane{
 			Group: Group{
-				Space: space,
+				Space: &space,
 				Name:  ctp.Namespace,
 			},
 			Name: ctp.Name,
 		}, nil
 	case ctp.Namespace != "":
 		return &Group{
-			Space: space,
+			Space: &space,
 			Name:  ctp.Namespace,
 		}, nil
 	default:
@@ -548,13 +516,13 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 // DeriveExistingCloudState derives the navigation state assuming that the
 // current context in the passed kubeconfig is pointing at an existing Cloud
 // space previously created by the CLI.
-func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config, cloud *upbound.CloudConfiguration) (NavigationState, error) {
+func DeriveExistingCloudState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi.Config, cloud *upbound.CloudConfiguration) (NavigationState, error) {
 	auth := conf.AuthInfos[conf.Contexts[conf.CurrentContext].AuthInfo]
 	ca := conf.Clusters[conf.Contexts[conf.CurrentContext].Cluster].CertificateAuthorityData
 
 	// the exec was modified or wasn't produced by up
 	if cloud == nil || cloud.Organization == "" {
-		return &Root{}, nil
+		return rootState(ctx, upCtx)
 	}
 
 	org := &Organization{
@@ -572,9 +540,9 @@ func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config,
 		// the old behavior of deriving it from the ingress URL.
 		spaceName = strings.TrimPrefix(strings.Split(ingress, ".")[0], "https://")
 	}
-	space := Space{
+	space := CloudSpace{
 		Org:  *org,
-		Name: spaceName,
+		name: spaceName,
 
 		Ingress: spaces.SpaceIngress{
 			Host:   strings.TrimPrefix(ingress, "https://"),
@@ -589,14 +557,14 @@ func DeriveExistingCloudState(upCtx *upbound.Context, conf *clientcmdapi.Config,
 	case ctp.Namespace != "" && ctp.Name != "":
 		return &ControlPlane{
 			Group: Group{
-				Space: space,
+				Space: &space,
 				Name:  ctp.Namespace,
 			},
 			Name: ctp.Name,
 		}, nil
 	case ctp.Namespace != "":
 		return &Group{
-			Space: space,
+			Space: &space,
 			Name:  ctp.Namespace,
 		}, nil
 	default:

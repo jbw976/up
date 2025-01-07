@@ -33,14 +33,12 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	upboundv1alpha1 "github.com/upbound/up-sdk-go/apis/upbound/v1alpha1"
-	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
@@ -57,16 +55,8 @@ var (
 	dimColor = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
 )
 
-var (
-	// all adaptive colors have a minimum of 7:1 against #fff or #000.
-
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	pathInactiveSegmentStyle = lipgloss.NewStyle().Foreground(neutralColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	pathSegmentStyle = lipgloss.NewStyle()
-)
+//nolint:gochecknoglobals // We'd make these consts if we could.
+var upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
 
 // TODO(adamwg): All the nav states here should probably be unexported. Today we
 // do use them a bit outside of the ctx command, but that's a bit of a smell -
@@ -76,13 +66,40 @@ var (
 // NavigationState is a model state that provides a list of items for a navigation node.
 type NavigationState interface {
 	Items(ctx context.Context, upCtx *upbound.Context, navCtx *navContext) ([]list.Item, error)
-	Breadcrumbs() string
+	Breadcrumbs() Breadcrumbs
+}
+
+// Breadcrumbs represents the path through the tree of contexts for a given
+// navigation state.
+type Breadcrumbs []string
+
+// String returns the canonical slash-separated string representation of the
+// breadcrumbs.
+func (b Breadcrumbs) String() string {
+	return strings.Join(b, "/")
+}
+
+// styledString returns a pretty string version of the breadcrumbs.
+func (b Breadcrumbs) styledString() string {
+	pathInactiveSegmentStyle := lipgloss.NewStyle().Foreground(neutralColor)
+	pathSegmentStyle := lipgloss.NewStyle()
+
+	switch len(b) {
+	case 0:
+		return ""
+	case 1:
+		return pathSegmentStyle.Render(b[0])
+	default:
+		inactive := strings.Join(b[:len(b)-1], "/")
+		inactive += "/"
+		return pathInactiveSegmentStyle.Render(inactive) + pathSegmentStyle.Render(b[len(b)-1])
+	}
 }
 
 // Accepting is a model state that provides a method to accept a navigation node.
 type Accepting interface {
 	NavigationState
-	Accept(upCtx *upbound.Context, navCtx *navContext) (string, error)
+	Accept(navCtx *navContext) (string, error)
 }
 
 // Back is a model state that provides a method to go back to the parent navigation node.
@@ -92,133 +109,30 @@ type Back interface {
 	BackLabel() string
 }
 
-// breadcrumbStyle defines the styles to be used in the breadcrumbs of a list.
-type breadcrumbStyle struct {
-	// previousLevel is the style of the previous levels in the path (higher
-	// order items). For example, when listing control planes then the
-	// breadcrumb labels for groups, spaces, orgs and root will be rendered with
-	// this style.
-	previousLevel lipgloss.Style
+// rootState returns the root state for the active profile.
+func rootState(ctx context.Context, upCtx *upbound.Context) (NavigationState, error) {
+	switch upCtx.Profile.Type {
+	case profile.TypeCloud:
+		return &Organization{
+			Name: upCtx.Organization,
+		}, nil
 
-	// currentLevel is the style of the current level in the path. For example,
-	// when listing control planes then the breadcrumb label for control planes
-	// will be rendered with this style.
-	currentLevel lipgloss.Style
+	case profile.TypeDisconnected:
+		return disconnectedSpaceFromKubeconfig(ctx, *upCtx.Profile.SpaceKubeconfig)
+
+	default:
+		return nil, errors.New("unknown profile type")
+	}
 }
 
-//nolint:gochecknoglobals // We'd make this a const if we could.
-var defaultBreadcrumbStyle = breadcrumbStyle{
-	previousLevel: pathInactiveSegmentStyle,
-	currentLevel:  pathSegmentStyle,
-}
-
-// Root is the root nav state.
-type Root struct{}
-
-// Items returns items for the root nav state.
-func (r *Root) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cfg, err := upCtx.BuildSDKConfig()
-	if err != nil {
+func disconnectedSpaceFromKubeconfig(ctx context.Context, kubeconfig clientcmdapi.Config) (*DisconnectedSpace, error) {
+	var cfg clientcmdapi.Config
+	kubeconfig.DeepCopyInto(&cfg)
+	if err := clientcmdapi.MinifyConfig(&cfg); err != nil {
 		return nil, err
 	}
 
-	client := organizations.NewClient(cfg)
-
-	items := make([]list.Item, 0, 1)
-
-	orgs, err := client.List(ctx)
-	if err != nil {
-		// We want `up ctx` to be usable for disconnected spaces even if the
-		// user isn't logged in or can't connect to Upbound. Return a friendly
-		// message instead of an error.
-		items = append(items, item{
-			text:          "Could not list Upbound organizations; are you logged in?",
-			notSelectable: true,
-		})
-	}
-
-	for _, org := range orgs {
-		items = append(items, item{text: org.DisplayName, kind: "organization", matchingTerms: []string{org.Name}, onEnter: func(m model) (model, error) {
-			m.state = &Organization{Name: org.Name}
-			return m, nil
-		}})
-	}
-
-	slices.SortFunc(items, itemSortFunc)
-	return append(items, item{
-		text: "Disconnected Spaces",
-		onEnter: func(m model) (model, error) {
-			m.state = &Disconnected{}
-			return m, nil
-		},
-		padding: padding{
-			top: 1,
-		},
-		matchingTerms: []string{"disconnected"},
-	}), nil
-}
-
-// Breadcrumbs returns breadcrumbs for the root nav state.
-func (r *Root) Breadcrumbs() string {
-	return ""
-}
-
-// Disconnected is the nav state containing disconnected spaces.
-type Disconnected struct{}
-
-// Items returns items for the disconnected nav state.
-func (d *Disconnected) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	kubeconfig, err := upCtx.Kubecfg.RawConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]list.Item, 0, 1)
-	items = append(items, item{text: "..", kind: d.BackLabel(), onEnter: d.Back, back: true})
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	for name := range kubeconfig.Contexts {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			itm, err := spaceItemFromKubeContext(ctx, kubeconfig, name)
-			if err != nil || itm == nil {
-				// Context is not a Space, or we can't tell due to an error.
-				return
-			}
-
-			mu.Lock()
-			items = append(items, itm)
-			mu.Unlock()
-		}(name)
-	}
-	wg.Wait()
-
-	slices.SortFunc(items, itemSortFunc)
-	return items, nil
-}
-
-func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Config, ctxName string) (list.Item, error) {
-	kubectx := kubeconfig.Contexts[ctxName]
-	spacesExt, err := upbound.GetSpaceExtension(kubectx)
-	if err != nil {
-		return nil, err
-	}
-	if spacesExt != nil {
-		// This is an up-managed context, which means it's either a cloud
-		// Space, or a disconnected Space represented by some other
-		// kubeconfig context, which we'll find later.
-		return nil, nil
-	}
-
-	// If the context points at a Space, it will have a ConfigMap containing
-	// the Space's ingress information. If we can't fetch the ConfigMap for
-	// any reason, assume the context isn't a Space.
-
-	rest, err := clientcmd.NewDefaultClientConfig(kubeconfig, &clientcmd.ConfigOverrides{
-		CurrentContext: ctxName,
-	}).ClientConfig()
+	rest, err := clientcmd.NewDefaultClientConfig(cfg, &clientcmd.ConfigOverrides{}).ClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -238,40 +152,14 @@ func spaceItemFromKubeContext(ctx context.Context, kubeconfig clientcmdapi.Confi
 		return nil, err
 	}
 
-	return item{text: ctxName, kind: "space", onEnter: func(m model) (model, error) {
-		m.state = &Space{
-			Name: ctxName,
-			Ingress: spaces.SpaceIngress{
-				Host:   ingressHost,
-				CAData: ingressCA,
-			},
-			HubContext: ctxName,
-		}
-		return m, nil
-	}}, nil
+	return &DisconnectedSpace{
+		BaseKubeconfig: &cfg,
+		Ingress: spaces.SpaceIngress{
+			Host:   ingressHost,
+			CAData: ingressCA,
+		},
+	}, nil
 }
-
-func (d *Disconnected) breadcrumbs(styles breadcrumbStyle) string {
-	return styles.currentLevel.Render("disconnected/")
-}
-
-// Breadcrumbs returns breadcrumbs for the disconnected nav state.
-func (d *Disconnected) Breadcrumbs() string {
-	return d.breadcrumbs(defaultBreadcrumbStyle)
-}
-
-// Back returns the parent of the disconnected nav state.
-func (d *Disconnected) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &Root{}
-	return m, nil
-}
-
-// BackLabel returns the label for the back item in the disconnected nav state.
-func (d *Disconnected) BackLabel() string {
-	return "home"
-}
-
-var _ Back = &Organization{}
 
 // Organization is the nav state containing an organization's spaces.
 type Organization struct {
@@ -368,9 +256,9 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 
 				mu.Lock()
 				items = append(items, item{text: space.GetObjectMeta().GetName(), kind: "space", onEnter: func(m model) (model, error) {
-					m.state = &Space{
+					m.state = &CloudSpace{
 						Org:      *o,
-						Name:     space.GetObjectMeta().GetName(),
+						name:     space.GetObjectMeta().GetName(),
 						Ingress:  *ingress,
 						AuthInfo: authInfo,
 					}
@@ -389,30 +277,12 @@ func (o *Organization) Items(ctx context.Context, upCtx *upbound.Context, navCtx
 	slices.SortFunc(items, itemSortFunc)
 	slices.SortFunc(unselectableItems, itemSortFunc)
 
-	ret := []list.Item{item{text: "..", kind: o.BackLabel(), onEnter: o.Back, back: true}}
-	ret = append(ret, items...)
-	ret = append(ret, unselectableItems...)
-	return ret, nil
-}
-
-// Back returns the parent of an organization nav state.
-func (o *Organization) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &Root{}
-	return m, nil
-}
-
-// BackLabel returns the label for the back item of an organization nav state.
-func (o *Organization) BackLabel() string {
-	return "home"
-}
-
-func (o *Organization) breadcrumbs(styles breadcrumbStyle) string {
-	return styles.currentLevel.Render(fmt.Sprintf("%s/", o.Name))
+	return append(items, unselectableItems...), nil
 }
 
 // Breadcrumbs returns breadcrumbs for an organization nav state.
-func (o *Organization) Breadcrumbs() string {
-	return o.breadcrumbs(defaultBreadcrumbStyle)
+func (o *Organization) Breadcrumbs() Breadcrumbs {
+	return []string{o.Name}
 }
 
 func itemSortFunc(a, b list.Item) int {
@@ -428,24 +298,18 @@ func itemSortFunc(a, b list.Item) int {
 	return strings.Compare(aitem.text, bitem.text)
 }
 
-var _ Back = &Space{}
+// Space abstracts over specific kinds of space contexts.
+type Space interface {
+	NavigationState
+	Accepting
 
-// Space provides the navigation node for a space.
-type Space struct {
-	Org  Organization
-	Name string
-
-	Ingress  spaces.SpaceIngress
-	AuthInfo *clientcmdapi.AuthInfo
-
-	// HubContext is an optional field that stores which context in the
-	// kubeconfig points at the hub
-	HubContext string
+	Name() string
+	BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error)
+	getClient() (client.Client, error)
 }
 
-// Items returns items for a space nav state.
-func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cl, err := s.GetClient(upCtx)
+func listGroupsInSpace(ctx context.Context, s Space) ([]*Group, error) {
+	cl, err := s.getClient()
 	if err != nil {
 		return nil, err
 	}
@@ -455,21 +319,50 @@ func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 		return nil, err
 	}
 
-	items := make([]list.Item, 0, len(nss.Items)+3)
-	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	groups := make([]*Group, 0, len(nss.Items))
 	for _, ns := range nss.Items {
-		items = append(items, item{text: ns.Name, kind: "group", onEnter: func(m model) (model, error) {
-			m.state = &Group{Space: *s, Name: ns.Name}
+		groups = append(groups, &Group{Space: s, Name: ns.Name})
+	}
+
+	return groups, nil
+}
+
+// CloudSpace provides the navigation node for a connected or cloud space.
+type CloudSpace struct {
+	Org  Organization
+	name string
+
+	Ingress  spaces.SpaceIngress
+	AuthInfo *clientcmdapi.AuthInfo
+}
+
+// Name returns the space's name.
+func (s *CloudSpace) Name() string {
+	return s.name
+}
+
+// Items returns items for a space nav state.
+func (s *CloudSpace) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	groups, err := listGroupsInSpace(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]list.Item, 0, len(groups)+3)
+	items = append(items, item{text: "..", kind: s.BackLabel(), onEnter: s.Back, back: true})
+	for _, group := range groups {
+		items = append(items, item{text: group.Name, kind: "group", onEnter: func(m model) (model, error) {
+			m.state = group
 			return m, nil
 		}})
 	}
 
-	if len(nss.Items) == 0 {
+	if len(groups) == 0 {
 		items = append(items, item{text: "No groups found", notSelectable: true})
 	}
 
-	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name), onEnter: func(m model) (model, error) {
-		msg, err := s.Accept(m.upCtx, m.navContext)
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
+		msg, err := s.Accept(m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -480,46 +373,24 @@ func (s *Space) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 }
 
 // Back returns the parent of a space nav state.
-func (s *Space) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	if s.IsCloud() {
-		m.state = &s.Org
-	} else {
-		m.state = &Disconnected{}
-	}
+func (s *CloudSpace) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
+	m.state = &s.Org
 	return m, nil
 }
 
 // BackLabel returns the label for the back item of a space nav state.
-func (s *Space) BackLabel() string {
+func (s *CloudSpace) BackLabel() string {
 	return "spaces"
 }
 
-// IsCloud returns true if the given space nav state references a cloud space.
-func (s *Space) IsCloud() bool {
-	return s.Org.Name != ""
-}
-
-func (s *Space) breadcrumbs(styles breadcrumbStyle) string {
-	if s.IsCloud() {
-		return s.Org.breadcrumbs(breadcrumbStyle{
-			currentLevel:  styles.previousLevel,
-			previousLevel: styles.previousLevel,
-		}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
-	}
-	return (&Disconnected{}).breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", s.Name))
-}
-
 // Breadcrumbs returns breadcrumbs for a space nav state.
-func (s *Space) Breadcrumbs() string {
-	return s.breadcrumbs(defaultBreadcrumbStyle)
+func (s *CloudSpace) Breadcrumbs() Breadcrumbs {
+	return append(s.Org.Breadcrumbs(), s.name)
 }
 
-// GetClient returns a kube client pointed at the current space.
-func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
-	conf, err := s.BuildClient(upCtx, types.NamespacedName{})
+// getClient returns a kube client pointed at the current space.
+func (s *CloudSpace) getClient() (client.Client, error) {
+	conf, err := s.BuildKubeconfig(types.NamespacedName{})
 	if err != nil {
 		return nil, err
 	}
@@ -533,21 +404,16 @@ func (s *Space) GetClient(upCtx *upbound.Context) (client.Client, error) {
 	return client.New(rest, client.Options{})
 }
 
-// BuildClient creates a new kubeconfig hardcoded to match the provided spaces
+// BuildKubeconfig creates a new kubeconfig hardcoded to match the provided spaces
 // access configuration and pointed directly at the resource. If the resource
 // only specifies a namespace, then the client will point at the space and the
 // context will be set at the group. If the resource specifies both a namespace
 // and a name, then the client will point directly at the control plane ingress
 // and set the namespace to "default".
-func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedName) (clientcmd.ClientConfig, error) {
+func (s *CloudSpace) BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error) {
 	// reference name for all context, cluster and authinfo for in-memory
 	// kubeconfig
 	ref := "upbound"
-
-	prev, err := upCtx.Kubecfg.RawConfig()
-	if err != nil {
-		return nil, err
-	}
 
 	config := clientcmdapi.Config{
 		Kind:           "Config",
@@ -577,22 +443,8 @@ func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedNam
 		CertificateAuthorityData: s.Ingress.CAData,
 	}
 
-	// Use the space's authinfo if we have it, otherwise fall back to the hub
-	// context's auth.
-	switch {
-	case s.AuthInfo != nil:
-		config.AuthInfos[ref] = s.AuthInfo
-		refContext.AuthInfo = ref
-	case s.HubContext != "":
-		hubContext, ok := prev.Contexts[s.HubContext]
-		if ok {
-			// import the authinfo from the hub context
-			refContext.AuthInfo = hubContext.AuthInfo
-			config.AuthInfos[hubContext.AuthInfo] = ptr.To(*prev.AuthInfos[hubContext.AuthInfo])
-		}
-	default:
-		return nil, errors.New("no auth info for context")
-	}
+	config.AuthInfos[ref] = s.AuthInfo
+	refContext.AuthInfo = ref
 
 	if resource.Name == "" {
 		// point at the relevant namespace in the space hub
@@ -603,11 +455,129 @@ func (s *Space) BuildClient(upCtx *upbound.Context, resource types.NamespacedNam
 		refContext.Namespace = "default"
 	}
 
-	if s.IsCloud() {
-		refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewCloudV1Alpha1SpaceExtension(s.Org.Name, s.Name)
-	} else {
-		refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewDisconnectedV1Alpha1SpaceExtension(s.HubContext)
+	refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewCloudV1Alpha1SpaceExtension(s.Org.Name, s.name)
+
+	config.Contexts[ref] = refContext
+	return clientcmd.NewDefaultClientConfig(config, &clientcmd.ConfigOverrides{}), nil
+}
+
+// DisconnectedSpace provides the navigation node for a disconnected space.
+type DisconnectedSpace struct {
+	BaseKubeconfig *clientcmdapi.Config
+	Ingress        spaces.SpaceIngress
+}
+
+// Name returns the space's name.
+func (s *DisconnectedSpace) Name() string {
+	return s.BaseKubeconfig.CurrentContext
+}
+
+// Items returns items for a space nav state.
+func (s *DisconnectedSpace) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	groups, err := listGroupsInSpace(ctx, s)
+	if err != nil {
+		return nil, err
 	}
+
+	items := make([]list.Item, 0, len(groups)+1)
+	for _, group := range groups {
+		items = append(items, item{text: group.Name, kind: "group", onEnter: func(m model) (model, error) {
+			m.state = group
+			return m, nil
+		}})
+	}
+
+	if len(groups) == 0 {
+		items = append(items, item{text: "No groups found", notSelectable: true})
+	}
+
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
+		msg, err := s.Accept(m.navContext)
+		if err != nil {
+			return m, err
+		}
+		return m.WithTermination(msg, nil), nil
+	}})
+
+	return items, nil
+}
+
+// Breadcrumbs returns breadcrumbs for a space nav state.
+func (s *DisconnectedSpace) Breadcrumbs() Breadcrumbs {
+	return []string{"disconnected", s.Name()}
+}
+
+// getClient returns a kube client pointed at the current space.
+func (s *DisconnectedSpace) getClient() (client.Client, error) {
+	conf, err := s.BuildKubeconfig(types.NamespacedName{})
+	if err != nil {
+		return nil, err
+	}
+
+	rest, err := conf.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	rest.UserAgent = version.UserAgent()
+
+	return client.New(rest, client.Options{})
+}
+
+// BuildKubeconfig creates a new kubeconfig hardcoded to match the provided spaces
+// access configuration and pointed directly at the resource. If the resource
+// only specifies a namespace, then the client will point at the space and the
+// context will be set at the group. If the resource specifies both a namespace
+// and a name, then the client will point directly at the control plane ingress
+// and set the namespace to "default".
+func (s *DisconnectedSpace) BuildKubeconfig(resource types.NamespacedName) (clientcmd.ClientConfig, error) {
+	// reference name for all context, cluster and authinfo for in-memory
+	// kubeconfig
+	ref := "upbound"
+
+	base := s.BaseKubeconfig
+	baseCtx := base.Contexts[base.CurrentContext]
+
+	config := clientcmdapi.Config{
+		Kind:           "Config",
+		APIVersion:     "v1",
+		CurrentContext: ref,
+		Clusters:       make(map[string]*clientcmdapi.Cluster),
+		Contexts:       make(map[string]*clientcmdapi.Context),
+		AuthInfos:      make(map[string]*clientcmdapi.AuthInfo),
+	}
+
+	// Build a new context with a new cluster that points to the space's
+	// ingress.
+	refContext := &clientcmdapi.Context{
+		Extensions: make(map[string]runtime.Object),
+		Cluster:    ref,
+	}
+
+	if s.Ingress.Host == "" {
+		return nil, errors.New("missing ingress address for context")
+	}
+	if len(s.Ingress.CAData) == 0 {
+		return nil, errors.New("missing ingress CA for context")
+	}
+
+	config.Clusters[ref] = &clientcmdapi.Cluster{
+		Server:                   profile.ToSpacesK8sURL(s.Ingress.Host, resource),
+		CertificateAuthorityData: s.Ingress.CAData,
+	}
+
+	config.AuthInfos[ref] = base.AuthInfos[baseCtx.AuthInfo]
+	refContext.AuthInfo = ref
+
+	if resource.Name == "" {
+		// point at the relevant namespace in the space hub
+		refContext.Namespace = resource.Namespace
+	} else {
+		// since we are pointing at an individual control plane, point at the
+		// "default" namespace inside it
+		refContext.Namespace = "default"
+	}
+
+	refContext.Extensions[upbound.ContextExtensionKeySpace] = upbound.NewDisconnectedV1Alpha1SpaceExtension(base.CurrentContext)
 
 	config.Contexts[ref] = refContext
 	return clientcmd.NewDefaultClientConfig(config, &clientcmd.ConfigOverrides{}), nil
@@ -625,8 +595,8 @@ var (
 )
 
 // Items returns the items for a group nav state.
-func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext) ([]list.Item, error) {
-	cl, err := g.Space.GetClient(upCtx)
+func (g *Group) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
+	cl, err := g.Space.getClient()
 	if err != nil {
 		return nil, err
 	}
@@ -650,8 +620,8 @@ func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 		items = append(items, item{text: fmt.Sprintf("No control planes found in group %q", g.Name), notSelectable: true})
 	}
 
-	items = append(items, item{text: fmt.Sprintf("Switch context to %q", fmt.Sprintf("%s/%s", g.Space.Name, g.Name)), onEnter: func(m model) (model, error) {
-		msg, err := g.Accept(m.upCtx, m.navContext)
+	items = append(items, item{text: fmt.Sprintf("Switch context to %q", fmt.Sprintf("%s/%s", g.Space.Name(), g.Name)), onEnter: func(m model) (model, error) {
+		msg, err := g.Accept(m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -661,21 +631,14 @@ func (g *Group) Items(ctx context.Context, upCtx *upbound.Context, _ *navContext
 	return items, nil
 }
 
-func (g *Group) breadcrumbs(styles breadcrumbStyle) string {
-	return g.Space.breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(fmt.Sprintf("%s/", g.Name))
-}
-
 // Breadcrumbs returns breadcrumbs for a group nav state.
-func (g *Group) Breadcrumbs() string {
-	return g.breadcrumbs(defaultBreadcrumbStyle)
+func (g *Group) Breadcrumbs() Breadcrumbs {
+	return append(g.Space.Breadcrumbs(), g.Name)
 }
 
 // Back returns the parent of a group nav state.
 func (g *Group) Back(m model) (model, error) { //nolint:revive // See todo at top of file.
-	m.state = &g.Space
+	m.state = g.Space
 	return m, nil
 }
 
@@ -699,8 +662,8 @@ var (
 func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navContext) ([]list.Item, error) {
 	return []list.Item{
 		item{text: "..", kind: ctp.BackLabel(), onEnter: ctp.Back, back: true},
-		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: KeyFunc(func(m model) (model, error) {
-			msg, err := ctp.Accept(m.upCtx, m.navContext)
+		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: keyFunc(func(m model) (model, error) {
+			msg, err := ctp.Accept(m.navContext)
 			if err != nil {
 				return m, err
 			}
@@ -709,17 +672,9 @@ func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navCont
 	}, nil
 }
 
-func (ctp *ControlPlane) breadcrumbs(styles breadcrumbStyle) string {
-	// use current level to highlight the entire breadcrumb chain
-	return ctp.Group.breadcrumbs(breadcrumbStyle{
-		currentLevel:  styles.previousLevel,
-		previousLevel: styles.previousLevel,
-	}) + styles.currentLevel.Render(ctp.Name)
-}
-
 // Breadcrumbs returns breadcrumbs for a control plane nav state.
-func (ctp *ControlPlane) Breadcrumbs() string {
-	return ctp.breadcrumbs(defaultBreadcrumbStyle)
+func (ctp *ControlPlane) Breadcrumbs() Breadcrumbs {
+	return append(ctp.Group.Breadcrumbs(), ctp.Name)
 }
 
 // Back returns the parent of a control plane nav state.

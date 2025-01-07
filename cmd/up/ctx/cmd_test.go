@@ -20,14 +20,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-
+	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -394,384 +391,6 @@ func TestSwapContext(t *testing.T) {
 	}
 }
 
-// func TestDeriveState(t *testing.T) {
-// 	ingressPublicNotFound := func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 		return "", nil, errors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "ingress-public")
-// 	}
-// 	ingressUnknownKind := func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 		return "", nil, &meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: "ConfigMap"}}
-// 	}
-// 	authOrgExec, _ := getOrgScopedAuthInfo(&upbound.Context{ProfileName: "profile"}, "org")
-
-// 	tests := map[string]struct {
-// 		conf           clientcmdapi.Config
-// 		getIngressHost func(ctx context.Context, cl client.Client) (host string, ca []byte, err error)
-
-// 		want    NavigationState
-// 		wantErr string
-// 	}{
-// 		"HubWithoutIngressPublic": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "hub",
-// 				Contexts:       map[string]*clientcmdapi.Context{"hub": {Namespace: "default", Cluster: "hub", AuthInfo: "hub"}},
-// 				Clusters:       map[string]*clientcmdapi.Cluster{"hub": {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)}},
-// 				AuthInfos:      map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: ingressPublicNotFound,
-// 			want:           &Root{},
-// 			wantErr:        "<nil>",
-// 		},
-// 		"HubWithIngressPublic": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "hub",
-// 				Contexts:       map[string]*clientcmdapi.Context{"hub": {Namespace: "default", Cluster: "hub", AuthInfo: "hub"}},
-// 				Clusters:       map[string]*clientcmdapi.Cluster{"hub": {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)}},
-// 				AuthInfos:      map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want: &Group{
-// 				Space: Space{
-// 					Name:    "hub",
-// 					Ingress: "https://ingress",
-// 					CA:      []byte(ingressCA),
-// 					AuthInfo: &clientcmdapi.AuthInfo{
-// 						Token: "token",
-// 					},
-// 				},
-// 				Name: "default",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"IngressWithIngressPublic": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "ingress",
-// 				Contexts:       map[string]*clientcmdapi.Context{"ingress": {Namespace: "default", Cluster: "ingress", AuthInfo: "hub"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub":     {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 					"ingress": {Server: "https://ingress", CertificateAuthorityData: []byte(ingressCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want: &Group{
-// 				Space: Space{
-// 					Name:    "ingress",
-// 					Ingress: "https://ingress",
-// 					CA:      []byte(ingressCA),
-// 					AuthInfo: &clientcmdapi.AuthInfo{
-// 						Token: "token",
-// 					},
-// 				},
-// 				Name: "default",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"WithoutNamespace": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "ingress",
-// 				Contexts:       map[string]*clientcmdapi.Context{"ingress": {Namespace: "", Cluster: "ingress", AuthInfo: "hub"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub":     {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 					"ingress": {Server: "https://ingress", CertificateAuthorityData: []byte(ingressCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want: &Space{
-// 				Ingress: "https://ingress",
-// 				CA:      []byte(ingressCA),
-// 				AuthInfo: &clientcmdapi.AuthInfo{
-// 					Token: "token",
-// 				},
-// 				Name: "ingress",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"ControlPlane": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "ctp1",
-// 				Contexts:       map[string]*clientcmdapi.Context{"ctp1": {Namespace: "default", Cluster: "ctp1", AuthInfo: "hub"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub":     {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 					"ingress": {Server: "https://ingress", CertificateAuthorityData: []byte(ingressCA)},
-// 					"ctp1":    {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp1/k8s", CertificateAuthorityData: []byte(ingressCA)},
-// 					"ctp2":    {Server: "https://ingress/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp2/k8s", CertificateAuthorityData: []byte(ingressCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": authOrgExec},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want: &ControlPlane{
-// 				Group: Group{
-// 					Space: Space{
-// 						Ingress:  "https://ingress",
-// 						CA:       []byte(ingressCA),
-// 						AuthInfo: authOrgExec,
-// 						Name:     "ctp1",
-// 					},
-// 					Name: "default",
-// 				},
-// 				Name: "ctp1",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"CloudSpace": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "upbound",
-// 				Contexts:       map[string]*clientcmdapi.Context{"upbound": {Namespace: "default", Cluster: "upbound", AuthInfo: "upbound"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"upbound": {Server: "https://eu-west-1.ibm-cloud.com", CertificateAuthorityData: []byte(ingressCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": authOrgExec},
-// 			},
-// 			getIngressHost: ingressPublicNotFound,
-// 			want: &Group{
-// 				Space: Space{
-// 					Org: Organization{
-// 						Name: "org",
-// 					},
-// 					Name:     "eu-west-1", // TODO: where does this come from?
-// 					Ingress:  "eu-west-1.ibm-cloud.com",
-// 					CA:       []byte(ingressCA),
-// 					AuthInfo: authOrgExec,
-// 				},
-// 				Name: "default",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"CloudControlPlane": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "upbound",
-// 				Contexts:       map[string]*clientcmdapi.Context{"upbound": {Namespace: "default", Cluster: "upbound", AuthInfo: "upbound"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"upbound": {Server: "https://eu-west-1.ibm-cloud.com/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp1/k8s", CertificateAuthorityData: []byte(ingressCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": authOrgExec},
-// 			},
-// 			getIngressHost: ingressUnknownKind,
-// 			want: &ControlPlane{
-// 				Group: Group{
-// 					Space: Space{
-// 						Org: Organization{
-// 							Name: "org",
-// 						},
-// 						Name:     "eu-west-1",
-// 						Ingress:  "eu-west-1.ibm-cloud.com",
-// 						CA:       []byte(ingressCA),
-// 						AuthInfo: authOrgExec,
-// 					},
-// 					Name: "default",
-// 				},
-// 				Name: "ctp1",
-// 			},
-// 			wantErr: "<nil>",
-// 		},
-// 		"UnknownCluster": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "hub",
-// 				Contexts:       map[string]*clientcmdapi.Context{"hub": {Namespace: "default", Cluster: "invalid", AuthInfo: "hub"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub": {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want:    nil,
-// 			wantErr: `invalid configuration: cluster "invalid" was not found for context "hub"`,
-// 		},
-// 		"UnknownAuthInfo": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "hub",
-// 				Contexts:       map[string]*clientcmdapi.Context{"hub": {Namespace: "default", Cluster: "hub", AuthInfo: "invalid"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub": {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want:    nil,
-// 			wantErr: `invalid configuration: user "invalid" was not found for context "hub"`,
-// 		},
-// 		"UnknownContext": {
-// 			conf: clientcmdapi.Config{
-// 				CurrentContext: "invalid",
-// 				Contexts:       map[string]*clientcmdapi.Context{"hub": {Namespace: "default", Cluster: "hub", AuthInfo: "hub"}},
-// 				Clusters: map[string]*clientcmdapi.Cluster{
-// 					"hub": {Server: "https://hub", CertificateAuthorityData: []byte(hubCA)},
-// 				},
-// 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": {Token: "token"}},
-// 			},
-// 			getIngressHost: func(ctx context.Context, cl client.Client) (host string, ca []byte, err error) {
-// 				return "https://ingress", []byte(ingressCA), nil
-// 			},
-// 			want:    nil, // or do we want an error?
-// 			wantErr: `invalid configuration: context was not found for specified context: invalid`,
-// 		},
-// 	}
-// 	for name, tt := range tests {
-// 		t.Run(name, func(t *testing.T) {
-// 			upCtx := &upbound.Context{
-// 				Kubecfg: clientcmd.NewDefaultClientConfig(tt.conf, nil),
-// 			}
-// 			got, err := deriveState(context.Background(), upCtx, &tt.conf, tt.getIngressHost)
-// 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
-// 				t.Fatalf("DeriveState(...): -want err, +got err:\n%s", diff)
-// 			}
-// 			if diff := cmp.Diff(tt.want, got); diff != "" {
-// 				t.Errorf("swapContext(...): -want conf, +got conf:\n%s", diff)
-// 			}
-// 		})
-// 	}
-// }
-
-func TestDeriveNewState(t *testing.T) {
-	hubAuth := clientcmdapi.AuthInfo{}
-
-	ingressFound := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
-		return "eu-west-1.ibm-cloud.com", []byte(ingressCA), nil
-	}
-	ingressPublicNotFound := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
-		return "", nil, kerrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "ingress-public")
-	}
-	ingressErr := func(_ context.Context, _ corev1client.ConfigMapsGetter) (host string, ca []byte, err error) {
-		return "", nil, errors.New("unknown error")
-	}
-
-	tests := map[string]struct {
-		conf           clientcmdapi.Config
-		getIngressHost getIngressHostFn
-
-		want    NavigationState
-		wantErr string
-	}{
-		"NoCurrentContext": {
-			conf: clientcmdapi.Config{
-				CurrentContext: "",
-				Contexts: map[string]*clientcmdapi.Context{
-					"hub": {
-						Namespace: "default",
-						Cluster:   "hub",
-						AuthInfo:  "hub",
-					},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
-			},
-			getIngressHost: ingressFound,
-			want:           &Root{},
-			wantErr:        "<nil>",
-		},
-		"InvalidCurrentContext": {
-			conf: clientcmdapi.Config{
-				CurrentContext: "noexist",
-				Contexts: map[string]*clientcmdapi.Context{
-					"hub": {
-						Namespace: "default",
-						Cluster:   "hub",
-						AuthInfo:  "hub",
-					},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
-			},
-			getIngressHost: ingressFound,
-			want:           &Root{},
-			wantErr:        "<nil>",
-		},
-		"NoIngressFound": {
-			conf: clientcmdapi.Config{
-				CurrentContext: "hub",
-				Contexts: map[string]*clientcmdapi.Context{
-					"hub": {
-						Namespace: "default",
-						Cluster:   "hub",
-						AuthInfo:  "hub",
-					},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
-			},
-			getIngressHost: ingressPublicNotFound,
-			want:           &Root{},
-			wantErr:        "<nil>",
-		},
-		"GetIngressError": {
-			conf: clientcmdapi.Config{
-				CurrentContext: "hub",
-				Contexts: map[string]*clientcmdapi.Context{
-					"hub": {
-						Namespace: "default",
-						Cluster:   "hub",
-						AuthInfo:  "hub",
-					},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
-			},
-			getIngressHost: ingressErr,
-			want:           &Root{},
-			wantErr:        "<nil>",
-		},
-		"SpaceFound": {
-			conf: clientcmdapi.Config{
-				CurrentContext: "hub",
-				Contexts: map[string]*clientcmdapi.Context{
-					"hub": {
-						Namespace: "default",
-						Cluster:   "hub",
-						AuthInfo:  "hub",
-					},
-				},
-				Clusters: map[string]*clientcmdapi.Cluster{
-					"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
-				},
-				AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
-			},
-			getIngressHost: ingressFound,
-			want: &Space{
-				Org:  Organization{},
-				Name: "hub",
-				Ingress: spaces.SpaceIngress{
-					Host:   "eu-west-1.ibm-cloud.com",
-					CAData: []byte(ingressCA),
-				},
-				HubContext: "hub",
-			},
-			wantErr: "<nil>",
-		},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			got, err := DeriveNewState(context.Background(), &tt.conf, tt.getIngressHost)
-			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
-				t.Fatalf("DeriveNewState(...): -want err, +got err:\n%s", diff)
-			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("DeriveNewState(...): -want conf, +got conf:\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestDeriveExistingDisconnectedState(t *testing.T) {
 	hubAuth := clientcmdapi.AuthInfo{}
 
@@ -841,14 +460,30 @@ func TestDeriveExistingDisconnectedState(t *testing.T) {
 			getIngressHost: ingressFound,
 			dcConfig:       buildDisconnectedExtension("hub"),
 			want: &Group{
-				Space: Space{
-					Org:  Organization{},
-					Name: "hub",
+				Space: &DisconnectedSpace{
+					BaseKubeconfig: &clientcmdapi.Config{
+						CurrentContext: "upbound",
+						Contexts: map[string]*clientcmdapi.Context{
+							"upbound": {
+								Namespace: "group",
+								Cluster:   "hub",
+								AuthInfo:  "hub",
+							},
+							"hub": {
+								Namespace: "default",
+								Cluster:   "hub",
+								AuthInfo:  "hub",
+							},
+						},
+						Clusters: map[string]*clientcmdapi.Cluster{
+							"hub": {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
+						},
+						AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
+					},
 					Ingress: spaces.SpaceIngress{
 						Host:   "eu-west-1.ibm-cloud.com",
 						CAData: []byte(ingressCA),
 					},
-					HubContext: "hub",
 				},
 				Name: "group",
 			},
@@ -879,14 +514,31 @@ func TestDeriveExistingDisconnectedState(t *testing.T) {
 			dcConfig:       buildDisconnectedExtension("hub"),
 			want: &ControlPlane{
 				Group: Group{
-					Space: Space{
-						Org:  Organization{},
-						Name: "hub",
+					Space: &DisconnectedSpace{
+						BaseKubeconfig: &clientcmdapi.Config{
+							CurrentContext: "upbound",
+							Contexts: map[string]*clientcmdapi.Context{
+								"upbound": {
+									Namespace: "default",
+									Cluster:   "upbound",
+									AuthInfo:  "hub",
+								},
+								"hub": {
+									Namespace: "default",
+									Cluster:   "hub",
+									AuthInfo:  "hub",
+								},
+							},
+							Clusters: map[string]*clientcmdapi.Cluster{
+								"hub":     {Server: "https://hub:1234", CertificateAuthorityData: []byte(hubCA)},
+								"upbound": {Server: "https://eu-west-1.ibm-cloud.com/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp1/k8s", CertificateAuthorityData: []byte(ingressCA)},
+							},
+							AuthInfos: map[string]*clientcmdapi.AuthInfo{"hub": &hubAuth},
+						},
 						Ingress: spaces.SpaceIngress{
 							Host:   "eu-west-1.ibm-cloud.com",
 							CAData: []byte(ingressCA),
 						},
-						HubContext: "hub",
 					},
 					Name: "default",
 				},
@@ -899,6 +551,10 @@ func TestDeriveExistingDisconnectedState(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			upCtx := &upbound.Context{
 				Kubecfg: clientcmd.NewDefaultClientConfig(tt.conf, nil),
+				Profile: profile.Profile{
+					Type:            profile.TypeDisconnected,
+					SpaceKubeconfig: &tt.conf,
+				},
 			}
 			got, err := DeriveExistingDisconnectedState(context.Background(), upCtx, &tt.conf, &tt.dcConfig, tt.getIngressHost)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
@@ -964,11 +620,11 @@ func TestDeriveExistingCloudState(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": authOrgExec},
 			},
 			cloudConfig: buildCloudExtension("org", ""),
-			want: &Space{
+			want: &CloudSpace{
 				Org: Organization{
 					Name: "org",
 				},
-				Name: "eu-west-1",
+				name: "eu-west-1",
 				Ingress: spaces.SpaceIngress{
 					Host:   "eu-west-1.ibm-cloud.com",
 					CAData: []byte(ingressCA),
@@ -993,8 +649,10 @@ func TestDeriveExistingCloudState(t *testing.T) {
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{"upbound": authOrgExec},
 			},
 			cloudConfig: buildCloudExtension("", ""),
-			want:        &Root{},
-			wantErr:     "<nil>",
+			want: &Organization{
+				Name: "profile",
+			},
+			wantErr: "<nil>",
 		},
 		"CloudSpace": {
 			conf: clientcmdapi.Config{
@@ -1013,11 +671,11 @@ func TestDeriveExistingCloudState(t *testing.T) {
 			},
 			cloudConfig: buildCloudExtension("org", "eu-space"),
 			want: &Group{
-				Space: Space{
+				Space: &CloudSpace{
 					Org: Organization{
 						Name: "org",
 					},
-					Name: "eu-space",
+					name: "eu-space",
 					Ingress: spaces.SpaceIngress{
 						Host:   "eu-west-1.ibm-cloud.com",
 						CAData: []byte(ingressCA),
@@ -1045,11 +703,11 @@ func TestDeriveExistingCloudState(t *testing.T) {
 			},
 			cloudConfig: buildCloudExtension("org", "eu-space"),
 			want: &Group{
-				Space: Space{
+				Space: &CloudSpace{
 					Org: Organization{
 						Name: "org",
 					},
-					Name: "eu-space",
+					name: "eu-space",
 					Ingress: spaces.SpaceIngress{
 						Host:   "eu-west-1.ibm-cloud.com",
 						CAData: []byte(ingressCA),
@@ -1078,11 +736,11 @@ func TestDeriveExistingCloudState(t *testing.T) {
 			cloudConfig: buildCloudExtension("org", "eu-space"),
 			want: &ControlPlane{
 				Group: Group{
-					Space: Space{
+					Space: &CloudSpace{
 						Org: Organization{
 							Name: "org",
 						},
-						Name: "eu-space",
+						name: "eu-space",
 						Ingress: spaces.SpaceIngress{
 							Host:   "eu-west-1.ibm-cloud.com",
 							CAData: []byte(ingressCA),
@@ -1099,13 +757,18 @@ func TestDeriveExistingCloudState(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			upCtx := &upbound.Context{
-				Kubecfg: clientcmd.NewDefaultClientConfig(tt.conf, nil),
+				Kubecfg:      clientcmd.NewDefaultClientConfig(tt.conf, nil),
+				Organization: "profile",
+				Profile: profile.Profile{
+					Type:         profile.TypeCloud,
+					Organization: "profile",
+				},
 			}
-			got, err := DeriveExistingCloudState(upCtx, &tt.conf, &tt.cloudConfig)
+			got, err := DeriveExistingCloudState(context.Background(), upCtx, &tt.conf, &tt.cloudConfig)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("DeriveExistingCloudState(...): -want err, +got err:\n%s", diff)
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(CloudSpace{})); diff != "" {
 				t.Errorf("DeriveExistingCloudState(...): -want conf, +got conf:\n%s", diff)
 			}
 		})
