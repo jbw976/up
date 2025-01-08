@@ -25,14 +25,12 @@ import (
 	"strings"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpmeta "github.com/crossplane/crossplane-runtime/pkg/meta"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/discovery"
@@ -41,7 +39,6 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/upbound/up/pkg/migration"
-	"github.com/upbound/up/pkg/migration/category"
 	"github.com/upbound/up/pkg/migration/meta/v1alpha1"
 )
 
@@ -109,20 +106,13 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 	}()
 
 	if e.options.PauseBeforeExport {
-		pauseMsg := "Pausing all managed resources before export... "
-		s, _ := migration.DefaultSpinner.Start(pauseMsg)
-		cm := category.NewAPICategoryModifier(e.dynamicClient, e.discoveryClient)
-
-		// Modify all managed resources to add the "crossplane.io/paused: true" annotation.
-		count, err := cm.ModifyResources(ctx, "managed", func(u *unstructured.Unstructured) error {
-			xpmeta.AddAnnotations(u, map[string]string{"crossplane.io/paused": "true"})
-			return nil
-		})
-		if err != nil {
-			s.Fail(pauseMsg + stepFailed)
-			return errors.Wrap(err, "cannot pause managed resources")
+		rp := NewDefaultResourcePauser(e.dynamicClient, e.discoveryClient)
+		categories := []string{"claim", "composite", "managed"}
+		for _, category := range categories {
+			if err = rp.PauseResources(ctx, category); err != nil {
+				return errors.Wrapf(err, "unable to pause %s category complete", category)
+			}
 		}
-		s.Success(pauseMsg + fmt.Sprintf("%d resources paused! ⏸️", count))
 	}
 
 	// Scan the control plane for types to export.

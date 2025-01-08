@@ -52,17 +52,19 @@ type exportCmd struct {
 	IncludeNamespaces     []string `help:"A list of specific namespaces to include in the export. If not specified, all namespaces are included by default."`
 	ExcludeNamespaces     []string `default:"kube-system,kube-public,kube-node-lease,local-path-storage"                                                           help:"A list of specific namespaces to exclude from the export. Defaults to 'kube-system', 'kube-public', 'kube-node-lease', and 'local-path-storage'."`
 
-	PauseBeforeExport bool `default:"false" help:"When set to true, pauses all managed resources before starting the export process. This can help ensure a consistent state for the export. Defaults to false."`
+	PauseBeforeExport bool `default:"false" help:"When set to true, pauses all claim,composite and managed resources before starting the export process. This can help ensure a consistent state for the export. Defaults to false."`
 }
 
 func (c *exportCmd) Help() string {
 	return `
 Use the available options to customize the export process, such as specifying the output file path, including or excluding
-specific resources and namespaces, and deciding whether to pause managed resources before exporting.
+specific resources and namespaces, and deciding whether to pause claim,composite,managed resources before exporting.
 
 Examples:
 	migration export --pause-before-export
-        Pauses all managed resources first and exports the control plane state to the default archive file named 'xp-state.tar.gz'.
+		Pauses all claim, composite, and managed resources before exporting the control plane state.
+		The state is exported to the default archive file named xp-state.tar.gz.
+		Resources that were already paused will be annotated with migration.upbound.io/already-paused: "true" to preserve their paused state during the restore process.
 
 	migration export --output=my-export.tar.gz
         Exports the control plane state to a specified file 'my-export.tar.gz'.
