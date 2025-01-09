@@ -194,3 +194,13 @@ func NewFileWriter(upCtx *upbound.Context, fileOverride string, kubeContext stri
 		modifyConfigFunc:     clientcmd.ModifyConfig,
 	}
 }
+
+// NopWriter doesn't actually write a kubeconfig.
+type NopWriter struct{}
+
+var _ ContextWriter = &NopWriter{}
+
+// Write implements kubeContextWriter.Write.
+func (p *NopWriter) Write(_ *clientcmdapi.Config) error {
+	return nil
+}
