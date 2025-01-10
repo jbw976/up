@@ -21,20 +21,19 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
-	xpmeta "github.com/crossplane/crossplane-runtime/pkg/meta"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
@@ -80,6 +79,8 @@ type Options struct {
 	InputArchive string // default: xp-state.tar.gz
 	// UnpauseAfterImport indicates whether to unpause all managed resources after import.
 	UnpauseAfterImport bool // default: false
+	// PausedBeforeExport indicates whether that resources paused before in export.
+	PausedBeforeExport bool // default: false
 }
 
 // ControlPlaneStateImporter is the importer for control plane state.
@@ -137,7 +138,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	s, _ = migration.DefaultSpinner.Start(importBaseMsg + fmt.Sprintf("0 / %d", len(baseResources)))
 	baseCounts := make(map[string]int, len(baseResources))
 	for i, gr := range baseResources {
-		count, err := r.ImportResources(ctx, gr, false)
+		count, err := r.ImportResources(ctx, gr, false, im.options.PausedBeforeExport)
 		if err != nil {
 			s.Fail(importBaseMsg + stepFailed)
 			return errors.Wrapf(err, "cannot import %q resources", gr)
@@ -219,7 +220,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 			continue
 		}
 
-		count, err := r.ImportResources(ctx, info.Name(), true)
+		count, err := r.ImportResources(ctx, info.Name(), true, im.options.PausedBeforeExport)
 		if err != nil {
 			return errors.Wrapf(err, "cannot import %q resources", info.Name())
 		}
@@ -234,36 +235,29 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	s.Success(importRemainingMsg + fmt.Sprintf("%d resources imported! 📥", total))
 	//////////////////////////////////////////
 
-	// At this stage, all the resources are imported, but Claims/Composites and Managed resources are paused.
-	// In the finalization step, we will unpause Claims and Composites but not Managed resources (i.e. not activate the control plane yet).
+	// At this stage, all the resources are imported, but Claims/Composites and
+	// Managed resources are paused. In the finalization step, we will unpause
+	// Claims and Composites but not Managed resources (i.e. not activate the
+	// control plane yet). If a resource was previously paused, and have the
+	// "migration.upbound.io/already-paused: true" annotation we will not remove
+	// paused.
 	finalizeMsg := "Finalizing import... "
 	s, _ = migration.DefaultSpinner.Start(finalizeMsg)
 	cm := category.NewAPICategoryModifier(im.dynamicClient, im.discoveryClient)
-	_, err = cm.ModifyResources(ctx, "composite", func(u *unstructured.Unstructured) error {
-		xpmeta.RemoveAnnotations(u, "crossplane.io/paused")
-		return nil
-	})
-	if err != nil {
-		return errors.Wrap(err, "cannot unpause composites")
-	}
-
-	_, err = cm.ModifyResources(ctx, "claim", func(u *unstructured.Unstructured) error {
-		xpmeta.RemoveAnnotations(u, "crossplane.io/paused")
-		return nil
-	})
-	if err != nil {
-		return errors.Wrap(err, "cannot unpause claims")
+	categories := []string{"composite", "claim"}
+	for _, category := range categories {
+		unpauseMsg := fmt.Sprintf("Unpausing %s resources ... ", category)
+		s.UpdateText(unpauseMsg)
+		if err := r.UnpauseResources(ctx, category, cm); err != nil {
+			return errors.Wrapf(err, "cannot unpause %s", category)
+		}
 	}
 	s.Success(finalizeMsg + "Done! 🎉")
 
 	if im.options.UnpauseAfterImport {
 		unpauseMsg := "Unpausing managed resources ... "
 		s, _ := migration.DefaultSpinner.Start(unpauseMsg)
-		_, err = cm.ModifyResources(ctx, "managed", func(u *unstructured.Unstructured) error {
-			xpmeta.RemoveAnnotations(u, "crossplane.io/paused")
-			return nil
-		})
-		if err != nil {
+		if err := r.UnpauseResources(ctx, "managed", cm); err != nil {
 			return errors.Wrap(err, "cannot unpause managed resources")
 		}
 		s.Success(unpauseMsg + "Done! ▶️")
@@ -296,6 +290,7 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	if err = yaml.Unmarshal(b, em); err != nil {
 		return []error{errors.Wrap(err, "Cannot unmarshal export metadata")}
 	}
+	im.options.PausedBeforeExport = em.Options.PausedBeforeExport
 
 	var errs []error
 
@@ -304,21 +299,12 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	}
 
 	for _, ff := range em.Crossplane.FeatureFlags {
-		if !contains(observed.FeatureFlags, ff) {
+		if !slices.Contains(observed.FeatureFlags, ff) {
 			errs = append(errs, errors.Errorf("Feature flag %q was set in the exported control plane but is not set in the target control plane for import.", ff))
 		}
 	}
 
 	return errs
-}
-
-func contains(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 func (im *ControlPlaneStateImporter) unarchive(ctx context.Context, fs afero.Afero) error {
