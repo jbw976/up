@@ -394,7 +394,7 @@ func newKCLBuilder() *kclBuilder {
 func newPythonBuilder() *pythonBuilder {
 	return &pythonBuilder{
 		// TODO(negz): Should this be hardcoded?
-		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.2.0",
+		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.3.0",
 
 		// TODO(negz): This'll need to change if function-interpreter-python is
 		// updated to a distroless base layer that uses a newer Python version.
