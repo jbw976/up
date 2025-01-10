@@ -335,7 +335,7 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 			return fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
 		}
 		var err error
-		msg, err = accepting.Accept(m.navContext)
+		msg, err = acceptState(accepting, m.navContext)
 		if err != nil {
 			return err
 		}

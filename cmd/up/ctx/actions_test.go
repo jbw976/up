@@ -156,7 +156,7 @@ func TestDisconnectedGroupAccept(t *testing.T) {
 				},
 				Name: tt.group,
 			}
-			_, err := g.Accept(navCtx)
+			_, err := acceptState(g, navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -297,7 +297,7 @@ func TestCloudGroupAccept(t *testing.T) {
 				},
 				Name: tt.group,
 			}
-			_, err := g.Accept(navCtx)
+			_, err := acceptState(g, navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -500,7 +500,7 @@ func TestDisconnectedControlPlaneAccept(t *testing.T) {
 				},
 				Name: tt.ctp.Name,
 			}
-			_, err := ctp.Accept(navCtx)
+			_, err := acceptState(ctp, navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
@@ -703,7 +703,7 @@ func TestCloudControlPlaneAccept(t *testing.T) {
 				},
 				Name: tt.ctp.Name,
 			}
-			_, err := ctp.Accept(navCtx)
+			_, err := acceptState(ctp, navCtx)
 			if diff := cmp.Diff(tt.wantErr, fmt.Sprintf("%v", err)); diff != "" {
 				t.Fatalf("g.Accept(...): -want err, +got err:\n%s", diff)
 			}
