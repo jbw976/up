@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ctx
+package kube
 
 import (
 	"testing"
@@ -241,12 +241,12 @@ func TestFileWriterWrite(t *testing.T) {
 			var last string
 			var conf *clientcmdapi.Config
 			upCtx := &upbound.Context{Kubecfg: clientcmd.NewDefaultClientConfig(*tt.outConf, nil)}
-			writer := &fileWriter{
-				upCtx:            upCtx,
-				kubeContext:      "upbound",
-				writeLastContext: func(c string) error { last = c; return nil },
-				verify:           func(_ *clientcmdapi.Config) error { return nil },
-				modifyConfig: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
+			writer := &FileWriter{
+				upCtx:                upCtx,
+				kubeContext:          "upbound",
+				writeLastContextFunc: func(c string) error { last = c; return nil },
+				verifyFunc:           func(_ *clientcmdapi.Config) error { return nil },
+				modifyConfigFunc: func(_ clientcmd.ConfigAccess, newConfig clientcmdapi.Config, _ bool) error {
 					conf = &newConfig
 					return nil
 				},

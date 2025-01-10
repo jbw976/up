@@ -21,10 +21,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const (
-	upboundPreviousContextSuffix = "-previous"
-)
-
 // GetKubeconfig upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the space.
 func (s *CloudSpace) GetKubeconfig() (*clientcmdapi.Config, error) {

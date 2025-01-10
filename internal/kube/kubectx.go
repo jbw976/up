@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ctx
+package kube
 
 import (
 	"os"
@@ -29,9 +29,9 @@ func kubectxPrevCtxFile() (string, error) {
 	return filepath.Join(home, ".kube", "kubectx"), nil
 }
 
-// readLastContext returns the saved previous context
+// ReadLastContext returns the saved previous context
 // if the state file exists, otherwise returns "".
-func readLastContext() (string, error) {
+func ReadLastContext() (string, error) {
 	path, err := kubectxPrevCtxFile()
 	if err != nil {
 		return "", err
@@ -39,13 +39,13 @@ func readLastContext() (string, error) {
 	bs, err := os.ReadFile(path) //nolint:gosec // it's ok
 	if os.IsNotExist(err) {
 		return "", nil
-	} // nolint:gosec // it's ok
+	}
 	return string(bs), err
 }
 
-// writeLastContext saves the specified value to the state file.
+// WriteLastContext saves the specified value to the state file.
 // It creates missing parent directories.
-func writeLastContext(value string) error {
+func WriteLastContext(value string) error {
 	path, err := kubectxPrevCtxFile()
 	if err != nil {
 		return err

@@ -84,7 +84,7 @@ type Termination struct {
 // the up ctx flow.
 type navContext struct {
 	ingressReader spaces.IngressReader
-	contextWriter kubeContextWriter
+	contextWriter kube.ContextWriter
 }
 
 type model struct {
@@ -139,7 +139,7 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 
 // RunSwap runs the quick swap version of `up ctx`.
 func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: shorten
-	last, err := readLastContext()
+	last, err := kube.ReadLastContext()
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	if err := clientcmd.ModifyConfig(upCtx.Kubecfg.ConfigAccess(), *conf, true); err != nil {
 		return err
 	}
-	if err := writeLastContext(oldContext); err != nil {
+	if err := kube.WriteLastContext(oldContext); err != nil {
 		return err
 	}
 	if c.Short {
@@ -184,7 +184,7 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 	// switch to non-upbound last context trivially via CurrentContext e.g.
 	// - upbound <-> other
 	// - something <-> other
-	if sourceContext != preferredContext+upboundPreviousContextSuffix {
+	if sourceContext != preferredContext+kube.UpboundPreviousContextSuffix {
 		oldCurrent := conf.CurrentContext
 		conf.CurrentContext = sourceContext
 		return conf, oldCurrent, nil
@@ -197,7 +197,7 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 	// swap upbound and upbound-previous context
 	source, ok := conf.Contexts[sourceContext]
 	if !ok {
-		return nil, "", fmt.Errorf("no %q context found", preferredContext+upboundPreviousContextSuffix)
+		return nil, "", fmt.Errorf("no %q context found", preferredContext+kube.UpboundPreviousContextSuffix)
 	}
 	var current *clientcmdapi.Context
 	if conf.CurrentContext != "" {
@@ -207,58 +207,58 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 		conf.Contexts[preferredContext] = source
 
 		if current == nil {
-			delete(conf.Contexts, preferredContext+upboundPreviousContextSuffix)
+			delete(conf.Contexts, preferredContext+kube.UpboundPreviousContextSuffix)
 			newLastContext = conf.CurrentContext
 		} else {
-			conf.Contexts[preferredContext+upboundPreviousContextSuffix] = current
-			newLastContext = preferredContext + upboundPreviousContextSuffix
+			conf.Contexts[preferredContext+kube.UpboundPreviousContextSuffix] = current
+			newLastContext = preferredContext + kube.UpboundPreviousContextSuffix
 		}
 	} else {
 		// For other <-> upbound-previous, keep "other" for last context
 		conf.Contexts[preferredContext] = source
-		delete(conf.Contexts, preferredContext+upboundPreviousContextSuffix)
+		delete(conf.Contexts, preferredContext+kube.UpboundPreviousContextSuffix)
 		newLastContext = conf.CurrentContext
 	}
 	conf.CurrentContext = preferredContext
 
 	// swap upbound and upbound-previous cluster
-	if conf.Contexts[preferredContext].Cluster == preferredContext+upboundPreviousContextSuffix {
-		prev := conf.Clusters[preferredContext+upboundPreviousContextSuffix]
+	if conf.Contexts[preferredContext].Cluster == preferredContext+kube.UpboundPreviousContextSuffix {
+		prev := conf.Clusters[preferredContext+kube.UpboundPreviousContextSuffix]
 		if prev == nil {
-			return nil, "", fmt.Errorf("no %q cluster found", preferredContext+upboundPreviousContextSuffix)
+			return nil, "", fmt.Errorf("no %q cluster found", preferredContext+kube.UpboundPreviousContextSuffix)
 		}
 		if current := conf.Clusters[preferredContext]; current == nil {
-			delete(conf.Clusters, preferredContext+upboundPreviousContextSuffix)
+			delete(conf.Clusters, preferredContext+kube.UpboundPreviousContextSuffix)
 		} else {
-			conf.Clusters[preferredContext+upboundPreviousContextSuffix] = current
+			conf.Clusters[preferredContext+kube.UpboundPreviousContextSuffix] = current
 		}
 		conf.Clusters[preferredContext] = prev
 		for _, ctx := range conf.Contexts {
-			if ctx.Cluster == preferredContext+upboundPreviousContextSuffix {
+			if ctx.Cluster == preferredContext+kube.UpboundPreviousContextSuffix {
 				ctx.Cluster = preferredContext
 			} else if ctx.Cluster == preferredContext {
-				ctx.Cluster = preferredContext + upboundPreviousContextSuffix
+				ctx.Cluster = preferredContext + kube.UpboundPreviousContextSuffix
 			}
 		}
 	}
 
 	// swap upbound and upbound-previous authInfo
-	if conf.Contexts[preferredContext].AuthInfo == preferredContext+upboundPreviousContextSuffix {
-		prev := conf.AuthInfos[preferredContext+upboundPreviousContextSuffix]
+	if conf.Contexts[preferredContext].AuthInfo == preferredContext+kube.UpboundPreviousContextSuffix {
+		prev := conf.AuthInfos[preferredContext+kube.UpboundPreviousContextSuffix]
 		if prev == nil {
-			return nil, "", fmt.Errorf("no %q user found", preferredContext+upboundPreviousContextSuffix)
+			return nil, "", fmt.Errorf("no %q user found", preferredContext+kube.UpboundPreviousContextSuffix)
 		}
 		if current := conf.AuthInfos[preferredContext]; current == nil {
-			delete(conf.AuthInfos, preferredContext+upboundPreviousContextSuffix)
+			delete(conf.AuthInfos, preferredContext+kube.UpboundPreviousContextSuffix)
 		} else {
-			conf.AuthInfos[preferredContext+upboundPreviousContextSuffix] = current
+			conf.AuthInfos[preferredContext+kube.UpboundPreviousContextSuffix] = current
 		}
 		conf.AuthInfos[preferredContext] = prev
 		for _, ctx := range conf.Contexts {
-			if ctx.AuthInfo == preferredContext+upboundPreviousContextSuffix {
+			if ctx.AuthInfo == preferredContext+kube.UpboundPreviousContextSuffix {
 				ctx.AuthInfo = preferredContext
 			} else if ctx.AuthInfo == preferredContext {
-				ctx.AuthInfo = preferredContext + upboundPreviousContextSuffix
+				ctx.AuthInfo = preferredContext + kube.UpboundPreviousContextSuffix
 			}
 		}
 	}
@@ -391,19 +391,12 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 	return nil
 }
 
-func (c *Cmd) kubeContextWriter(upCtx *upbound.Context) kubeContextWriter {
+func (c *Cmd) kubeContextWriter(upCtx *upbound.Context) kube.ContextWriter {
 	if c.File == "-" {
 		return &printWriter{}
 	}
 
-	return &fileWriter{
-		upCtx:            upCtx,
-		fileOverride:     c.File,
-		kubeContext:      c.KubeContext,
-		verify:           kube.VerifyKubeConfig(),
-		writeLastContext: writeLastContext,
-		modifyConfig:     clientcmd.ModifyConfig,
-	}
+	return kube.NewFileWriter(upCtx, c.File, c.KubeContext)
 }
 
 type getIngressHostFn func(ctx context.Context, cl corev1client.ConfigMapsGetter) (host string, ca []byte, err error)
