@@ -17,11 +17,9 @@ package ctx
 import (
 	"fmt"
 	"io/fs"
-	"reflect"
 
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -47,14 +45,28 @@ func (p *printWriter) Write(config *clientcmdapi.Config) error {
 	return nil
 }
 
+// fileWriter writes kubeconfigs by merging the active context of the passed
+// kubeconfig into an existing kubeconfig then writing it to a file. If a
+// context exists with the merged context's name, it will be renamed with the
+// suffix "-previous". If the "-previous" context also exists it will be
+// overwritten.
 type fileWriter struct {
-	upCtx        *upbound.Context
+	upCtx *upbound.Context
+	// fileOverride is the path to the existing kubeconfig to update. If empty
+	// the default loading rules are used.
 	fileOverride string
-	kubeContext  string
+	// kubeContext overrides the name of the context to be merged into the
+	// kubeconfig. If empty the merged context retains its name.
+	kubeContext string
 
+	// writeLastContext is called with the name of the previously active context
+	// from the existing kubeconfig after the merged kubeconfig is written.
 	writeLastContext func(string) error
-	verify           func(cfg *clientcmdapi.Config) error
-	modifyConfig     func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error
+	// verify is called to validate that the merged kubeconfig is valid before
+	// writing it.
+	verify func(cfg *clientcmdapi.Config) error
+	// modifyConfig is called to write the merged kubeconfig.
+	modifyConfig func(configAccess clientcmd.ConfigAccess, newConfig clientcmdapi.Config, relativizePaths bool) error
 }
 
 var _ kubeContextWriter = &fileWriter{}
@@ -66,8 +78,12 @@ func (f *fileWriter) Write(config *clientcmdapi.Config) error {
 		return err
 	}
 
-	ctpConf, prevContext, err := f.upsertContext(config, outConfig)
+	updatedConf, prevContext, err := f.mergeConfigs(outConfig, config)
 	if err != nil {
+		return err
+	}
+
+	if err := f.verify(updatedConf); err != nil {
 		return err
 	}
 
@@ -79,7 +95,7 @@ func (f *fileWriter) Write(config *clientcmdapi.Config) error {
 		}
 	}
 
-	if err := f.modifyConfig(pathOptions, *ctpConf, false); err != nil {
+	if err := f.modifyConfig(pathOptions, *updatedConf, false); err != nil {
 		return err
 	}
 
@@ -108,104 +124,69 @@ func (f *fileWriter) loadOutputKubeconfig() (config *clientcmdapi.Config, err er
 	return &raw, nil
 }
 
-// upsertContext upserts the input kubeconfig based on its current context into
-// the output kubeconfig at the destination context name set in the writer.
-func (f *fileWriter) upsertContext(inConfig *clientcmdapi.Config, outConfig *clientcmdapi.Config) (ctpConf *clientcmdapi.Config, prevContext string, err error) {
-	// assumes the current context
-	ctpConf, prevContext, err = mergeUpboundContext(outConfig, inConfig, inConfig.CurrentContext, f.kubeContext)
+func (f *fileWriter) mergeConfigs(outConfig *clientcmdapi.Config, inConfig *clientcmdapi.Config) (*clientcmdapi.Config, string, error) {
+	outConfig = outConfig.DeepCopy()
+
+	// previousContextName is the name of the context containing the previous
+	// current context's details. This is the previous current context name
+	// unless we're overwriting that context.
+	previousContextName := outConfig.CurrentContext
+	mergeContextName := f.kubeContext
+	if mergeContextName == "" {
+		mergeContextName = inConfig.CurrentContext
+	}
+	if outConfig.CurrentContext == mergeContextName {
+		previousContextName = mergeContextName + upboundPreviousContextSuffix
+	}
+
+	// Construct the context that we'll merge into the kubeconfig.
+	mergeContext, mergeCluster, mergeAuthInfo, err := copyContext(inConfig, inConfig.CurrentContext)
 	if err != nil {
 		return nil, "", err
 	}
-	if contextDeepEqual(ctpConf, prevContext, ctpConf.CurrentContext) {
-		return nil, prevContext, nil
-	}
-	if err := f.verify(ctpConf); err != nil {
-		return nil, "", err
+	mergeContext.Cluster = mergeContextName
+	mergeContext.AuthInfo = mergeContextName
+
+	// If we're overwriting the current context, construct the "previous"
+	// context and add it to the config.
+	if previousContextName != outConfig.CurrentContext {
+		prevContext, prevCluster, prevAuthInfo, err := copyContext(outConfig, mergeContextName)
+		if err != nil {
+			return nil, "", err
+		}
+
+		prevContext.Cluster = previousContextName
+		prevContext.AuthInfo = previousContextName
+
+		outConfig.Contexts[previousContextName] = prevContext
+		outConfig.Clusters[previousContextName] = prevCluster
+		outConfig.AuthInfos[previousContextName] = prevAuthInfo
 	}
 
-	return ctpConf, prevContext, nil
+	// Add the merge context to the config.
+	outConfig.Contexts[mergeContextName] = mergeContext
+	outConfig.Clusters[mergeContextName] = mergeCluster
+	outConfig.AuthInfos[mergeContextName] = mergeAuthInfo
+	outConfig.CurrentContext = mergeContextName
+
+	return outConfig, previousContextName, nil
 }
 
-// mergeUpboundContext copies the provided group context into the config under
-// the provided context name, updates the current context to the new context and
-// renames the previous current context.
-// Note: We add all of the information to the `*-previous` context in this
-// method because when we call `activateContext`, it gets swapped with the
-// correct context name.
-func mergeUpboundContext(dest, src *clientcmdapi.Config, srcContext, destContext string) (ctpConf *clientcmdapi.Config, prevContext string, err error) { //nolint:gocyclo // little long, but well tested
-	dest = dest.DeepCopy()
-
-	if _, ok := src.Contexts[srcContext]; !ok {
-		return nil, "", fmt.Errorf("context %q not found in kubeconfig", srcContext)
-	}
-	groupCluster, ok := src.Clusters[src.Contexts[srcContext].Cluster]
+func copyContext(config *clientcmdapi.Config, name string) (*clientcmdapi.Context, *clientcmdapi.Cluster, *clientcmdapi.AuthInfo, error) {
+	ctx, ok := config.Contexts[name]
 	if !ok {
-		return nil, "", fmt.Errorf("cluster %q not found in kubeconfig", src.Contexts[srcContext].Cluster)
-	}
-	authInfo := src.AuthInfos[src.Contexts[srcContext].AuthInfo]
-
-	if _, ok := dest.Clusters[destContext+upboundPreviousContextSuffix]; ok {
-		// make room for upbound-previous cluster
-		freeCluster := destContext + upboundPreviousContextSuffix
-		for d := 1; true; d++ {
-			s := fmt.Sprintf("%s%d", freeCluster, d)
-			if _, ok := dest.Clusters[s]; !ok {
-				freeCluster = s
-				break
-			}
-		}
-		renamed := 0
-		// update all clusters using the existing previous to point at the new
-		for name, ctx := range dest.Contexts {
-			if ctx.Cluster == destContext+upboundPreviousContextSuffix && name != destContext+upboundPreviousContextSuffix {
-				ctx.Cluster = freeCluster
-				renamed++
-			}
-		}
-		if renamed > 0 {
-			dest.Clusters[freeCluster] = dest.Clusters[destContext+upboundPreviousContextSuffix]
-		}
+		return nil, nil, nil, errors.Errorf("context %q not found in kubeconfig", name)
 	}
 
-	dest.Clusters[destContext+upboundPreviousContextSuffix] = ptr.To(*groupCluster)
-
-	if dest.CurrentContext == destContext+upboundPreviousContextSuffix {
-		// make room for upbound-previous context
-		dest.Contexts[destContext] = ptr.To(*dest.Contexts[destContext+upboundPreviousContextSuffix])
-		dest.CurrentContext = destContext
-	}
-	dest.Contexts[destContext+upboundPreviousContextSuffix] = ptr.To(*src.Contexts[srcContext])
-	dest.Contexts[destContext+upboundPreviousContextSuffix].Cluster = destContext + upboundPreviousContextSuffix
-
-	if authInfo != nil {
-		dest.AuthInfos[destContext+upboundPreviousContextSuffix] = ptr.To(*authInfo)
-		dest.Contexts[destContext+upboundPreviousContextSuffix].AuthInfo = destContext + upboundPreviousContextSuffix
+	cluster, ok := config.Clusters[ctx.Cluster]
+	if !ok {
+		return nil, nil, nil, errors.Errorf("cluster %q not found in kubeconfig", ctx.Cluster)
 	}
 
-	return activateContext(dest, destContext+upboundPreviousContextSuffix, destContext)
-}
-
-func contextDeepEqual(conf *clientcmdapi.Config, a, b string) bool {
-	if a == b {
-		return true
-	}
-	if a == "" || b == "" {
-		return false
-	}
-	prev := conf.Contexts[a]
-	current := conf.Contexts[b]
-	if prev == nil && current == nil {
-		return true
-	}
-	if prev == nil || current == nil {
-		return false
-	}
-	if !reflect.DeepEqual(conf.Clusters[prev.Cluster], conf.Clusters[current.Cluster]) {
-		return false
-	}
-	if !reflect.DeepEqual(conf.AuthInfos[prev.AuthInfo], conf.AuthInfos[current.AuthInfo]) {
-		return false
+	authInfo, ok := config.AuthInfos[ctx.AuthInfo]
+	if !ok {
+		return nil, nil, nil, errors.Errorf("authinfo %q not found in kubeconfig", ctx.AuthInfo)
 	}
 
-	return false
+	return ctx.DeepCopy(), cluster.DeepCopy(), authInfo.DeepCopy(), nil
 }

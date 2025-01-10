@@ -132,17 +132,11 @@ func TestFileWriterWrite(t *testing.T) {
 				},
 				Clusters: map[string]*clientcmdapi.Cluster{
 					"upbound": {Server: "https://ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
-					// TODO(adamwg): upbound-previous shouldn't be created,
-					// since it's unused.
-					"upbound-previous": {Server: "https://old-ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
-					"other":            {Server: "https://other"},
+					"other":   {Server: "https://other"},
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{
 					"upbound": {Token: "token"},
-					// TODO(adamwg): upbound-previous shouldn't be created,
-					// since it's unused.
-					"upbound-previous": {Token: "old-token"},
-					"other":            {Token: "other"},
+					"other":   {Token: "other"},
 				},
 			},
 			wantLast: "other",
@@ -221,21 +215,18 @@ func TestFileWriterWrite(t *testing.T) {
 			wantConf: &clientcmdapi.Config{
 				CurrentContext: "upbound",
 				Contexts: map[string]*clientcmdapi.Context{
-					"upbound": {Cluster: "upbound", AuthInfo: "upbound", Extensions: extensionMap},
-					// TODO(adamwg): This seems wrong. Would expect upbound-previous.
-					"upbound-previous": {Cluster: "upbound", AuthInfo: "upbound", Extensions: extensionMap},
+					"upbound":          {Cluster: "upbound", AuthInfo: "upbound", Extensions: extensionMap},
+					"upbound-previous": {Cluster: "upbound-previous", AuthInfo: "upbound-previous", Extensions: extensionMap},
 					"other":            {Cluster: "other", AuthInfo: "other"},
 				},
 				Clusters: map[string]*clientcmdapi.Cluster{
-					"upbound": {Server: "https://ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
-					// TODO(adamwg): This seems wrong. Would expect previous-ingress.
-					"upbound-previous": {Server: "https://old-ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
+					"upbound":          {Server: "https://ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
+					"upbound-previous": {Server: "https://previous-ingress", CertificateAuthorityData: []uint8{1, 2, 3}},
 					"other":            {Server: "https://other"},
 				},
 				AuthInfos: map[string]*clientcmdapi.AuthInfo{
-					"upbound": {Token: "token"},
-					// TODO(adamwg): This seems wrong. Would expect previous-token.
-					"upbound-previous": {Token: "old-token"},
+					"upbound":          {Token: "token"},
+					"upbound-previous": {Token: "previous-token"},
 					"other":            {Token: "other"},
 				},
 			},
