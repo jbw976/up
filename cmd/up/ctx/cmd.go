@@ -486,7 +486,7 @@ func spaceInProfile(p profile.Profile, spaceExt *upbound.SpaceExtension) bool {
 // current context in the passed kubeconfig is pointing at an existing
 // disconnected space created by the CLI.
 func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi.Config, disconnected *upbound.DisconnectedConfiguration, getIngressHost getIngressHostFn) (NavigationState, error) {
-	if _, ok := conf.Contexts[disconnected.HubContext]; !ok {
+	if _, ok := upCtx.Profile.SpaceKubeconfig.Contexts[disconnected.HubContext]; !ok {
 		return nil, fmt.Errorf("cannot find space hub context %q", disconnected.HubContext)
 	}
 
@@ -503,9 +503,9 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 		ca = conf.Clusters[conf.Contexts[conf.CurrentContext].Cluster].CertificateAuthorityData
 	} else {
 		// get ingress from hub
-		rest, err := clientcmd.NewDefaultClientConfig(*conf, &clientcmd.ConfigOverrides{
-			CurrentContext: disconnected.HubContext,
-		}).ClientConfig()
+		rest, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (*clientcmdapi.Config, error) {
+			return upCtx.Profile.SpaceKubeconfig, nil
+		})
 		if err != nil {
 			return rootState(ctx, upCtx)
 		}
