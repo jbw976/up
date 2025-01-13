@@ -65,7 +65,8 @@ import (
 
 const (
 	// TODO(adamwg): It would be nice if we had a const for this somewhere else.
-	devControlPlaneClass = "small"
+	devControlPlaneClass      = "small"
+	devControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
 // Cmd is the `up project run` command.
@@ -371,7 +372,7 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, al
 	switch {
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
-		if ctp.Spec.Class != "small" && !allowProd {
+		if !isDevControlPlane(&ctp) && !allowProd {
 			return nil, errors.New("control plane exists but is not a development control plane; use --allow-production to skip this check")
 		}
 		if ctp.DeletionTimestamp != nil {
@@ -395,6 +396,22 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, al
 	}
 
 	return ctpClient, nil
+}
+
+func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
+	if ctp.Annotations != nil && ctp.Annotations[devControlPlaneAnnotation] == "true" {
+		return true
+	}
+
+	// We didn't used to annotate the control planes created by `up project
+	// run`, and dev MCPs created via the console won't have the annotation, so
+	// also check the control plane class. We assume any control plane with the
+	// "small" class is a dev MCP.
+	if ctp.Spec.Class == devControlPlaneClass {
+		return true
+	}
+
+	return false
 }
 
 // getControlPlaneConfig gets a REST config for a given control plane within
@@ -463,6 +480,9 @@ func (c *Cmd) createControlPlane(ctx context.Context, cl client.Client, ch async
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.ControlPlaneName,
 			Namespace: c.ControlPlaneGroup,
+			Annotations: map[string]string{
+				devControlPlaneAnnotation: "true",
+			},
 		},
 		Spec: spacesv1beta1.ControlPlaneSpec{
 			Crossplane: spacesv1beta1.CrossplaneSpec{
