@@ -71,15 +71,15 @@ const (
 
 // Cmd is the `up project run` command.
 type Cmd struct {
-	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."         short:"f"`
+	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                   short:"f"`
 	Repository        string        `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache      bool          `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."       type:"path"`
-	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                        help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                 type:"path"`
+	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                  help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	AllowProduction   bool          `help:"Allow running on a production class control plane. By default only development control planes will be used."`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                 help:"Directory used for caching dependencies."               type:"path"`
+	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Flags             upbound.Flags `embed:""`
 
@@ -286,7 +286,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.AllowProduction, ch)
+			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.Force, ch)
 			return err
 		})
 
@@ -373,7 +373,7 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, al
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
 		if !isDevControlPlane(&ctp) && !allowProd {
-			return nil, errors.New("control plane exists but is not a development control plane; use --allow-production to skip this check")
+			return nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
