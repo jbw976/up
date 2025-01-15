@@ -91,8 +91,7 @@ type Cmd struct {
 	m                  *manager.Manager
 	keychain           authn.Keychain
 
-	spaceClient  client.Client
-	organization string // the Upbound organization in the current kubecontext
+	spaceClient client.Client
 }
 
 // AfterApply processes flags and sets defaults.
@@ -170,9 +169,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
 		}
 	}
-	if cs, ok := space.(*ctxcmd.CloudSpace); ok {
-		c.organization = cs.Org.Name
-	}
 
 	// fallback to the default "default" group
 	if c.ControlPlaneGroup == "" {
@@ -241,12 +237,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		if reg != upCtx.RegistryEndpoint.Host {
 			return errors.New("specified registry does not match your current up profile; use `up profile use` to select a different profile")
 		}
-		if org != c.organization {
+		if org != upCtx.Organization {
 			return errors.New("specified repository does not belong to your current organization; use `up ctx` to select a different organization")
 		}
 
 		// Make sure c.Repository is fully qualified.
-		c.Repository = strings.Join([]string{reg, c.organization, repoName}, "/")
+		c.Repository = strings.Join([]string{reg, upCtx.Organization, repoName}, "/")
 	} else {
 		_, _, repoName, err := upbound.ParseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
@@ -254,7 +250,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 
 		// Always use the host and org from the context
-		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, c.organization, repoName}, "/")
+		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, upCtx.Organization, repoName}, "/")
 	}
 
 	// Move the project, in memory only, to the desired repository.
