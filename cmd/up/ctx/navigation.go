@@ -147,7 +147,7 @@ func disconnectedSpaceFromKubeconfig(ctx context.Context, kubeconfig clientcmdap
 	ingressHost, ingressCA, err := kube.GetIngressHost(reqCtx, cl)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, nil
+			return nil, errors.New("cannot find ingress; does kubeconfig point to a Space?")
 		}
 		return nil, err
 	}
