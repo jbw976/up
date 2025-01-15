@@ -99,7 +99,7 @@ func (b Breadcrumbs) styledString() string {
 // Accepting is a model state that provides a method to accept a navigation node.
 type Accepting interface {
 	NavigationState
-	Accept(navCtx *navContext) (string, error)
+	GetKubeconfig() (*clientcmdapi.Config, error)
 }
 
 // Back is a model state that provides a method to go back to the parent navigation node.
@@ -362,7 +362,7 @@ func (s *CloudSpace) Items(ctx context.Context, _ *upbound.Context, _ *navContex
 	}
 
 	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
-		msg, err := s.Accept(m.navContext)
+		msg, err := acceptState(s, m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -492,7 +492,7 @@ func (s *DisconnectedSpace) Items(ctx context.Context, _ *upbound.Context, _ *na
 	}
 
 	items = append(items, item{text: fmt.Sprintf("Switch context to %q", s.Name()), onEnter: func(m model) (model, error) {
-		msg, err := s.Accept(m.navContext)
+		msg, err := acceptState(s, m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -621,7 +621,7 @@ func (g *Group) Items(ctx context.Context, _ *upbound.Context, _ *navContext) ([
 	}
 
 	items = append(items, item{text: fmt.Sprintf("Switch context to %q", fmt.Sprintf("%s/%s", g.Space.Name(), g.Name)), onEnter: func(m model) (model, error) {
-		msg, err := g.Accept(m.navContext)
+		msg, err := acceptState(g, m.navContext)
 		if err != nil {
 			return m, err
 		}
@@ -663,7 +663,7 @@ func (ctp *ControlPlane) Items(_ context.Context, _ *upbound.Context, _ *navCont
 	return []list.Item{
 		item{text: "..", kind: ctp.BackLabel(), onEnter: ctp.Back, back: true},
 		item{text: fmt.Sprintf("Connect to %q and quit", ctp.NamespacedName().Name), onEnter: keyFunc(func(m model) (model, error) {
-			msg, err := ctp.Accept(m.navContext)
+			msg, err := acceptState(ctp, m.navContext)
 			if err != nil {
 				return m, err
 			}
