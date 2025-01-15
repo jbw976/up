@@ -137,6 +137,15 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	}
 }
 
+func updateProfile(upCtx *upbound.Context, breadcrumbs Breadcrumbs) error {
+	path := breadcrumbs.String()
+	upCtx.Profile.CurrentKubeContext = path
+	if err := upCtx.Cfg.AddOrUpdateUpboundProfile(upCtx.ProfileName, upCtx.Profile); err != nil {
+		return err
+	}
+	return upCtx.CfgSrc.UpdateConfig(upCtx.Cfg)
+}
+
 // RunSwap runs the quick swap version of `up ctx`.
 func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: shorten
 	last, err := kube.ReadLastContext()
@@ -173,7 +182,8 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 	} else {
 		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString())) //nolint:forbidigo // Interactive command.
 	}
-	return nil
+
+	return updateProfile(upCtx, state.Breadcrumbs())
 }
 
 func withUpboundPrefix(s string) string {
@@ -267,17 +277,65 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 }
 
 // RunNonInteractive runs the non-interactive version of `up ctx`.
-func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error { //nolint:gocognit // a bit long but ¯\_(ツ)_/¯
+func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error {
+	config, breadcrumbs, err := getKubeconfigNonInteractive(ctx, upCtx, navCtx, initialState, c.Argument)
+	if err != nil {
+		return err
+	}
+
+	// final step if we moved: accept the state
+	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(breadcrumbs.styledString()))
+	if breadcrumbs.String() != initialState.Breadcrumbs().String() || c.File == "-" {
+		if err := navCtx.contextWriter.Write(config); err != nil {
+			return err
+		}
+	}
+
+	// if printing the kubeconfig to stdout, don't print anything else.
+	if c.File == "-" {
+		return nil
+	}
+
+	if c.Short {
+		fmt.Println(breadcrumbs) //nolint:forbidigo // Interactive command.
+	} else {
+		fmt.Print(msg) //nolint:forbidigo // Interactive command.
+	}
+
+	return updateProfile(upCtx, breadcrumbs)
+}
+
+// GetKubeconfigForPath returns a kubeconfig for the given path.
+func GetKubeconfigForPath(ctx context.Context, upCtx *upbound.Context, path string) (*clientcmdapi.Config, error) {
+	initialState, err := rootState(ctx, upCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	navCtx := &navContext{
+		ingressReader: spaces.NewCachedReader(upCtx.Profile.Session),
+		// This shouldn't be used in the call below, but if it does get used we
+		// don't want anything to be written (the caller can write the
+		// kubeconfig if desired).
+		contextWriter: &kube.NopWriter{},
+	}
+
+	config, _, err := getKubeconfigNonInteractive(ctx, upCtx, navCtx, initialState, path)
+
+	return config, err
+}
+
+func getKubeconfigNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState, path string) (*clientcmdapi.Config, Breadcrumbs, error) { //nolint:gocognit // TODO: refactor
 	// begin from root unless we're starting from a relative . or ..
 	state := initialState
-	if !strings.HasPrefix(c.Argument, ".") {
+	if !strings.HasPrefix(path, ".") {
 		s, err := rootState(ctx, upCtx)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		state = s
 		// The root state isn't the empty path; prune it off of the argument.
-		c.Argument = strings.TrimPrefix(c.Argument, strings.Join(state.Breadcrumbs(), "/"))
+		path = strings.TrimPrefix(path, strings.Join(state.Breadcrumbs(), "/"))
 	}
 
 	m := model{
@@ -285,7 +343,7 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 		upCtx:      upCtx,
 		navContext: navCtx,
 	}
-	for _, s := range strings.Split(c.Argument, "/") {
+	for _, s := range strings.Split(path, "/") {
 		switch s {
 		case "":
 			// Ignore empty path components. This allows for trailing slashes,
@@ -294,64 +352,46 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 		case "..":
 			back, ok := m.state.(Back)
 			if !ok {
-				return fmt.Errorf("cannot move to parent context from: %s", m.state.Breadcrumbs())
+				return nil, nil, fmt.Errorf("cannot move to parent context from: %s", m.state.Breadcrumbs())
 			}
 			var err error
 			m, err = back.Back(m)
 			if err != nil {
-				return err
+				return nil, nil, err
 			}
 		default:
 			// find the string as item
 			items, err := m.state.Items(ctx, m.upCtx, m.navContext)
 			if err != nil {
-				return err
+				return nil, nil, err
 			}
 			found := false
 			for _, i := range items {
 				if i, ok := i.(item); ok && i.Matches(s) {
 					if i.onEnter == nil {
-						return fmt.Errorf("cannot enter %q in: %s", s, m.state.Breadcrumbs())
+						return nil, nil, fmt.Errorf("cannot enter %q in: %s", s, m.state.Breadcrumbs())
 					}
 					m, err = i.onEnter(m)
 					if err != nil {
-						return err
+						return nil, nil, err
 					}
 					found = true
 					break
 				}
 			}
 			if !found {
-				return fmt.Errorf("%q not found in: %s", s, m.state.Breadcrumbs())
+				return nil, nil, fmt.Errorf("%q not found in: %s", s, m.state.Breadcrumbs())
 			}
 		}
 	}
 
-	// final step if we moved: accept the state
-	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(m.state.Breadcrumbs().styledString()))
-	if m.state.Breadcrumbs().String() != initialState.Breadcrumbs().String() || c.File == "-" {
-		accepting, ok := m.state.(Accepting)
-		if !ok {
-			return fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
-		}
-		var err error
-		msg, err = acceptState(accepting, m.navContext)
-		if err != nil {
-			return err
-		}
+	a, ok := m.state.(Accepting)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot move context to: %s", m.state.Breadcrumbs())
 	}
 
-	// if printing the kubeconfig to stdout, don't print anything els
-	if c.File != "-" {
-		// don't print anything else or we are going to pollute stdout
-		if c.Short {
-			fmt.Println(m.state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
-		} else {
-			fmt.Print(msg) //nolint:forbidigo // Interactive command.
-		}
-	}
-
-	return nil
+	config, err := a.GetKubeconfig()
+	return config, a.Breadcrumbs(), err
 }
 
 // RunInteractive runs the interactive version of `up ctx`.
@@ -386,8 +426,12 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 				return err
 			}
 		}
-		return m.termination.Err
+		if m.termination.Err != nil {
+			return m.termination.Err
+		}
+		return updateProfile(upCtx, m.state.Breadcrumbs())
 	}
+
 	return nil
 }
 
@@ -442,7 +486,7 @@ func spaceInProfile(p profile.Profile, spaceExt *upbound.SpaceExtension) bool {
 // current context in the passed kubeconfig is pointing at an existing
 // disconnected space created by the CLI.
 func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context, conf *clientcmdapi.Config, disconnected *upbound.DisconnectedConfiguration, getIngressHost getIngressHostFn) (NavigationState, error) {
-	if _, ok := conf.Contexts[disconnected.HubContext]; !ok {
+	if _, ok := upCtx.Profile.SpaceKubeconfig.Contexts[disconnected.HubContext]; !ok {
 		return nil, fmt.Errorf("cannot find space hub context %q", disconnected.HubContext)
 	}
 
@@ -459,9 +503,9 @@ func DeriveExistingDisconnectedState(ctx context.Context, upCtx *upbound.Context
 		ca = conf.Clusters[conf.Contexts[conf.CurrentContext].Cluster].CertificateAuthorityData
 	} else {
 		// get ingress from hub
-		rest, err := clientcmd.NewDefaultClientConfig(*conf, &clientcmd.ConfigOverrides{
-			CurrentContext: disconnected.HubContext,
-		}).ClientConfig()
+		rest, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (*clientcmdapi.Config, error) {
+			return upCtx.Profile.SpaceKubeconfig, nil
+		})
 		if err != nil {
 			return rootState(ctx, upCtx)
 		}
