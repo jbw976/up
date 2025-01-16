@@ -65,20 +65,21 @@ import (
 
 const (
 	// TODO(adamwg): It would be nice if we had a const for this somewhere else.
-	devControlPlaneClass = "small"
+	devControlPlaneClass      = "small"
+	devControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
 // Cmd is the `up project run` command.
 type Cmd struct {
-	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."         short:"f"`
+	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                   short:"f"`
 	Repository        string        `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache      bool          `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."       type:"path"`
-	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                        help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                 type:"path"`
+	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                  help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	AllowProduction   bool          `help:"Allow running on a production class control plane. By default only development control planes will be used."`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                 help:"Directory used for caching dependencies."               type:"path"`
+	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Flags             upbound.Flags `embed:""`
 
@@ -90,8 +91,7 @@ type Cmd struct {
 	m                  *manager.Manager
 	keychain           authn.Keychain
 
-	spaceClient  client.Client
-	organization string // the Upbound organization in the current kubecontext
+	spaceClient client.Client
 }
 
 // AfterApply processes flags and sets defaults.
@@ -169,9 +169,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
 		}
 	}
-	if cs, ok := space.(*ctxcmd.CloudSpace); ok {
-		c.organization = cs.Org.Name
-	}
 
 	// fallback to the default "default" group
 	if c.ControlPlaneGroup == "" {
@@ -240,12 +237,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		if reg != upCtx.RegistryEndpoint.Host {
 			return errors.New("specified registry does not match your current up profile; use `up profile use` to select a different profile")
 		}
-		if org != c.organization {
+		if org != upCtx.Organization {
 			return errors.New("specified repository does not belong to your current organization; use `up ctx` to select a different organization")
 		}
 
 		// Make sure c.Repository is fully qualified.
-		c.Repository = strings.Join([]string{reg, c.organization, repoName}, "/")
+		c.Repository = strings.Join([]string{reg, upCtx.Organization, repoName}, "/")
 	} else {
 		_, _, repoName, err := upbound.ParseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
 		if err != nil {
@@ -253,7 +250,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 
 		// Always use the host and org from the context
-		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, c.organization, repoName}, "/")
+		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, upCtx.Organization, repoName}, "/")
 	}
 
 	// Move the project, in memory only, to the desired repository.
@@ -285,7 +282,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.AllowProduction, ch)
+			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.Force, ch)
 			return err
 		})
 
@@ -371,8 +368,8 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, al
 	switch {
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
-		if ctp.Spec.Class != "small" && !allowProd {
-			return nil, errors.New("control plane exists but is not a development control plane; use --allow-production to skip this check")
+		if !isDevControlPlane(&ctp) && !allowProd {
+			return nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
@@ -395,6 +392,22 @@ func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, al
 	}
 
 	return ctpClient, nil
+}
+
+func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
+	if ctp.Annotations != nil && ctp.Annotations[devControlPlaneAnnotation] == "true" {
+		return true
+	}
+
+	// We didn't used to annotate the control planes created by `up project
+	// run`, and dev MCPs created via the console won't have the annotation, so
+	// also check the control plane class. We assume any control plane with the
+	// "small" class is a dev MCP.
+	if ctp.Spec.Class == devControlPlaneClass {
+		return true
+	}
+
+	return false
 }
 
 // getControlPlaneConfig gets a REST config for a given control plane within
@@ -463,6 +476,9 @@ func (c *Cmd) createControlPlane(ctx context.Context, cl client.Client, ch async
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.ControlPlaneName,
 			Namespace: c.ControlPlaneGroup,
+			Annotations: map[string]string{
+				devControlPlaneAnnotation: "true",
+			},
 		},
 		Spec: spacesv1beta1.ControlPlaneSpec{
 			Crossplane: spacesv1beta1.CrossplaneSpec{
