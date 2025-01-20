@@ -188,13 +188,7 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 
 	// If account has not already been set, use the profile default.
 	if c.Organization == "" {
-		// TODO(adamwg): Clean up when we get rid of the Account field in the
-		// profile.
-		if c.Profile.Organization != "" {
-			c.Organization = c.Profile.Organization
-		} else {
-			c.Organization = c.Profile.Account //nolint:staticcheck // Migration path from account to org.
-		}
+		c.Organization = c.Profile.Organization
 	}
 	// If domain has not already been set, use the profile default. If the
 	// profile doesn't have a domain, use the global default.

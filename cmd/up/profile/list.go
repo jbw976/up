@@ -70,11 +70,7 @@ func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upboun
 			cursor = "*"
 		}
 		prof := redacted[name]
-		pType := prof.Type
-		if pType == "" {
-			pType = profile.TypeCloud
-		}
-		data[i+1] = []string{cursor, name, string(pType), prof.Organization}
+		data[i+1] = []string{cursor, name, string(prof.Type), prof.Organization}
 
 		cursor = "" // reset cursor
 	}

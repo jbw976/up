@@ -240,6 +240,7 @@ func TestNewFromFlags(t *testing.T) {
 					InsecureSkipTLSVerify: false,
 					Profile: profile.Profile{
 						ID:        "someone@upbound.io",
+						Type:      profile.TypeCloud,
 						TokenType: profile.TokenTypeUser,
 						Session:   "a token",
 						Account:   "",
@@ -270,6 +271,7 @@ func TestNewFromFlags(t *testing.T) {
 					InsecureSkipTLSVerify: false,
 					Profile: profile.Profile{
 						ID:        "someone@upbound.io",
+						Type:      profile.TypeCloud,
 						TokenType: profile.TokenTypeUser,
 						Session:   "a token",
 						Account:   "",
@@ -300,11 +302,13 @@ func TestNewFromFlags(t *testing.T) {
 					Domain:                withURL("https://upbound.io"),
 					InsecureSkipTLSVerify: false,
 					Profile: profile.Profile{
-						ID:        "someone@upbound.io",
-						TokenType: profile.TokenTypeUser,
-						Session:   "a token",
-						Account:   "my-org",
-						Domain:    "",
+						ID:           "someone@upbound.io",
+						Type:         profile.TypeCloud,
+						TokenType:    profile.TokenTypeUser,
+						Session:      "a token",
+						Account:      "my-org",
+						Organization: "my-org",
+						Domain:       "",
 					},
 					AuthEndpoint:     withURL("https://auth.upbound.io"),
 					ProxyEndpoint:    withURL("https://proxy.upbound.io/v1/controlPlanes"),
@@ -332,6 +336,7 @@ func TestNewFromFlags(t *testing.T) {
 					InsecureSkipTLSVerify: false,
 					Profile: profile.Profile{
 						ID:           "someone@upbound.io",
+						Type:         profile.TypeCloud,
 						TokenType:    profile.TokenTypeUser,
 						Session:      "a token",
 						Organization: "my-org",
@@ -363,6 +368,7 @@ func TestNewFromFlags(t *testing.T) {
 					InsecureSkipTLSVerify: true,
 					Profile: profile.Profile{
 						ID:        "someone@upbound.io",
+						Type:      profile.TypeCloud,
 						TokenType: profile.TokenTypeUser,
 						Session:   "a token",
 						Account:   "",
@@ -403,6 +409,7 @@ func TestNewFromFlags(t *testing.T) {
 					InsecureSkipTLSVerify: true,
 					Profile: profile.Profile{
 						ID:        "someone@upbound.io",
+						Type:      profile.TypeCloud,
 						TokenType: profile.TokenTypeUser,
 						Session:   "a token",
 						Account:   "",
