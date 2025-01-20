@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package build provides the `up project build` command.
 package build
 
 import (
@@ -42,6 +43,7 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
+// Cmd is the `up project build` command.
 type Cmd struct {
 	ProjectFile    string        `default:"upbound.yaml"                                                                           help:"Path to project definition file."                              short:"f"`
 	Repository     string        `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
@@ -62,7 +64,8 @@ type Cmd struct {
 	m *manager.Manager
 }
 
-func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+// AfterApply parses flags and applies defaults.
+func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -116,7 +119,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 	return nil
 }
 
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error { //nolint:gocyclo // This is fine.
+// Run runs the command.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // This is fine.
 	pterm.EnableStyling()
 
 	if c.MaxConcurrency == 0 {
@@ -133,6 +137,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 			if err != nil {
 				return errors.Wrap(err, "failed to parse project metadata")
 			}
+			lproj.Default()
 			proj = lproj
 			return nil
 		},

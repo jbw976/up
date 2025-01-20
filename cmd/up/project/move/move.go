@@ -74,6 +74,7 @@ func (c *Cmd) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to parse project file")
 	}
+	proj.Default()
 
 	if err := project.Move(ctx, proj, c.projFS, c.newRepo); err != nil {
 		return err

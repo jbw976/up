@@ -40,8 +40,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
-
-	_ "embed"
 )
 
 func (c *generateCmd) Help() string {
@@ -172,7 +170,7 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -191,8 +189,12 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	if err != nil {
 		return err
 	}
+	proj.Default()
 
+	// The functions path is relative to the project directory; prepend it with
+	// `/` to make it an absolute path within the project FS.
 	c.fsPath = filepath.Join(
+		"/",
 		proj.Spec.Paths.Functions,
 		c.Name,
 	)
@@ -241,7 +243,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO: refactor
 	var (
 		err                error
 		functionSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
@@ -269,7 +271,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 		// Prompt the user for confirmation to overwrite
 		pterm.Println() // Blank line
 		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), c.fsPath))
+		confirm.DefaultText = fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath))
 		confirm.DefaultValue = false
 		result, _ := confirm.Show()
 		pterm.Println() // Blank line
@@ -321,7 +323,15 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 			modelsPath := ".up/" + c.Language + "/models"
 
-			if err := filesystem.CreateSymlink(c.functionFS.(*afero.BasePathFs), "model", c.projFS.(*afero.BasePathFs), modelsPath); err != nil {
+			functionFS, ok := c.functionFS.(*afero.BasePathFs)
+			if !ok {
+				return errors.Errorf("unexpected filesystem type %T for functions", functionFS)
+			}
+			projFS, ok := c.projFS.(*afero.BasePathFs)
+			if !ok {
+				return errors.Errorf("unexpected filesystem type %T for project", projFS)
+			}
+			if err := filesystem.CreateSymlink(functionFS, "model", projFS, modelsPath); err != nil {
 				return errors.Wrapf(err, "error creating models symlink")
 			}
 
@@ -351,11 +361,11 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 		}
 	}
 
-	pterm.Printfln("successfully created Function and saved to %s", afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), c.fsPath))
+	pterm.Printfln("successfully created Function and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
 	return nil
 }
 
-func (c *generateCmd) generateKCLFiles() (afero.Fs, error) { //nolint:gocyclo
+func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
 	kclModInfo := kclModInfo{

@@ -15,8 +15,6 @@
 package project
 
 import (
-	"path/filepath"
-
 	"github.com/spf13/afero"
 	"sigs.k8s.io/yaml"
 
@@ -25,8 +23,7 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-// Parse parses the project file, returning the parsed Project resource and the
-// absolute paths to various parts of the project in the project filesystem.
+// Parse parses and validates the project file.
 func Parse(projFS afero.Fs, projFilePath string) (*v1alpha1.Project, error) {
 	// Parse and validate the project file.
 	projYAML, err := afero.ReadFile(projFS, projFilePath)
@@ -40,28 +37,6 @@ func Parse(projFS afero.Fs, projFilePath string) (*v1alpha1.Project, error) {
 	}
 	if err := project.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid project file")
-	}
-
-	// Fill in the paths with defaults. Convert any user-provided paths to be
-	// absolute relative to the project FS.
-	if project.Spec.Paths == nil {
-		project.Spec.Paths = &v1alpha1.ProjectPaths{}
-	}
-
-	if project.Spec.Paths.APIs == "" {
-		project.Spec.Paths.APIs = "/apis"
-	} else {
-		project.Spec.Paths.APIs = filepath.Clean(filepath.Join("/", project.Spec.Paths.APIs))
-	}
-	if project.Spec.Paths.Examples == "" {
-		project.Spec.Paths.Examples = "/examples"
-	} else {
-		project.Spec.Paths.Examples = filepath.Clean(filepath.Join("/", project.Spec.Paths.Examples))
-	}
-	if project.Spec.Paths.Functions == "" {
-		project.Spec.Paths.Functions = "/functions"
-	} else {
-		project.Spec.Paths.Functions = filepath.Clean(filepath.Join("/", project.Spec.Paths.Functions))
 	}
 
 	return &project, nil

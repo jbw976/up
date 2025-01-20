@@ -143,11 +143,12 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	projDirPath := filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
-	// parse the project
+	// parse the project and apply defaults.
 	proj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
 		return err
 	}
+	proj.Default()
 
 	c.proj = proj
 

@@ -254,9 +254,10 @@ func TestNewComposition(t *testing.T) {
 			// Embed test data into projectFS
 			projFS := afero.NewMemMapFs()
 			err = embedToAferoFS(tc.embeddedFS, projFS, "testdata", "/")
+			assert.NilError(t, err)
 
 			// Parse project config
-			proj, _ := project.Parse(projFS, "/upbound.yaml")
+			proj, err := project.Parse(projFS, "/upbound.yaml")
 			assert.NilError(t, err)
 
 			// Construct a workspace from the test filesystem.

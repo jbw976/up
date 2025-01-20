@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package xrd provides the `up xrd` commands.
 package xrd
 
 // Cmd contains commands for xrd cmd.

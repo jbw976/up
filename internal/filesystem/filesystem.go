@@ -447,3 +447,13 @@ func FindNestedFoldersWithPattern(fs afero.Fs, root string, pattern string) ([]s
 
 	return foldersWithFiles, err
 }
+
+// FullPath returns the full path to path within the given filesystem. If fs is
+// not an afero.BasePathFs the original path is returned.
+func FullPath(fs afero.Fs, path string) string {
+	bfs, ok := fs.(*afero.BasePathFs)
+	if ok {
+		return afero.FullBaseFsPath(bfs, path)
+	}
+	return path
+}

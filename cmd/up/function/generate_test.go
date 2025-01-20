@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
@@ -145,10 +144,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				ws:                ws,
 			}
 
-			err = c.Run(context.Background(), &pterm.BasicTextPrinter{
-				Style:  pterm.DefaultBasicText.Style,
-				Writer: &TestWriter{t},
-			})
+			err = c.Run(context.Background())
 
 			if tc.err == nil {
 				assert.NilError(t, err)
