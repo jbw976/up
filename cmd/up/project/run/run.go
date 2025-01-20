@@ -19,7 +19,6 @@ import (
 	"context"
 	"net/http"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -222,36 +221,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return err
 	}
 
-	// If the user explicitly set the repository, use it and check that it
-	// matches their up context so their dev MCP can pull it.
-	//
-	// If the user didn't explicitly set a repository, and the project's
-	// repository isn't owned by their organization, construct a new repository
-	// name that is owned by them. This gives users the maximum chance of `up
-	// project run` Just Working when they check out an example repo.
-	if c.Repository != "" {
-		reg, org, repoName, err := upbound.ParseRepository(c.Repository, upCtx.RegistryEndpoint.Host)
-		if err != nil {
-			return err
-		}
-
-		if reg != upCtx.RegistryEndpoint.Host {
-			return errors.New("specified registry does not match your current up profile; use `up profile use` to select a different profile")
-		}
-		if org != upCtx.Organization {
-			return errors.New("specified repository does not belong to your current organization; use `up ctx` to select a different organization")
-		}
-
-		// Make sure c.Repository is fully qualified.
-		c.Repository = strings.Join([]string{reg, upCtx.Organization, repoName}, "/")
-	} else {
-		_, _, repoName, err := upbound.ParseRepository(proj.Spec.Repository, upCtx.RegistryEndpoint.Host)
-		if err != nil {
-			return err
-		}
-
-		// Always use the host and org from the context
-		c.Repository = strings.Join([]string{upCtx.RegistryEndpoint.Host, upCtx.Organization, repoName}, "/")
+	c.Repository, err = project.DetermineRepository(upCtx, proj, c.Repository)
+	if err != nil {
+		return err
 	}
 
 	// Move the project, in memory only, to the desired repository.
@@ -260,8 +232,11 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		basePath = afero.FullBaseFsPath(bfs, ".")
 	}
 	c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
-	if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
-		return errors.Wrap(err, "failed to update project repository")
+
+	if c.Repository != proj.Spec.Repository {
+		if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
+			return errors.Wrap(err, "failed to update project repository")
+		}
 	}
 
 	if c.ControlPlaneName == "" {
