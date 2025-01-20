@@ -213,6 +213,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to parse project metadata")
 			}
+			lproj.Default()
 			proj = lproj
 			return nil
 		},

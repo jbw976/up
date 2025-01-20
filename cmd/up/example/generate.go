@@ -32,6 +32,7 @@ import (
 	"github.com/crossplane/crossplane/xcrd"
 
 	icrd "github.com/upbound/up/internal/crd"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/yaml"
 )
@@ -65,16 +66,14 @@ Examples:
 }
 
 const (
-	outputFile = "file"
-	outputYAML = "yaml"
-	outputJSON = "json"
-	xr         = "Composite Resource (XR)"
-	xrc        = "Composite Resource Claim (XRC)"
-)
-
-var (
-	crdGVK        = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-	dnsLabelRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	outputFile  = "file"
+	outputYAML  = "yaml"
+	outputJSON  = "json"
+	xr          = "Composite Resource (XR)"
+	xrString    = "xr"
+	xrc         = "Composite Resource Claim (XRC)"
+	xrcString   = "xrc"
+	claimString = "claim"
 )
 
 type resource struct {
@@ -104,7 +103,7 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -122,6 +121,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	if err != nil {
 		return err
 	}
+	proj.Default()
 
 	c.exampleFS = afero.NewBasePathFs(
 		c.projFS, proj.Spec.Paths.Examples,
@@ -148,7 +148,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context) error {
+func (c *generateCmd) Run() error {
 	pterm.EnableStyling()
 	// get xr or xrc/claim as input otherwise ask interactive
 	if c.Type == "" {
@@ -186,7 +186,7 @@ func (c *generateCmd) readXRDFile() (v1.CompositeResourceDefinition, error) {
 
 	xrdRaw, err := afero.ReadFile(c.projFS, c.relXrdFilePath)
 	if err != nil {
-		return xrd, errors.Wrapf(err, "failed to read file in %s", afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), c.relXrdFilePath))
+		return xrd, errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relXrdFilePath))
 	}
 
 	err = yaml.Unmarshal(xrdRaw, &xrd)
@@ -202,18 +202,19 @@ func (c *generateCmd) createCRDFromXRD(xrd v1.CompositeResourceDefinition) (*api
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
 
-	if c.Type == "xrc" || c.Type == "claim" {
+	if c.Type == xrcString || c.Type == claimString {
 		crd, err = xcrd.ForCompositeResourceClaim(&xrd)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q for Composite Resource Claim", xrd.GetName())
 		}
-	} else if c.Type == "xr" {
+	} else if c.Type == xrString {
 		crd, err = xcrd.ForCompositeResource(&xrd)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q for Composite Resource", xrd.GetName())
 		}
 	}
 
+	crdGVK := apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
 	crd.SetGroupVersionKind(crdGVK)
 	return crd, nil
 }
@@ -238,7 +239,7 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 	}
 
 	res.ObjectMeta.Name = strings.ToLower(res.Kind)
-	if c.Type == "xrc" || c.Type == "claim" {
+	if c.Type == xrcString || c.Type == claimString {
 		res.ObjectMeta.Namespace = "default"
 	}
 
@@ -290,11 +291,11 @@ func (c *generateCmd) getInteractiveType() string {
 
 	var cType string
 	if choice == xrc {
-		cType = "xrc"
+		cType = xrcString
 	}
 
 	if choice == xr {
-		cType = "xr"
+		cType = xrString
 	}
 
 	return cType
@@ -307,7 +308,7 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 	}
 
 	var input pterm.InteractiveTextInputPrinter
-	if resourceType == "xrc" {
+	if resourceType == xrcString {
 		input = *pterm.DefaultInteractiveTextInput.
 			WithDefaultText("What is your Composite Resource Claim (XRC) kind?").
 			WithDefaultValue("Cluster")
@@ -389,7 +390,7 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 		return c.Namespace
 	}
 
-	if resourceType != "xrc" {
+	if resourceType != xrcString {
 		return ""
 	}
 
@@ -438,7 +439,7 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 		Spec: map[string]interface{}{},
 	}
 
-	if resourceType == "xrc" || resourceType == "claim" {
+	if resourceType == xrcString || resourceType == claimString {
 		res.ObjectMeta.Namespace = strings.ToLower(validatedNamespace)
 	}
 
@@ -446,7 +447,7 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 }
 
 // outputResource handles the output of the generated resource based on the specified output type.
-func (c *generateCmd) outputResource(res resource) error { //nolint:gocyclo
+func (c *generateCmd) outputResource(res resource) error {
 	// Convert resource to YAML format
 	resourceYAML, err := yaml.Marshal(res)
 	if err != nil {
@@ -470,7 +471,7 @@ func (c *generateCmd) outputResource(res resource) error { //nolint:gocyclo
 			// Prompt the user for confirmation to merge
 			pterm.Println() // Blank line for spacing
 			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", afero.FullBaseFsPath(c.exampleFS.(*afero.BasePathFs), filePath))
+			confirm.DefaultText = fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.exampleFS, filePath))
 			confirm.DefaultValue = false
 
 			result, _ := confirm.Show() // Display confirmation prompt
@@ -489,7 +490,7 @@ func (c *generateCmd) outputResource(res resource) error { //nolint:gocyclo
 			return errors.Wrap(err, "failed to write example to file")
 		}
 
-		pterm.Printfln("Successfully created example and saved to %s", afero.FullBaseFsPath(c.exampleFS.(*afero.BasePathFs), filePath))
+		pterm.Printfln("Successfully created example and saved to %s", filesystem.FullPath(c.exampleFS, filePath))
 
 	case outputYAML:
 		pterm.Println(string(resourceYAML))
@@ -508,6 +509,9 @@ func (c *generateCmd) outputResource(res resource) error { //nolint:gocyclo
 
 // validateNameNamespace checks that the name and (if provided) the namespace are valid DNS labels.
 func validateNameNamespace(name, namespace string) (string, error) {
+	// TODO(adamwg): Replace with validation from k8s validation package.
+	dnsLabelRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+
 	if len(name) > 63 {
 		return "", errors.New("metadata.name must be no more than 63 characters")
 	}

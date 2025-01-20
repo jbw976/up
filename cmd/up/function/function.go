@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package function contains the `up function` commands.
 package function
 
 // Cmd contains commands for function cmd.

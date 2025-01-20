@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package example provides the `up example` commands.
 package example
 
 // Cmd contains commands for example cmd.
 type Cmd struct {
-	Generate generateCmd `cmd:"" help:"Generate an Example Claim(XRC) or Composite Resource(XR)."`
+	Generate generateCmd `cmd:"" help:"Generate an Example Claim (XRC) or Composite Resource (XR)."`
 }

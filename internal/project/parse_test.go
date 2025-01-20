@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/assert"
 
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -52,9 +52,9 @@ spec:
 			projectFile: "/project.yaml",
 			expectErr:   false,
 			expectedPaths: &v1alpha1.ProjectPaths{
-				APIs:      "/test",
-				Examples:  "/example",
-				Functions: "/funcs",
+				APIs:      "test",
+				Examples:  "example",
+				Functions: "funcs",
 			},
 		},
 		{
@@ -75,9 +75,7 @@ spec:
 			projectFile: "/project.yaml",
 			expectErr:   false,
 			expectedPaths: &v1alpha1.ProjectPaths{
-				APIs:      "/apis",
-				Examples:  "/examples",
-				Functions: "/funcs",
+				Functions: "funcs",
 			},
 		},
 		{
@@ -104,15 +102,10 @@ spec:
 			},
 			projectFile: "/project.yaml",
 			expectErr:   false,
-			expectedPaths: &v1alpha1.ProjectPaths{
-				APIs:      "/apis",
-				Examples:  "/examples",
-				Functions: "/functions",
-			},
 		},
 		{
 			name: "ProjectFileNotFound",
-			setupFs: func(fs afero.Fs) {
+			setupFs: func(_ afero.Fs) {
 			},
 			projectFile:   "/nonexistent.yaml",
 			expectErr:     true,
@@ -129,13 +122,12 @@ spec:
 			proj, err := Parse(fs, tt.projectFile)
 
 			if tt.expectErr {
-				require.Error(t, err)
+				assert.Assert(t, err != nil)
 				return
 			}
 
-			require.NoError(t, err)
-
-			require.Equal(t, tt.expectedPaths, proj.Spec.Paths, "incorrect paths for project")
+			assert.NilError(t, err)
+			assert.DeepEqual(t, tt.expectedPaths, proj.Spec.Paths)
 		})
 	}
 }

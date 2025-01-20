@@ -21,11 +21,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
-// Validate validates a project, first applying defaults.
+// Validate validates a project.
 func (p *Project) Validate() error {
 	var errs []error
-
-	p.Default()
 
 	if p.GetName() == "" {
 		errs = append(errs, errors.New("name must not be empty"))
@@ -59,20 +57,43 @@ func (s *ProjectSpec) Validate() error {
 		}
 	}
 
+	if s.Architectures != nil && len(s.Architectures) == 0 {
+		errs = append(errs, errors.New("architectures must not be empty"))
+	}
+
 	return errors.Join(errs...)
 }
 
 // Default applies defaults for a project.
 func (p *Project) Default() {
+	if p.Spec == nil {
+		p.Spec = &ProjectSpec{}
+	}
+
 	p.Spec.Default()
 }
 
 // Default applies defaults for a project's spec.
 func (s *ProjectSpec) Default() {
-	if s == nil {
-		return
+	if s.Paths == nil {
+		s.Paths = &ProjectPaths{}
 	}
+	s.Paths.Default()
+
 	if len(s.Architectures) == 0 {
 		s.Architectures = []string{"amd64", "arm64"}
+	}
+}
+
+// Default applies defaults to a project's paths.
+func (p *ProjectPaths) Default() {
+	if p.APIs == "" {
+		p.APIs = "apis"
+	}
+	if p.Examples == "" {
+		p.Examples = "examples"
+	}
+	if p.Functions == "" {
+		p.Functions = "functions"
 	}
 }

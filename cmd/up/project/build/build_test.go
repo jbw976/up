@@ -29,7 +29,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
@@ -64,6 +63,8 @@ var (
 )
 
 func TestBuild(t *testing.T) {
+	t.Parallel()
+
 	tcs := map[string]struct {
 		projFS                  afero.Fs
 		outputFile              string
@@ -211,10 +212,7 @@ func TestBuild(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(context.Background(), upCtx, &pterm.BasicTextPrinter{
-				Style:  pterm.DefaultBasicText.Style,
-				Writer: &TestWriter{t},
-			})
+			err = c.Run(context.Background(), upCtx)
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.
@@ -390,7 +388,7 @@ func TestBuild(t *testing.T) {
 
 type MockSchemaRunner struct{}
 
-func (m MockSchemaRunner) Generate(ctx context.Context, fs afero.Fs, folder string, imageName string, args []string) error {
+func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, imageName string, _ []string) error {
 	// Simulate generation for KCL schema files
 	// Simulate generation for KCL schema files
 	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any

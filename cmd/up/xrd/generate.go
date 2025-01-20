@@ -35,6 +35,7 @@ import (
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -95,7 +96,7 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -114,6 +115,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	if err != nil {
 		return err
 	}
+	proj.Default()
 
 	c.proj = proj
 
@@ -164,11 +166,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) err
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocognit // TODO: Refactor
 	pterm.EnableStyling()
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
-		return errors.Wrapf(err, "failed to read file in %s", afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), c.relFile))
+		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
 	}
 
 	xrd, err := newXRD(yamlData, c.Plural)
@@ -200,7 +202,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 			// Prompt the user for confirmation to merge
 			pterm.Println() // Blank line for spacing
 			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", afero.FullBaseFsPath(c.apisFS.(*afero.BasePathFs), filePath))
+			confirm.DefaultText = fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.apisFS, filePath))
 			confirm.DefaultValue = false
 
 			result, _ := confirm.Show() // Display confirmation prompt
@@ -221,7 +223,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		// In parallel:
 		// * Generate schemas for XRDs
-		if err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+		if err = async.WrapWithSuccessSpinners(func(_ async.EventChannel) error {
 			eg, ctx := errgroup.WithContext(ctx)
 
 			eg.Go(func() error {
@@ -255,7 +257,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 			return err
 		}
 
-		p.Printfln("Successfully created CompositeResourceDefinition (XRD) and saved to %s", afero.FullBaseFsPath(c.apisFS.(*afero.BasePathFs), filePath))
+		p.Printfln("Successfully created CompositeResourceDefinition (XRD) and saved to %s", filesystem.FullPath(c.apisFS, filePath))
 
 	case outputYAML:
 		p.Println(string(xrdYAML))
@@ -275,7 +277,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 }
 
 // newXRD to create a new CompositeResourceDefinition and fail if inferProperties fails.
-func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) { //nolint:gocyclo
+func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) {
 	var input inputYAML
 	err := yaml.Unmarshal(yamlData, &input)
 	if err != nil {
@@ -460,7 +462,7 @@ func inferProperties(spec map[string]interface{}) (map[string]extv1.JSONSchemaPr
 }
 
 // inferProperty to return extv1.JSONSchemaProps.
-func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) { //nolint:gocyclo
+func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) {
 	// Explicitly handle nil
 	if value == nil {
 		return extv1.JSONSchemaProps{
