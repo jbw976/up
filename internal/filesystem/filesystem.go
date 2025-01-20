@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package filesystem contains utilities for working with filesystems.
 package filesystem
 
 import (
@@ -27,8 +28,6 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
-
-var ErrFsNotEmpty = errors.New("filesystem is not empty")
 
 // CopyFilesBetweenFs copies all files from the source filesystem (fromFS) to the destination filesystem (toFS).
 // It traverses through the fromFS filesystem, skipping directories and copying only files.
@@ -72,27 +71,36 @@ type fsToTarConfig struct {
 	gidOverride     *int
 }
 
+// FSToTarOption configures the behavior of FSToTar.
 type FSToTarOption func(*fsToTarConfig)
 
+// WithSymlinkBasePath provides the real base path of the filesystem, for use in
+// symlink resolution.
 func WithSymlinkBasePath(bp string) FSToTarOption {
 	return func(opts *fsToTarConfig) {
 		opts.symlinkBasePath = &bp
 	}
 }
 
+// WithUIDOverride sets the owner UID to use in the tar archive.
 func WithUIDOverride(uid int) FSToTarOption {
 	return func(opts *fsToTarConfig) {
 		opts.uidOverride = &uid
 	}
 }
 
+// WithGIDOverride sets the owner GID to use in the tar archive.
 func WithGIDOverride(gid int) FSToTarOption {
 	return func(opts *fsToTarConfig) {
 		opts.gidOverride = &gid
 	}
 }
 
-func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) { //nolint:gocyclo
+// FSToTar produces a tarball of all the files in a filesystem. It supports
+// following symlinks (even outside the given filesystem) if
+// `WithSymlinkBasePath` is provided and the given filesystem is an
+// `afero.BasePathFs`.
+func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 	cfg := &fsToTarConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -120,121 +128,16 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 		if err != nil {
 			return err
 		}
-		// Compute the full path in the tar archive
-		fullPath := filepath.Join(prefix, name)
-		if info.IsDir() {
-			// Skip the root directory as it was already added
-			if fullPath == prefix {
-				return nil
-			}
-
-			h, err := tar.FileInfoHeader(info, "")
-			if err != nil {
-				return err
-			}
-			h.Name = fullPath
-			if cfg.uidOverride != nil {
-				h.Uid = *cfg.uidOverride
-			}
-			if cfg.gidOverride != nil {
-				h.Gid = *cfg.gidOverride
-			}
-			if err := tw.WriteHeader(h); err != nil {
-				return err
-			}
-			return nil
-		}
 
 		if info.Mode()&os.ModeSymlink != 0 {
 			if cfg.symlinkBasePath == nil {
 				return errors.New("cannot follow symlinks unless base path is configured")
 			}
 
-			// Handle symlink by using afero.OsFs to resolve it
-			osFs := afero.NewOsFs()
-			symlinkBasePath := filepath.Join(*cfg.symlinkBasePath, name)
-
-			// Since symlink points outside BasePathFs, use osFs to resolve it
-			targetPath, err := filepath.EvalSymlinks(symlinkBasePath)
-			if err != nil {
-				// The symlink target may be missing, which can occur when dependencies are only referenced without schemas.
-				// It's safe to skip these symlinks by returning nil, allowing the packaging to continue without interruption.
-				return nil //nolint:nilerr
-			}
-
-			// Ensure the symlink target exists in the real filesystem (OsFs)
-			exists, err := afero.Exists(osFs, targetPath)
-			if err != nil || !exists {
-				return err
-			}
-
-			// Walk the external target path using OsFs
-			return afero.Walk(osFs, targetPath, func(symlinkedFile string, symlinkedInfo fs.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if symlinkedInfo.IsDir() {
-					return nil
-				}
-
-				// Add files from the external symlinked target to the tar
-				targetHeader, err := tar.FileInfoHeader(symlinkedInfo, "")
-				if err != nil {
-					return err
-				}
-
-				// Adjust the header name to place it under the symlink's directory
-				relativePath, err := filepath.Rel(targetPath, symlinkedFile)
-				if err != nil {
-					return err
-				}
-				targetHeader.Name = filepath.Join(prefix, name, relativePath)
-				if cfg.uidOverride != nil {
-					targetHeader.Uid = *cfg.uidOverride
-				}
-				if cfg.gidOverride != nil {
-					targetHeader.Gid = *cfg.gidOverride
-				}
-
-				if err := tw.WriteHeader(targetHeader); err != nil {
-					return err
-				}
-
-				targetFile, err := osFs.Open(symlinkedFile)
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(tw, targetFile)
-				return err
-			})
+			return addSymlinkToTar(tw, prefix, name, cfg)
 		}
-		if info.Mode().IsRegular() {
-			h, err := tar.FileInfoHeader(info, "")
-			if err != nil {
-				return err
-			}
-			h.Name = fullPath
-			if cfg.uidOverride != nil {
-				h.Uid = *cfg.uidOverride
-			}
-			if cfg.gidOverride != nil {
-				h.Gid = *cfg.gidOverride
-			}
-			if err := tw.WriteHeader(h); err != nil {
-				return err
-			}
 
-			file, err := f.Open(name)
-			if err != nil {
-				return err
-			}
-
-			_, err = io.Copy(tw, file)
-			return err
-		}
-		return nil
+		return addToTar(tw, prefix, f, name, info, cfg)
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to populate tar archive")
@@ -247,6 +150,126 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func addToTar(tw *tar.Writer, prefix string, f afero.Fs, filename string, info fs.FileInfo, cfg *fsToTarConfig) error {
+	// Compute the full path in the tar archive
+	fullPath := filepath.Join(prefix, filename)
+
+	if info.IsDir() {
+		// Skip the root directory as it was already added
+		if fullPath == prefix {
+			return nil
+		}
+
+		h, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		h.Name = fullPath
+		if cfg.uidOverride != nil {
+			h.Uid = *cfg.uidOverride
+		}
+		if cfg.gidOverride != nil {
+			h.Gid = *cfg.gidOverride
+		}
+		if err := tw.WriteHeader(h); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if !info.Mode().IsRegular() {
+		return errors.Errorf("unhandled file mode %v", info.Mode())
+	}
+
+	h, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return err
+	}
+	h.Name = fullPath
+	if cfg.uidOverride != nil {
+		h.Uid = *cfg.uidOverride
+	}
+	if cfg.gidOverride != nil {
+		h.Gid = *cfg.gidOverride
+	}
+	if err := tw.WriteHeader(h); err != nil {
+		return err
+	}
+
+	file, err := f.Open(filename)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(tw, file)
+	return err
+}
+
+func addSymlinkToTar(tw *tar.Writer, prefix string, symlinkPath string, cfg *fsToTarConfig) error {
+	// Handle symlink by using afero.OsFs to resolve it
+	osFs := afero.NewOsFs()
+
+	// Since symlink points outside BasePathFs, use osFs to resolve it
+	targetPath, err := filepath.EvalSymlinks(filepath.Join(*cfg.symlinkBasePath, symlinkPath))
+	if err != nil {
+		// The symlink target may be missing, which can occur when
+		// dependencies are only referenced without schemas.  It's safe
+		// to skip these symlinks by returning nil, allowing the
+		// packaging to continue without interruption.
+		return nil //nolint:nilerr // See comment above.
+	}
+
+	// Ensure the symlink target exists in the real filesystem (OsFs)
+	exists, err := afero.Exists(osFs, targetPath)
+	if err != nil || !exists {
+		return err
+	}
+
+	// Walk the external target path using OsFs
+	return afero.Walk(osFs, targetPath, func(symlinkedFile string, symlinkedInfo fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if symlinkedInfo.IsDir() {
+			return nil
+		}
+
+		// Add files from the external symlinked target to the tar
+		targetHeader, err := tar.FileInfoHeader(symlinkedInfo, "")
+		if err != nil {
+			return err
+		}
+
+		// Adjust the header name to place it under the symlink's directory
+		relativePath, err := filepath.Rel(targetPath, symlinkedFile)
+		if err != nil {
+			return err
+		}
+		targetHeader.Name = filepath.Join(prefix, symlinkPath, relativePath)
+		if cfg.uidOverride != nil {
+			targetHeader.Uid = *cfg.uidOverride
+		}
+		if cfg.gidOverride != nil {
+			targetHeader.Gid = *cfg.gidOverride
+		}
+
+		if err := tw.WriteHeader(targetHeader); err != nil {
+			return err
+		}
+
+		targetFile, err := osFs.Open(symlinkedFile)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(tw, targetFile)
+		return err
+	})
+}
+
+// CreateSymlink creates a symlink in a BasePathFs, potentially to another
+// BasePathFs that shares the same underlying filesystem.
 func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afero.BasePathFs, sourcePath string) error {
 	// Get the real path for targetPath inside targetFS
 	realTargetPath, err := targetFS.RealPath(targetPath)
@@ -297,7 +320,7 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 	return nil
 }
 
-// IsFsEmptycheck if the filesystem is empty.
+// IsFsEmpty checks if the filesystem is empty.
 func IsFsEmpty(fs afero.Fs) (bool, error) {
 	// Check if the root directory (".") exists
 	_, err := fs.Stat(".")
