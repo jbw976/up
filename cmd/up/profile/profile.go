@@ -33,7 +33,7 @@ type Cmd struct {
 	Create  createCmd  `cmd:"" help:"Create a new Upbound Profile without logging in."`
 	Delete  deleteCmd  `cmd:"" help:"Delete an Upbound Profile."`
 	Rename  renameCmd  `cmd:"" help:"Rename an Upbound Profile."`
-	Config  config.Cmd `cmd:"" help:"Interact with the current Upbound Profile's config."`
+	Config  config.Cmd `cmd:"" deprecated:""                                             help:"Deprecated: Interact with the current Upbound Profile's config." hidden:""`
 
 	Flags upbound.Flags `embed:""`
 }
