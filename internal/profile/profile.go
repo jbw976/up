@@ -88,6 +88,27 @@ type Profile struct {
 	BaseConfig map[string]string `json:"base,omitempty"`
 }
 
+// UnmarshalJSON unmarshals the JSON representation of a profile, handling field
+// upgrades and defaults.
+func (p *Profile) UnmarshalJSON(bs []byte) error {
+	type profile Profile
+	var pc profile
+	if err := json.Unmarshal(bs, &pc); err != nil {
+		return err
+	}
+
+	*p = Profile(pc)
+
+	if p.Organization == "" {
+		p.Organization = p.Account
+	}
+	if p.Type == "" {
+		p.Type = TypeCloud
+	}
+
+	return nil
+}
+
 // Validate returns an error if the profile is invalid.
 func (p Profile) Validate() error {
 	switch p.Type {
