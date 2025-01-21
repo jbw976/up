@@ -66,6 +66,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if upCtx.ProfileName == "" {
+		return errors.New("no profile found; use `up login` or `up profile create` to create one")
+	}
+
 	upCtx.SetupLogging()
 
 	kongCtx.Bind(upCtx)
