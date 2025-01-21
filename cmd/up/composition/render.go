@@ -43,8 +43,11 @@ import (
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
 
 	"github.com/upbound/up/cmd/up/project/common"
+	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -127,11 +130,13 @@ type renderCmd struct {
 	m  *manager.Manager
 	r  manager.ImageResolver
 	ws *workspace.Workspace
+
+	quiet config.QuietFlag
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet config.QuietFlag) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
@@ -219,10 +224,13 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error
 
 	logger := logging.NewLogrLogger(zap.New(zap.UseDevMode(false)))
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
+
+	c.quiet = quiet
 	return nil
 }
 
-func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextPrinter) error { //nolint:gocognit // same than upstream
+func (c *renderCmd) Run(log logging.Logger) error { //nolint:gocognit // same than upstream
+	pterm.EnableStyling()
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
@@ -236,10 +244,14 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 		return errors.Wrapf(err, "cannot load Composition from %q", c.compositionRel)
 	}
 
-	// load functions from project upbound.yaml dependsOn
-	fns, err := c.loadFunctions(ctx, c.proj)
-	if err != nil {
-		return errors.Wrapf(err, "cannot load functions from project")
+	expected := comp.Spec.CompositeTypeRef
+	actual := xr.GetReference()
+	if expected.APIVersion != actual.APIVersion || expected.Kind != actual.Kind {
+		return errors.Errorf(
+			"CompositeResource %s.%s does not match Composition compositeTypeRef %s.%s",
+			actual.Kind, actual.APIVersion,
+			expected.Kind, expected.APIVersion,
+		)
 	}
 
 	fcreds := []corev1.Secret{}
@@ -286,12 +298,21 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 	)
 
 	// ToDo(haarchri): consider building only functions which configured in composition
-	imgMap, err := b.Build(ctx, c.proj, c.projFS,
-		project.BuildWithEventChannel(nil), // disable spinner logs
-		project.BuildWithImageLabels(common.ImageLabels(c)),
-		project.BuildWithDependencyManager(c.m))
+	var imgMap project.ImageTagMap
+	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+		var err error
+		eventChannel := ch
+		if c.quiet {
+			eventChannel = nil
+		}
+		imgMap, err = b.Build(ctx, c.proj, c.projFS,
+			project.BuildWithEventChannel(eventChannel),
+			project.BuildWithImageLabels(common.ImageLabels(c)),
+			project.BuildWithDependencyManager(c.m))
+		return err
+	})
 	if err != nil {
-		return errors.Wrap(err, "cannot build function")
+		return err
 	}
 
 	if !c.NoBuildCache {
@@ -305,26 +326,57 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 		}
 	}
 
-	// push embedded functions to daemon
-	efns, err := embeddedFunctionsToDaemon(imgMap)
+	var efns []pkgv1.Function
+	err = upterm.WrapWithSuccessSpinner(
+		"Pushing embedded functions to local daemon",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			// push embedded functions to daemon
+			lefns, err := embeddedFunctionsToDaemon(imgMap)
+			if err != nil {
+				return errors.Wrap(err, "unable to push to local docker daemon")
+			}
+			efns = lefns
+			return nil
+		},
+		c.quiet,
+	)
 	if err != nil {
-		return errors.Wrap(err, "unable to push to local docker daemon")
+		return err
+	}
+	// load functions from project upbound.yaml dependsOn
+	fns, err := c.loadFunctions(ctx, c.proj)
+	if err != nil {
+		return errors.Wrapf(err, "cannot load functions from project")
 	}
 
 	// collect functions from project upbound.yaml and embedded functions
 	fns = append(fns, efns...)
 
-	out, err := xprender.Render(ctx, log, xprender.Inputs{
-		CompositeResource:   xr,
-		Composition:         comp,
-		Functions:           fns,
-		FunctionCredentials: fcreds,
-		ObservedResources:   ors,
-		ExtraResources:      ers,
-		Context:             fctx,
-	})
+	var out xprender.Outputs
+	err = upterm.WrapWithSuccessSpinner(
+		"Starting Functions and execute render",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			lout, err := xprender.Render(ctx, log, xprender.Inputs{
+				CompositeResource:   xr,
+				Composition:         comp,
+				Functions:           fns,
+				FunctionCredentials: fcreds,
+				ObservedResources:   ors,
+				ExtraResources:      ers,
+				Context:             fctx,
+			})
+			if err != nil {
+				return errors.Wrap(err, "cannot render composite resource")
+			}
+			out = lout
+			return nil
+		},
+		c.quiet,
+	)
 	if err != nil {
-		return errors.Wrap(err, "cannot render composite resource")
+		return err
 	}
 
 	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
@@ -350,30 +402,38 @@ func (c *renderCmd) Run(kongCtx *kong.Context, log logging.Logger, p pterm.TextP
 	}
 
 	// when using p.Println we have 2 new-lines when using with kongCtx.Stdout
-	p.Print("---\n")
-	if err := s.Encode(out.CompositeResource, kongCtx.Stdout); err != nil {
+	if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
+		return errors.Wrap(err, "failed to write to standard output")
+	}
+	if err := s.Encode(out.CompositeResource, os.Stdout); err != nil {
 		return errors.Wrapf(err, "cannot marshal composite resource %q to YAML", xr.GetName())
 	}
 
 	for i := range out.ComposedResources {
-		p.Print("---\n")
-		if err := s.Encode(&out.ComposedResources[i], kongCtx.Stdout); err != nil {
+		if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
+			return errors.Wrap(err, "failed to write to standard output")
+		}
+		if err := s.Encode(&out.ComposedResources[i], os.Stdout); err != nil {
 			return errors.Wrapf(err, "cannot marshal composed resource to YAML")
 		}
 	}
 
 	if c.IncludeFunctionResults {
 		for i := range out.Results {
-			p.Print("---\n")
-			if err := s.Encode(&out.Results[i], kongCtx.Stdout); err != nil {
+			if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
+				return errors.Wrap(err, "failed to write to standard output")
+			}
+			if err := s.Encode(&out.Results[i], os.Stdout); err != nil {
 				return errors.Wrap(err, "cannot marshal result to YAML")
 			}
 		}
 	}
 
 	if c.IncludeContext {
-		p.Print("---\n")
-		if err := s.Encode(out.Context, kongCtx.Stdout); err != nil {
+		if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
+			return errors.Wrap(err, "failed to write to standard output")
+		}
+		if err := s.Encode(out.Context, os.Stdout); err != nil {
 			return errors.Wrap(err, "cannot marshal context to YAML")
 		}
 	}

@@ -31,6 +31,7 @@ import (
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
@@ -62,10 +63,12 @@ type Cmd struct {
 	schemaRunner       schemarunner.SchemaRunner
 
 	m *manager.Manager
+
+	quiet config.QuietFlag
 }
 
 // AfterApply parses flags and applies defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -116,6 +119,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
+	c.quiet = quiet
 	return nil
 }
 
@@ -141,6 +145,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			proj = lproj
 			return nil
 		},
+		c.quiet,
 	)
 	if err != nil {
 		return err
@@ -218,7 +223,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 				return errors.Wrap(err, "failed to write package to file")
 			}
 			return nil
-		})
+		},
+		c.quiet,
+	)
 	if err != nil {
 		return err
 	}

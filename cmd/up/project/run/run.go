@@ -48,6 +48,7 @@ import (
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
@@ -92,10 +93,12 @@ type Cmd struct {
 	keychain           authn.Keychain
 
 	spaceClient client.Client
+
+	quiet config.QuietFlag
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -194,6 +197,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 	pterm.EnableStyling()
 
+	c.quiet = quiet
+
 	return nil
 }
 
@@ -217,6 +222,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			proj = lproj
 			return nil
 		},
+		c.quiet,
 	)
 	if err != nil {
 		return err
@@ -521,6 +527,7 @@ func (c *Cmd) installPackage(ctx context.Context, cl client.Client, proj *v1alph
 		func() error {
 			return cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-project-run"))
 		},
+		c.quiet,
 	)
 	if err != nil {
 		return err
@@ -536,6 +543,7 @@ func (c *Cmd) installPackage(ctx context.Context, cl client.Client, proj *v1alph
 		"Waiting for package to be ready",
 		upterm.CheckmarkSuccessSpinner,
 		waitForPackagesReady(readyCtx, cl, tag),
+		c.quiet,
 	)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
