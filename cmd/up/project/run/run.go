@@ -70,16 +70,17 @@ const (
 
 // Cmd is the `up project run` command.
 type Cmd struct {
-	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                   short:"f"`
+	ProjectFile       string        `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                                        short:"f"`
 	Repository        string        `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache      bool          `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                 type:"path"`
-	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                  help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir     string        `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                                      type:"path"`
+	MaxConcurrency    uint          `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                                       help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
+	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
+	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
 	Flags             upbound.Flags `embed:""`
 
 	projFS             afero.Fs
@@ -525,12 +526,21 @@ func (c *Cmd) installPackage(ctx context.Context, cl client.Client, proj *v1alph
 		return err
 	}
 
+	readyCtx := ctx
+	if c.Timeout != 0 {
+		timeoutCtx, cancel := context.WithTimeout(ctx, c.Timeout)
+		defer cancel()
+		readyCtx = timeoutCtx
+	}
 	err = upterm.WrapWithSuccessSpinner(
 		"Waiting for package to be ready",
 		upterm.CheckmarkSuccessSpinner,
-		waitForPackagesReady(ctx, cl, tag),
+		waitForPackagesReady(readyCtx, cl, tag),
 	)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errors.New("timed out waiting for package to become ready")
+		}
 		return err
 	}
 
