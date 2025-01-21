@@ -550,7 +550,7 @@ func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) f
 				return err
 			}
 
-			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), "")
+			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
 			if !cfgFound {
 				// Configuration not in lock yet.
 				continue
