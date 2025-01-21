@@ -334,8 +334,16 @@ func getKubeconfigNonInteractive(ctx context.Context, upCtx *upbound.Context, na
 			return nil, nil, err
 		}
 		state = s
-		// The root state isn't the empty path; prune it off of the argument.
-		path = strings.TrimPrefix(path, strings.Join(state.Breadcrumbs(), "/"))
+
+		// The root state isn't the empty path; prune its path off of the
+		// argument. If we don't prune anything that means the requested context
+		// isn't available in the current profile (because it doesn't contain
+		// the path to the profile's root state).
+		trimmedPath := strings.TrimPrefix(path, strings.Join(state.Breadcrumbs(), "/"))
+		if trimmedPath == path {
+			return nil, nil, errors.Errorf("context %q is not available in the current profile", path)
+		}
+		path = trimmedPath
 	}
 
 	m := model{
