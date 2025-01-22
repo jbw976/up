@@ -92,6 +92,11 @@
   // be at the beginning, high priority at the end
   "packageRules": [
     {
+      "description": "Automerge non-major updates",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true
+    },
+    {
       "description": "Generate code after upgrading go dependencies",
       "matchDatasources": [
         "go"
