@@ -273,7 +273,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 				return nil
 			}
 		}
-		if err := installPrereqs(status); err != nil {
+		if err := installPrereqs(status, c.quiet); err != nil {
 			return err
 		}
 	}
@@ -301,7 +301,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	return nil
 }
 
-func installPrereqs(status *prerequisites.Status) error {
+func installPrereqs(status *prerequisites.Status, quiet config.QuietFlag) error {
 	for i, p := range status.NotInstalled {
 		if err := upterm.WrapWithSuccessSpinner(
 			upterm.StepCounter(
@@ -311,6 +311,7 @@ func installPrereqs(status *prerequisites.Status) error {
 			),
 			upterm.CheckmarkSuccessSpinner,
 			p.Install,
+			quiet,
 		); err != nil {
 			pterm.Println()
 			pterm.Println()
@@ -348,6 +349,7 @@ func (c *initCmd) applySecret(ctx context.Context, regFlags *authorizedRegistryF
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 3),
 		upterm.CheckmarkSuccessSpinner,
 		creatPullSecret,
+		c.quiet,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()
@@ -389,6 +391,7 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 		upterm.StepCounter("Initializing Space components", 2, 3),
 		upterm.CheckmarkSuccessSpinner,
 		install,
+		c.quiet,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()

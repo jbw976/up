@@ -31,6 +31,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upterm"
@@ -166,11 +167,13 @@ type generateCmd struct {
 
 	m  *manager.Manager
 	ws *workspace.Workspace
+
+	quiet config.QuietFlag
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -240,6 +243,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
+
+	c.quiet = quiet
 	return nil
 }
 
@@ -293,7 +298,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 			}
 		}
 		return nil
-	})
+	}, c.quiet)
 	if err != nil {
 		return err
 	}
@@ -336,7 +341,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 			}
 
 			return nil
-		})
+		}, c.quiet)
 	if err != nil {
 		return err
 	}
@@ -355,7 +360,9 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 					return errors.Wrap(err, "failed to add pipeline step to composition")
 				}
 				return nil
-			})
+			},
+			c.quiet,
+		)
 		if err != nil {
 			return err
 		}

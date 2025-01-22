@@ -47,6 +47,7 @@ import (
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	upctx "github.com/upbound/up/cmd/up/ctx"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
@@ -103,6 +104,7 @@ type CreateCmd struct {
 	TerminateOnFinish bool            `default:"false"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
 
 	Flags upbound.Flags `embed:""`
+	quiet config.QuietFlag
 }
 
 // Validate performs custom argument validation for the create command.
@@ -124,7 +126,7 @@ func (c *CreateCmd) Validate() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, quiet config.QuietFlag) error {
 	pterm.EnableStyling()
 	upterm.DefaultObjPrinter.Pretty = true
 
@@ -137,7 +139,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 	}
 
 	c.debugPrintf(kongCtx.Stderr, "debug logging enabled\n")
-
+	c.quiet = quiet
 	return nil
 }
 
@@ -172,6 +174,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Waiting for simulated control plane to start", 1, totalSteps),
 		upterm.CheckmarkSuccessSpinner,
 		c.waitForSimulationAcceptingChangesStep(ctx, sim, spacesClient),
+		c.quiet,
 	); err != nil {
 		return err
 	}
@@ -186,6 +189,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Applying the changeset to the simulation control plane", 2, totalSteps),
 		stepSpinner,
 		c.applyChangesetStep(simConfig),
+		c.quiet,
 	); err != nil {
 		return err
 	}
@@ -200,6 +204,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
 		stepSpinner,
 		c.waitForSimulationCompleteStep(ctx, sim, spacesClient),
+		c.quiet,
 	); err != nil {
 		return err
 	}
@@ -223,6 +228,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 			upterm.StepCounter("Terminating simulation", 5, totalSteps),
 			stepSpinner,
 			c.terminateSimulation(ctx, sim, spacesClient),
+			c.quiet,
 		); err != nil {
 			return err
 		}

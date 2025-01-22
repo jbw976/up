@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// schema-generator to generate language schemas for packages
 package main
 
 import (
@@ -91,7 +92,7 @@ func (c *cli) Run() error {
 	return c.generateSchema(ctx)
 }
 
-func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
+func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // schemas
 	var (
 		processedImages []v1.Image
 		mu              sync.Mutex
@@ -134,7 +135,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 				return errors.Wrapf(err, "error creating xpkg marshaler")
 			}
 
-			parsedPkg, err := m.FromImage(xpkg.Image{Image: img}) //nolint:contextcheck
+			parsedPkg, err := m.FromImage(xpkg.Image{Image: img}) //nolint:contextcheck // not needed
 			if err != nil {
 				return errors.Wrapf(err, "error parsing image")
 			}
@@ -147,7 +148,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 			err = upterm.WrapWithSuccessSpinner("Schema Generation", upterm.CheckmarkSuccessSpinner, func() error {
 				img, err = c.runSchemaGeneration(gCtx, memFs, img, configFile.Config)
 				return err
-			})
+			}, false)
 			if err != nil {
 				return errors.Wrapf(err, "error generating schema for architecture %v", desc.Platform)
 			}
@@ -183,7 +184,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo
 			targetRef,
 			multiArchIndex,
 			keychain)
-	})
+	}, false)
 	if err != nil {
 		return errors.Wrapf(err, "error pushing multi-arch image to registry %v", c.TargetImage)
 	}

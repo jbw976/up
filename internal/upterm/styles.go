@@ -19,47 +19,71 @@ import (
 	"io"
 
 	"github.com/pterm/pterm"
+
+	"github.com/upbound/up/internal/config"
 )
 
 var (
+	// EyesPrefix is a prefix used for eye-related output.
+	//nolint:gochecknoglobals // used anywhere
 	EyesPrefix = pterm.Prefix{
 		Style: &pterm.Style{pterm.FgLightMagenta},
 		Text:  " 👀",
 	}
 
+	// RaisedPrefix is a prefix used for raised-hand output.
+	//nolint:gochecknoglobals // used anywhere
 	RaisedPrefix = pterm.Prefix{
 		Style: &pterm.Style{pterm.FgLightMagenta},
 		Text:  " 🙌",
 	}
 
+	//nolint:gochecknoglobals // used anywhere
 	spinnerStyle = &pterm.Style{pterm.FgDarkGray}
-	msgStyle     = &pterm.Style{pterm.FgDefault}
+	//nolint:gochecknoglobals // used anywhere
+	msgStyle = &pterm.Style{pterm.FgDefault}
 
+	// CheckmarkSuccessSpinner is the default spinner for success messages.
+	//nolint:gochecknoglobals // used anywhere
 	CheckmarkSuccessSpinner = pterm.DefaultSpinner.WithStyle(spinnerStyle).WithMessageStyle(msgStyle)
-	EyesInfoSpinner         = pterm.DefaultSpinner.WithStyle(spinnerStyle).WithMessageStyle(msgStyle)
 
+	// EyesInfoSpinner is the default spinner for informational messages.
+	//nolint:gochecknoglobals // used anywhere
+	EyesInfoSpinner = pterm.DefaultSpinner.WithStyle(spinnerStyle).WithMessageStyle(msgStyle)
+
+	// ComponentText is the style for component text.
+	//nolint:gochecknoglobals // used anywhere
 	ComponentText = pterm.DefaultBasicText.WithStyle(&pterm.ThemeDefault.TreeTextStyle)
+)
 
-	cp = &pterm.PrefixPrinter{
+func successPrinter() *pterm.PrefixPrinter {
+	return &pterm.PrefixPrinter{
 		MessageStyle: &pterm.Style{pterm.FgDefault},
 		Prefix: pterm.Prefix{
 			Style: &pterm.Style{pterm.FgLightMagenta},
 			Text:  " ✓ ",
 		},
 	}
+}
 
-	ip = &pterm.PrefixPrinter{
+func infoPrinter() *pterm.PrefixPrinter {
+	return &pterm.PrefixPrinter{
 		MessageStyle: &pterm.Style{pterm.FgDefault},
 		Prefix:       EyesPrefix,
 	}
-)
-
-func init() {
-	CheckmarkSuccessSpinner.SuccessPrinter = cp
-	EyesInfoSpinner.InfoPrinter = ip
 }
 
-func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() error) error {
+func init() {
+	CheckmarkSuccessSpinner.SuccessPrinter = successPrinter()
+	EyesInfoSpinner.InfoPrinter = infoPrinter()
+}
+
+// WrapWithSuccessSpinner adds spinners around message and run function.
+func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() error, quiet config.QuietFlag) error {
+	if quiet {
+		return f()
+	}
+
 	s, err := spinner.Start(msg)
 	if err != nil {
 		return err
@@ -73,6 +97,7 @@ func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() 
 	return nil
 }
 
+// StepCounter returns the counted steps.
 func StepCounter(msg string, index, total int) string {
 	return fmt.Sprintf("[%d/%d]: %s", index, total, msg)
 }
@@ -84,7 +109,7 @@ func StepCounter(msg string, index, total int) string {
 // don't share state.
 func NewCheckmarkSuccessSpinner(w io.Writer) *pterm.SpinnerPrinter {
 	sp := pterm.DefaultSpinner
-	sp.SuccessPrinter = cp
+	sp.SuccessPrinter = successPrinter()
 	sp.Writer = w
 	sp.MessageStyle = msgStyle
 	sp.Style = spinnerStyle

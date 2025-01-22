@@ -213,7 +213,7 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 				return nil
 			}
 		}
-		if err := installPrereqs(status); err != nil {
+		if err := installPrereqs(status, c.quiet); err != nil {
 			return err
 		}
 	}
@@ -234,6 +234,7 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 2),
 		upterm.CheckmarkSuccessSpinner,
 		pullSecret,
+		c.quiet,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()
@@ -281,6 +282,7 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 		upterm.StepCounter(fmt.Sprintf("%s Space from v%s to v%s", verb, c.oldVersion, version), 2, 2),
 		upterm.CheckmarkSuccessSpinner,
 		upgrade,
+		c.quiet,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()

@@ -32,6 +32,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
@@ -52,10 +53,12 @@ type Cmd struct {
 	packageFS afero.Fs
 	transport http.RoundTripper
 	keychain  authn.Keychain
+
+	quiet config.QuietFlag
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -94,6 +97,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 		authn.DefaultKeychain,
 	)
 
+	c.quiet = quiet
+
 	return nil
 }
 
@@ -131,6 +136,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			imgMap, err = c.loadPackages()
 			return err
 		},
+		c.quiet,
 	)
 
 	pusher := project.NewPusher(
