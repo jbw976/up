@@ -81,10 +81,7 @@ func init() {
 // WrapWithSuccessSpinner adds spinners around message and run function.
 func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() error, quiet config.QuietFlag) error {
 	if quiet {
-		if err := f(); err != nil {
-			return err
-		}
-		return nil
+		return f()
 	}
 
 	s, err := spinner.Start(msg)

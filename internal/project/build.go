@@ -40,6 +40,7 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -111,9 +112,11 @@ type buildOptions struct {
 // BuildWithEventChannel provides a channel to which progress updates will be
 // written during the build. It is the caller's responsibility to manage the
 // lifecycle of this channel.
-func BuildWithEventChannel(ch async.EventChannel) BuildOption {
+func BuildWithEventChannel(ch async.EventChannel, quiet config.QuietFlag) BuildOption {
 	return func(o *buildOptions) {
-		o.eventChan = ch
+		if !quiet {
+			o.eventChan = ch
+		}
 	}
 }
 
@@ -149,7 +152,7 @@ type realBuilder struct {
 }
 
 // Build implements the Builder interface.
-func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocyclo
+func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocognit // this is the builder
 	os := &buildOptions{}
 	for _, opt := range opts {
 		opt(os)
@@ -662,7 +665,7 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 }
 
 // NewBuilder returns a new project builder.
-func NewBuilder(opts ...BuilderOption) *realBuilder {
+func NewBuilder(opts ...BuilderOption) *realBuilder { //nolint:revive // works as intendend
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
 		schemaRunner:       schemarunner.RealSchemaRunner{},

@@ -180,7 +180,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
 		imgMap, err = b.Build(ctx, proj, c.projFS,
-			project.BuildWithEventChannel(ch),
+			project.BuildWithEventChannel(ch, c.quiet),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),
 			project.BuildWithProjectBasePath(basePath),

@@ -301,12 +301,8 @@ func (c *renderCmd) Run(log logging.Logger) error { //nolint:gocognit // same th
 	var imgMap project.ImageTagMap
 	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
-		eventChannel := ch
-		if c.quiet {
-			eventChannel = nil
-		}
 		imgMap, err = b.Build(ctx, c.proj, c.projFS,
-			project.BuildWithEventChannel(eventChannel),
+			project.BuildWithEventChannel(ch, c.quiet),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m))
 		return err
@@ -355,7 +351,7 @@ func (c *renderCmd) Run(log logging.Logger) error { //nolint:gocognit // same th
 
 	var out xprender.Outputs
 	err = upterm.WrapWithSuccessSpinner(
-		"Starting Functions and execute render",
+		"Rendering",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			lout, err := xprender.Render(ctx, log, xprender.Inputs{
