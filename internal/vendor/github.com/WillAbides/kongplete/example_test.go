@@ -1,4 +1,5 @@
-// This example is adapted from the shell example in github.com/alecthomas/kong
+// Copyright 2025 Upbound Inc.
+// All rights reserved
 
 package kongplete_test
 
