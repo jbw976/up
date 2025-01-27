@@ -110,3 +110,34 @@ func addDefaultAPIVersionAndKind(s *spec.Schema, gvk schema.GroupVersionKind) {
 		s.Properties["kind"] = prop
 	}
 }
+
+func modifyCRDManifestField(crd *extv1.CustomResourceDefinition) error {
+	for i, version := range crd.Spec.Versions {
+		if version.Schema != nil && version.Schema.OpenAPIV3Schema != nil {
+			specProperty, exists := version.Schema.OpenAPIV3Schema.Properties["spec"]
+			if !exists || specProperty.Type != "object" {
+				continue
+			}
+			forProviderProperty, exists := specProperty.Properties["forProvider"]
+			if !exists || forProviderProperty.Type != "object" {
+				continue
+			}
+			manifestProperty, exists := forProviderProperty.Properties["manifest"]
+			if exists && manifestProperty.XEmbeddedResource &&
+				manifestProperty.XPreserveUnknownFields != nil && *manifestProperty.XPreserveUnknownFields {
+				manifestProperty.XEmbeddedResource = false
+				manifestProperty.XPreserveUnknownFields = nil
+				manifestProperty.Type = "object"
+				manifestProperty.AdditionalProperties = &extv1.JSONSchemaPropsOrBool{
+					Allows: true,
+					Schema: nil,
+				}
+				forProviderProperty.Properties["manifest"] = manifestProperty
+				specProperty.Properties["forProvider"] = forProviderProperty
+				version.Schema.OpenAPIV3Schema.Properties["spec"] = specProperty
+				crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties = version.Schema.OpenAPIV3Schema.Properties
+			}
+		}
+	}
+	return nil
+}
