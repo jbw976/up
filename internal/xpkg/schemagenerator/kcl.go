@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package schemagenerator contains functions for schema generation
 package schemagenerator
 
 import (
@@ -43,7 +44,7 @@ const (
 )
 
 // GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocyclo
+func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // we generate schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -158,7 +159,7 @@ func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, g
 // transformStructureKcl modifies the existing fs by moving files from sourceDir to targetDir
 // in the reversed and segmented structure with the version appended at the end,
 // and it copies the k8s directory and specific files (kcl.mod and kcl.mod.lock) to the targetDir.
-func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocyclo
+func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need to adjust the generation
 	// Copy kcl.mod and kcl.mod.lock files if they exist
 	if err := filesystem.CopyFileIfExists(fs, filepath.Join(sourceDir, "kcl.mod"), filepath.Join(targetDir, "kcl.mod")); err != nil {
 		return errors.Wrap(err, "failed to copy kcl.mod")
@@ -168,15 +169,38 @@ func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //n
 		return errors.Wrap(err, "failed to copy kcl.mod.lock")
 	}
 
-	// Copy the k8s directory and all its contents to the targetDir
-	k8sSourcePath := filepath.Join(sourceDir, "k8s")
+	// Modify files in the sourceDir before copying
+	objectMetaPath := filepath.Join(sourceDir, "k8s", "apimachinery", "pkg", "apis", "meta", "v1", "object_meta.k")
+	managedFieldsEntryPath := filepath.Join(sourceDir, "k8s", "apimachinery", "pkg", "apis", "meta", "v1", "managed_fields_entry.k")
 
-	// Copy the k8s directory and all its contents to the targetDir
+	// Replace `managedFields?: [ManagedFieldsEntry]` with `managedFields?: any` in `object_meta.k`
+	if _, err := fs.Stat(objectMetaPath); err == nil { // Check if the file exists
+		content, err := afero.ReadFile(fs, objectMetaPath)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read %s", objectMetaPath)
+		}
+
+		updatedContent := strings.ReplaceAll(string(content), "managedFields?: [ManagedFieldsEntry]", "managedFields?: any")
+
+		if err := afero.WriteFile(fs, objectMetaPath, []byte(updatedContent), 0o644); err != nil {
+			return errors.Wrapf(err, "failed to update %s", objectMetaPath)
+		}
+	}
+
+	// Remove `managed_fields_entry.k` if it exists
+	if _, err := fs.Stat(managedFieldsEntryPath); err == nil {
+		if err := fs.Remove(managedFieldsEntryPath); err != nil {
+			return errors.Wrapf(err, "failed to remove %s", managedFieldsEntryPath)
+		}
+	}
+
+	// Copy the modified `k8s` directory to the targetDir
+	k8sSourcePath := filepath.Join(sourceDir, "k8s")
 	if err := filesystem.CopyFolder(fs, k8sSourcePath, filepath.Join(targetDir, "k8s")); err != nil {
 		return errors.Wrap(err, "failed to copy k8s directory")
 	}
 
-	// Process and transform files in the source directory
+	// Additional transformations remain the same, working on other files
 	if err := afero.Walk(fs, sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -220,6 +244,7 @@ func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //n
 
 		// Transform the filename after the version: remove underscores
 		transformedName := strings.ReplaceAll(strings.Join(parts[versionIndex+1:], ""), "_", "")
+		transformedName = strings.ReplaceAll(transformedName, "swagger", "")
 
 		// Construct the new file path in the target directory with the transformed name
 		newFilePath := filepath.Join(newDir, transformedName)
