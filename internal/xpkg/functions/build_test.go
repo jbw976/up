@@ -53,12 +53,6 @@ func TestIdentify(t *testing.T) {
 		expectError     bool
 		expectedBuilder Builder
 	}{
-		"DockerfileOnly": {
-			files: map[string]string{
-				"Dockerfile": "FROM scratch",
-			},
-			expectedBuilder: &dockerBuilder{},
-		},
 		"KCLOnly": {
 			files: map[string]string{
 				"kcl.mod": "[package]",
@@ -71,13 +65,13 @@ func TestIdentify(t *testing.T) {
 			},
 			expectedBuilder: &pythonBuilder{},
 		},
-		"DockerfileAndKCL": {
+		"PythonAndKCL": {
 			files: map[string]string{
-				"Dockerfile": "FROM scratch",
-				"kcl.mod":    "[package]",
+				"main.py": "",
+				"kcl.mod": "[package]",
 			},
 			// dockerBuilder has precedence.
-			expectedBuilder: &dockerBuilder{},
+			expectedBuilder: &kclBuilder{},
 		},
 		"Empty": {
 			files:       make(map[string]string),
@@ -169,7 +163,7 @@ func TestKCLBuild(t *testing.T) {
 	// Make sure all the files got added with the correct contents.
 	tr := tar.NewReader(rc)
 	tfs := tarfs.New(tr)
-	_ = afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+	_ = afero.Walk(fromFS, "/", func(path string, _ fs.FileInfo, err error) error {
 		assert.NilError(t, err)
 
 		tpath := filepath.Join("/src", path)
@@ -238,7 +232,7 @@ func TestPythonBuild(t *testing.T) {
 	// Make sure all the files got added with the correct contents.
 	tr := tar.NewReader(rc)
 	tfs := tarfs.New(tr)
-	_ = afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+	_ = afero.Walk(fromFS, "/", func(path string, _ fs.FileInfo, err error) error {
 		assert.NilError(t, err)
 
 		tpath := filepath.Join("/venv/fn/lib/python3.11/site-packages/function", path)

@@ -23,18 +23,14 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -68,7 +64,6 @@ var DefaultIdentifier = realIdentifier{}
 func (realIdentifier) Identify(fromFS afero.Fs) (Builder, error) {
 	// builders are the known builder types, in order of precedence.
 	builders := []Builder{
-		&dockerBuilder{},
 		newKCLBuilder(),
 		newPythonBuilder(),
 	}
@@ -109,67 +104,6 @@ type Builder interface {
 	// match returns true if this builder can build the function whose source
 	// lives in the given filesystem.
 	match(fromFS afero.Fs) (bool, error)
-}
-
-// dockerBuilder builds functions from a Dockerfile. For now, it relies on a
-// Docker daemon being available.
-type dockerBuilder struct{}
-
-func (b *dockerBuilder) Name() string {
-	return "docker"
-}
-
-func (b *dockerBuilder) match(fromFS afero.Fs) (bool, error) {
-	return afero.Exists(fromFS, "Dockerfile")
-}
-
-func (b *dockerBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, _ string) ([]v1.Image, error) {
-	cl, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to connect to docker daemon")
-	}
-
-	// Collect build context to send to the docker daemon.
-	contextTar, err := filesystem.FSToTar(fromFS, "/")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to construct docker context")
-	}
-	tag := fmt.Sprintf("up-build:%s", rand.String(12))
-
-	images := make([]v1.Image, len(architectures))
-	eg, ctx := errgroup.WithContext(ctx)
-	for i, arch := range architectures {
-		eg.Go(func() error {
-			dockerContext := bytes.NewReader(contextTar)
-			// We tag the image only so we can reliably get it back from the Docker
-			// daemon. This tag never gets used outside of the build process.
-			archTag := fmt.Sprintf("%s-%s", tag, arch)
-			opts := types.ImageBuildOptions{
-				Tags:           []string{archTag},
-				Platform:       "linux/" + arch,
-				SuppressOutput: true,
-			}
-			_, err := cl.ImageBuild(ctx, dockerContext, opts)
-			if err != nil {
-				return errors.Wrap(err, "failed to build image")
-			}
-
-			ref, err := name.NewTag(archTag)
-			if err != nil {
-				return errors.Wrap(err, "failed to parse image digest from build response")
-			}
-
-			img, err := daemon.Image(ref)
-			if err != nil {
-				return errors.Wrap(err, "failed to fetch built image from docker daemon")
-			}
-
-			images[i] = img
-			return nil
-		})
-	}
-
-	return images, eg.Wait()
 }
 
 // kclBuilder builds functions written in KCL by injecting their code into a
