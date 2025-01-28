@@ -34,7 +34,7 @@ require (
 	github.com/pterm/pterm v0.12.79
 	github.com/r3labs/diff/v3 v3.0.1
 	github.com/radovskyb/watcher v1.0.7
-	github.com/rivo/tview v0.0.0-20240201191747-007cbb1d1344
+	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	github.com/sourcegraph/go-lsp v0.0.0-20200429204803-219e11d77f5d
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/afero v1.11.0
