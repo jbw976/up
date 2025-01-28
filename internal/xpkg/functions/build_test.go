@@ -65,6 +65,12 @@ func TestIdentify(t *testing.T) {
 			},
 			expectedBuilder: &pythonBuilder{},
 		},
+		"GoOnly": {
+			files: map[string]string{
+				"go.mod": "module example.com/fake/module",
+			},
+			expectedBuilder: &goBuilder{},
+		},
 		"PythonAndKCL": {
 			files: map[string]string{
 				"main.py": "",
@@ -130,7 +136,7 @@ func TestKCLBuild(t *testing.T) {
 		},
 	})
 	assert.NilError(t, err)
-	err = remote.Put(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
+	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
 	assert.NilError(t, err)
 
 	// Build a KCL function on top of the base image.
@@ -203,7 +209,7 @@ func TestPythonBuild(t *testing.T) {
 		Architecture: "amd64",
 	})
 	assert.NilError(t, err)
-	err = remote.Put(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
+	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
 	assert.NilError(t, err)
 
 	// Build a python function on top of the base image.
