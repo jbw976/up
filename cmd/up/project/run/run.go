@@ -50,6 +50,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/credhelper"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
@@ -238,7 +239,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	if bfs, ok := c.projFS.(*afero.BasePathFs); ok && basePath == "" {
 		basePath = afero.FullBaseFsPath(bfs, ".")
 	}
-	c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+	c.projFS = filesystem.MemOverlay(c.projFS)
 
 	if c.Repository != proj.Spec.Repository {
 		if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {

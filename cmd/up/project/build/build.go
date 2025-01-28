@@ -32,6 +32,7 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
@@ -164,7 +165,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		if bfs, ok := c.projFS.(*afero.BasePathFs); ok && basePath == "" {
 			basePath = afero.FullBaseFsPath(bfs, ".")
 		}
-		c.projFS = afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+		c.projFS = filesystem.MemOverlay(c.projFS)
 		if err := project.Move(ctx, proj, c.projFS, ref.String()); err != nil {
 			return errors.Wrap(err, "failed to update project repository")
 		}

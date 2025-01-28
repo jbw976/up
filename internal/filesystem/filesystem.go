@@ -457,3 +457,13 @@ func FullPath(fs afero.Fs, path string) string {
 	}
 	return path
 }
+
+// MemOverlay returns a filesystem that uses the given filesystem as a base
+// layer but writes changes to an in-memory overlay filesystem.
+func MemOverlay(fs afero.Fs) afero.Fs {
+	// Relative paths don't work in a CopyOnWriteFs the same way they work in a
+	// BasePathFs. We rely on the BasePathFs behavior working (specifically,
+	// being able to use paths relative to /), so create a no-op BasePathFs on
+	// top of the CopyOnWriteFs.
+	return afero.NewBasePathFs(afero.NewCopyOnWriteFs(fs, afero.NewMemMapFs()), "/")
+}
