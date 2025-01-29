@@ -197,7 +197,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 	// In parallel:
 	// * Collect APIs (composites).
 	// * Generate schemas for APIs.
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(ctx)
 
 	// Collect APIs (composites).
 	var packageFS afero.Fs
@@ -215,7 +215,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
 	// Generate KCL Schemas
 	eg.Go(func() error {
-		kfs, err := schemagenerator.GenerateSchemaKcl(ctx, apisSource, apiExcludes, b.schemaRunner)
+		kfs, err := schemagenerator.GenerateSchemaKcl(egCtx, apisSource, apiExcludes, b.schemaRunner)
 		if err != nil {
 			return err
 		}
@@ -236,7 +236,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 
 	// Generate Python Schemas
 	eg.Go(func() error {
-		pfs, err := schemagenerator.GenerateSchemaPython(ctx, apisSource, apiExcludes, b.schemaRunner)
+		pfs, err := schemagenerator.GenerateSchemaPython(egCtx, apisSource, apiExcludes, b.schemaRunner)
 		if err != nil {
 			return err
 		}
