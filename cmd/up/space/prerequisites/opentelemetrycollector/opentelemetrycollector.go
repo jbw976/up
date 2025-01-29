@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package opentelemetrycollector provides a Helm manager for the opentelemetry-operator chart.
 package opentelemetrycollector
 
 import (
@@ -36,14 +37,8 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
+//nolint:gochecknoglobals // global variables for otel initialization.
 var (
-	chartName      = "opentelemetry-operator"
-	chartNamespace = chartName
-	otelMgrURL, _  = url.Parse("https://open-telemetry.github.io/opentelemetry-helm-charts")
-
-	// Chart version to be installed.
-	version = "0.56.0"
-
 	// Set image used to contrib to cover more exporters.
 	values = map[string]any{
 		"manager": map[string]any{
@@ -52,6 +47,15 @@ var (
 			},
 		},
 	}
+	otelMgrURL, _ = url.Parse("https://open-telemetry.github.io/opentelemetry-helm-charts")
+)
+
+const (
+	chartName      = "opentelemetry-operator"
+	chartNamespace = chartName
+
+	// Chart version to be installed.
+	version = "0.78.2"
 
 	otelCollectorCRD = "opentelemetrycollectors.opentelemetry.io"
 
@@ -60,8 +64,8 @@ var (
 	errFmtCreateNamespace   = "failed to create namespace %s"
 )
 
-// OpenTelemetryCollectorOperator represents a Helm manager.
-type OpenTelemetryCollectorOperator struct {
+// Operator represents a Helm manager.
+type Operator struct {
 	mgr       install.Manager
 	crdclient *apixv1client.ApiextensionsV1Client
 	kclient   kubernetes.Interface
@@ -69,7 +73,7 @@ type OpenTelemetryCollectorOperator struct {
 
 // New constructs a new OpenTelemetryCollectorMgr instance that can used to install the
 // opentelemetry-operator chart.
-func New(config *rest.Config) (*OpenTelemetryCollectorOperator, error) {
+func New(config *rest.Config) (*Operator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		otelMgrURL,
@@ -87,7 +91,7 @@ func New(config *rest.Config) (*OpenTelemetryCollectorOperator, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateK8sClient, chartName))
 	}
 
-	return &OpenTelemetryCollectorOperator{
+	return &Operator{
 		mgr:       mgr,
 		crdclient: crdclient,
 		kclient:   kclient,
@@ -95,12 +99,12 @@ func New(config *rest.Config) (*OpenTelemetryCollectorOperator, error) {
 }
 
 // GetName returns the name of the opentelemetry-operator chart.
-func (o *OpenTelemetryCollectorOperator) GetName() string {
+func (o *Operator) GetName() string {
 	return chartName
 }
 
 // Install performs a Helm install of the chart.
-func (o *OpenTelemetryCollectorOperator) Install() error {
+func (o *Operator) Install() error {
 	installed, err := o.IsInstalled()
 	if err != nil {
 		return err
@@ -135,7 +139,7 @@ func (o *OpenTelemetryCollectorOperator) Install() error {
 
 // waitUntilReady waits until the opentelemetry-operator pod is ready, or
 // until the timeout.
-func (o *OpenTelemetryCollectorOperator) waitUntilReady() error {
+func (o *Operator) waitUntilReady() error {
 	return errors.Wrap(wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pods, err := o.kclient.CoreV1().Pods(chartNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app.kubernetes.io/name=opentelemetry-operator",
@@ -156,7 +160,7 @@ func (o *OpenTelemetryCollectorOperator) waitUntilReady() error {
 }
 
 // IsInstalled checks if opentelemetry operator has been installed in the target cluster.
-func (o *OpenTelemetryCollectorOperator) IsInstalled() (bool, error) {
+func (o *Operator) IsInstalled() (bool, error) {
 	_, err := o.crdclient.
 		CustomResourceDefinitions().
 		Get(
