@@ -27,6 +27,7 @@ import (
 
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -40,7 +41,7 @@ func TestMove(t *testing.T) {
 		afero.FromIOFS{FS: projectEmbeddedFunctions},
 		"testdata/project-embedded-functions",
 	)
-	projFS = afero.NewCopyOnWriteFs(projFS, afero.NewMemMapFs())
+	projFS = filesystem.MemOverlay(projFS)
 	newRepo := "docker.io/my-org/my-project"
 
 	c := &Cmd{
@@ -55,7 +56,7 @@ func TestMove(t *testing.T) {
 
 	// Validate that the repository was updated in the project metadata.
 	var updatedProject v1alpha1.Project
-	projectBytes, err := afero.ReadFile(projFS, "/upbound.yaml")
+	projectBytes, err := afero.ReadFile(projFS, "upbound.yaml")
 	assert.NilError(t, err)
 	err = yaml.Unmarshal(projectBytes, &updatedProject)
 	assert.NilError(t, err)
@@ -63,7 +64,7 @@ func TestMove(t *testing.T) {
 
 	// Validate that function references were updated.
 	compositionsUpdated := 0
-	err = afero.Walk(projFS, "/apis", func(path string, info fs.FileInfo, err error) error {
+	err = afero.Walk(projFS, "apis", func(path string, info fs.FileInfo, err error) error {
 		assert.NilError(t, err)
 		if info.Name() != "composition.yaml" {
 			return nil

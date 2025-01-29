@@ -1,0 +1,16 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xstoragebuckets.platform.example.com
+spec:
+  compositeTypeRef:
+    apiVersion: platform.example.com/v1alpha1
+    kind: XStorageBucket
+  mode: Pipeline
+  pipeline:
+  - functionRef:
+      name: upbound-example-project-awscompose-bucket-kcl
+    step: compose-bucket-kcl
+  - functionRef:
+      name: crossplane-contrib-function-auto-ready
+    step: crossplane-contrib-function-auto-ready
