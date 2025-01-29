@@ -42,7 +42,7 @@ var (
 	otelMgrURL, _  = url.Parse("https://open-telemetry.github.io/opentelemetry-helm-charts")
 
 	// Chart version to be installed.
-	version = "0.56.0"
+	version = "0.78.2"
 
 	// Set image used to contrib to cover more exporters.
 	values = map[string]any{
