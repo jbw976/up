@@ -15,9 +15,9 @@
 package prerequisites
 
 import (
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/rest"
 
 	"github.com/crossplane/crossplane-runtime/pkg/feature"
@@ -135,11 +135,19 @@ func TestNew(t *testing.T) {
 			manager, err := New(tc.args.config, tc.args.defs, features, tc.args.versionStr)
 
 			if tc.want.expectError {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.want.expectedErrMsg)
+				if err == nil {
+					t.Fatal("expected an error, but got nil")
+				}
+				if !strings.Contains(err.Error(), tc.want.expectedErrMsg) {
+					t.Fatalf("expected error to contain %q, got %q", tc.want.expectedErrMsg, err.Error())
+				}
 			} else {
-				require.NoError(t, err)
-				require.NotNil(t, manager)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if manager == nil {
+					t.Fatal("expected a manager, but got nil")
+				}
 
 				// Check if the prerequisites in the Manager match the expected types
 				var prereqTypes []string
@@ -155,14 +163,28 @@ func TestNew(t *testing.T) {
 						prereqTypes = append(prereqTypes, "certmanager")
 					case *ingressnginx.IngressNginx:
 						prereqTypes = append(prereqTypes, "ingressnginx")
-					case *opentelemetrycollector.OpenTelemetryCollectorOperator:
+					case *opentelemetrycollector.Operator:
 						prereqTypes = append(prereqTypes, "opentelemetrycollector")
 					default:
 						t.Fatalf("unexpected prerequisite type: %T", prereq)
 					}
 				}
 
-				require.ElementsMatch(t, tc.want.expectedPrereqs, prereqTypes)
+				if len(prereqTypes) != len(tc.want.expectedPrereqs) {
+					t.Fatalf("expected %d prerequisites, got %d", len(tc.want.expectedPrereqs), len(prereqTypes))
+				}
+				for _, expectedPrereq := range tc.want.expectedPrereqs {
+					found := false
+					for _, prereq := range prereqTypes {
+						if expectedPrereq == prereq {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Fatalf("expected prerequisite %q not found", expectedPrereq)
+					}
+				}
 			}
 		})
 	}
