@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/alecthomas/assert/v2 v2.6.0
+	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/chroma v0.10.0
 	github.com/alecthomas/kong v0.9.0
 	github.com/aws/aws-sdk-go v1.55.5
