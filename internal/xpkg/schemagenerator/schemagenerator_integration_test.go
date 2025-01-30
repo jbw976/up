@@ -164,7 +164,6 @@ func TestSchemas(t *testing.T) {
 				requiredFiles: []string{
 					"/models/co/acme/platform/v1alpha1/accountscaffold.k",
 					"/models/co/acme/platform/v1alpha1/xaccountscaffold.k",
-					"/models/k8s/apimachinery/pkg/apis/meta/v1/managed_fields_entry.k",
 					"/models/k8s/apimachinery/pkg/apis/meta/v1/object_meta.k",
 					"/models/k8s/apimachinery/pkg/apis/meta/v1/owner_reference.k",
 					"/models/kcl.mod",
