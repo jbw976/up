@@ -388,7 +388,7 @@ func TestBuild(t *testing.T) {
 
 type MockSchemaRunner struct{}
 
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, imageName string, _ []string) error {
+func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string) error {
 	// Simulate generation for KCL schema files
 	// Simulate generation for KCL schema files
 	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any

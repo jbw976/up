@@ -82,7 +82,7 @@ func TestRunContainerWithKCLIntegration(t *testing.T) {
 
 			schemaRunner := RealSchemaRunner{}
 			ctx := context.Background()
-			err := schemaRunner.Generate(ctx, fs, tc.args.baseFolder, tc.args.imageName, tc.args.command)
+			err := schemaRunner.Generate(ctx, fs, tc.args.baseFolder, "", tc.args.imageName, tc.args.command)
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nRunContainer(...): -want err, +got err:\n%s", tc.reason, diff)

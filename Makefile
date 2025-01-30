@@ -41,7 +41,7 @@ GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.agentVersion=$(UP_CONNECT_AGENT_
 endif
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.target=$(RELEASE_TARGET)
 GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.gitCommit=$(shell git rev-parse --short HEAD 2> /dev/null || true)
-GO_SUBDIRS += cmd internal
+GO_SUBDIRS += cmd internal pkg
 GO111MODULE = on
 GO_REQUIRED_VERSION = 1.23
 GOLANGCILINT_VERSION = 1.61.0

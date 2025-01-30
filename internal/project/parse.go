@@ -38,6 +38,5 @@ func Parse(projFS afero.Fs, projFilePath string) (*v1alpha1.Project, error) {
 	if err := project.Validate(); err != nil {
 		return nil, errors.Wrap(err, "invalid project file")
 	}
-
 	return &project, nil
 }

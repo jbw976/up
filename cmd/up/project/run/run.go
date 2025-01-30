@@ -28,21 +28,12 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -50,6 +41,8 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/credhelper"
+	"github.com/upbound/up/internal/ctp"
+	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
@@ -62,12 +55,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
-)
-
-const (
-	// TODO(adamwg): It would be nice if we had a const for this somewhere else.
-	devControlPlaneClass      = "small"
-	devControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
 // Cmd is the `up project run` command.
@@ -92,6 +79,7 @@ type Cmd struct {
 	transport          http.RoundTripper
 	m                  *manager.Manager
 	keychain           authn.Keychain
+	concurrency        uint
 
 	spaceClient client.Client
 
@@ -100,6 +88,8 @@ type Cmd struct {
 
 // AfterApply processes flags and sets defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+	c.concurrency = max(1, c.MaxConcurrency)
+
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -150,7 +140,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	}
 	c.m = m
 
-	spaceCtx, err := getCurrentSpaceNavigation(context.Background(), upCtx)
+	spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
 	if err != nil {
 		return err
 	}
@@ -205,10 +195,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 
 // Run is the body of the command.
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
-	if c.MaxConcurrency == 0 {
-		c.MaxConcurrency = 1
-	}
-
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -252,7 +238,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	}
 
 	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(c.MaxConcurrency),
+		project.BuildWithMaxConcurrency(c.concurrency),
 		project.BuildWithFunctionIdentifier(c.functionIdentifier),
 		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
@@ -266,7 +252,28 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, err = c.ensureControlPlane(ctx, upCtx, c.Force, ch)
+			controlplane := spacesv1beta1.ControlPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      c.ControlPlaneName,
+					Namespace: c.ControlPlaneGroup,
+					Annotations: map[string]string{
+						ctp.DevControlPlaneAnnotation: "true",
+					},
+				},
+				Spec: spacesv1beta1.ControlPlaneSpec{
+					Crossplane: spacesv1beta1.CrossplaneSpec{
+						AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+							// TODO(adamwg): For now, dev MCPs always use the rapid
+							// channel because they require Crossplane features that are
+							// only present in 1.18+. We can stop hard-coding this later
+							// when other channels are upgraded.
+							Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeRapid),
+						},
+					},
+					Class: ctp.DevControlPlaneClass,
+				},
+			}
+			devCtpClient, _, err = ctp.EnsureControlPlane(ctx, upCtx, c.spaceClient, c.Force, "create", ch, controlplane)
 			return err
 		})
 
@@ -302,7 +309,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		project.PushWithUpboundContext(upCtx),
 		project.PushWithTransport(c.transport),
 		project.PushWithAuthKeychain(c.keychain),
-		project.PushWithMaxConcurrency(c.MaxConcurrency),
+		project.PushWithMaxConcurrency(c.concurrency),
 	)
 
 	var generatedTag name.Tag
@@ -320,328 +327,10 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return err
 	}
 
-	err = c.installPackage(ctx, devCtpClient, proj, generatedTag)
+	err = kube.InstallPackage(ctx, devCtpClient, proj, generatedTag, c.quiet)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// getCurrentSpaceNavigation derives the state of the current navigation using
-// the same process as up ctx.
-func getCurrentSpaceNavigation(ctx context.Context, upCtx *upbound.Context) (ctxcmd.NavigationState, error) {
-	po := clientcmd.NewDefaultPathOptions()
-	var err error
-
-	conf, err := po.GetStartingConfig()
-	if err != nil {
-		return nil, err
-	}
-	return ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
-}
-
-func (c *Cmd) ensureControlPlane(ctx context.Context, upCtx *upbound.Context, allowProd bool, ch async.EventChannel) (client.Client, error) {
-	var ctp spacesv1beta1.ControlPlane
-	nn := types.NamespacedName{
-		Namespace: c.ControlPlaneGroup,
-		Name:      c.ControlPlaneName,
-	}
-	err := c.spaceClient.Get(ctx, nn, &ctp)
-
-	switch {
-	case err == nil:
-		// Make sure it's a dev control plane and not being deleted.
-		if !isDevControlPlane(&ctp) && !allowProd {
-			return nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
-		}
-		if ctp.DeletionTimestamp != nil {
-			return nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
-		}
-
-	case kerrors.IsNotFound(err):
-		// Create a control plane.
-		if err := c.createControlPlane(ctx, c.spaceClient, ch); err != nil {
-			return nil, err
-		}
-
-	default:
-		// Unexpected error.
-		return nil, errors.Wrap(err, "failed to check for control plane existence")
-	}
-
-	ctpClient, err := getControlPlaneClient(ctx, upCtx, nn)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get client for development control plane")
-	}
-
-	return ctpClient, nil
-}
-
-func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
-	if ctp.Annotations != nil && ctp.Annotations[devControlPlaneAnnotation] == "true" {
-		return true
-	}
-
-	// We didn't used to annotate the control planes created by `up project
-	// run`, and dev MCPs created via the console won't have the annotation, so
-	// also check the control plane class. We assume any control plane with the
-	// "small" class is a dev MCP.
-	if ctp.Spec.Class == devControlPlaneClass {
-		return true
-	}
-
-	return false
-}
-
-// getControlPlaneConfig gets a REST config for a given control plane within
-// the space.
-//
-// TODO(adamwg): Mostly copied from simulations; this should be factored out
-// into our kube package.
-func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp types.NamespacedName) (client.Client, error) {
-	po := clientcmd.NewDefaultPathOptions()
-	var err error
-
-	conf, err := po.GetStartingConfig()
-	if err != nil {
-		return nil, err
-	}
-	state, err := ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
-	if err != nil {
-		return nil, err
-	}
-
-	var ok bool
-	var space ctxcmd.Space
-
-	if space, ok = state.(ctxcmd.Space); !ok {
-		if group, ok := state.(*ctxcmd.Group); ok {
-			space = group.Space
-		} else if ctp, ok := state.(*ctxcmd.ControlPlane); ok {
-			space = ctp.Group.Space
-		} else {
-			return nil, errors.New("current kubeconfig is not pointed at a space cluster")
-		}
-	}
-
-	spaceClient, err := space.BuildKubeconfig(ctp)
-	if err != nil {
-		return nil, err
-	}
-
-	kubeconfig, err := spaceClient.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	ctpClient, err := client.New(kubeconfig, client.Options{})
-	if err != nil {
-		return nil, err
-	}
-
-	ctpSchemeBuilders := []*scheme.Builder{
-		xpkgv1.SchemeBuilder,
-		xpkgv1beta1.SchemeBuilder,
-	}
-	for _, bld := range ctpSchemeBuilders {
-		if err := bld.AddToScheme(ctpClient.Scheme()); err != nil {
-			return nil, err
-		}
-	}
-
-	return ctpClient, nil
-}
-
-func (c *Cmd) createControlPlane(ctx context.Context, cl client.Client, ch async.EventChannel) error {
-	evText := "Creating development control plane"
-	ch.SendEvent(evText, async.EventStatusStarted)
-	ctp := spacesv1beta1.ControlPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.ControlPlaneName,
-			Namespace: c.ControlPlaneGroup,
-			Annotations: map[string]string{
-				devControlPlaneAnnotation: "true",
-			},
-		},
-		Spec: spacesv1beta1.ControlPlaneSpec{
-			Crossplane: spacesv1beta1.CrossplaneSpec{
-				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
-					// TODO(adamwg): For now, dev MCPs always use the rapid
-					// channel because they require Crossplane features that are
-					// only present in 1.18+. We can stop hard-coding this later
-					// when other channels are upgraded.
-					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeRapid),
-				},
-			},
-			Class: devControlPlaneClass,
-		},
-	}
-	if err := cl.Create(ctx, &ctp); err != nil {
-		ch.SendEvent(evText, async.EventStatusFailure)
-		return errors.Wrap(err, "failed to create control plane")
-	}
-
-	nn := types.NamespacedName{
-		Namespace: c.ControlPlaneGroup,
-		Name:      c.ControlPlaneName,
-	}
-	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
-		err = cl.Get(ctx, nn, &ctp)
-		if err != nil {
-			return false, err
-		}
-
-		cond := ctp.Status.GetCondition(commonv1.TypeReady)
-		return cond.Status == corev1.ConditionTrue, nil
-	})
-	if err != nil {
-		ch.SendEvent(evText, async.EventStatusFailure)
-		return errors.Wrap(err, "waiting for control plane to be ready")
-	}
-
-	ch.SendEvent(evText, async.EventStatusSuccess)
-
-	return nil
-}
-
-func (c *Cmd) installPackage(ctx context.Context, cl client.Client, proj *v1alpha1.Project, tag name.Tag) error {
-	pkgSource := tag.String()
-	cfg := &xpkgv1.Configuration{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: xpkgv1.SchemeGroupVersion.String(),
-			Kind:       xpkgv1.ConfigurationKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: proj.Name,
-		},
-		Spec: xpkgv1.ConfigurationSpec{
-			PackageSpec: xpkgv1.PackageSpec{
-				Package: pkgSource,
-			},
-		},
-	}
-
-	err := upterm.WrapWithSuccessSpinner(
-		"Installing package on development control plane",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-project-run"))
-		},
-		c.quiet,
-	)
-	if err != nil {
-		return err
-	}
-
-	readyCtx := ctx
-	if c.Timeout != 0 {
-		timeoutCtx, cancel := context.WithTimeout(ctx, c.Timeout)
-		defer cancel()
-		readyCtx = timeoutCtx
-	}
-	err = upterm.WrapWithSuccessSpinner(
-		"Waiting for package to be ready",
-		upterm.CheckmarkSuccessSpinner,
-		waitForPackagesReady(readyCtx, cl, tag),
-		c.quiet,
-	)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return errors.New("timed out waiting for package to become ready")
-		}
-		return err
-	}
-
-	return nil
-}
-
-func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) func() error {
-	return func() error {
-		nn := types.NamespacedName{
-			Name: "lock",
-		}
-		var lock xpkgv1beta1.Lock
-		for {
-			time.Sleep(500 * time.Millisecond)
-			err := cl.Get(ctx, nn, &lock)
-			if err != nil {
-				return err
-			}
-
-			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
-			if !cfgFound {
-				// Configuration not in lock yet.
-				continue
-			}
-			healthy, err := packageIsHealthy(ctx, cl, cfgPkg)
-			if err != nil {
-				return err
-			}
-			if !healthy {
-				// Configuration is not healthy yet.
-				continue
-			}
-
-			healthy, err = allDepsHealthy(ctx, cl, lock, cfgPkg)
-			if err != nil {
-				return err
-			}
-			if healthy {
-				break
-			}
-		}
-		return nil
-	}
-}
-
-func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock, pkg xpkgv1beta1.LockPackage) (bool, error) {
-	for _, dep := range pkg.Dependencies {
-		depPkg, found := lookupLockPackage(lock.Packages, dep.Package, dep.Constraints)
-		if !found {
-			// Dep is not in lock yet - no need to look at the rest.
-			break
-		}
-		healthy, err := packageIsHealthy(ctx, cl, depPkg)
-		if err != nil {
-			return false, err
-		}
-		if !healthy {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func lookupLockPackage(pkgs []xpkgv1beta1.LockPackage, source, version string) (xpkgv1beta1.LockPackage, bool) {
-	for _, pkg := range pkgs {
-		if pkg.Source == source {
-			if version == "" || pkg.Version == version {
-				return pkg, true
-			}
-		}
-	}
-	return xpkgv1beta1.LockPackage{}, false
-}
-
-func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.LockPackage) (bool, error) {
-	var pkg xpkgv1.PackageRevision
-	switch lpkg.Type {
-	case xpkgv1beta1.ConfigurationPackageType:
-		pkg = &xpkgv1.ConfigurationRevision{}
-
-	case xpkgv1beta1.ProviderPackageType:
-		pkg = &xpkgv1.ProviderRevision{}
-
-	case xpkgv1beta1.FunctionPackageType:
-		pkg = &xpkgv1.FunctionRevision{}
-	}
-
-	err := cl.Get(ctx, types.NamespacedName{Name: lpkg.Name}, pkg)
-	if err != nil {
-		return false, err
-	}
-
-	return resource.IsConditionTrue(pkg.GetCondition(commonv1.TypeHealthy)), nil
 }

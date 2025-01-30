@@ -1,0 +1,127 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: projects.meta.dev.upbound.io
+spec:
+  group: meta.dev.upbound.io
+  names:
+    kind: Project
+    listKind: ProjectList
+    plural: projects
+    singular: project
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Project defines an Upbound Project, which can be built into a Crossplane
+          Configuration.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ProjectSpec is the spec for a Project. Since a Project is not a Kubernetes
+              resource there is no Status, only Spec.
+            properties:
+              architectures:
+                items:
+                  type: string
+                type: array
+              crossplane:
+                description: CrossplaneConstraints specifies a packages compatibility
+                  with Crossplane versions.
+                properties:
+                  version:
+                    description: Semantic version constraints of Crossplane that package
+                      is compatible with.
+                    type: string
+                required:
+                - version
+                type: object
+              dependsOn:
+                items:
+                  description: Dependency is a dependency on another package. One
+                    of Provider or Configuration may be supplied.
+                  properties:
+                    configuration:
+                      description: Configuration is the name of a Configuration package
+                        image.
+                      type: string
+                    function:
+                      description: Function is the name of a Function package image.
+                      type: string
+                    provider:
+                      description: Provider is the name of a Provider package image.
+                      type: string
+                    version:
+                      description: Version is the semantic version constraints of
+                        the dependency image.
+                      type: string
+                  required:
+                  - version
+                  type: object
+                type: array
+              description:
+                type: string
+              license:
+                type: string
+              maintainer:
+                type: string
+              paths:
+                description: |-
+                  ProjectPaths configures the locations of various parts of the project, for
+                  use at build time.
+                properties:
+                  apis:
+                    description: |-
+                      APIs is the directory holding the project's apis. If not
+                      specified, it defaults to `apis/`.
+                    type: string
+                  examples:
+                    description: |-
+                      Examples is the directory holding the project's examples. If not
+                      specified, it defaults to `examples/`.
+                    type: string
+                  functions:
+                    description: |-
+                      Functions is the directory holding the project's functions. If not
+                      specified, it defaults to `functions/`.
+                    type: string
+                  tests:
+                    description: |-
+                      Tests is the directory holding the project's tests. If not
+                      specified, it defaults to `tests/`.
+                    type: string
+                type: object
+              readme:
+                type: string
+              repository:
+                type: string
+              source:
+                type: string
+            required:
+            - repository
+            type: object
+        type: object
+    served: true
+    storage: true

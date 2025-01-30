@@ -179,7 +179,6 @@ func (c *initCmd) updateProjectFile(upCtx *upbound.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to parse the project from template repository")
 	}
-
 	proj.ObjectMeta.Name = c.Name
 	if upCtx != nil && upCtx.Organization != "" {
 		proj.Spec.Repository = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)

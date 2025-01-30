@@ -66,4 +66,7 @@ type ProjectPaths struct {
 	// Examples is the directory holding the project's examples. If not
 	// specified, it defaults to `examples/`.
 	Examples string `json:"examples,omitempty"`
+	// Tests is the directory holding the project's tests. If not
+	// specified, it defaults to `tests/`.
+	Tests string `json:"tests,omitempty"`
 }

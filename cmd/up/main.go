@@ -40,6 +40,7 @@ import (
 	"github.com/upbound/up/cmd/up/robot"
 	"github.com/upbound/up/cmd/up/space"
 	"github.com/upbound/up/cmd/up/team"
+	"github.com/upbound/up/cmd/up/test"
 	"github.com/upbound/up/cmd/up/trace"
 	tviewtemplate "github.com/upbound/up/cmd/up/tview-template"
 	"github.com/upbound/up/cmd/up/uxp"
@@ -117,6 +118,7 @@ type cli struct {
 	XRD         xrd.Cmd         `cmd:""        group:"Develop with Crossplane" help:"Manage XRDs from Composite Resources(XR) or Claims(XRC)."`
 	Composition composition.Cmd `cmd:""        group:"Develop with Crossplane" help:"Manage Compositions."`
 	Function    function.Cmd    `cmd:""        group:"Develop with Crossplane" help:"Manage Functions."`
+	Test        test.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Test Project"`
 	XPKG        xpkg.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Deprecated. Please migrate to up project or use the crossplane CLI." maturity:"deprecated"`
 	XPLS        xpls.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Start xpls language server."`
 

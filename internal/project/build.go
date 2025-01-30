@@ -51,6 +51,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/xpkg/workspace"
+	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -249,6 +250,16 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 				if err := os.depManager.AddModels("python", pfs); err != nil {
 					return err
 				}
+			}
+		}
+		return nil
+	})
+
+	// Generate meta apis Schemas
+	eg.Go(func() error {
+		if os.depManager != nil {
+			if err := apis.GenerateSchema(ctx, os.depManager, b.schemaRunner); err != nil {
+				return errors.Wrap(err, "unable to generate meta api schemas")
 			}
 		}
 		return nil

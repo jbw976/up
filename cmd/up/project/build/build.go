@@ -62,6 +62,7 @@ type Cmd struct {
 
 	functionIdentifier functions.Identifier
 	schemaRunner       schemarunner.SchemaRunner
+	concurrency        uint
 
 	m *manager.Manager
 
@@ -70,6 +71,8 @@ type Cmd struct {
 
 // AfterApply parses flags and applies defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+	c.concurrency = max(1, c.MaxConcurrency)
+
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -128,10 +131,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // This is fine.
 	pterm.EnableStyling()
 
-	if c.MaxConcurrency == 0 {
-		c.MaxConcurrency = 1
-	}
-
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -172,7 +171,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	}
 
 	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(c.MaxConcurrency),
+		project.BuildWithMaxConcurrency(c.concurrency),
 		project.BuildWithFunctionIdentifier(c.functionIdentifier),
 		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
