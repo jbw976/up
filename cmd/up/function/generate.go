@@ -15,11 +15,14 @@
 package function
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"io"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -27,6 +30,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"github.com/spf13/afero/tarfs"
+	"golang.org/x/mod/module"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -42,6 +47,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *generateCmd) Help() string {
@@ -66,13 +72,19 @@ var (
 	kclTemplate embed.FS
 	//go:embed templates/python/**
 	pythonTemplate embed.FS
+
+	// The go template contains a go.mod, so we can't embed it as an
+	// embed.FS. Instead we have to embed it as a tar archive and extract it in
+	// code.
+	//go:embed templates/go.tar
+	goTemplate []byte
 )
 
 type generateCmd struct {
 	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
 	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
 	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." short:"d" type:"path"`
-	Language        string `default:"kcl"                                                                                    enum:"kcl,python"                           help:"Language for function."                        short:"l"`
+	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go"                        help:"Language for function."                        short:"l"`
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
 
@@ -81,6 +93,7 @@ type generateCmd struct {
 	projFS            afero.Fs
 	projectRepository string
 	fsPath            string
+	proj              *v1alpha1.Project
 
 	m  *manager.Manager
 	ws *workspace.Workspace
@@ -110,6 +123,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		return err
 	}
 	proj.Default()
+	c.proj = proj
 
 	// The functions path is relative to the project directory; prepend it with
 	// `/` to make it an absolute path within the project FS.
@@ -231,6 +245,11 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 		if err != nil {
 			return errors.Wrap(err, "failed to handle python")
 		}
+	case "go":
+		functionSpecificFs, err = c.generateGoFiles()
+		if err != nil {
+			return errors.Wrap(err, "failed to handle go")
+		}
 	default:
 		return errors.Errorf("unsupported language: %s", c.Language)
 	}
@@ -241,6 +260,10 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 		func() error {
 			if err := filesystem.CopyFilesBetweenFs(functionSpecificFs, c.functionFS); err != nil {
 				return errors.Wrap(err, "failed to copy files to function target")
+			}
+
+			if !needsModelsSymlink(c.Language) {
+				return nil
 			}
 
 			modelsPath := ".up/" + c.Language + "/models"
@@ -287,6 +310,20 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 
 	pterm.Printfln("successfully created Function and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
 	return nil
+}
+
+func needsModelsSymlink(language string) bool {
+	switch language {
+	case "kcl", "python":
+		return true
+	case "go":
+		// Go references modules via replace directives in go.mod rather than
+		// via a symlink.
+		return false
+	default:
+		// We shouldn't reach this.
+		return false
+	}
 }
 
 type kclTemplateData struct {
@@ -354,6 +391,40 @@ func generatePythonFiles() (afero.Fs, error) {
 	// allow for richer templates in the future.
 	templates := template.Must(template.ParseFS(pythonTemplate, "templates/python/**"))
 	tmplData := pythonTemplateData{}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+type goTemplateData struct {
+	ModulePath string
+	// TODO(adamwg): Generate go.mod replaces for schema modules in .up.
+}
+
+func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	tr := tar.NewReader(bytes.NewReader(goTemplate))
+	templateFS := afero.NewIOFS(tarfs.New(tr))
+
+	// Try to construct a nice import path based on the project's "source"
+	// field, which the user should fill in with their git repository path
+	// (possibly with https:// prefixed if it's a GH repository). If that's not
+	// valid, construct an example path we know is valid. The import path
+	// doesn't actually matter to the builder aside from being valid.
+	source := strings.TrimPrefix(c.proj.Spec.Source, "https://")
+	goModPath := path.Join(source, "functions", c.Name)
+	if module.CheckPath(goModPath) != nil {
+		goModPath = "project.example.com/functions/" + c.Name
+	}
+
+	templates := template.Must(template.ParseFS(templateFS, "*"))
+	tmplData := goTemplateData{
+		ModulePath: goModPath,
+	}
 
 	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
 		return nil, err
