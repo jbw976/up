@@ -36,7 +36,7 @@ which are stored as Kubernetes secrets. Additionally, some managed resources pro
 connection details exclusively during provisioning, and these details may not be
 reconstructable post-migration. Consequently, the exported archive will incorporate
 those secrets by default. To exclude secrets from the export, please use the
---excluded-resources flag.
+--exclude-resources flag.
 
 IMPORTANT: The exported archive will contain secrets. Do you wish to proceed?`
 
