@@ -3,7 +3,7 @@ module github.com/willabides/kongplete
 go 1.17
 
 require (
-	github.com/alecthomas/kong v0.2.22
+	github.com/alecthomas/kong v0.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab
