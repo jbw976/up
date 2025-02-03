@@ -28,14 +28,11 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
@@ -252,28 +249,16 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			controlplane := spacesv1beta1.ControlPlane{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      c.ControlPlaneName,
-					Namespace: c.ControlPlaneGroup,
-					Annotations: map[string]string{
-						ctp.DevControlPlaneAnnotation: "true",
-					},
-				},
-				Spec: spacesv1beta1.ControlPlaneSpec{
-					Crossplane: spacesv1beta1.CrossplaneSpec{
-						AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
-							// TODO(adamwg): For now, dev MCPs always use the rapid
-							// channel because they require Crossplane features that are
-							// only present in 1.18+. We can stop hard-coding this later
-							// when other channels are upgraded.
-							Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeRapid),
-						},
-					},
-					Class: ctp.DevControlPlaneClass,
-				},
-			}
-			devCtpClient, _, err = ctp.EnsureControlPlane(ctx, upCtx, c.spaceClient, c.Force, "create", ch, controlplane)
+			devCtpClient, _, err = ctp.EnsureControlPlane(
+				ctx,
+				upCtx,
+				c.spaceClient,
+				c.ControlPlaneGroup,
+				c.ControlPlaneName,
+				ch,
+				ctp.AllowProd(c.Force),
+				ctp.DevControlPlane(),
+			)
 			return err
 		})
 

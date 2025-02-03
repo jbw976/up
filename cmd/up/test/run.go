@@ -21,9 +21,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -34,7 +34,6 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +41,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	uptest "github.com/crossplane/uptest/pkg"
 
-	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
@@ -79,8 +77,8 @@ type runCmd struct {
 	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
 	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 
-	Chainsaw string `env:"CHAINSAW" help:"Absolute path to the chainsaw binary." type:"path"`
-	Kubectl  string `env:"KUBECTL"  help:"Absolute path to the kubectl binary."  type:"path"`
+	Chainsaw string `env:"CHAINSAW" help:"Absolute path to the chainsaw binary. Defaults to the one in $PATH." type:"path"`
+	Kubectl  string `env:"KUBECTL"  help:"Absolute path to the kubectl binary. Defaults to the one in $PATH."  type:"path"`
 
 	Public bool          `help:"Create new repositories with public visibility."`
 	E2E    bool          `help:"Run E2E"                                         name:"e2e"`
@@ -95,11 +93,10 @@ type runCmd struct {
 	m                  *manager.Manager
 	keychain           authn.Keychain
 	concurrency        uint
+	proj               *v1alpha1.Project
 
-	spaceClient  client.Client
-	organization string // the Upbound organization in the current kubecontext
-
-	quiet config.QuietFlag
+	spaceClient client.Client
+	quiet       config.QuietFlag
 }
 
 func (c *runCmd) Help() string {
@@ -148,6 +145,8 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 		return err
 	}
 	proj.Default()
+
+	c.proj = proj
 
 	c.testFS = afero.NewBasePathFs(
 		c.projFS, proj.Spec.Paths.Tests,
@@ -207,9 +206,6 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
 		}
 	}
-	if cs, ok := space.(*ctxcmd.CloudSpace); ok {
-		c.organization = cs.Org.Name
-	}
 
 	// fallback to the default "default" group
 	if c.ControlPlaneGroup == "" {
@@ -246,7 +242,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	for tool, path := range tools {
 		if *path == "" {
 			var err error
-			*path, err = which(tool)
+			*path, err = exec.LookPath(tool) // Updates original c.Chainsaw or c.Kubectl
 			if err != nil {
 				return errors.Wrapf(err, "failed to find %s in path", tool)
 			}
@@ -264,26 +260,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	upterm.DefaultObjPrinter.Pretty = true
 
-	var proj *v1alpha1.Project
 	var err error
-	if err = upterm.WrapWithSuccessSpinner(
-		"Parsing project metadata",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
-			lproj, err := project.Parse(c.projFS, projFilePath)
-			if err != nil {
-				return errors.Wrap(err, "failed to parse project metadata")
-			}
-			lproj.Default()
-			proj = lproj
-			return nil
-		},
-		c.quiet,
-	); err != nil {
-		return err
-	}
-
 	var parsedE2ETests []e2etest.E2ETest
 	if err = upterm.WrapWithSuccessSpinner(
 		"Parsing tests",
@@ -292,12 +269,9 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			testBuilder := test.NewBuilder(
 				test.BuildWithSchemaRunner(c.schemaRunner),
 			)
-			parsedTests, err := testBuilder.Build(ctx, c.testFS, c.Patterns, proj.Spec.Paths.Tests)
+			parsedTests, err := testBuilder.Build(ctx, c.testFS, c.Patterns, c.proj.Spec.Paths.Tests)
 			if err != nil {
 				return errors.Wrap(err, "failed to generate test files")
-			}
-			if len(parsedTests) == 0 {
-				return errors.New("unable to find a valid test")
 			}
 			parsedE2ETests = parsedTests
 			return nil
@@ -307,7 +281,12 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return err
 	}
 
-	c.Repository, err = project.DetermineRepository(upCtx, proj, c.Repository)
+	if len(parsedE2ETests) == 0 {
+		pterm.Error.Println("No test files found")
+		return nil
+	}
+
+	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
 	if err != nil {
 		return err
 	}
@@ -319,8 +298,8 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	}
 	c.projFS = filesystem.MemOverlay(c.projFS)
 
-	if c.Repository != proj.Spec.Repository {
-		if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
+	if c.Repository != c.proj.Spec.Repository {
+		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
 			return errors.Wrap(err, "failed to update project repository")
 		}
 	}
@@ -336,7 +315,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			var err error
-			imgMap, err = b.Build(ctx, proj, c.projFS,
+			imgMap, err = b.Build(ctx, c.proj, c.projFS,
 				project.BuildWithEventChannel(ch, c.quiet),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
@@ -375,7 +354,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 
 		var err error
-		generatedTag, err = pusher.Push(ctx, proj, imgMap, opts...)
+		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
 		return err
 	}); err != nil {
 		return err
@@ -384,7 +363,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	total, success, errors := 0, 0, 0
 	for _, test := range parsedE2ETests {
 		total++
-		err := c.executeTest(ctx, upCtx, proj, test, generatedTag)
+		err := c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
 		if err != nil {
 			errors++
 			continue // Continue to the next test instead of stopping the loop
@@ -404,38 +383,11 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	printlnFunc("Passed tests:        ", success)
 	printlnFunc("Failed tests:        ", errors)
 
+	// Return an error if there were failed tests
+	if errors > 0 {
+		return fmt.Errorf("%d tests failed", errors)
+	}
 	return nil
-}
-
-// which finds the full path of an executable in the PATH.
-func which(cmd string) (string, error) {
-	pathEnv := os.Getenv("PATH")
-	pathSeparator := string(os.PathListSeparator)
-
-	// Split the PATH environment variable by the appropriate separator
-	dirs := strings.Split(pathEnv, pathSeparator)
-
-	for _, dir := range dirs {
-		// Construct the full path to the executable
-		fullPath := filepath.Join(dir, cmd)
-
-		// Check if the file exists and is executable
-		if fileExistsAndExecutable(fullPath) {
-			return fullPath, nil
-		}
-	}
-
-	return "", fmt.Errorf("%s not found in PATH", cmd)
-}
-
-// fileExistsAndExecutable checks if the file exists and is executable.
-func fileExistsAndExecutable(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-
-	return !info.IsDir() && (info.Mode().Perm()&0o111 != 0)
 }
 
 // ToDo(haarchri): use something better.
@@ -475,29 +427,16 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 }
 
 func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error {
-	controlplane := spacesv1beta1.ControlPlane{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", c.ControlPlaneNamePrefix, test.Name),
-			Namespace: c.ControlPlaneGroup,
-			Annotations: map[string]string{
-				ctp.DevControlPlaneAnnotation: "true",
-			},
-		},
-		Spec: spacesv1beta1.ControlPlaneSpec{
-			Crossplane: *test.Spec.Crossplane,
-			Class:      ctp.DevControlPlaneClass,
-		},
-	}
-
 	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	controlplaneName := fmt.Sprintf("%s-%s", c.ControlPlaneNamePrefix, test.Name)
 	defer signal.Stop(sigChan)
 
 	go func() {
 		<-sigChan
 		log.Println("Received termination signal, cleaning up control plane...")
-		if _, _, err := ctp.EnsureControlPlane(ctx, upCtx, c.spaceClient, c.Force, "delete", nil, controlplane); err != nil {
+		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
 			log.Printf("error during control plane deletion %v", err)
 		}
 		os.Exit(1)
@@ -509,14 +448,24 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	)
 	if err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
-		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(ctx, upCtx, c.spaceClient, c.Force, "create", ch, controlplane)
+		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(
+			ctx,
+			upCtx,
+			c.spaceClient,
+			c.ControlPlaneGroup,
+			controlplaneName,
+			ch,
+			ctp.AllowProd(c.Force),
+			ctp.DevControlPlane(),
+			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
+		)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to create control plane")
 	}
 
 	defer func() {
-		if _, _, err := ctp.EnsureControlPlane(ctx, upCtx, c.spaceClient, c.Force, "delete", nil, controlplane); err != nil {
+		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
 			log.Printf("error during control plane deletion %v", err)
 		}
 	}()

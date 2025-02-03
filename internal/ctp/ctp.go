@@ -21,9 +21,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
@@ -46,66 +48,112 @@ const (
 	DevControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
-// EnsureControlPlane creates clients and controlPlane.
-func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient client.Client, allowProd bool, action string, ch async.EventChannel, ctp spacesv1beta1.ControlPlane) (client.Client, clientcmd.ClientConfig, error) {
-	nn := types.NamespacedName{
-		Name:      ctp.Name,
-		Namespace: ctp.Namespace,
+// EnsureControlPlaneOption defines functional options for configuring control plane behavior.
+type EnsureControlPlaneOption func(*ensureControlPlaneConfig)
+
+type ensureControlPlaneConfig struct {
+	allowProd   bool
+	class       string
+	annotations map[string]string
+	crossplane  *spacesv1beta1.CrossplaneSpec
+}
+
+// defaultCrossplaneSpec returns the default Crossplane configuration.
+func defaultCrossplaneSpec() spacesv1beta1.CrossplaneSpec {
+	return spacesv1beta1.CrossplaneSpec{
+		AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+			// TODO(adamwg): For now, dev MCPs always use the rapid
+			// channel because they require Crossplane features that are
+			// only present in 1.18+. We can stop hard-coding this later
+			// when other channels are upgraded.
+			Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeRapid),
+		},
+	}
+}
+
+// DevControlPlane sets the control plane to be a development environment.
+func DevControlPlane() EnsureControlPlaneOption {
+	return func(cfg *ensureControlPlaneConfig) {
+		cfg.class = DevControlPlaneClass
+		cfg.annotations = map[string]string{
+			DevControlPlaneAnnotation: "true",
+		}
+	}
+}
+
+// AllowProd allows the use of a production control plane.
+func AllowProd(allowProd bool) EnsureControlPlaneOption {
+	return func(cfg *ensureControlPlaneConfig) {
+		cfg.allowProd = allowProd
+	}
+}
+
+// WithCrossplaneSpec sets a specific Crossplane configuration.
+func WithCrossplaneSpec(crossplane spacesv1beta1.CrossplaneSpec) EnsureControlPlaneOption {
+	return func(cfg *ensureControlPlaneConfig) {
+		cfg.crossplane = &crossplane
+	}
+}
+
+// EnsureControlPlane ensures the existence of a control plane.
+func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient client.Client, group, name string, ch async.EventChannel, opts ...EnsureControlPlaneOption) (client.Client, clientcmd.ClientConfig, error) {
+	cfg := &ensureControlPlaneConfig{}
+
+	// Apply functional options
+	for _, opt := range opts {
+		opt(cfg)
 	}
 
-	switch action {
-	case "create":
-		err := spaceClient.Get(ctx, nn, &ctp)
-		switch {
-		case err == nil:
-			// Make sure it's a dev control plane and not being deleted.
-			if !isDevControlPlane(&ctp) && !allowProd {
-				return nil, nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
-			}
-			if ctp.DeletionTimestamp != nil {
-				return nil, nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
-			}
+	if cfg.crossplane == nil {
+		defaultSpec := defaultCrossplaneSpec()
+		cfg.crossplane = &defaultSpec
+	}
 
-		case kerrors.IsNotFound(err):
-			// Create a control plane.
-			if err := createControlPlane(ctx, spaceClient, ch, ctp); err != nil {
-				return nil, nil, err
-			}
+	nn := types.NamespacedName{Name: name, Namespace: group}
+	var ctp spacesv1beta1.ControlPlane
 
-		default:
-			// Unexpected error.
-			return nil, nil, errors.Wrap(err, "failed to check for control plane existence")
+	err := spaceClient.Get(ctx, nn, &ctp)
+	switch {
+	case err == nil:
+		// Make sure it's a dev control plane and not being deleted.
+		if !isDevControlPlane(&ctp) && !cfg.allowProd {
+			return nil, nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
+		}
+		if ctp.DeletionTimestamp != nil {
+			return nil, nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
 		}
 
-		ctpClient, sClient, err := getControlPlaneClient(ctx, upCtx, nn)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "failed to get client for development control plane")
+	case kerrors.IsNotFound(err):
+		// Create a control plane.
+		ctp = spacesv1beta1.ControlPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   group,
+				Annotations: cfg.annotations,
+			},
+			Spec: spacesv1beta1.ControlPlaneSpec{
+				Class:      cfg.class,
+				Crossplane: *cfg.crossplane,
+			},
 		}
 
-		return ctpClient, sClient, nil
-
-	case "delete":
-		// never delete prod control plane
-		if !allowProd {
-			// Fetch the control plane to delete
-			err := spaceClient.Get(ctx, nn, &ctp)
-			if err != nil {
-				if kerrors.IsNotFound(err) {
-					return nil, nil, errors.New("control plane does not exist, nothing to delete")
-				}
-				return nil, nil, errors.Wrap(err, "failed to fetch control plane for deletion")
-			}
-
-			// Delete the control plane
-			if err := spaceClient.Delete(ctx, &ctp); err != nil {
-				return nil, nil, errors.Wrap(err, "failed to delete control plane")
-			}
+		if err := createControlPlane(ctx, spaceClient, ch, ctp); err != nil {
+			return nil, nil, err
 		}
-		return nil, nil, nil
 
 	default:
-		return nil, nil, errors.New("invalid action; valid actions are 'create' or 'delete'")
+		// Unexpected error.
+		return nil, nil, errors.Wrap(err, "failed to check for control plane existence")
 	}
+	// Create a new control plane with the user-defined or default Crossplane configuration
+
+	// Get client for the control plane
+	ctpClient, sClient, err := getControlPlaneClient(ctx, upCtx, nn)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to get client for control plane")
+	}
+
+	return ctpClient, sClient, nil
 }
 
 func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
@@ -210,6 +258,33 @@ func createControlPlane(ctx context.Context, cl client.Client, ch async.EventCha
 	}
 
 	ch.SendEvent(evText, async.EventStatusSuccess)
+
+	return nil
+}
+
+// DeleteControlPlane deletes a control plane, ensuring production control planes are not deleted accidentally.
+func DeleteControlPlane(ctx context.Context, spaceClient client.Client, group, name string, allowProd bool) error {
+	nn := types.NamespacedName{Name: name, Namespace: group}
+	var ctp spacesv1beta1.ControlPlane
+
+	// Fetch the control plane to delete
+	err := spaceClient.Get(ctx, nn, &ctp)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.New("control plane does not exist, nothing to delete")
+		}
+		return errors.Wrap(err, "failed to fetch control plane for deletion")
+	}
+
+	// Never delete a production control plane unless allowProd is set
+	if !allowProd && !isDevControlPlane(&ctp) {
+		return errors.New("control plane does not exist, nothing to delete")
+	}
+
+	// Delete the control plane
+	if err := spaceClient.Delete(ctx, &ctp); err != nil {
+		return errors.Wrap(err, "failed to delete control plane")
+	}
 
 	return nil
 }
