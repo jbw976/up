@@ -282,7 +282,7 @@ func (e *ControlPlaneStateExporter) exportCrossplaneResources(ctx context.Contex
 
 	sub := false
 	for _, vr := range crd.Spec.Versions {
-		if vr.Storage && vr.Subresources != nil && vr.Subresources.Status != nil {
+		if vr.Name == gvr.Version && vr.Subresources != nil && vr.Subresources.Status != nil {
 			// This CRD has a status subresource. We store this as a metadata per type and use
 			// it during import to determine if we should apply the status subresource.
 			sub = true
@@ -369,17 +369,10 @@ func (e *ControlPlaneStateExporter) extraResources() map[string]struct{} {
 }
 
 func (e *ControlPlaneStateExporter) customResourceGVR(in apiextensionsv1.CustomResourceDefinition) (schema.GroupVersionResource, error) {
-	version := ""
-	for _, vr := range in.Spec.Versions {
-		if vr.Storage {
-			version = vr.Name
-		}
-	}
-
 	rm, err := e.resourceMapper.RESTMapping(schema.GroupKind{
 		Group: in.Spec.Group,
 		Kind:  in.Spec.Names.Kind,
-	}, version)
+	})
 
 	if err != nil {
 		return schema.GroupVersionResource{}, errors.Wrapf(err, "cannot get REST mapping for %q", in.GetName())
