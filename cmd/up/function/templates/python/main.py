@@ -1,7 +1,7 @@
 from crossplane.function import resource
 from crossplane.function.proto.v1 import run_function_pb2 as fnv1
 # Example to add models as import; update as needed
-# from model.io.upbound.aws.s3.bucket import v1beta1 as bucketv1beta1
+# from .model.io.upbound.aws.s3.bucket import v1beta1 as bucketv1beta1
 
 
 def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
@@ -13,11 +13,9 @@ def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
     #     region = observed_xr.spec.region
 
     # Example S3 Bucket managed resource configuration; update as needed
-    # bucket = v1beta1.Bucket(
-    #     apiVersion="s3.aws.upbound.io/v1beta1",
-    #     kind="Bucket",
-    #     spec=v1beta1.Spec(
-    #         forProvider=v1beta1.ForProvider(
+    # bucket = bucketv1beta1.Bucket(
+    #     spec=bucketv1beta1.Spec(
+    #         forProvider=bucketv1beta1.ForProvider(
     #             region=region,
     #         ),
     #     ),
