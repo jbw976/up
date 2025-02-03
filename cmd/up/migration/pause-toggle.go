@@ -123,7 +123,7 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 	}
 
 	pterm.Println() // Blank line
-	pterm.Printfln("All relevant resources successfully %sed!", strings.ToLower(action))
+	pterm.Printfln("All relevant resources successfully %sd!", strings.ToLower(action))
 	return nil
 }
 
