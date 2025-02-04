@@ -193,6 +193,7 @@ func TestBuild(t *testing.T) {
 				outputFS:           outFS,
 				functionIdentifier: functions.FakeIdentifier,
 				schemaRunner:       mockRunner,
+				concurrency:        1,
 
 				m: mgr,
 			}

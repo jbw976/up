@@ -88,6 +88,7 @@ func TestPush(t *testing.T) {
 				projFS:      tc.projFS,
 				packageFS:   afero.NewBasePathFs(tc.projFS, "_output"),
 				transport:   transport,
+				concurrency: 1,
 			}
 
 			ep, err := url.Parse("https://donotuse.example.com")
