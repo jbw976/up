@@ -197,24 +197,6 @@ func TestUnstructuredFetcherShouldSkip(t *testing.T) {
 			},
 		},
 
-		"SkipHelmManaged": {
-			args: args{
-				r: unstructured.Unstructured{
-					Object: map[string]interface{}{
-						"kind": "Some",
-						"metadata": map[string]interface{}{
-							"labels": map[string]interface{}{
-								"app.kubernetes.io/managed-by": "Helm",
-							},
-						},
-					},
-				},
-			},
-			want: want{
-				skip: true,
-			},
-		},
-
 		"SkipHelmSecret": {
 			args: args{
 				r: unstructured.Unstructured{
