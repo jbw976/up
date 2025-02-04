@@ -18,6 +18,7 @@ require (
 	github.com/crossplane/crossplane-runtime v1.18.0
 	github.com/crossplane/crossplane/controller/apiextensions v0.15.0-rc.0
 	github.com/crossplane/crossplane/xcrd v0.0.0-00010101000000-000000000000
+	github.com/crossplane/uptest v1.3.0
 	github.com/docker/docker-credential-helpers v0.8.2
 	github.com/gdamore/tcell/v2 v2.7.4
 	github.com/goccy/go-yaml v1.12.0

@@ -44,7 +44,7 @@ const (
 )
 
 // GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocyclo
+func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -142,6 +142,7 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 		ctx,
 		crdFS,
 		baseFolder,
+		"",
 		pythonImage,
 		[]string{
 			"--input-file-type",
@@ -184,7 +185,7 @@ func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path, baseFolder string, openA
 }
 
 // transformStructurePython combines the reorganization of Python files and the adjustment of import paths into one pass.
-func transformStructurePython(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocyclo
+func transformStructurePython(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need this python transforms
 	v1MetaCopied := false // Flag to track if v1.py has already been moved
 	createdInitFiles := make(map[string]bool)
 

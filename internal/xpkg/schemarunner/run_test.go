@@ -74,7 +74,7 @@ func TestRunContainerWithKCL(t *testing.T) {
 
 			// Use the provided runner for schema generation.
 			ctx := context.Background()
-			err := tc.args.runner.Generate(ctx, fs, tc.args.baseFolder, "mockImage", []string{})
+			err := tc.args.runner.Generate(ctx, fs, tc.args.baseFolder, "", "mockImage", []string{})
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nRunContainer(...): -want err, +got err:\n%s", tc.reason, diff)
@@ -166,7 +166,8 @@ func TestCreateTarFromFs(t *testing.T) {
 // MockSchemaRunner simulates a successful container run by generating output in-memory.
 type MockSchemaRunner struct{}
 
-func (m *MockSchemaRunner) Generate(ctx context.Context, fs afero.Fs, baseFolder string, imageName string, args []string) error {
+// Generate will run MockSchemaRunner generate for Schema.
+func (m *MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _, _ string, _ string, _ []string) error {
 	// Simulate the generation of expected output files in-memory.
 	outputPath := "models/k8s/apimachinery/pkg/apis/meta/v1/managed_fields_entry.k"
 	_ = fs.MkdirAll("models/k8s/apimachinery/pkg/apis/meta/v1", os.ModePerm)

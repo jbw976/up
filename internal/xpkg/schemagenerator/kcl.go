@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package schemagenerator contains functions for schema generation
+// Package schemagenerator generates schemas for languages
 package schemagenerator
 
 import (
@@ -44,7 +44,7 @@ const (
 )
 
 // GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // we generate schemas
+func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -134,6 +134,7 @@ func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, g
 		ctx,
 		crdFS,
 		baseFolder,
+		"",
 		kclImage,
 		[]string{
 			"sh", "-c",
@@ -159,7 +160,7 @@ func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, g
 // transformStructureKcl modifies the existing fs by moving files from sourceDir to targetDir
 // in the reversed and segmented structure with the version appended at the end,
 // and it copies the k8s directory and specific files (kcl.mod and kcl.mod.lock) to the targetDir.
-func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need to adjust the generation
+func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // tansform kcl schemas
 	// Copy kcl.mod and kcl.mod.lock files if they exist
 	if err := filesystem.CopyFileIfExists(fs, filepath.Join(sourceDir, "kcl.mod"), filepath.Join(targetDir, "kcl.mod")); err != nil {
 		return errors.Wrap(err, "failed to copy kcl.mod")

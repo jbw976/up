@@ -49,16 +49,19 @@ type Cmd struct {
 	Public         bool          `help:"Create new repositories with public visibility."`
 	Flags          upbound.Flags `embed:""`
 
-	projFS    afero.Fs
-	packageFS afero.Fs
-	transport http.RoundTripper
-	keychain  authn.Keychain
+	projFS      afero.Fs
+	packageFS   afero.Fs
+	transport   http.RoundTripper
+	keychain    authn.Keychain
+	concurrency uint
 
 	quiet config.QuietFlag
 }
 
 // AfterApply processes flags and sets defaults.
 func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+	c.concurrency = max(1, c.MaxConcurrency)
+
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
@@ -106,10 +109,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	pterm.EnableStyling()
 
-	if c.MaxConcurrency == 0 {
-		c.MaxConcurrency = 1
-	}
-
 	projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
 	proj, err := project.Parse(c.projFS, projFilePath)
 	if err != nil {
@@ -143,7 +142,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		project.PushWithUpboundContext(upCtx),
 		project.PushWithTransport(c.transport),
 		project.PushWithAuthKeychain(c.keychain),
-		project.PushWithMaxConcurrency(c.MaxConcurrency),
+		project.PushWithMaxConcurrency(c.concurrency),
 	)
 
 	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {

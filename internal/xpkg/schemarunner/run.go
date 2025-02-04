@@ -36,14 +36,14 @@ import (
 
 // SchemaRunner defines an interface for schema generation.
 type SchemaRunner interface {
-	Generate(ctx context.Context, fs afero.Fs, folder string, imageName string, args []string) error
+	Generate(ctx context.Context, fs afero.Fs, folder string, basePath string, imageName string, args []string) error
 }
 
 // RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
 type RealSchemaRunner struct{}
 
 // Generate runs the containerized language tool for schema generation.
-func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, imageName string, command []string) error { //nolint:gocyclo // start container
+func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, basePath, imageName string, command []string) error { //nolint:gocyclo // start container
 	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
 	if err != nil {
 		return errors.Wrapf(err, "failed to use the docker client")
@@ -64,7 +64,11 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	// Create the tarball from the Afero filesystem
-	tarBuffer, err := filesystem.FSToTar(fromFS, baseFolder)
+	var opts []filesystem.FSToTarOption
+	if basePath != "" {
+		opts = append(opts, filesystem.WithSymlinkBasePath(basePath))
+	}
+	tarBuffer, err := filesystem.FSToTar(fromFS, baseFolder, opts...)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create tar from fs")
 	}
