@@ -35,11 +35,10 @@ import (
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-// InstallPackage will install crossplane packages to target controlplane.
-func InstallPackage(ctx context.Context, cl client.Client, proj *v1alpha1.Project, tag name.Tag, quiet config.QuietFlag) error {
+// InstallConfiguration will install crossplane packages to target controlplane.
+func InstallConfiguration(ctx context.Context, cl client.Client, name string, tag name.Tag, quiet config.QuietFlag) error {
 	pkgSource := tag.String()
 	cfg := &xpkgv1.Configuration{
 		TypeMeta: metav1.TypeMeta{
@@ -47,7 +46,7 @@ func InstallPackage(ctx context.Context, cl client.Client, proj *v1alpha1.Projec
 			Kind:       xpkgv1.ConfigurationKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: proj.Name,
+			Name: name,
 		},
 		Spec: xpkgv1.ConfigurationSpec{
 			PackageSpec: xpkgv1.PackageSpec{
@@ -94,7 +93,7 @@ func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) f
 				return err
 			}
 
-			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), "")
+			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
 			if !cfgFound {
 				// Configuration not in lock yet.
 				continue

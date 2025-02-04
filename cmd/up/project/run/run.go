@@ -256,7 +256,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 				c.ControlPlaneGroup,
 				c.ControlPlaneName,
 				ch,
-				ctp.AllowProd(c.Force),
+				ctp.SkipDevCheck(c.Force),
 				ctp.DevControlPlane(),
 			)
 			return err
@@ -312,7 +312,14 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return err
 	}
 
-	err = kube.InstallPackage(ctx, devCtpClient, proj, generatedTag, c.quiet)
+	readyCtx := ctx
+	if c.Timeout != 0 {
+		timeoutCtx, cancel := context.WithTimeout(ctx, c.Timeout)
+		defer cancel()
+		readyCtx = timeoutCtx
+	}
+
+	err = kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, c.quiet)
 	if err != nil {
 		return err
 	}

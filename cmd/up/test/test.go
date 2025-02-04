@@ -18,5 +18,5 @@ package test
 // Cmd is the top-level project command.
 type Cmd struct {
 	Run      runCmd      `cmd:"" help:"Run project tests."`
-	Generate generateCmd `cmd:"" help:"Generate an Test for a project."`
+	Generate generateCmd `cmd:"" help:"Generate a Test for a project."`
 }

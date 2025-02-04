@@ -64,19 +64,13 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	// Create the tarball from the Afero filesystem
-	var tarBuffer []byte
-	if basePath == "" {
-		tarBuffer, err = filesystem.FSToTar(fromFS, baseFolder)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create tar from fs")
-		}
-	} else {
-		tarBuffer, err = filesystem.FSToTar(fromFS, baseFolder,
-			filesystem.WithSymlinkBasePath(basePath),
-		)
-		if err != nil {
-			return errors.Wrap(err, "failed to tar layer contents")
-		}
+	var opts []filesystem.FSToTarOption
+	if basePath != "" {
+		opts = append(opts, filesystem.WithSymlinkBasePath(basePath))
+	}
+	tarBuffer, err := filesystem.FSToTar(fromFS, baseFolder, opts...)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create tar from fs")
 	}
 
 	// Create the container

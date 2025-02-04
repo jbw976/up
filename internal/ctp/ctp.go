@@ -17,6 +17,7 @@ package ctp
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +48,8 @@ const (
 	// DevControlPlaneAnnotation is used in project and test commands.
 	DevControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
+
+var ErrNotDevControlPlane = errors.New("control plane exists but is not a development control plane")
 
 // EnsureControlPlaneOption defines functional options for configuring control plane behavior.
 type EnsureControlPlaneOption func(*ensureControlPlaneConfig)
@@ -81,10 +84,10 @@ func DevControlPlane() EnsureControlPlaneOption {
 	}
 }
 
-// AllowProd allows the use of a production control plane.
-func AllowProd(allowProd bool) EnsureControlPlaneOption {
+// SkipDevCheck allows the use of a production control plane.
+func SkipDevCheck(s bool) EnsureControlPlaneOption {
 	return func(cfg *ensureControlPlaneConfig) {
-		cfg.allowProd = allowProd
+		cfg.allowProd = s
 	}
 }
 
@@ -117,10 +120,16 @@ func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
 		if !isDevControlPlane(&ctp) && !cfg.allowProd {
-			return nil, nil, errors.New("control plane exists but is not a development control plane; use --skip-control-plane-check to skip this check")
+			return nil, nil, ErrNotDevControlPlane
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
+		}
+		// Ensure the Crossplane spec fully matches what the caller specified
+		if !matchesCrossplaneSpec(ctp.Spec.Crossplane, *cfg.crossplane) {
+			return nil, nil, errors.Errorf(
+				"existing control plane has a different Crossplane spec than expected",
+			)
 		}
 
 	case kerrors.IsNotFound(err):
@@ -158,14 +167,6 @@ func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient
 
 func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
 	if ctp.Annotations != nil && ctp.Annotations[DevControlPlaneAnnotation] == "true" {
-		return true
-	}
-
-	// We didn't used to annotate the control planes created by `up project
-	// run`, and dev MCPs created via the console won't have the annotation, so
-	// also check the control plane class. We assume any control plane with the
-	// "small" class is a dev MCP.
-	if ctp.Spec.Class == DevControlPlaneClass {
 		return true
 	}
 
@@ -287,4 +288,8 @@ func DeleteControlPlane(ctx context.Context, spaceClient client.Client, group, n
 	}
 
 	return nil
+}
+
+func matchesCrossplaneSpec(existing, desired spacesv1beta1.CrossplaneSpec) bool {
+	return reflect.DeepEqual(existing, desired)
 }

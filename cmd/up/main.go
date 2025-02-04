@@ -118,7 +118,7 @@ type cli struct {
 	XRD         xrd.Cmd         `cmd:""        group:"Develop with Crossplane" help:"Manage XRDs from Composite Resources(XR) or Claims(XRC)."`
 	Composition composition.Cmd `cmd:""        group:"Develop with Crossplane" help:"Manage Compositions."`
 	Function    function.Cmd    `cmd:""        group:"Develop with Crossplane" help:"Manage Functions."`
-	Test        test.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Test Project"`
+	Test        test.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Manage and run tests for projects."`
 	XPKG        xpkg.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Deprecated. Please migrate to up project or use the crossplane CLI." maturity:"deprecated"`
 	XPLS        xpls.Cmd        `cmd:""        group:"Develop with Crossplane" help:"Start xpls language server."`
 

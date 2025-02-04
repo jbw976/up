@@ -140,18 +140,16 @@ type kclImportStatement struct {
 
 type generateCmd struct {
 	ProjectFile string `default:"upbound.yaml"                                                                           help:"Path to project definition file." short:"f"`
-	Repository  string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
 	CacheDir    string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                         help:"Directory used for caching dependency images." short:"d" type:"path"`
-	Language    string `default:"kcl"                                                                                    enum:"kcl,python"                       help:"Language for function."                        short:"l"`
+	Language    string `default:"kcl"                                                                                    enum:"kcl,python"                       help:"Language for test."                        short:"l"`
 	Name        string `arg:""                                                                                           help:"Name for the new Function."       required:""`
 	E2E         bool   `help:"create e2e tests"                                                                          name:"e2e"`
 
-	testFS            afero.Fs
-	modelsFS          afero.Fs
-	projFS            afero.Fs
-	projectRepository string
-	fsPath            string
-	testName          string
+	testFS   afero.Fs
+	modelsFS afero.Fs
+	projFS   afero.Fs
+	fsPath   string
+	testName string
 
 	m            *manager.Manager
 	ws           *workspace.Workspace
@@ -196,7 +194,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		c.testName,
 	)
 
-	c.projectRepository = proj.Spec.Repository
 	c.testFS = afero.NewBasePathFs(
 		c.projFS, c.fsPath,
 	)

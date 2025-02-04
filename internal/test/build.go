@@ -27,16 +27,16 @@ import (
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 )
 
-// Type defines an interface for running a specific test type.
-type Type interface {
+// Runner defines an interface for running a specific test type.
+type Runner interface {
 	Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error
 }
 
-// KCLType implements the TestType interface for KCL tests.
-type KCLType struct{}
+// KCLRunner implements the TestType interface for KCL tests.
+type KCLRunner struct{}
 
 // Run kcl tests manifest generation.
-func (t *KCLType) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
+func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
 	err := schemaRunner.Generate(ctx, fs, ".", basePath, "xpkg.upbound.io/upbound/kcl:v0.10.6", []string{"kcl", "run", "-o", "test.yaml"})
 	if err != nil {
 		return errors.Wrap(err, "failed to execute KCL manifest generation")
@@ -44,11 +44,11 @@ func (t *KCLType) Run(ctx context.Context, fs afero.Fs, basePath string, schemaR
 	return nil
 }
 
-// PythonType implements the TestType interface for Python tests.
-type PythonType struct{}
+// PythonRunner implements the TestType interface for Python tests.
+type PythonRunner struct{}
 
 // Run python tests manifest generation.
-func (t *PythonType) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
+func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
 	// ToDo(haarchri): switch to upbound
 	err := schemaRunner.Generate(ctx, fs, ".", basePath, "docker.io/haarchri/python-test:0.9", []string{"python", "-m", "extract_objects"})
 	if err != nil {
@@ -59,19 +59,19 @@ func (t *PythonType) Run(ctx context.Context, fs afero.Fs, basePath string, sche
 
 // Identifier determines the appropriate TestType based on the filesystem.
 type Identifier interface {
-	Identify(fs afero.Fs) (Type, error)
+	Identify(fs afero.Fs) (Runner, error)
 }
 
 // DefaultIdentifier is the default implementation of TestIdentifier.
 type DefaultIdentifier struct{}
 
 // Identify is trying to identitfy supported languages.
-func (i *DefaultIdentifier) Identify(fs afero.Fs) (Type, error) {
+func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 	if exists, _ := afero.Exists(fs, "kcl.mod"); exists {
-		return &KCLType{}, nil
+		return &KCLRunner{}, nil
 	}
 	if exists, _ := afero.Exists(fs, "main.py"); exists {
-		return &PythonType{}, nil
+		return &PythonRunner{}, nil
 	}
 	return nil, errors.New("no supported test type found")
 }

@@ -430,16 +430,25 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
+
+	// Channel to signal function return
+	retChan := make(chan struct{})
+
 	controlplaneName := fmt.Sprintf("%s-%s", c.ControlPlaneNamePrefix, test.Name)
-	defer signal.Stop(sigChan)
 
 	go func() {
-		<-sigChan
-		log.Println("Received termination signal, cleaning up control plane...")
-		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
-			log.Printf("error during control plane deletion %v", err)
+		select {
+		case <-sigChan:
+			log.Println("Received termination signal, cleaning up control plane...")
+			if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
+				log.Printf("error during control plane deletion %v", err)
+			}
+			os.Exit(1)
+		case <-retChan:
+			// Function returned normally, no need for cleanup
+			return
 		}
-		os.Exit(1)
 	}()
 
 	var (
@@ -455,7 +464,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 			c.ControlPlaneGroup,
 			controlplaneName,
 			ch,
-			ctp.AllowProd(c.Force),
+			ctp.SkipDevCheck(c.Force),
 			ctp.DevControlPlane(),
 			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
 		)
@@ -465,12 +474,15 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	}
 
 	defer func() {
+		// Send signal to cleanup goroutine
+		close(retChan)
+
 		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
 			log.Printf("error during control plane deletion %v", err)
 		}
 	}()
 
-	if err := kube.InstallPackage(ctx, devCtpClient, proj, generatedTag, c.quiet); err != nil {
+	if err := kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, c.quiet); err != nil {
 		return errors.Wrapf(err, "failed to install package")
 	}
 
