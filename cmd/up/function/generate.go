@@ -15,10 +15,14 @@
 package function
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"html/template"
 	"io"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +30,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"github.com/spf13/afero/tarfs"
+	"golang.org/x/mod/module"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -41,6 +47,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *generateCmd) Help() string {
@@ -60,102 +67,24 @@ Examples:
 `
 }
 
-const kclModTemplate = `[package]
-name = "{{.Name}}"
-version = "0.0.1"
+var (
+	//go:embed templates/kcl/**
+	kclTemplate embed.FS
+	//go:embed templates/python/**
+	pythonTemplate embed.FS
 
-[dependencies]
-models = { path = "./model" }
-`
-
-const kclModLockTemplate = `[dependencies]
-  [dependencies.model]
-    name = "model"
-    full_name = "models_0.0.1"
-    version = "0.0.1"
-`
-
-const kclMainTemplate = `{{- if .Imports }}
-{{- range .Imports }}
-import {{.ImportPath}} as {{.Alias}}
-{{- end }}
-{{- "\n" }}
-{{- end }}
-oxr = option("params").oxr # observed composite resource
-_ocds = option("params").ocds # observed composed resources
-_dxr = option("params").dxr # desired composite resource
-dcds = option("params").dcds # desired composed resources
-
-_metadata = lambda name: str -> any {
-    { annotations = { "krm.kcl.dev/composition-resource-name" = name }}
-}
-
-# Example to retrieve variables from "xr"; update as needed
-# _region = "us-east-1"
-# if oxr.spec?.parameters?.region:
-#     _region = oxr.spec.parameters.region
-
-_items = [
-# Example S3 Bucket managed resource configuration; update as needed
-# s3v1beta2.Bucket{
-#     metadata: _metadata("my-bucket")
-#     spec: {
-#         forProvider: {
-#             region: _region
-#         }
-#     }
-# }
-]
-items = _items
-`
-
-const pythonReqTemplate = `crossplane-function-sdk-python==0.5.0
-pydantic==2.9.2
-`
-
-const pythonMainTemplate = `from crossplane.function import resource
-from crossplane.function.proto.v1 import run_function_pb2 as fnv1
-# Example to add models as import; update as needed
-# from model.io.upbound.aws.s3.bucket import v1beta1 as bucketv1beta1
-
-
-def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
-    pass
-    # Example to retrieve variables from "xr"; update as needed
-    # observed_xr = v1alpha1.XBucket(**req.observed.composite.resource)
-    # region = "us-west-1"
-    # if observed_xr.spec.region is not None:
-    #     region = observed_xr.spec.region
-
-    # Example S3 Bucket managed resource configuration; update as needed
-    # bucket = v1beta1.Bucket(
-    #     apiVersion="s3.aws.upbound.io/v1beta1",
-    #     kind="Bucket",
-    #     spec=v1beta1.Spec(
-    #         forProvider=v1beta1.ForProvider(
-    #             region=region,
-    #         ),
-    #     ),
-    # )
-
-    # resource.update(rsp.desired.resources["bucket"], bucket)
-`
-
-type kclModInfo struct {
-	Name string
-}
-
-// Prepare formatted import paths for the template.
-type kclImportStatement struct {
-	ImportPath string
-	Alias      string
-}
+	// The go template contains a go.mod, so we can't embed it as an
+	// embed.FS. Instead we have to embed it as a tar archive and extract it in
+	// code.
+	//go:embed templates/go.tar
+	goTemplate []byte
+)
 
 type generateCmd struct {
 	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
 	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
 	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." short:"d" type:"path"`
-	Language        string `default:"kcl"                                                                                    enum:"kcl,python"                           help:"Language for function."                        short:"l"`
+	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go"                        help:"Language for function."                        short:"l"`
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
 
@@ -164,6 +93,7 @@ type generateCmd struct {
 	projFS            afero.Fs
 	projectRepository string
 	fsPath            string
+	proj              *v1alpha1.Project
 
 	m  *manager.Manager
 	ws *workspace.Workspace
@@ -193,6 +123,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		return err
 	}
 	proj.Default()
+	c.proj = proj
 
 	// The functions path is relative to the project directory; prepend it with
 	// `/` to make it an absolute path within the project FS.
@@ -314,6 +245,11 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 		if err != nil {
 			return errors.Wrap(err, "failed to handle python")
 		}
+	case "go":
+		functionSpecificFs, err = c.generateGoFiles()
+		if err != nil {
+			return errors.Wrap(err, "failed to handle go")
+		}
 	default:
 		return errors.Errorf("unsupported language: %s", c.Language)
 	}
@@ -324,6 +260,10 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 		func() error {
 			if err := filesystem.CopyFilesBetweenFs(functionSpecificFs, c.functionFS); err != nil {
 				return errors.Wrap(err, "failed to copy files to function target")
+			}
+
+			if !needsModelsSymlink(c.Language) {
+				return nil
 			}
 
 			modelsPath := ".up/" + c.Language + "/models"
@@ -372,45 +312,36 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 	return nil
 }
 
+func needsModelsSymlink(language string) bool {
+	switch language {
+	case "kcl", "python":
+		return true
+	case "go":
+		// Go references modules via replace directives in go.mod rather than
+		// via a symlink.
+		return false
+	default:
+		// We shouldn't reach this.
+		return false
+	}
+}
+
+type kclTemplateData struct {
+	ModName string
+	Imports []kclImportStatement
+}
+
+type kclImportStatement struct {
+	ImportPath string
+	Alias      string
+}
+
 func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
-	kclModInfo := kclModInfo{
-		Name: c.Name,
-	}
+	templates := template.Must(template.ParseFS(kclTemplate, "templates/kcl/*"))
 
-	kclModPath := "kcl.mod"
-	file, err := targetFS.Create(filepath.Clean(kclModPath))
-	if err != nil {
-		return nil, errors.Wrapf(err, "error creating file: %v", kclModPath)
-	}
-
-	tmpl := template.Must(template.New("toml").Parse(kclModTemplate))
-	if err := tmpl.Execute(file, kclModInfo); err != nil {
-		return nil, errors.Wrapf(err, "Error writing template to file: %v", kclModPath)
-	}
-
-	kclModLockPath := "kcl.mod.lock"
-	if exists, err := afero.Exists(targetFS, kclModLockPath); err != nil {
-		return nil, errors.Wrapf(err, "error checking file existence: %v", kclModLockPath)
-	} else if !exists {
-		file, err := targetFS.Create(filepath.Clean(kclModLockPath))
-		if err != nil {
-			return nil, errors.Wrapf(err, "error creating file: %v", kclModLockPath)
-		}
-
-		_, err = file.WriteString(kclModLockTemplate)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error writing to file: %v", kclModLockPath)
-		}
-	}
-	mainPath := "main.k"
-	file, err = targetFS.Create(filepath.Clean(mainPath))
-	if err != nil {
-		return nil, errors.Wrapf(err, "error creating file: %v", mainPath)
-	}
 	foundFolders, _ := filesystem.FindNestedFoldersWithPattern(c.modelsFS, "kcl/models", "*.k")
-
 	importStatements := make([]kclImportStatement, 0, len(foundFolders))
 	for _, folder := range foundFolders {
 		importPath, alias := formatKclImportPath(folder)
@@ -419,51 +350,84 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 			Alias:      alias,
 		})
 	}
-	mainTemplateData := struct {
-		Imports []kclImportStatement
-	}{
+	tmplData := kclTemplateData{
+		ModName: c.Name,
 		Imports: importStatements,
 	}
-	mainTmpl := template.Must(template.New("kcl").Parse(kclMainTemplate))
-	if err := mainTmpl.Execute(file, mainTemplateData); err != nil {
-		return nil, errors.Wrapf(err, "Error writing KCL template to file: %v", mainPath)
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
 	}
 
 	return targetFS, nil
 }
 
-func generatePythonFiles() (afero.Fs, error) {
-	targetFS := afero.NewMemMapFs()
-
-	mainPath := "main.py"
-	pythonReqPath := "requirements.txt"
-
-	if exists, err := afero.Exists(targetFS, pythonReqPath); err != nil {
-		return nil, errors.Wrapf(err, "error checking file existence: %v", pythonReqPath)
-	} else if !exists {
-		file, err := targetFS.Create(filepath.Clean(pythonReqPath))
+func renderTemplates(targetFS afero.Fs, templates *template.Template, data any) error {
+	for _, tmpl := range templates.Templates() {
+		fname := tmpl.Name()
+		file, err := targetFS.Create(filepath.Clean(fname))
 		if err != nil {
-			return nil, errors.Wrapf(err, "error creating file: %v", pythonReqPath)
+			return errors.Wrapf(err, "error creating file %v", fname)
 		}
-
-		_, err = file.WriteString(pythonReqTemplate)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error writing to file: %v", pythonReqPath)
+		if err := tmpl.Execute(file, data); err != nil {
+			return errors.Wrapf(err, "error writing template to file %v", fname)
+		}
+		if err := file.Close(); err != nil {
+			return errors.Wrapf(err, "error closing file %v", fname)
 		}
 	}
 
-	if exists, err := afero.Exists(targetFS, mainPath); err != nil {
-		return nil, errors.Wrapf(err, "error checking file existence: %v", mainPath)
-	} else if !exists {
-		file, err := targetFS.Create(filepath.Clean(mainPath))
-		if err != nil {
-			return nil, errors.Wrapf(err, "error creating file: %v", mainPath)
-		}
+	return nil
+}
 
-		_, err = file.WriteString(pythonMainTemplate)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error writing to file: %v", mainPath)
-		}
+type pythonTemplateData struct{}
+
+func generatePythonFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	// Note that currently our python templates don't actually do any
+	// templating, hence the empty template data. But we render them with the
+	// same mechanism we use for other languages to maximize code reuse and
+	// allow for richer templates in the future.
+	templates := template.Must(template.ParseFS(pythonTemplate, "templates/python/**"))
+	tmplData := pythonTemplateData{}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+type goTemplateData struct {
+	ModulePath string
+	// TODO(adamwg): Generate go.mod replaces for schema modules in .up.
+}
+
+func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	tr := tar.NewReader(bytes.NewReader(goTemplate))
+	templateFS := afero.NewIOFS(tarfs.New(tr))
+
+	// Try to construct a nice import path based on the project's "source"
+	// field, which the user should fill in with their git repository path
+	// (possibly with https:// prefixed if it's a GH repository). If that's not
+	// valid, construct an example path we know is valid. The import path
+	// doesn't actually matter to the builder aside from being valid.
+	source := strings.TrimPrefix(c.proj.Spec.Source, "https://")
+	goModPath := path.Join(source, "functions", c.Name)
+	if module.CheckPath(goModPath) != nil {
+		goModPath = "project.example.com/functions/" + c.Name
+	}
+
+	templates := template.Must(template.ParseFS(templateFS, "*"))
+	tmplData := goTemplateData{
+		ModulePath: goModPath,
+	}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
 	}
 
 	return targetFS, nil

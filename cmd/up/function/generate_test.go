@@ -19,17 +19,20 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	"sigs.k8s.io/yaml"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -50,6 +53,8 @@ var (
 
 // TestGenerateCmd_Run tests the Run method of the generateCmd struct.
 func TestGenerateCmd_Run(t *testing.T) {
+	t.Parallel()
+
 	tcs := map[string]struct {
 		language        string
 		name            string
@@ -60,20 +65,26 @@ func TestGenerateCmd_Run(t *testing.T) {
 		"LanguageKcl": {
 			name:          "fn1",
 			language:      "kcl",
-			expectedFiles: []string{"main.k", "kcl.mod", "kcl.mod.lock"},
+			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
 			err:           nil,
 		},
 		"WithCompositionPath": {
 			name:            "fn2",
 			language:        "kcl",
 			compositionPath: "apis/primitives/XNetwork/composition.yaml",
-			expectedFiles:   []string{"main.k", "kcl.mod", "kcl.mod.lock"},
+			expectedFiles:   []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
 			err:             nil,
 		},
 		"LanguagePython": {
 			name:          "fn3",
 			language:      "python",
-			expectedFiles: []string{"main.py", "requirements.txt"},
+			expectedFiles: []string{"model", "main.py", "requirements.txt"},
+			err:           nil,
+		},
+		"LanguageGo": {
+			name:          "fn4",
+			language:      "go",
+			expectedFiles: []string{"fn.go", "fn_test.go", "go.mod", "go.sum", "main.go"},
 			err:           nil,
 		},
 		"InvalidName": {
@@ -86,6 +97,8 @@ func TestGenerateCmd_Run(t *testing.T) {
 
 	for testName, tc := range tcs {
 		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
 			outFS := afero.NewMemMapFs()
 			tempProjDir, err := afero.TempDir(afero.NewOsFs(), os.TempDir(), "projFS")
 			assert.NilError(t, err)
@@ -127,13 +140,18 @@ func TestGenerateCmd_Run(t *testing.T) {
 			err = ws.Parse(context.Background())
 			assert.NilError(t, err)
 
+			proj, err := project.Parse(projFS, "upbound.yaml")
+			assert.NilError(t, err)
+			proj.Default()
+
 			// Use BasePathFs for functionFS, scoped to the temp directories
-			functionFS := afero.NewBasePathFs(projFS, "/functions/xnetwork")
+			functionFS := afero.NewBasePathFs(projFS, filepath.Join("/functions", tc.name))
 
 			// Setup the generateCmd with mock dependencies
 			c := &generateCmd{
 				ProjectFile:       "upbound.yaml",
 				projFS:            projFS,
+				proj:              proj,
 				modelsFS:          testModelsFS,
 				functionFS:        functionFS,
 				Language:          tc.language,
@@ -171,10 +189,14 @@ func TestGenerateCmd_Run(t *testing.T) {
 				}
 			}
 
-			for _, expectedFile := range tc.expectedFiles {
-				exists, err := afero.Exists(functionFS, expectedFile)
+			if tc.err == nil {
+				generatedFiles, err := afero.ReadDir(functionFS, ".")
 				assert.NilError(t, err)
-				assert.Assert(t, exists, "file %s not found in functionFS", expectedFile)
+				assert.Assert(t, cmp.Len(generatedFiles, len(tc.expectedFiles)))
+
+				for _, info := range generatedFiles {
+					assert.Assert(t, cmp.Contains(tc.expectedFiles, info.Name()))
+				}
 			}
 		})
 	}
