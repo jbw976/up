@@ -49,6 +49,7 @@ const (
 	DevControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
+// ErrNotDevControlPlane is used in project and test commands.
 var ErrNotDevControlPlane = errors.New("control plane exists but is not a development control plane")
 
 // EnsureControlPlaneOption defines functional options for configuring control plane behavior.

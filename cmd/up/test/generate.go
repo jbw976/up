@@ -139,11 +139,11 @@ type kclImportStatement struct {
 }
 
 type generateCmd struct {
-	ProjectFile string `default:"upbound.yaml"                                                                           help:"Path to project definition file." short:"f"`
-	CacheDir    string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                         help:"Directory used for caching dependency images." short:"d" type:"path"`
-	Language    string `default:"kcl"                                                                                    enum:"kcl,python"                       help:"Language for test."                        short:"l"`
-	Name        string `arg:""                                                                                           help:"Name for the new Function."       required:""`
-	E2E         bool   `help:"create e2e tests"                                                                          name:"e2e"`
+	ProjectFile string `default:"upbound.yaml"  help:"Path to project definition file." short:"f"`
+	CacheDir    string `default:"~/.up/cache/"  env:"CACHE_DIR"                         help:"Directory used for caching dependency images." short:"d" type:"path"`
+	Language    string `default:"kcl"           enum:"kcl,python"                       help:"Language for test."                            short:"l"`
+	Name        string `arg:""                  help:"Name for the new Function."       required:""`
+	E2E         bool   `help:"create e2e tests" name:"e2e"`
 
 	testFS   afero.Fs
 	modelsFS afero.Fs
