@@ -39,12 +39,15 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
+	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
+	"github.com/crossplane/crossplane/xcrd"
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
+	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upterm"
@@ -55,6 +58,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/xpkg/workspace"
+	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -97,12 +101,13 @@ type renderCmd struct {
 	Composition       string `arg:"" help:"A YAML file specifying the Composition to use to render the Composite Resource (XR)." type:"existingfile"`
 	CompositeResource string `arg:"" help:"A YAML file specifying the Composite Resource (XR) to render."                        type:"existingfile"`
 
+	XRD                    string            `help:"A YAML file specifying the CompositeResourceDefinition (XRD) to validate the XR against."                                                  optional:""        placeholder:"PATH" type:"existingfile"`
 	ContextFiles           map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be files containing JSON."                           mapsep:""`
 	ContextValues          map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be JSON. Keys take precedence over --context-files." mapsep:""`
 	IncludeFunctionResults bool              `help:"Include informational and warning messages from Functions in the rendered output as resources of kind: Result."                            short:"r"`
 	IncludeFullXR          bool              `help:"Include a direct copy of the input XR's spec and metadata fields in the rendered output."                                                  short:"x"`
-	ObservedResources      string            `help:"A YAML file or directory of YAML files specifying the observed state of composed resources."                                               placeholder:"PATH" short:"o"   type:"path"`
-	ExtraResources         string            `help:"A YAML file or directory of YAML files specifying extra resources to pass to the Function pipeline."                                       placeholder:"PATH" short:"e"   type:"path"`
+	ObservedResources      string            `help:"A YAML file or directory of YAML files specifying the observed state of composed resources."                                               placeholder:"PATH" short:"o"          type:"path"`
+	ExtraResources         string            `help:"A YAML file or directory of YAML files specifying extra resources to pass to the Function pipeline."                                       placeholder:"PATH" short:"e"          type:"path"`
 	IncludeContext         bool              `help:"Include the context in the rendered output as a resource of kind: Context."                                                                short:"c"`
 	FunctionCredentials    string            `help:"A YAML file or directory of YAML files specifying credentials to use for Functions to render the XR."                                      placeholder:"PATH" type:"path"`
 
@@ -126,6 +131,7 @@ type renderCmd struct {
 	observedResourcesRel   string
 	extraResourcesRel      string
 	functionCredentialsRel string
+	xrdRel                 string
 
 	m  *manager.Manager
 	r  manager.ImageResolver
@@ -171,6 +177,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet
 		{c.FunctionCredentials, &c.functionCredentialsRel},
 		{c.ObservedResources, &c.observedResourcesRel},
 		{c.ExtraResources, &c.extraResourcesRel},
+		{c.XRD, &c.xrdRel},
 	}
 
 	for _, mapping := range pathMappings {
@@ -252,6 +259,20 @@ func (c *renderCmd) Run(log logging.Logger) error { //nolint:gocognit // same th
 			actual.Kind, actual.APIVersion,
 			expected.Kind, expected.APIVersion,
 		)
+	}
+
+	if c.XRD != "" {
+		xrd, err := loadXRD(c.projFS, c.xrdRel)
+		if err != nil {
+			return errors.Wrapf(err, "cannot load XRD from %q", c.xrdRel)
+		}
+		crd, err := xcrd.ForCompositeResource(xrd)
+		if err != nil {
+			return errors.Wrapf(err, "cannot derive composite CRD from XRD %q", xrd.GetName())
+		}
+		if err := icrd.DefaultValues(xr.UnstructuredContent(), *crd); err != nil {
+			return errors.Wrapf(err, "cannot default values for XR %q", xr.GetName())
+		}
 	}
 
 	fcreds := []corev1.Secret{}
@@ -529,4 +550,13 @@ func (c *renderCmd) setRelativePath(fieldValue string, relativePath *string) err
 		*relativePath = relPath
 	}
 	return nil
+}
+
+func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefinition, error) {
+	y, err := afero.ReadFile(fs, file)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot read XRD file")
+	}
+	xrd := &apiextensionsv1.CompositeResourceDefinition{}
+	return xrd, errors.Wrap(yaml.Unmarshal(y, xrd), "cannot unmarshal XRD YAML")
 }
