@@ -29,7 +29,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
-func ConvertToOpenAPI(fs afero.Fs, bs []byte, path, baseFolder string) (string, error) {
+// ConvertToOpenAPI converts an on-disk CRD to an OpenAPI spec, and writes the
+// OpenAPI spec to a file. The path to the spec is returned.
+func ConvertToOpenAPI(fs afero.Fs, bs []byte, path string) (string, error) {
 	var crd extv1.CustomResourceDefinition
 	if err := yaml.Unmarshal(bs, &crd); err != nil {
 		return "", errors.Wrapf(err, "failed to unmarshal CRD file %q", path)

@@ -109,7 +109,7 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 				if err != nil {
 					return errors.Wrapf(err, "failed to read file %q", path)
 				}
-				if err := appendOpenAPIPath(crdFS, bs, xrPath, baseFolder, &openAPIPaths); err != nil {
+				if err := appendOpenAPIPath(crdFS, bs, xrPath, &openAPIPaths); err != nil {
 					return err
 				}
 			}
@@ -118,13 +118,13 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 				if err != nil {
 					return errors.Wrapf(err, "failed to read file %q", path)
 				}
-				if err := appendOpenAPIPath(crdFS, bs, claimPath, baseFolder, &openAPIPaths); err != nil {
+				if err := appendOpenAPIPath(crdFS, bs, claimPath, &openAPIPaths); err != nil {
 					return err
 				}
 			}
 
 		case "CustomResourceDefinition":
-			if err := appendOpenAPIPath(crdFS, bs, path, baseFolder, &openAPIPaths); err != nil {
+			if err := appendOpenAPIPath(crdFS, bs, path, &openAPIPaths); err != nil {
 				return err
 			}
 		}
@@ -175,8 +175,8 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 	return schemaFS, nil
 }
 
-func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path, baseFolder string, openAPIPaths *[]string) error {
-	openAPIPath, err := xcrd.ConvertToOpenAPI(crdFS, bs, path, baseFolder)
+func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path string, openAPIPaths *[]string) error {
+	openAPIPath, err := xcrd.ConvertToOpenAPI(crdFS, bs, path)
 	if err != nil {
 		return err
 	}
