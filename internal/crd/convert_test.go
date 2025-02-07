@@ -31,7 +31,7 @@ import (
 //go:embed testdata/template.fn.crossplane.io_kclinputs.yaml
 var testCRD []byte
 
-func TestConvertToOpenAPI(t *testing.T) {
+func TestFilesToOpenAPI(t *testing.T) {
 	// Define test cases
 	tests := []struct {
 		name        string
@@ -72,7 +72,7 @@ spec:
 			fs := afero.NewMemMapFs()
 
 			// Call ConvertToOpenAPI
-			outputPath, err := ConvertToOpenAPI(fs, tt.crdContent, "test-crd.yaml")
+			outputPath, err := FilesToOpenAPI(fs, tt.crdContent, "test-crd.yaml")
 
 			// Check if an error was expected
 			if tt.expectedErr {

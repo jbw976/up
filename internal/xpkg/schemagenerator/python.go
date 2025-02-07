@@ -176,7 +176,7 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 }
 
 func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path string, openAPIPaths *[]string) error {
-	openAPIPath, err := xcrd.ConvertToOpenAPI(crdFS, bs, path)
+	openAPIPath, err := xcrd.FilesToOpenAPI(crdFS, bs, path)
 	if err != nil {
 		return err
 	}
