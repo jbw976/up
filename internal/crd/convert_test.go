@@ -32,6 +32,8 @@ import (
 var testCRD []byte
 
 func TestFilesToOpenAPI(t *testing.T) {
+	t.Parallel()
+
 	// Define test cases
 	tests := []struct {
 		name        string
@@ -68,6 +70,8 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Use an in-memory filesystem
 			fs := afero.NewMemMapFs()
 
@@ -103,6 +107,8 @@ spec:
 }
 
 func TestAddDefaultAPIVersionAndKind(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name               string
 		initialSchema      spec.Schema
@@ -165,6 +171,8 @@ func TestAddDefaultAPIVersionAndKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Call the function to add default values
 			addDefaultAPIVersionAndKind(&tt.initialSchema, tt.gvk)
 
