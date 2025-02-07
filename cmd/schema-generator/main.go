@@ -51,6 +51,7 @@ type cli struct {
 
 	PythonExcludes []string `help:"List of CRD filenames to exclude from Python schema generation."`
 	KclExcludes    []string `help:"List of CRD filenames to exclude from KCL schema generation."`
+	GoExcludes     []string `help:"List of CRD filenames to exclude from Go schema generation."`
 }
 
 const customHelpMessage = `
@@ -222,11 +223,15 @@ func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.
 
 	pfs, err := schemagenerator.GenerateSchemaPython(ctx, memFs, c.PythonExcludes, schemaRunner)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate schema")
+		return nil, errors.Wrap(err, "failed to generate Python schema")
 	}
 	kfs, err := schemagenerator.GenerateSchemaKcl(ctx, memFs, c.KclExcludes, schemaRunner)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate schema")
+		return nil, errors.Wrap(err, "failed to generate KCL schema")
+	}
+	gofs, err := schemagenerator.GenerateSchemaGo(ctx, memFs, c.GoExcludes, schemaRunner)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate Go schema")
 	}
 
 	var muts []xpkg.Mutator
@@ -235,6 +240,9 @@ func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.
 	}
 	if kfs != nil {
 		muts = append(muts, mutators.NewSchemaMutator(schema.New(kfs, "", xpkg.StreamFileMode), xpkg.SchemaKclAnnotation))
+	}
+	if gofs != nil {
+		muts = append(muts, mutators.NewSchemaMutator(schema.New(gofs, "", xpkg.StreamFileMode), xpkg.SchemaGoAnnotation))
 	}
 
 	for _, mut := range muts {
