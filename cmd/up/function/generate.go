@@ -401,7 +401,13 @@ func generatePythonFiles() (afero.Fs, error) {
 
 type goTemplateData struct {
 	ModulePath string
-	// TODO(adamwg): Generate go.mod replaces for schema modules in .up.
+	Imports    []goImport
+}
+
+type goImport struct {
+	Module  string
+	Version string
+	Replace string
 }
 
 func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
@@ -421,9 +427,22 @@ func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
 		goModPath = "project.example.com/functions/" + c.Name
 	}
 
+	// Figure out where the models directory will be relative to the function
+	// directory so we can generate a go mod replace for it.
+	fnDir := filepath.Join("/", c.proj.Spec.Paths.Functions, "fn")
+	relRoot, err := filepath.Rel(fnDir, "/")
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot determine path to models directory")
+	}
+
 	templates := template.Must(template.ParseFS(templateFS, "*"))
 	tmplData := goTemplateData{
 		ModulePath: goModPath,
+		Imports: []goImport{{
+			Module:  "dev.upbound.io/models",
+			Version: "v0.0.0",
+			Replace: filepath.Join(relRoot, ".up", "go", "models"),
+		}},
 	}
 
 	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
