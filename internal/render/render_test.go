@@ -1,4 +1,4 @@
-// Copyright 2024 Upbound Inc
+// Copyright 2025 Upbound Inc
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package composition
+package render
 
 import (
 	"context"
@@ -206,11 +206,7 @@ func TestLoadFunctions(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			c := &renderCmd{
-				r: image.NewResolver(image.WithFetcher(tc.fetcher)),
-			}
-
-			functions, err := c.loadFunctions(context.Background(), tc.proj)
+			functions, err := loadFunctions(context.Background(), tc.proj, image.NewResolver(image.WithFetcher(tc.fetcher)))
 
 			if tc.expectedErrorMessage != "" {
 				assert.ErrorContains(t, err, tc.expectedErrorMessage)

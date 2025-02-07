@@ -17,48 +17,27 @@ package composition
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/google/go-containerregistry/pkg/name"
-	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
-	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xprender "github.com/crossplane/crossplane/cmd/crank/render"
-	"github.com/crossplane/crossplane/xcrd"
 
-	"github.com/upbound/up/cmd/up/project/common"
-	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
-	icrd "github.com/upbound/up/internal/crd"
-	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/xpkg"
+	"github.com/upbound/up/internal/render"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/xpkg/workspace"
-	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -236,308 +215,40 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet
 	return nil
 }
 
-func (c *renderCmd) Run(log logging.Logger) error { //nolint:gocognit // same than upstream
+func (c *renderCmd) Run(log logging.Logger) error {
 	pterm.EnableStyling()
-	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-	defer cancel()
 
-	xr, err := xprender.LoadCompositeResource(c.projFS, c.compositeResourceRel)
+	options := render.Options{
+		Project:                c.proj,
+		ProjFS:                 c.projFS,
+		IncludeFullXR:          c.IncludeFullXR,
+		IncludeFunctionResults: c.IncludeFunctionResults,
+		IncludeContext:         c.IncludeContext,
+		CompositeResource:      c.compositeResourceRel,
+		Composition:            c.compositionRel,
+		XRD:                    c.xrdRel,
+		FunctionCredentials:    c.functionCredentialsRel,
+		ObservedResources:      c.observedResourcesRel,
+		ExtraResources:         c.extraResourcesRel,
+		ContextFiles:           c.ContextFiles,
+		ContextValues:          c.ContextValues,
+		Concurrency:            c.concurrency,
+		NoBuildCache:           c.NoBuildCache,
+		BuildCacheDir:          c.BuildCacheDir,
+		DependecyManager:       c.m,
+		ImageResolver:          c.r,
+		FunctionIdentifier:     c.functionIdentifier,
+		SchemaRunner:           c.schemaRunner,
+		Timeout:                c.Timeout,
+		Quiet:                  c.quiet,
+	}
+
+	output, err := render.Render(log, options)
 	if err != nil {
-		return errors.Wrapf(err, "cannot load composite resource from %q", c.compositeResourceRel)
+		return errors.Wrap(err, "unable to render function")
 	}
-
-	comp, err := xprender.LoadComposition(c.projFS, c.compositionRel)
-	if err != nil {
-		return errors.Wrapf(err, "cannot load Composition from %q", c.compositionRel)
-	}
-
-	expected := comp.Spec.CompositeTypeRef
-	actual := xr.GetReference()
-	if expected.APIVersion != actual.APIVersion || expected.Kind != actual.Kind {
-		return errors.Errorf(
-			"CompositeResource %s.%s does not match Composition compositeTypeRef %s.%s",
-			actual.Kind, actual.APIVersion,
-			expected.Kind, expected.APIVersion,
-		)
-	}
-
-	if c.XRD != "" {
-		xrd, err := loadXRD(c.projFS, c.xrdRel)
-		if err != nil {
-			return errors.Wrapf(err, "cannot load XRD from %q", c.xrdRel)
-		}
-		crd, err := xcrd.ForCompositeResource(xrd)
-		if err != nil {
-			return errors.Wrapf(err, "cannot derive composite CRD from XRD %q", xrd.GetName())
-		}
-		if err := icrd.DefaultValues(xr.UnstructuredContent(), *crd); err != nil {
-			return errors.Wrapf(err, "cannot default values for XR %q", xr.GetName())
-		}
-	}
-
-	fcreds := []corev1.Secret{}
-	if c.FunctionCredentials != "" {
-		fcreds, err = xprender.LoadCredentials(c.projFS, c.functionCredentialsRel)
-		if err != nil {
-			return errors.Wrapf(err, "cannot load secrets from %q", c.functionCredentialsRel)
-		}
-	}
-
-	ors := []composed.Unstructured{}
-	if c.ObservedResources != "" {
-		ors, err = xprender.LoadObservedResources(c.projFS, c.observedResourcesRel)
-		if err != nil {
-			return errors.Wrapf(err, "cannot load observed composed resources from %q", c.observedResourcesRel)
-		}
-	}
-
-	ers := []unstructured.Unstructured{}
-	if c.ExtraResources != "" {
-		ers, err = xprender.LoadExtraResources(c.projFS, c.extraResourcesRel)
-		if err != nil {
-			return errors.Wrapf(err, "cannot load extra resources from %q", c.extraResourcesRel)
-		}
-	}
-
-	fctx := map[string][]byte{}
-	for k, filename := range c.ContextFiles {
-		v, err := afero.ReadFile(c.projFS, filename)
-		if err != nil {
-			return errors.Wrapf(err, "cannot read context value for key %q", k)
-		}
-		fctx[k] = v
-	}
-	for k, v := range c.ContextValues {
-		fctx[k] = []byte(v)
-	}
-
-	// build embedded functions
-	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(c.concurrency),
-		project.BuildWithFunctionIdentifier(c.functionIdentifier),
-		project.BuildWithSchemaRunner(c.schemaRunner),
-	)
-
-	// ToDo(haarchri): consider building only functions which configured in composition
-	var imgMap project.ImageTagMap
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
-		var err error
-		imgMap, err = b.Build(ctx, c.proj, c.projFS,
-			project.BuildWithEventChannel(ch, c.quiet),
-			project.BuildWithImageLabels(common.ImageLabels(c)),
-			project.BuildWithDependencyManager(c.m))
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	if !c.NoBuildCache {
-		// Create a layer cache so that if we're building on top of base images we
-		// only pull their layers once. Note we do this here rather than in the
-		// builder because pulling layers is deferred to where we use them, which is
-		// here.
-		cch := cache.NewValidatingCache(v1cache.NewFilesystemCache(c.BuildCacheDir))
-		for tag, img := range imgMap {
-			imgMap[tag] = v1cache.Image(img, cch)
-		}
-	}
-
-	var efns []pkgv1.Function
-	err = upterm.WrapWithSuccessSpinner(
-		"Pushing embedded functions to local daemon",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			// push embedded functions to daemon
-			lefns, err := embeddedFunctionsToDaemon(imgMap)
-			if err != nil {
-				return errors.Wrap(err, "unable to push to local docker daemon")
-			}
-			efns = lefns
-			return nil
-		},
-		c.quiet,
-	)
-	if err != nil {
-		return err
-	}
-	// load functions from project upbound.yaml dependsOn
-	fns, err := c.loadFunctions(ctx, c.proj)
-	if err != nil {
-		return errors.Wrapf(err, "cannot load functions from project")
-	}
-
-	// collect functions from project upbound.yaml and embedded functions
-	fns = append(fns, efns...)
-
-	var out xprender.Outputs
-	err = upterm.WrapWithSuccessSpinner(
-		"Rendering",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			lout, err := xprender.Render(ctx, log, xprender.Inputs{
-				CompositeResource:   xr,
-				Composition:         comp,
-				Functions:           fns,
-				FunctionCredentials: fcreds,
-				ObservedResources:   ors,
-				ExtraResources:      ers,
-				Context:             fctx,
-			})
-			if err != nil {
-				return errors.Wrap(err, "cannot render composite resource")
-			}
-			out = lout
-			return nil
-		},
-		c.quiet,
-	)
-	if err != nil {
-		return err
-	}
-
-	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
-
-	if c.IncludeFullXR {
-		xrSpec, err := fieldpath.Pave(xr.Object).GetValue("spec")
-		if err != nil {
-			return errors.Wrapf(err, "cannot get composite resource spec")
-		}
-
-		if err := fieldpath.Pave(out.CompositeResource.Object).SetValue("spec", xrSpec); err != nil {
-			return errors.Wrapf(err, "cannot set composite resource spec")
-		}
-
-		xrMeta, err := fieldpath.Pave(xr.Object).GetValue("metadata")
-		if err != nil {
-			return errors.Wrapf(err, "cannot get composite resource metadata")
-		}
-
-		if err := fieldpath.Pave(out.CompositeResource.Object).SetValue("metadata", xrMeta); err != nil {
-			return errors.Wrapf(err, "cannot set composite resource metadata")
-		}
-	}
-
-	// when using p.Println we have 2 new-lines when using with kongCtx.Stdout
-	if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
-		return errors.Wrap(err, "failed to write to standard output")
-	}
-	if err := s.Encode(out.CompositeResource, os.Stdout); err != nil {
-		return errors.Wrapf(err, "cannot marshal composite resource %q to YAML", xr.GetName())
-	}
-
-	for i := range out.ComposedResources {
-		if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
-			return errors.Wrap(err, "failed to write to standard output")
-		}
-		if err := s.Encode(&out.ComposedResources[i], os.Stdout); err != nil {
-			return errors.Wrapf(err, "cannot marshal composed resource to YAML")
-		}
-	}
-
-	if c.IncludeFunctionResults {
-		for i := range out.Results {
-			if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
-				return errors.Wrap(err, "failed to write to standard output")
-			}
-			if err := s.Encode(&out.Results[i], os.Stdout); err != nil {
-				return errors.Wrap(err, "cannot marshal result to YAML")
-			}
-		}
-	}
-
-	if c.IncludeContext {
-		if _, err := fmt.Fprintln(os.Stdout, "---"); err != nil {
-			return errors.Wrap(err, "failed to write to standard output")
-		}
-		if err := s.Encode(out.Context, os.Stdout); err != nil {
-			return errors.Wrap(err, "cannot marshal context to YAML")
-		}
-	}
-
+	pterm.Print(output)
 	return nil
-}
-
-// loadFunctions from a stream of YAML manifests.
-func (c *renderCmd) loadFunctions(ctx context.Context, proj *projectv1alpha1.Project) ([]pkgv1.Function, error) {
-	functions := make([]pkgv1.Function, 0, len(proj.Spec.DependsOn))
-
-	for _, dep := range proj.Spec.DependsOn {
-		if dep.Function == nil {
-			continue
-		}
-
-		// convert fn to dependency
-		convertedDep, ok := manager.ConvertToV1beta1(dep)
-		if !ok {
-			return nil, errors.Errorf("failed to convert dependency in %s", *dep.Function)
-		}
-
-		// resolve tag for fn
-		version, err := c.r.ResolveTag(ctx, convertedDep)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed resolve tag")
-		}
-
-		// get metadata.name for fn pkg manifest
-		functionName, err := name.ParseReference(*dep.Function)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse function name reference for %s", *dep.Function)
-		}
-
-		// build fn pkg manifest
-		f := pkgv1.Function{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: xpkg.ToDNSLabel(functionName.Context().RepositoryStr()),
-			},
-			Spec: pkgv1.FunctionSpec{
-				PackageSpec: pkgv1.PackageSpec{
-					Package: fmt.Sprintf("%s:%s", *dep.Function, version),
-				},
-			},
-		}
-		functions = append(functions, f)
-	}
-
-	return functions, nil
-}
-
-// embeddedFunctionsToDaemon loads each compatible image in the ImageTagMap into the Docker daemon.
-func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, error) {
-	functions := make([]pkgv1.Function, 0, len(imageMap))
-
-	for tag, img := range imageMap {
-		platformInfo, err := img.ConfigFile()
-		if err != nil {
-			return nil, errors.Wrapf(err, "error getting platform info for image %s", tag)
-		}
-
-		if platformInfo.Architecture != runtime.GOARCH {
-			continue
-		}
-
-		// Push the image directly to the daemon
-		if _, err := daemon.Write(tag, img); err != nil {
-			return nil, errors.Wrapf(err, "error pushing image %s to daemon", tag)
-		}
-
-		f := pkgv1.Function{
-			ObjectMeta: metav1.ObjectMeta{
-				// align name with functionRef.name in composition
-				Name: xpkg.ToDNSLabel(tag.Context().RepositoryStr()),
-			},
-			Spec: pkgv1.FunctionSpec{
-				PackageSpec: pkgv1.PackageSpec{
-					// set correct local image with tag
-					Package: tag.Name(),
-				},
-			},
-		}
-
-		functions = append(functions, f)
-	}
-
-	return functions, nil
 }
 
 // Helper function to calculate the relative path and handle errors.
@@ -550,13 +261,4 @@ func (c *renderCmd) setRelativePath(fieldValue string, relativePath *string) err
 		*relativePath = relPath
 	}
 	return nil
-}
-
-func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefinition, error) {
-	y, err := afero.ReadFile(fs, file)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot read XRD file")
-	}
-	xrd := &apiextensionsv1.CompositeResourceDefinition{}
-	return xrd, errors.Wrap(yaml.Unmarshal(y, xrd), "cannot unmarshal XRD YAML")
 }
