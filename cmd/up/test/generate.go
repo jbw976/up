@@ -285,16 +285,12 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // gene
 func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
-	templates := template.Must(template.ParseFS(kclTemplate, "templates/kcl/*"))
-
-	mainTemplateName := "compositiontest.k"
+	baseFolder := "compositiontest"
 	if c.E2E {
-		mainTemplateName = "e2e.k"
+		baseFolder = "e2e"
 	}
 
-	if tmpl := templates.Lookup(mainTemplateName); tmpl == nil {
-		return nil, errors.Errorf("template %s not found", mainTemplateName)
-	}
+	templates := template.Must(template.ParseFS(kclTemplate, fmt.Sprintf("templates/kcl/%s/**", baseFolder)))
 
 	foundFolders, _ := filesystem.FindNestedFoldersWithPattern(c.modelsFS, "kcl/models", "*.k")
 	importStatements := make([]kclImportStatement, 0, len(foundFolders))
@@ -311,7 +307,7 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 		Imports: importStatements,
 	}
 
-	if err := renderTemplates(targetFS, templates, tmplData, mainTemplateName, "main.k"); err != nil {
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
 		return nil, err
 	}
 
@@ -322,52 +318,43 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 func (c *generateCmd) generatePythonFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
+	baseFolder := "compositiontest"
+	if c.E2E {
+		baseFolder = "e2e"
+	}
+
 	// Note that currently our python templates don't actually do any
 	// templating, hence the empty template data. But we render them with the
 	// same mechanism we use for other languages to maximize code reuse and
 	// allow for richer templates in the future.
-	templates := template.Must(template.ParseFS(pythonTemplate, "templates/python/**"))
-
-	mainTemplateName := "compositiontest.py"
-	if c.E2E {
-		mainTemplateName = "e2e.py"
-	}
-
-	if tmpl := templates.Lookup(mainTemplateName); tmpl == nil {
-		return nil, errors.Errorf("template %s not found", mainTemplateName)
-	}
+	templates := template.Must(template.ParseFS(pythonTemplate, fmt.Sprintf("templates/python/%s/**", baseFolder)))
 
 	tmplData := struct{}{}
 
-	if err := renderTemplates(targetFS, templates, tmplData, mainTemplateName, "main.py"); err != nil {
-		return nil, err
-	}
-
-	reqTemplate := "requirements.txt"
-	if err := renderTemplates(targetFS, templates, tmplData, reqTemplate, "requirements.txt"); err != nil {
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
 		return nil, err
 	}
 
 	return targetFS, nil
 }
 
-// renderTemplates executes and writes Go templates.
-func renderTemplates(targetFS afero.Fs, templates *template.Template, data any, templateName string, outputFileName string) error {
-	tmpl := templates.Lookup(templateName)
-	if tmpl == nil {
-		return errors.Errorf("template %s not found", templateName)
+// renderTemplates executes.
+func renderTemplates(targetFS afero.Fs, templates *template.Template, data any) error {
+	for _, tmpl := range templates.Templates() {
+		fname := tmpl.Name()
+		file, err := targetFS.Create(filepath.Clean(fname))
+		if err != nil {
+			return errors.Wrapf(err, "error creating file %v", fname)
+		}
+		if err := tmpl.Execute(file, data); err != nil {
+			return errors.Wrapf(err, "error writing template to file %v", fname)
+		}
+		if err := file.Close(); err != nil {
+			return errors.Wrapf(err, "error closing file %v", fname)
+		}
 	}
 
-	file, err := targetFS.Create(filepath.Clean(outputFileName))
-	if err != nil {
-		return errors.Wrapf(err, "error creating file: %v", outputFileName)
-	}
-
-	if err := tmpl.Execute(file, data); err != nil {
-		return errors.Wrapf(err, "error writing template to file: %v", outputFileName)
-	}
-
-	return file.Close()
+	return nil
 }
 
 // needsModelsSymlink determines if a symlink is needed.
