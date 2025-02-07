@@ -255,6 +255,26 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 		return nil
 	})
 
+	// Generate Go Schemas
+	eg.Go(func() error {
+		gofs, err := schemagenerator.GenerateSchemaGo(egCtx, apisSource, apiExcludes, b.schemaRunner)
+		if err != nil {
+			return err
+		}
+
+		if gofs != nil {
+			mutMu.Lock()
+			mut = append(mut, mutators.NewSchemaMutator(schema.New(gofs, "", xpkg.StreamFileMode), xpkg.SchemaGoAnnotation))
+			mutMu.Unlock()
+			if os.depManager != nil {
+				if err := os.depManager.AddModels("go", gofs); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
 	// Generate meta apis Schemas
 	eg.Go(func() error {
 		if os.depManager != nil {

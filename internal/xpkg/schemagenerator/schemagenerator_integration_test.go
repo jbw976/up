@@ -27,8 +27,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -36,6 +34,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
+
+	"github.com/crossplane/crossplane-runtime/pkg/parser"
+	"github.com/crossplane/crossplane-runtime/pkg/test"
 
 	"github.com/upbound/up/internal/xpkg"
 	umutators "github.com/upbound/up/internal/xpkg/mutators"
@@ -54,40 +55,12 @@ var (
 	testSchemaXrd           []byte
 	testSchemaComposition   []byte
 	testSchemaConfiguration []byte
-
-	_ parser.Backend = &MockBackend{}
 )
 
 func init() {
 	testSchemaXrd, _ = afero.ReadFile(afero.NewOsFs(), "testdata/account_scaffold_definition.yaml")
 	testSchemaComposition, _ = afero.ReadFile(afero.NewOsFs(), "testdata/account_scaffold_composition.yaml")
 	testSchemaConfiguration, _ = afero.ReadFile(afero.NewOsFs(), "testdata/configuration_crossplane.yaml")
-}
-
-type MockBackend struct {
-	MockInit func() (io.ReadCloser, error)
-}
-
-func NewMockInitFn(r io.ReadCloser, err error) func() (io.ReadCloser, error) {
-	return func() (io.ReadCloser, error) { return r, err }
-}
-
-func (m *MockBackend) Init(_ context.Context, _ ...parser.BackendOption) (io.ReadCloser, error) {
-	return m.MockInit()
-}
-
-var _ parser.Parser = &MockParser{}
-
-type MockParser struct {
-	MockParse func() (*parser.Package, error)
-}
-
-func NewMockParseFn(pkg *parser.Package, err error) func() (*parser.Package, error) {
-	return func() (*parser.Package, error) { return pkg, err }
-}
-
-func (m *MockParser) Parse(context.Context, io.ReadCloser) (*parser.Package, error) {
-	return m.MockParse()
 }
 
 func TestSchemas(t *testing.T) {

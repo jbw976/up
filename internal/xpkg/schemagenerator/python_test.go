@@ -20,8 +20,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
-
-	_ "embed"
 )
 
 // TestTransformStructurePython tests reorganizing files and adjusting imports.
