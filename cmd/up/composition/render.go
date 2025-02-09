@@ -218,6 +218,25 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet
 func (c *renderCmd) Run(log logging.Logger) error {
 	pterm.EnableStyling()
 
+	functionOptions := render.FunctionOptions{
+		Project:            c.proj,
+		ProjFS:             c.projFS,
+		Concurrency:        c.concurrency,
+		NoBuildCache:       c.NoBuildCache,
+		BuildCacheDir:      c.BuildCacheDir,
+		DependecyManager:   c.m,
+		FunctionIdentifier: c.functionIdentifier,
+		SchemaRunner:       c.schemaRunner,
+	}
+
+	renderCtx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	efns, err := render.BuildEmbeddedFunctionsLocalDaemon(renderCtx, functionOptions)
+	if err != nil {
+		return errors.Wrap(err, "unable to build embedded functions")
+	}
+
 	options := render.Options{
 		Project:                c.proj,
 		ProjFS:                 c.projFS,
@@ -233,17 +252,12 @@ func (c *renderCmd) Run(log logging.Logger) error {
 		ContextFiles:           c.ContextFiles,
 		ContextValues:          c.ContextValues,
 		Concurrency:            c.concurrency,
-		NoBuildCache:           c.NoBuildCache,
-		BuildCacheDir:          c.BuildCacheDir,
-		DependecyManager:       c.m,
 		ImageResolver:          c.r,
-		FunctionIdentifier:     c.functionIdentifier,
-		SchemaRunner:           c.schemaRunner,
-		Timeout:                c.Timeout,
 		Quiet:                  c.quiet,
+		SpinnerText:            "Rendering",
 	}
 
-	output, err := render.Render(log, options)
+	output, err := render.Render(renderCtx, log, efns, options)
 	if err != nil {
 		return errors.Wrap(err, "unable to render function")
 	}

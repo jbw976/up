@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
@@ -73,21 +72,29 @@ type Options struct {
 	ContextValues map[string]string
 	Concurrency   uint
 
+	ImageResolver manager.ImageResolver
+	Quiet         config.QuietFlag
+	SpinnerText   string
+}
+
+// FunctionOptions defines the configuration for building embedded functions.
+type FunctionOptions struct {
+	Project *projectv1alpha1.Project
+	ProjFS  afero.Fs
+
+	Concurrency uint
+
 	NoBuildCache       bool
 	BuildCacheDir      string
 	ImageResolver      manager.ImageResolver
 	FunctionIdentifier functions.Identifier
 	SchemaRunner       schemarunner.SchemaRunner
 	DependecyManager   *manager.Manager
-	Timeout            time.Duration
 	Quiet              config.QuietFlag
 }
 
 // Render executes the rendering logic and returns YAML output as a string.
-func Render(log logging.Logger, opts Options) (string, error) { //nolint:gocognit // render logic
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-	defer cancel()
-
+func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.Function, opts Options) (string, error) { //nolint:gocognit // render logic
 	xr, err := xprender.LoadCompositeResource(opts.ProjFS, opts.CompositeResource)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot load composite resource from %q", opts.CompositeResource)
@@ -156,65 +163,17 @@ func Render(log logging.Logger, opts Options) (string, error) { //nolint:gocogni
 		fctx[k] = []byte(v)
 	}
 
-	// Build functions
-	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(opts.Concurrency),
-		project.BuildWithFunctionIdentifier(opts.FunctionIdentifier),
-		project.BuildWithSchemaRunner(opts.SchemaRunner),
-	)
-
-	var imgMap project.ImageTagMap
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
-		var err error
-		imgMap, err = b.Build(ctx, opts.Project, opts.ProjFS,
-			project.BuildWithEventChannel(ch, opts.Quiet),
-			project.BuildWithImageLabels(common.ImageLabels(opts)),
-			project.BuildWithDependencyManager(opts.DependecyManager),
-		)
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-
-	// Handle image caching
-	if !opts.NoBuildCache {
-		cch := cache.NewValidatingCache(v1cache.NewFilesystemCache(opts.BuildCacheDir))
-		for tag, img := range imgMap {
-			imgMap[tag] = v1cache.Image(img, cch)
-		}
-	}
-
-	// Push embedded functions to daemon
-	var efns []pkgv1.Function
-	err = upterm.WrapWithSuccessSpinner(
-		"Pushing embedded functions to local daemon",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			lefns, err := embeddedFunctionsToDaemon(imgMap)
-			if err != nil {
-				return errors.Wrap(err, "unable to push to local docker daemon")
-			}
-			efns = lefns
-			return nil
-		},
-		opts.Quiet,
-	)
-	if err != nil {
-		return "", err
-	}
-
 	// Load additional functions
 	fns, err := loadFunctions(ctx, opts.Project, opts.ImageResolver)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot load functions from project")
 	}
-	fns = append(fns, efns...)
+	fns = append(fns, embeddedFunctions...)
 
 	// Perform rendering
 	var out xprender.Outputs
 	err = upterm.WrapWithSuccessSpinner(
-		"Rendering",
+		opts.SpinnerText,
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			lout, err := xprender.Render(ctx, log, xprender.Inputs{
@@ -351,6 +310,56 @@ func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, 
 	}
 
 	return functions, nil
+}
+
+// BuildEmbeddedFunctionsLocalDaemon build and push to local deamon.
+func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions) ([]pkgv1.Function, error) {
+	b := project.NewBuilder(
+		project.BuildWithMaxConcurrency(opts.Concurrency),
+		project.BuildWithFunctionIdentifier(opts.FunctionIdentifier),
+		project.BuildWithSchemaRunner(opts.SchemaRunner),
+	)
+
+	var imgMap project.ImageTagMap
+	err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+		var err error
+		imgMap, err = b.Build(ctx, opts.Project, opts.ProjFS,
+			project.BuildWithEventChannel(ch, opts.Quiet),
+			project.BuildWithImageLabels(common.ImageLabels(opts)),
+			project.BuildWithDependencyManager(opts.DependecyManager),
+		)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if !opts.NoBuildCache {
+		cch := cache.NewValidatingCache(v1cache.NewFilesystemCache(opts.BuildCacheDir))
+		for tag, img := range imgMap {
+			imgMap[tag] = v1cache.Image(img, cch)
+		}
+	}
+
+	var efns []pkgv1.Function
+	err = upterm.WrapWithSuccessSpinner(
+		"Pushing embedded functions to local daemon",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			lefns, err := embeddedFunctionsToDaemon(imgMap)
+			if err != nil {
+				return errors.Wrap(err, "unable to push to local docker daemon")
+			}
+			efns = lefns
+			return nil
+		},
+		opts.Quiet,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return efns, nil
 }
 
 // LoadFunctions loads functions from a project's DependsOn list.

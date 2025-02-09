@@ -14,5 +14,22 @@
 
 package v1alpha1
 
+import "fmt"
+
 // Hub marks this type as the conversion hub.
 func (p *CompositionTest) Hub() {}
+
+// Convert converts []interface{} to []CompositionTest.
+func Convert(parsedTests []interface{}) ([]CompositionTest, error) {
+	compositionTests := make([]CompositionTest, 0, len(parsedTests))
+
+	for _, t := range parsedTests {
+		test, ok := t.(CompositionTest)
+		if !ok {
+			return nil, fmt.Errorf("invalid type: expected CompositionTest but got %T", t)
+		}
+		compositionTests = append(compositionTests, test)
+	}
+
+	return compositionTests, nil
+}
