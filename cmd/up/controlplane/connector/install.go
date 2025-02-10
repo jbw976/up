@@ -182,7 +182,7 @@ func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (stri
 		return "", errors.Wrap(err, "failed to get account details")
 	}
 	p.Printfln("Creating an API token for the user %s. This token will be "+
-		"used to authenticate the cluster.", a.User.Username)
+		"used to authenticate the cluster.", a.Account.Name)
 	resp, err := tokens.NewClient(cfg).Create(context.Background(), &tokens.TokenCreateParameters{
 		Attributes: tokens.TokenAttributes{
 			Name: c.ClusterName,
@@ -191,7 +191,7 @@ func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (stri
 			Owner: tokens.TokenOwner{
 				Data: tokens.TokenOwnerData{
 					Type: tokens.TokenOwnerUser,
-					ID:   strconv.FormatUint(uint64(a.User.ID), 10),
+					ID:   strconv.FormatUint(uint64(a.Organization.CreatorID), 10),
 				},
 			},
 		},
