@@ -19,12 +19,12 @@ import (
 	"encoding/json"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/oapi-codegen/v2/pkg/codegen"
 	"github.com/spf13/afero"
-	"golang.org/x/exp/slices"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kube-openapi/pkg/spec3"
@@ -196,11 +196,13 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 					return errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
 				}
 
-				oapi, version, err := crd.ToOpenAPI(&c)
+				oapis, err := crd.ToOpenAPI(&c)
 				if err != nil {
 					return err
 				}
-				openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+				for version, oapi := range oapis {
+					openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+				}
 			}
 			if claimPath != "" {
 				bs, err := afero.ReadFile(crdFS, claimPath)
@@ -213,11 +215,13 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 					return errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
 				}
 
-				oapi, version, err := crd.ToOpenAPI(&c)
+				oapis, err := crd.ToOpenAPI(&c)
 				if err != nil {
 					return err
 				}
-				openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+				for version, oapi := range oapis {
+					openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+				}
 			}
 
 		case "CustomResourceDefinition":
@@ -226,11 +230,13 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 				return errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
 			}
 
-			oapi, version, err := crd.ToOpenAPI(&c)
+			oapis, err := crd.ToOpenAPI(&c)
 			if err != nil {
 				return err
 			}
-			openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+			for version, oapi := range oapis {
+				openAPIs = append(openAPIs, goOpenAPI{spec: oapi, version: version, crd: &c})
+			}
 		}
 		return nil
 	})

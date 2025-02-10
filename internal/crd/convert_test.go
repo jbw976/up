@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -76,7 +77,7 @@ spec:
 			fs := afero.NewMemMapFs()
 
 			// Call ConvertToOpenAPI
-			outputPath, err := FilesToOpenAPI(fs, tt.crdContent, "test-crd.yaml")
+			outputPaths, err := FilesToOpenAPI(fs, tt.crdContent, "test-crd.yaml")
 
 			// Check if an error was expected
 			if tt.expectedErr {
@@ -84,13 +85,14 @@ spec:
 				return
 			}
 			assert.NilError(t, err)
+			assert.Assert(t, cmp.Len(outputPaths, 1))
 
 			// Perform validation for the success case (only needed if no error was expected)
-			_, err = afero.Exists(fs, filepath.Join(outputPath, "template_fn_crossplane_io_v1beta1_kclinput.yaml"))
+			_, err = afero.Exists(fs, filepath.Join(outputPaths[0], "template_fn_crossplane_io_v1beta1_kclinput.yaml"))
 			assert.NilError(t, err)
 
 			// Read the content from the file in-memory
-			output, err := afero.ReadFile(fs, outputPath)
+			output, err := afero.ReadFile(fs, outputPaths[0])
 			assert.NilError(t, err)
 
 			var openapi *spec3.OpenAPI

@@ -32,71 +32,83 @@ import (
 
 // ToOpenAPI converts the storage version of a CRD to an OpenAPI spec. The
 // version is returned along with the OpenAPI spec.
-func ToOpenAPI(crd *extv1.CustomResourceDefinition) (*spec3.OpenAPI, string, error) {
-	version, err := GetCRDVersion(*crd)
-	if err != nil {
-		return nil, "", err
+func ToOpenAPI(crd *extv1.CustomResourceDefinition) (map[string]*spec3.OpenAPI, error) {
+	oapis := make(map[string]*spec3.OpenAPI, len(crd.Spec.Versions))
+
+	if len(crd.Spec.Versions) == 0 {
+		return nil, errors.New("crd has no versions")
 	}
 
-	// Generate OpenAPI v3 schema
-	output, err := builder.BuildOpenAPIV3(crd, version, builder.Options{})
-	if err != nil {
-		return nil, "", errors.Wrapf(err, "failed to build OpenAPI v3 schema")
-	}
+	for _, crdVersion := range crd.Spec.Versions {
+		version := crdVersion.Name
 
-	// Reverse the group name inline
-	groupParts := strings.Split(crd.Spec.Group, ".")
-	slices.Reverse(groupParts)
-	reverseGroup := strings.Join(groupParts, ".")
-
-	// Process schemas to include API version and kind for matching CR versions
-	for name, s := range output.Components.Schemas {
-		if !strings.HasPrefix(name, reverseGroup+".") {
-			continue // Skip schemas not in our API group
+		// Generate OpenAPI v3 schema
+		output, err := builder.BuildOpenAPIV3(crd, version, builder.Options{})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build OpenAPI v3 schema")
 		}
 
-		if fmt.Sprintf("%s.%s.%s", reverseGroup, version, crd.Spec.Names.Kind) == name {
-			addDefaultAPIVersionAndKind(s, schema.GroupVersionKind{
-				Group:   crd.Spec.Group,
-				Version: version,
-				Kind:    crd.Spec.Names.Kind,
-			})
+		// Reverse the group name inline
+		groupParts := strings.Split(crd.Spec.Group, ".")
+		slices.Reverse(groupParts)
+		reverseGroup := strings.Join(groupParts, ".")
+
+		// Process schemas to include API version and kind for matching CR versions
+		for name, s := range output.Components.Schemas {
+			if !strings.HasPrefix(name, reverseGroup+".") {
+				continue // Skip schemas not in our API group
+			}
+
+			if fmt.Sprintf("%s.%s.%s", reverseGroup, version, crd.Spec.Names.Kind) == name {
+				addDefaultAPIVersionAndKind(s, schema.GroupVersionKind{
+					Group:   crd.Spec.Group,
+					Version: version,
+					Kind:    crd.Spec.Names.Kind,
+				})
+			}
 		}
+
+		oapis[version] = output
 	}
 
-	return output, version, nil
+	return oapis, nil
 }
 
 // FilesToOpenAPI converts an on-disk CRD to an OpenAPI spec, and writes the
 // OpenAPI spec to a file. The path to the spec is returned.
-func FilesToOpenAPI(fs afero.Fs, bs []byte, path string) (string, error) {
+func FilesToOpenAPI(fs afero.Fs, bs []byte, path string) ([]string, error) {
 	var crd extv1.CustomResourceDefinition
 	if err := yaml.Unmarshal(bs, &crd); err != nil {
-		return "", errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
+		return nil, errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
 	}
 
-	output, version, err := ToOpenAPI(&crd)
+	outputs, err := ToOpenAPI(&crd)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Convert output to YAML
-	openAPIBytes, err := yaml.Marshal(output)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to marshal OpenAPI output to YAML")
+	paths := make([]string, 0, len(outputs))
+	for version, output := range outputs {
+		// Convert output to YAML
+		openAPIBytes, err := yaml.Marshal(output)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to marshal OpenAPI output to YAML")
+		}
+
+		// Define the output path for the OpenAPI schema file
+		groupFormatted := strings.ReplaceAll(crd.Spec.Group, ".", "_")
+		kindFormatted := strings.ToLower(crd.Spec.Names.Kind)
+		openAPIPath := fmt.Sprintf("%s_%s_%s.yaml", groupFormatted, version, kindFormatted)
+
+		// Write the output to a file
+		if err := afero.WriteFile(fs, openAPIPath, openAPIBytes, 0o644); err != nil {
+			return nil, errors.Wrapf(err, "failed to write OpenAPI file")
+		}
+
+		paths = append(paths, openAPIPath)
 	}
 
-	// Define the output path for the OpenAPI schema file
-	groupFormatted := strings.ReplaceAll(crd.Spec.Group, ".", "_")
-	kindFormatted := strings.ToLower(crd.Spec.Names.Kind)
-	openAPIPath := fmt.Sprintf("%s_%s_%s.yaml", groupFormatted, version, kindFormatted)
-
-	// Write the output to a file
-	if err := afero.WriteFile(fs, openAPIPath, openAPIBytes, 0o644); err != nil {
-		return "", errors.Wrapf(err, "failed to write OpenAPI file")
-	}
-
-	return openAPIPath, nil
+	return paths, nil
 }
 
 func addDefaultAPIVersionAndKind(s *spec.Schema, gvk schema.GroupVersionKind) {
