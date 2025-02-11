@@ -54,6 +54,7 @@ require (
 	google.golang.org/api v0.214.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
+	gotest.tools v2.2.0+incompatible
 	gotest.tools/v3 v3.5.2
 	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.32.0

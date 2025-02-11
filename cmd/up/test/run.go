@@ -99,18 +99,17 @@ type runCmd struct {
 	E2E    bool          `help:"Run E2E"                                         name:"e2e"`
 	Flags  upbound.Flags `embed:""`
 
-	projFS               afero.Fs
-	testFS               afero.Fs
-	modelsFS             afero.Fs
-	functionIdentifier   functions.Identifier
-	schemaRunner         schemarunner.SchemaRunner
-	transport            http.RoundTripper
-	m                    *manager.Manager
-	r                    manager.ImageResolver
-	keychain             authn.Keychain
-	concurrency          uint
-	proj                 *v1alpha1.Project
-	testCaseFolderPrefix string
+	projFS             afero.Fs
+	testFS             afero.Fs
+	modelsFS           afero.Fs
+	functionIdentifier functions.Identifier
+	schemaRunner       schemarunner.SchemaRunner
+	transport          http.RoundTripper
+	m                  *manager.Manager
+	r                  manager.ImageResolver
+	keychain           authn.Keychain
+	concurrency        uint
+	proj               *v1alpha1.Project
 
 	spaceClient client.Client
 	quiet       config.QuietFlag
@@ -133,7 +132,7 @@ Examples:
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint: gocognit // we have multiple tests
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -201,68 +200,70 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	c.m = m
 	c.r = r
 
-	spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
-	if err != nil {
-		return err
-	}
-
-	var ok bool
-	var space ctxcmd.Space
-
-	if space, ok = spaceCtx.(ctxcmd.Space); !ok {
-		if group, ok := spaceCtx.(*ctxcmd.Group); ok {
-			space = group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = group.Name
-			}
-		} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
-			space = ctp.Group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = ctp.Group.Name
-			}
-		} else {
-			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
+	if c.E2E {
+		spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
+		if err != nil {
+			return err
 		}
-	}
 
-	// fallback to the default "default" group
-	if c.ControlPlaneGroup == "" {
-		c.ControlPlaneGroup = "default"
-	}
+		var ok bool
+		var space ctxcmd.Space
 
-	// set the default prefix
-	if c.ControlPlaneNamePrefix == "" {
-		c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
-	}
+		if space, ok = spaceCtx.(ctxcmd.Space); !ok {
+			if group, ok := spaceCtx.(*ctxcmd.Group); ok {
+				space = group.Space
+				if c.ControlPlaneGroup == "" {
+					c.ControlPlaneGroup = group.Name
+				}
+			} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
+				space = ctp.Group.Space
+				if c.ControlPlaneGroup == "" {
+					c.ControlPlaneGroup = ctp.Group.Name
+				}
+			} else {
+				return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
+			}
+		}
 
-	// Get the client for parent space, even if pointed at a group or a control
-	// plane
-	spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
-		Namespace: c.ControlPlaneGroup,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to build space client")
-	}
-	spaceClientREST, err := spaceClientConfig.ClientConfig()
-	if err != nil {
-		return errors.Wrap(err, "failed to get REST config for space client")
-	}
-	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
-	if err != nil {
-		return err
-	}
+		// fallback to the default "default" group
+		if c.ControlPlaneGroup == "" {
+			c.ControlPlaneGroup = "default"
+		}
 
-	tools := map[string]*string{
-		"chainsaw": &c.Chainsaw,
-		"kubectl":  &c.Kubectl,
-	}
+		// set the default prefix
+		if c.ControlPlaneNamePrefix == "" {
+			c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
+		}
 
-	for tool, path := range tools {
-		if *path == "" {
-			var err error
-			*path, err = exec.LookPath(tool) // Updates original c.Chainsaw or c.Kubectl
-			if err != nil {
-				return errors.Wrapf(err, "failed to find %s in path", tool)
+		// Get the client for parent space, even if pointed at a group or a control
+		// plane
+		spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
+			Namespace: c.ControlPlaneGroup,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to build space client")
+		}
+		spaceClientREST, err := spaceClientConfig.ClientConfig()
+		if err != nil {
+			return errors.Wrap(err, "failed to get REST config for space client")
+		}
+		c.spaceClient, err = client.New(spaceClientREST, client.Options{})
+		if err != nil {
+			return err
+		}
+
+		tools := map[string]*string{
+			"chainsaw": &c.Chainsaw,
+			"kubectl":  &c.Kubectl,
+		}
+
+		for tool, path := range tools {
+			if *path == "" {
+				var err error
+				*path, err = exec.LookPath(tool) // Updates original c.Chainsaw or c.Kubectl
+				if err != nil {
+					return errors.Wrapf(err, "failed to find %s in path", tool)
+				}
 			}
 		}
 	}
@@ -272,11 +273,6 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet
-
-	c.testCaseFolderPrefix = "/test-"
-	if c.E2E {
-		c.testCaseFolderPrefix = "/e2etest-"
-	}
 
 	return nil
 }
@@ -294,7 +290,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 			testBuilder := test.NewBuilder(
 				test.BuildWithSchemaRunner(c.schemaRunner),
 			)
-			parsedTests, err = testBuilder.Build(ctx, c.testFS, c.Patterns, c.proj.Spec.Paths.Tests, c.testCaseFolderPrefix)
+			parsedTests, err = testBuilder.Build(ctx, c.testFS, c.Patterns, c.proj.Spec.Paths.Tests)
 			if err != nil {
 				return errors.Wrap(err, "failed to generate test files")
 			}
@@ -320,7 +316,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	if c.E2E {
 		tests, err := e2etest.Convert(parsedTests)
 		if err != nil {
-			return errors.Wrap(err, "unable to convert to e2e tests")
+			return errors.Wrap(err, "unable to validate e2e tests")
 		}
 
 		ttotal, tsuccess, terr, err = c.uptest(ctx, upCtx, tests)
@@ -330,7 +326,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	} else {
 		tests, err := compositiontest.Convert(parsedTests)
 		if err != nil {
-			return errors.Wrap(err, "unable to convert to composition tests")
+			return errors.Wrap(err, "unable to validate composition tests")
 		}
 		ttotal, tsuccess, terr, err = c.render(ctx, log, tests)
 		if err != nil {
@@ -350,10 +346,10 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
 	total, success, errors := 0, 0, 0
 
-	projFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
 	functionOptions := render.FunctionOptions{
 		Project:            c.proj,
-		ProjFS:             projFS,
+		ProjFS:             tempProjFS,
 		Concurrency:        c.concurrency,
 		NoBuildCache:       c.NoBuildCache,
 		BuildCacheDir:      c.BuildCacheDir,
@@ -370,13 +366,13 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 	for _, test := range tests {
 		total++
 
-		observedResourcesPath, err := writeToFile(projFS, test.Spec.ObservedResources, "observed")
+		observedResourcesPath, err := writeToFile(tempProjFS, test.Spec.ObservedResources, "observed")
 		if err != nil {
 			errors++
 			continue
 		}
 
-		extraResourcesPath, err := writeToFile(projFS, test.Spec.ExtraResources, "extraresources")
+		extraResourcesPath, err := writeToFile(tempProjFS, test.Spec.ExtraResources, "extraresources")
 		if err != nil {
 			errors++
 			continue
@@ -384,7 +380,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 
 		xrPath := test.Spec.XRPath
 		if len(test.Spec.XR.Raw) > 0 {
-			path, err := writeToFile(projFS, []runtime.RawExtension{test.Spec.XR}, "xr")
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XR}, "xr")
 			if err != nil {
 				errors++
 				continue
@@ -394,7 +390,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 
 		compositionPath := test.Spec.CompositionPath
 		if len(test.Spec.Composition.Raw) > 0 {
-			path, err := writeToFile(projFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
 			if err != nil {
 				errors++
 				continue
@@ -404,7 +400,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 
 		xrdPath := test.Spec.XRDPath
 		if len(test.Spec.XRD.Raw) > 0 {
-			path, err := writeToFile(projFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
 			if err != nil {
 				errors++
 				continue
@@ -414,7 +410,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 
 		options := render.Options{
 			Project:                c.proj,
-			ProjFS:                 projFS,
+			ProjFS:                 tempProjFS,
 			IncludeFullXR:          true,
 			IncludeFunctionResults: true,
 			IncludeContext:         true,
@@ -439,7 +435,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			continue
 		}
 
-		if err := assertions(ctx, output, test.Spec.Assert); err != nil {
+		if err := assertions(ctx, output, test.Spec.AssertResources); err != nil {
 			errors++
 			continue
 		}
@@ -766,26 +762,28 @@ func assertions(ctx context.Context, output string, expectedAssertions []runtime
 		matchFound := false
 
 		for _, rendered := range renderedManifests {
-			if rendered.GetAPIVersion() == expectedAPIVersion && rendered.GetKind() == expectedKind {
-				_errs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
+			if rendered.GetAPIVersion() == expectedAPIVersion &&
+				rendered.GetKind() == expectedKind &&
+				rendered.GetName() == expectedName {
+				checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
 				if err != nil {
 					return fmt.Errorf("error during manifest check: %w", err)
 				}
 
-				if len(_errs) == 0 {
+				if len(checkErrs) == 0 {
 					matchFound = true
 					break // Found a match, no need to check further
 				}
 
 				matchFound = true
-				// Convert `_errs` (field.ErrorList) into a Chainsaw structured error
+				// Convert `checkErrs` (field.ErrorList) into a Chainsaw structured error
 				assertionErrors = append(assertionErrors, chainsawerrors.ResourceError(
 					chainsawcompilers.DefaultCompilers,
 					expected,
 					rendered,
 					false,
 					chainsawapis.NewBindings(),
-					_errs, // field.ErrorList
+					checkErrs, // field.ErrorList
 				))
 			}
 		}

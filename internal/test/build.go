@@ -81,7 +81,7 @@ func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 // Builder builds a project into test results.
 type Builder interface {
 	// Build dynamically identifies test types and runs them.
-	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder, testPrefix string, opts ...BuildOption) ([]interface{}, error)
+	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error)
 }
 
 // BuildOption configures a build.
@@ -124,13 +124,13 @@ func NewBuilder(opts ...BuildOption) Builder {
 }
 
 // Build implements the Builder interface to identify and run tests.
-func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, testPrefix string, opts ...BuildOption) ([]interface{}, error) { //nolint:gocognit // building and cast tests
+func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error) { //nolint:gocognit // building and cast tests
 	buildOpts := *b.options
 	for _, opt := range opts {
 		opt(&buildOpts)
 	}
 
-	testDirs, err := discoverTestDirectories(fs, patterns, testsFolder, testPrefix)
+	testDirs, err := discoverTestDirectories(fs, patterns, testsFolder)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to discover test directories")
 	}
@@ -208,7 +208,7 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 	return results, nil
 }
 
-func discoverTestDirectories(fs afero.Fs, patterns []string, testsFolder string, testPrefix string) ([]string, error) {
+func discoverTestDirectories(fs afero.Fs, patterns []string, testsFolder string) ([]string, error) {
 	var matchedDirs []string
 
 	cleanedPatterns := make([]string, len(patterns))
@@ -227,9 +227,6 @@ func discoverTestDirectories(fs afero.Fs, patterns []string, testsFolder string,
 		}
 
 		for _, match := range matches {
-			if !strings.HasPrefix(match, testPrefix) {
-				continue
-			}
 			isDir, err := afero.IsDir(fs, match)
 			if err != nil {
 				return nil, err

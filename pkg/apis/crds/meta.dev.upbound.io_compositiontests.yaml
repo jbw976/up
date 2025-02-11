@@ -45,9 +45,9 @@ spec:
             description: CompositionTestSpec defines the specification for the CompositionTest
               custom resource.
             properties:
-              assert:
+              assertResources:
                 description: |-
-                  Assert defines assertions to validate resources after test completion.
+                  AssertResources defines assertions to validate resources after test completion.
                   Optional.
                 items:
                   type: object

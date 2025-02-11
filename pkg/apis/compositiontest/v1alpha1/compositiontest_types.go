@@ -84,8 +84,8 @@ type CompositionTestSpec struct {
 	// +kubebuilder:validation:Optional
 	Context []runtime.RawExtension `json:"context,omitempty"`
 
-	// Assert defines assertions to validate resources after test completion.
+	// AssertResources defines assertions to validate resources after test completion.
 	// Optional.
 	// +kubebuilder:validation:Optional
-	Assert []runtime.RawExtension `json:"assert,omitempty"`
+	AssertResources []runtime.RawExtension `json:"assertResources,omitempty"`
 }
