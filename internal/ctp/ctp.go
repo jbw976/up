@@ -17,9 +17,9 @@ package ctp
 
 import (
 	"context"
-	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -292,5 +292,16 @@ func DeleteControlPlane(ctx context.Context, spaceClient client.Client, group, n
 }
 
 func matchesCrossplaneSpec(existing, desired spacesv1beta1.CrossplaneSpec) bool {
-	return reflect.DeepEqual(existing, desired)
+	// Spaces applies defaults to the CrossplaneSpec, so we can't compare the
+	// full structs. Ignore the version and state unless they're set in our
+	// desired spec.
+
+	if desired.Version == nil {
+		existing.Version = nil
+	}
+	if desired.State == nil {
+		existing.State = nil
+	}
+
+	return cmp.Equal(existing, desired)
 }
