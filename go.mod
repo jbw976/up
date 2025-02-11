@@ -48,7 +48,7 @@ require (
 	github.com/upbound/up-sdk-go/apis v1.8.1-0.20241105002627-7457ae3c39ea
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
 	github.com/willabides/kongplete v0.3.0
-	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
+	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
 	golang.org/x/sync v0.11.0
 	golang.org/x/term v0.28.0
 	google.golang.org/api v0.214.0
