@@ -15,8 +15,8 @@
 package query
 
 var (
-	nativeKinds     = map[string]string{}
-	nativeResources = map[string]string{
+	nativeKinds     = map[string]string{} //nolint: gochecknoglobals // we use it in tests
+	nativeResources = map[string]string{  //nolint: gochecknoglobals // we use it in tests
 		"PodDisruptionBudget":            "poddisruptionbudgets",
 		"RoleBinding":                    "rolebindings",
 		"Endpoints":                      "endpoints",
@@ -64,6 +64,8 @@ var (
 		"LeaseCandidate":                   "leasecandidates",
 		"LimitRange":                       "limitranges",
 		"LocalSubjectAccessReview":         "localsubjectaccessreviews",
+		"MutatingAdmissionPolicy":          "mutatingadmissionpolicies",
+		"MutatingAdmissionPolicyBinding":   "mutatingadmissionpolicybindings",
 		"MutatingWebhookConfiguration":     "mutatingwebhookconfigurations",
 		"NetworkPolicy":                    "networkpolicies",
 		"PersistentVolume":                 "persistentvolumes",

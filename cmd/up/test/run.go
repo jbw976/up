@@ -17,6 +17,7 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,14 +33,24 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
+	chainsawapis "github.com/kyverno/chainsaw/pkg/apis"
+	chainsawv1alpha1 "github.com/kyverno/chainsaw/pkg/apis/v1alpha1"
+	chainsawchecks "github.com/kyverno/chainsaw/pkg/engine/checks"
+	chainsawerrors "github.com/kyverno/chainsaw/pkg/engine/operations/errors"
+	chainsawcompilers "github.com/kyverno/kyverno-json/pkg/core/compilers"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	uptest "github.com/crossplane/uptest/pkg"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -52,6 +64,7 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -60,6 +73,8 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/yaml"
+	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -91,6 +106,7 @@ type runCmd struct {
 	schemaRunner       schemarunner.SchemaRunner
 	transport          http.RoundTripper
 	m                  *manager.Manager
+	r                  manager.ImageResolver
 	keychain           authn.Keychain
 	concurrency        uint
 	proj               *v1alpha1.Project
@@ -104,19 +120,19 @@ func (c *runCmd) Help() string {
 The 'run' command executes project tests.
 
 Examples:
-    run tests/ --e2e
+    run tests/* --e2e
         Runs all end-to-end (e2e) tests located in the 'tests/' directory.
 
-    run tests/
+    run tests/*
         Executes only composition tests within the 'tests/' directory.
 
-    run tests/ --e2e --chainsaw=_output/chainsaw --kubectl=_output/kubectl
+    run tests/* --e2e --chainsaw=_output/chainsaw --kubectl=_output/kubectl
         Runs e2e tests in 'tests/' while specifying custom paths for the Chainsaw and Kubectl binaries.
 `
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint: gocognit // we have multiple tests
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -182,74 +198,79 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 		return err
 	}
 	c.m = m
+	c.r = r
 
-	spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
-	if err != nil {
-		return err
-	}
-
-	var ok bool
-	var space ctxcmd.Space
-
-	if space, ok = spaceCtx.(ctxcmd.Space); !ok {
-		if group, ok := spaceCtx.(*ctxcmd.Group); ok {
-			space = group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = group.Name
-			}
-		} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
-			space = ctp.Group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = ctp.Group.Name
-			}
-		} else {
-			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
+	if c.E2E {
+		spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
+		if err != nil {
+			return err
 		}
-	}
 
-	// fallback to the default "default" group
-	if c.ControlPlaneGroup == "" {
-		c.ControlPlaneGroup = "default"
-	}
+		var ok bool
+		var space ctxcmd.Space
 
-	// set the default prefix
-	if c.ControlPlaneNamePrefix == "" {
-		c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
-	}
+		if space, ok = spaceCtx.(ctxcmd.Space); !ok {
+			if group, ok := spaceCtx.(*ctxcmd.Group); ok {
+				space = group.Space
+				if c.ControlPlaneGroup == "" {
+					c.ControlPlaneGroup = group.Name
+				}
+			} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
+				space = ctp.Group.Space
+				if c.ControlPlaneGroup == "" {
+					c.ControlPlaneGroup = ctp.Group.Name
+				}
+			} else {
+				return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
+			}
+		}
 
-	// Get the client for parent space, even if pointed at a group or a control
-	// plane
-	spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
-		Namespace: c.ControlPlaneGroup,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to build space client")
-	}
-	spaceClientREST, err := spaceClientConfig.ClientConfig()
-	if err != nil {
-		return errors.Wrap(err, "failed to get REST config for space client")
-	}
-	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
-	if err != nil {
-		return err
-	}
+		// fallback to the default "default" group
+		if c.ControlPlaneGroup == "" {
+			c.ControlPlaneGroup = "default"
+		}
 
-	tools := map[string]*string{
-		"chainsaw": &c.Chainsaw,
-		"kubectl":  &c.Kubectl,
-	}
+		// set the default prefix
+		if c.ControlPlaneNamePrefix == "" {
+			c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
+		}
 
-	for tool, path := range tools {
-		if *path == "" {
-			var err error
-			*path, err = exec.LookPath(tool) // Updates original c.Chainsaw or c.Kubectl
-			if err != nil {
-				return errors.Wrapf(err, "failed to find %s in path", tool)
+		// Get the client for parent space, even if pointed at a group or a control
+		// plane
+		spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
+			Namespace: c.ControlPlaneGroup,
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to build space client")
+		}
+		spaceClientREST, err := spaceClientConfig.ClientConfig()
+		if err != nil {
+			return errors.Wrap(err, "failed to get REST config for space client")
+		}
+		c.spaceClient, err = client.New(spaceClientREST, client.Options{})
+		if err != nil {
+			return err
+		}
+
+		tools := map[string]*string{
+			"chainsaw": &c.Chainsaw,
+			"kubectl":  &c.Kubectl,
+		}
+
+		for tool, path := range tools {
+			if *path == "" {
+				var err error
+				*path, err = exec.LookPath(tool) // Updates original c.Chainsaw or c.Kubectl
+				if err != nil {
+					return errors.Wrapf(err, "failed to find %s in path", tool)
+				}
 			}
 		}
 	}
 
 	pterm.EnableStyling()
+	logger := logging.NewLogrLogger(zap.New(zap.UseDevMode(false)))
+	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet
 
@@ -257,11 +278,11 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 }
 
 // Run is the body of the command.
-func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
+func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger) error {
 	upterm.DefaultObjPrinter.Pretty = true
 
 	var err error
-	var parsedE2ETests []e2etest.E2ETest
+	var parsedTests []interface{}
 	if err = upterm.WrapWithSuccessSpinner(
 		"Parsing tests",
 		upterm.CheckmarkSuccessSpinner,
@@ -269,11 +290,11 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			testBuilder := test.NewBuilder(
 				test.BuildWithSchemaRunner(c.schemaRunner),
 			)
-			parsedTests, err := testBuilder.Build(ctx, c.testFS, c.Patterns, c.proj.Spec.Paths.Tests)
+			parsedTests, err = testBuilder.Build(ctx, c.testFS, c.Patterns, c.proj.Spec.Paths.Tests)
 			if err != nil {
 				return errors.Wrap(err, "failed to generate test files")
 			}
-			parsedE2ETests = parsedTests
+
 			return nil
 		},
 		c.quiet,
@@ -281,14 +302,153 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return err
 	}
 
-	if len(parsedE2ETests) == 0 {
+	if len(parsedTests) == 0 {
 		pterm.Error.Println("No test files found")
 		return nil
 	}
 
+	var (
+		ttotal   int
+		tsuccess int
+		terr     int
+	)
+
+	if c.E2E {
+		tests, err := e2etest.Convert(parsedTests)
+		if err != nil {
+			return errors.Wrap(err, "unable to validate e2e tests")
+		}
+
+		ttotal, tsuccess, terr, err = c.uptest(ctx, upCtx, tests)
+		if err != nil {
+			return errors.Wrap(err, "unable to execute e2e tests")
+		}
+	} else {
+		tests, err := compositiontest.Convert(parsedTests)
+		if err != nil {
+			return errors.Wrap(err, "unable to validate composition tests")
+		}
+		ttotal, tsuccess, terr, err = c.render(ctx, log, tests)
+		if err != nil {
+			return errors.Wrap(err, "unable to execute composition tests")
+		}
+	}
+
+	displayTestResults(ttotal, tsuccess, terr)
+	// Return an error if there were failed tests
+	if terr > 0 {
+		return err
+	}
+
+	return nil
+}
+
+func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
+	total, success, errors := 0, 0, 0
+
+	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
+	functionOptions := render.FunctionOptions{
+		Project:            c.proj,
+		ProjFS:             tempProjFS,
+		Concurrency:        c.concurrency,
+		NoBuildCache:       c.NoBuildCache,
+		BuildCacheDir:      c.BuildCacheDir,
+		DependecyManager:   c.m,
+		FunctionIdentifier: c.functionIdentifier,
+		SchemaRunner:       c.schemaRunner,
+	}
+
+	efns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	for _, test := range tests {
+		total++
+
+		observedResourcesPath, err := writeToFile(tempProjFS, test.Spec.ObservedResources, "observed")
+		if err != nil {
+			errors++
+			continue
+		}
+
+		extraResourcesPath, err := writeToFile(tempProjFS, test.Spec.ExtraResources, "extraresources")
+		if err != nil {
+			errors++
+			continue
+		}
+
+		xrPath := test.Spec.XRPath
+		if len(test.Spec.XR.Raw) > 0 {
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XR}, "xr")
+			if err != nil {
+				errors++
+				continue
+			}
+			xrPath = path
+		}
+
+		compositionPath := test.Spec.CompositionPath
+		if len(test.Spec.Composition.Raw) > 0 {
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
+			if err != nil {
+				errors++
+				continue
+			}
+			compositionPath = path
+		}
+
+		xrdPath := test.Spec.XRDPath
+		if len(test.Spec.XRD.Raw) > 0 {
+			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
+			if err != nil {
+				errors++
+				continue
+			}
+			xrdPath = path
+		}
+
+		options := render.Options{
+			Project:                c.proj,
+			ProjFS:                 tempProjFS,
+			IncludeFullXR:          true,
+			IncludeFunctionResults: true,
+			IncludeContext:         true,
+			ObservedResources:      observedResourcesPath,
+			ExtraResources:         extraResourcesPath,
+			CompositeResource:      xrPath,
+			Composition:            compositionPath,
+			XRD:                    xrdPath,
+			Concurrency:            c.concurrency,
+			ImageResolver:          c.r,
+			Quiet:                  c.quiet,
+			SpinnerText:            fmt.Sprintf("Assert %s", test.Name),
+		}
+
+		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(*test.Spec.TimeoutSeconds)*time.Second)
+		defer cancel()
+
+		output, err := render.Render(renderCtx, log, efns, options)
+		if err != nil {
+			errors++
+			pterm.PrintOnError(err)
+			continue
+		}
+
+		if err := assertions(ctx, output, test.Spec.AssertResources); err != nil {
+			errors++
+			continue
+		}
+		success++
+	}
+	return total, success, errors, nil
+}
+
+func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
+	var err error
 	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
 	if err != nil {
-		return err
+		return 0, 0, 0, err
 	}
 
 	// Move the project, in memory only, to the desired repository.
@@ -300,7 +460,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 	if c.Repository != c.proj.Spec.Repository {
 		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
-			return errors.Wrap(err, "failed to update project repository")
+			return 0, 0, 0, errors.Wrap(err, "failed to update project repository")
 		}
 	}
 
@@ -325,7 +485,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		})
 		return eg.Wait()
 	}); err != nil {
-		return err
+		return 0, 0, 0, err
 	}
 
 	if !c.NoBuildCache {
@@ -357,11 +517,11 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
 		return err
 	}); err != nil {
-		return err
+		return 0, 0, 0, err
 	}
 
 	total, success, errors := 0, 0, 0
-	for _, test := range parsedE2ETests {
+	for _, test := range tests {
 		total++
 		err := c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
 		if err != nil {
@@ -370,27 +530,9 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 		success++
 	}
-
-	printlnFunc := pterm.Success.Println
-	if errors > 0 {
-		printlnFunc = pterm.Error.Println
-	}
-
-	printlnFunc()
-	printlnFunc("Tests Summary:")
-	printlnFunc("------------------")
-	printlnFunc("Total Tests Executed:", total)
-	printlnFunc("Passed tests:        ", success)
-	printlnFunc("Failed tests:        ", errors)
-
-	// Return an error if there were failed tests
-	if errors > 0 {
-		return fmt.Errorf("%d tests failed", errors)
-	}
-	return nil
+	return total, success, errors, nil
 }
 
-// ToDo(haarchri): use something better.
 func writeClientConfig(clientConfig clientcmd.ClientConfig, dir string) (string, error) {
 	kubeconfigPath := filepath.Join(dir, "kubeconfig.yaml")
 
@@ -560,4 +702,142 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	}
 
 	return nil
+}
+
+func displayTestResults(ttotal, tsuccess, terr int) {
+	printlnFunc := pterm.Success.Println
+	if terr > 0 {
+		printlnFunc = pterm.Error.Println
+	}
+
+	printlnFunc()
+	printlnFunc("Tests Summary:")
+	printlnFunc("------------------")
+	printlnFunc("Total Tests Executed:", ttotal)
+	printlnFunc("Passed tests:        ", tsuccess)
+	printlnFunc("Failed tests:        ", terr)
+}
+
+func assertions(ctx context.Context, output string, expectedAssertions []runtime.RawExtension) error {
+	// Split the rendered output into individual manifests
+	manifests := strings.Split(output, "---")
+	renderedManifests := make([]unstructured.Unstructured, 0, len(manifests))
+
+	for _, manifest := range manifests {
+		manifest = strings.TrimSpace(manifest)
+		if manifest == "" {
+			continue
+		}
+
+		var obj map[string]interface{}
+		if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
+			continue
+		}
+
+		// Convert to Unstructured format for easier matching
+		var unstructuredObj unstructured.Unstructured
+		unstructuredObj.SetUnstructuredContent(obj)
+
+		renderedManifests = append(renderedManifests, unstructuredObj)
+	}
+
+	// Convert expected assertions to Unstructured format
+	expectedObjects := make([]unstructured.Unstructured, 0, len(expectedAssertions))
+	for _, assertion := range expectedAssertions {
+		var expectedObj unstructured.Unstructured
+		if err := json.Unmarshal(assertion.Raw, &expectedObj); err != nil {
+			return fmt.Errorf("failed to unmarshal expected assertion: %w", err)
+		}
+		expectedObjects = append(expectedObjects, expectedObj)
+	}
+
+	// Compare Rendered Manifests Against Expected Assertions
+	var assertionErrors []error
+
+	for _, expected := range expectedObjects {
+		expectedAPIVersion := expected.GetAPIVersion()
+		expectedKind := expected.GetKind()
+		expectedName := expected.GetName()
+
+		matchFound := false
+
+		for _, rendered := range renderedManifests {
+			if rendered.GetAPIVersion() == expectedAPIVersion &&
+				rendered.GetKind() == expectedKind &&
+				rendered.GetName() == expectedName {
+				checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
+				if err != nil {
+					return fmt.Errorf("error during manifest check: %w", err)
+				}
+
+				if len(checkErrs) == 0 {
+					matchFound = true
+					break // Found a match, no need to check further
+				}
+
+				matchFound = true
+				// Convert `checkErrs` (field.ErrorList) into a Chainsaw structured error
+				assertionErrors = append(assertionErrors, chainsawerrors.ResourceError(
+					chainsawcompilers.DefaultCompilers,
+					expected,
+					rendered,
+					false,
+					chainsawapis.NewBindings(),
+					checkErrs, // field.ErrorList
+				))
+			}
+		}
+
+		if !matchFound {
+			assertionErrors = append(assertionErrors, errors.Errorf("no actual resource found: %s/%s/%s", expectedAPIVersion, expectedKind, expectedName))
+		}
+	}
+
+	if len(assertionErrors) > 0 {
+		formattedErrors := make([]string, len(assertionErrors))
+		for i, e := range assertionErrors {
+			formattedErrors[i] = e.Error()
+		}
+
+		// Join errors with newline instead of `;`
+		finalErr := fmt.Errorf("\n%s", strings.Join(formattedErrors, "\n"))
+		upterm.PrintColoredError(finalErr)
+		return finalErr
+	}
+
+	return nil
+}
+
+func writeToFile(fs afero.Fs, resources []runtime.RawExtension, filename string) (string, error) {
+	if len(resources) == 0 {
+		return "", nil
+	}
+
+	// Define file path
+	filePath := fmt.Sprintf("/resources/%s.yaml", filename)
+
+	// Ensure directory exists
+	if err := fs.MkdirAll("/resources", 0o755); err != nil {
+		return "", err
+	}
+
+	// Open file for writing (Create or Truncate existing)
+	file, err := fs.Create(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	var content []byte
+	for _, res := range resources {
+		trimmed := strings.TrimSpace(string(res.Raw)) // Trim leading/trailing whitespace
+		content = append(content, []byte(trimmed)...)
+		content = append(content, []byte("\n---\n")...) // Ensure correct separator format
+	}
+
+	// Write content to file
+	if _, err := file.Write(content); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
 }

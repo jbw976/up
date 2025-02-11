@@ -25,6 +25,7 @@ import (
 
 	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
+	compositionTest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 )
 
@@ -80,7 +81,7 @@ func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 // Builder builds a project into test results.
 type Builder interface {
 	// Build dynamically identifies test types and runs them.
-	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]e2etest.E2ETest, error)
+	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error)
 }
 
 // BuildOption configures a build.
@@ -123,24 +124,20 @@ func NewBuilder(opts ...BuildOption) Builder {
 }
 
 // Build implements the Builder interface to identify and run tests.
-func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]e2etest.E2ETest, error) {
-	// Apply additional build options.
+func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error) { //nolint:gocognit // building and cast tests
 	buildOpts := *b.options
 	for _, opt := range opts {
 		opt(&buildOpts)
 	}
 
-	// Discover test directories.
 	testDirs, err := discoverTestDirectories(fs, patterns, testsFolder)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to discover test directories")
 	}
 
-	var results []e2etest.E2ETest
+	var results []interface{}
 	for _, testDir := range testDirs {
 		testFS := afero.NewBasePathFs(fs, testDir)
-
-		// Identify the test type.
 		langType, err := buildOpts.testIdentifier.Identify(testFS)
 		if err != nil {
 			continue
@@ -152,8 +149,6 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 		}
 
 		testFS = afero.NewCopyOnWriteFs(testFS, afero.NewMemMapFs())
-
-		// Run the test using the identified test type's run method.
 		err = langType.Run(ctx, testFS, basePath, buildOpts.schemaRunner)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to run test in %q", testDir)
@@ -161,47 +156,61 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 
 		resourceRaw, err := afero.ReadFile(testFS, "test.yaml")
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to run test in %q", testDir)
+			return nil, errors.Wrapf(err, "failed to read test.yaml in %q", testDir)
 		}
 
-		// Parse the raw content into a generic map structure to process the `items` array.
 		var rawContent map[string]interface{}
 		if err := yaml.Unmarshal(resourceRaw, &rawContent); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal test.yaml in %q", testDir)
 		}
 
-		// Retrieve the `items` array from the parsed content.
 		items, ok := rawContent["items"].([]interface{})
 		if !ok {
 			return nil, errors.Errorf("expected `items` array in test.yaml in %q", testDir)
 		}
 
 		for _, item := range items {
-			// Convert each item back to raw bytes for marshalling into E2TTests.
 			itemBytes, err := yaml.Marshal(item)
 			if err != nil {
-				// Silently skip items that cannot be marshaled.
 				continue
 			}
 
-			// Attempt to unmarshal the item into a e2etest.E2TTests object.
-			var e2eTest e2etest.E2ETest
-			if err := yaml.Unmarshal(itemBytes, &e2eTest); err != nil {
-				// Silently skip items that cannot be unmarshaled into E2TTests.
+			var testObj interface{}
+			itemMap, ok := item.(map[string]interface{})
+			if !ok {
 				continue
 			}
 
-			results = append(results, e2eTest)
+			if kind, exists := itemMap["kind"].(string); exists {
+				switch kind {
+				case "E2ETest":
+					var e2eTest e2etest.E2ETest
+					if err := yaml.Unmarshal(itemBytes, &e2eTest); err != nil {
+						continue
+					}
+					testObj = e2eTest
+				case "CompositionTest":
+					var compTest compositionTest.CompositionTest
+					if err := yaml.Unmarshal(itemBytes, &compTest); err != nil {
+						continue
+					}
+					testObj = compTest
+				default:
+					continue
+				}
+			} else {
+				continue
+			}
+
+			results = append(results, testObj)
 		}
 	}
 	return results, nil
 }
 
-// discoverTestDirectories finds directories that match the given glob patterns in the project filesystem.
 func discoverTestDirectories(fs afero.Fs, patterns []string, testsFolder string) ([]string, error) {
 	var matchedDirs []string
 
-	// Process patterns, removing testsFolder prefix and replacing empty ones with "*"
 	cleanedPatterns := make([]string, len(patterns))
 	for i, pattern := range patterns {
 		trimmed := strings.TrimPrefix(pattern, testsFolder)
@@ -217,7 +226,6 @@ func discoverTestDirectories(fs afero.Fs, patterns []string, testsFolder string)
 			return nil, err
 		}
 
-		// Filter only directories from matches
 		for _, match := range matches {
 			isDir, err := afero.IsDir(fs, match)
 			if err != nil {

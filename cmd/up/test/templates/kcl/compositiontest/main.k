@@ -8,7 +8,7 @@ import {{.ImportPath}} as {{.Alias}}
 # _items = [
 #     metav1alpha1.CompositionTest{
 #         spec= {
-#             assert: []
+#             assertResources: []
 #             composition: ""
 #             xr: ""
 #             xrd: ""

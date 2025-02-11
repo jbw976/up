@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"text/tabwriter"
 	"text/template"
 
@@ -239,4 +240,26 @@ func (p nopTextPrinter) PrintOnError(_ ...interface{}) *pterm.TextPrinter {
 func (p nopTextPrinter) PrintOnErrorf(_ string, _ ...interface{}) *pterm.TextPrinter {
 	tp := pterm.TextPrinter(nopTextPrinter{})
 	return &tp
+}
+
+// PrintColoredError prints errors colored.
+func PrintColoredError(finalErr error) {
+	errorLines := strings.Split(finalErr.Error(), "\n")
+
+	for _, line := range errorLines {
+		switch {
+		case strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "----"):
+			pterm.FgRed.Println(line) // Expected
+		case strings.HasPrefix(line, "+++"):
+			pterm.FgGreen.Println(line) // Actual
+		case strings.HasPrefix(line, "@@"):
+			pterm.FgYellow.Println(line) // Context lines
+		case strings.HasPrefix(line, "- "):
+			pterm.FgRed.Println(line) // Removed lines
+		case strings.HasPrefix(line, "+ "):
+			pterm.FgGreen.Println(line) // Added lines
+		default:
+			pterm.Println(line) // Default text
+		}
+	}
 }

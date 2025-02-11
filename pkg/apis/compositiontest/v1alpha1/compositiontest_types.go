@@ -46,20 +46,28 @@ type CompositionTestSpec struct {
 	// +kubebuilder:validation:Optional
 	Validate *bool `json:"validate,omitempty"`
 
-	// XR specifies the composite resource (XR) inline or path.
-	// Required.
-	// +kubebuilder:validation:Required
-	XR runtime.RawExtension `json:"xr"`
+	// XR specifies the composite resource (XR) inline.
+	XR runtime.RawExtension `json:"xr,omitempty"`
 
-	// XRD specifies the XRD definition inline or path.
-	// Required.
-	// +kubebuilder:validation:Required
-	XRD runtime.RawExtension `json:"xrd"`
+	// XR specifies the composite resource (XR) path.
+	// Optional.
+	XRPath string `json:"xrPath,omitempty"`
 
-	// Composition specifies the composition definition inline or path.
-	// Required.
-	// +kubebuilder:validation:Required
-	Composition runtime.RawExtension `json:"composition"`
+	// XRD specifies the XRD definition inline.
+	// Optional.
+	XRD runtime.RawExtension `json:"xrd,omitempty"`
+
+	// XRD specifies the XRD definition path.
+	// Optional.
+	XRDPath string `json:"xrdPath,omitempty"`
+
+	// Composition specifies the composition definition inline.
+	// Optional.
+	Composition runtime.RawExtension `json:"composition,omitempty"`
+
+	// Composition specifies the composition definition path.
+	// Optional.
+	CompositionPath string `json:"compositionPath,omitempty"`
 
 	// ObservedResources specifies additional observed resources inline or path.
 	// Optional.
@@ -76,8 +84,8 @@ type CompositionTestSpec struct {
 	// +kubebuilder:validation:Optional
 	Context []runtime.RawExtension `json:"context,omitempty"`
 
-	// Assert defines assertions to validate resources after test completion.
+	// AssertResources defines assertions to validate resources after test completion.
 	// Optional.
 	// +kubebuilder:validation:Optional
-	Assert []runtime.RawExtension `json:"assert,omitempty"`
+	AssertResources []runtime.RawExtension `json:"assertResources,omitempty"`
 }

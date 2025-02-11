@@ -45,9 +45,9 @@ spec:
             description: CompositionTestSpec defines the specification for the CompositionTest
               custom resource.
             properties:
-              assert:
+              assertResources:
                 description: |-
-                  Assert defines assertions to validate resources after test completion.
+                  AssertResources defines assertions to validate resources after test completion.
                   Optional.
                 items:
                   type: object
@@ -55,10 +55,15 @@ spec:
                 type: array
               composition:
                 description: |-
-                  Composition specifies the composition definition inline or path.
-                  Required.
+                  Composition specifies the composition definition inline.
+                  Optional.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              compositionPath:
+                description: |-
+                  Composition specifies the composition definition path.
+                  Optional.
+                type: string
               context:
                 description: |-
                   Context specifies context for the Function Pipeline inline or path.
@@ -94,21 +99,25 @@ spec:
                   Optional.
                 type: boolean
               xr:
-                description: |-
-                  XR specifies the composite resource (XR) inline or path.
-                  Required.
+                description: XR specifies the composite resource (XR) inline.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              xrPath:
+                description: |-
+                  XR specifies the composite resource (XR) path.
+                  Optional.
+                type: string
               xrd:
                 description: |-
-                  XRD specifies the XRD definition inline or path.
-                  Required.
+                  XRD specifies the XRD definition inline.
+                  Optional.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-            required:
-            - composition
-            - xr
-            - xrd
+              xrdPath:
+                description: |-
+                  XRD specifies the XRD definition path.
+                  Optional.
+                type: string
             type: object
         required:
         - spec
