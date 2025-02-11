@@ -63,6 +63,8 @@ const (
 	// SchemaPythonAnnotation is the annotation value used for the python schema
 	// layer.
 	SchemaPythonAnnotation string = "schema.python"
+	// SchemaGoAnnotation is the annotation value used for the go schema layer.
+	SchemaGoAnnotation string = "schema.go"
 )
 
 func truncate(str string, num int) string {
@@ -80,7 +82,7 @@ func FriendlyID(name, hash string) string {
 }
 
 // ToDNSLabel converts the string to a valid DNS label.
-func ToDNSLabel(s string) string { //nolint:gocyclo
+func ToDNSLabel(s string) string {
 	var cut strings.Builder
 	for i := range s {
 		b := s[i]

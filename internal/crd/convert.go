@@ -23,27 +23,25 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/controller/openapi/builder"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
-func ConvertToOpenAPI(fs afero.Fs, bs []byte, path, baseFolder string) (string, error) {
-	var crd extv1.CustomResourceDefinition
-	if err := yaml.Unmarshal(bs, &crd); err != nil {
-		return "", errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
-	}
-
-	version, err := GetCRDVersion(crd)
+// ToOpenAPI converts the storage version of a CRD to an OpenAPI spec. The
+// version is returned along with the OpenAPI spec.
+func ToOpenAPI(crd *extv1.CustomResourceDefinition) (*spec3.OpenAPI, string, error) {
+	version, err := GetCRDVersion(*crd)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	// Generate OpenAPI v3 schema
-	output, err := builder.BuildOpenAPIV3(&crd, version, builder.Options{})
+	output, err := builder.BuildOpenAPIV3(crd, version, builder.Options{})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to build OpenAPI v3 schema")
+		return nil, "", errors.Wrapf(err, "failed to build OpenAPI v3 schema")
 	}
 
 	// Reverse the group name inline
@@ -64,6 +62,22 @@ func ConvertToOpenAPI(fs afero.Fs, bs []byte, path, baseFolder string) (string, 
 				Kind:    crd.Spec.Names.Kind,
 			})
 		}
+	}
+
+	return output, version, nil
+}
+
+// FilesToOpenAPI converts an on-disk CRD to an OpenAPI spec, and writes the
+// OpenAPI spec to a file. The path to the spec is returned.
+func FilesToOpenAPI(fs afero.Fs, bs []byte, path string) (string, error) {
+	var crd extv1.CustomResourceDefinition
+	if err := yaml.Unmarshal(bs, &crd); err != nil {
+		return "", errors.Wrapf(err, "failed to unmarshal CRD file %q", path)
+	}
+
+	output, version, err := ToOpenAPI(&crd)
+	if err != nil {
+		return "", err
 	}
 
 	// Convert output to YAML

@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-
-	_ "embed"
 )
 
 // TestTransformStructureKcl tests reorganizing files and adjusting imports.

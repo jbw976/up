@@ -26,11 +26,11 @@ import (
 	"github.com/crossplane/crossplane/xcrd"
 )
 
-var crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-
 // createCRDFromXRD creates a xrCRD and claimCRD if possible from the XRD.
 func createCRDFromXRD(xrd xpv1.CompositeResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, *apiextensionsv1.CustomResourceDefinition, error) {
 	var xrCrd, claimCrd *apiextensionsv1.CustomResourceDefinition
+
+	crdGVK := apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
 
 	xrCrd, err := xcrd.ForCompositeResource(&xrd)
 	if err != nil {
@@ -38,6 +38,9 @@ func createCRDFromXRD(xrd xpv1.CompositeResourceDefinition) (*apiextensionsv1.Cu
 	}
 	if xrCrd != nil {
 		xrCrd.SetGroupVersionKind(crdGVK)
+		if xrCrd.Spec.Names.ListKind == "" {
+			xrCrd.Spec.Names.ListKind = xrCrd.Spec.Names.Kind + "List"
+		}
 	}
 
 	if xrd.Spec.ClaimNames != nil {
@@ -48,6 +51,9 @@ func createCRDFromXRD(xrd xpv1.CompositeResourceDefinition) (*apiextensionsv1.Cu
 	}
 	if claimCrd != nil {
 		claimCrd.SetGroupVersionKind(crdGVK)
+		if claimCrd.Spec.Names.ListKind == "" {
+			claimCrd.Spec.Names.ListKind = claimCrd.Spec.Names.Kind + "List"
+		}
 	}
 
 	// Return the derived CRDs

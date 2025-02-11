@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -31,7 +31,9 @@ import (
 //go:embed testdata/template.fn.crossplane.io_kclinputs.yaml
 var testCRD []byte
 
-func TestConvertToOpenAPI(t *testing.T) {
+func TestFilesToOpenAPI(t *testing.T) {
+	t.Parallel()
+
 	// Define test cases
 	tests := []struct {
 		name        string
@@ -68,41 +70,45 @@ spec:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Use an in-memory filesystem
 			fs := afero.NewMemMapFs()
 
 			// Call ConvertToOpenAPI
-			outputPath, err := ConvertToOpenAPI(fs, tt.crdContent, "test-crd.yaml", "base-folder")
+			outputPath, err := FilesToOpenAPI(fs, tt.crdContent, "test-crd.yaml")
 
 			// Check if an error was expected
 			if tt.expectedErr {
-				require.Error(t, err)
+				assert.Assert(t, err != nil)
 				return
 			}
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			// Perform validation for the success case (only needed if no error was expected)
 			_, err = afero.Exists(fs, filepath.Join(outputPath, "template_fn_crossplane_io_v1beta1_kclinput.yaml"))
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			// Read the content from the file in-memory
 			output, err := afero.ReadFile(fs, outputPath)
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			var openapi *spec3.OpenAPI
 			err = yaml.Unmarshal(output, &openapi)
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			apiVersionDefault := openapi.Components.Schemas["io.crossplane.fn.template.v1beta1.KCLInput"].SchemaProps.Properties["apiVersion"].Default
-			require.Equal(t, "template.fn.crossplane.io/v1beta1", apiVersionDefault, "The default value of apiVersion does not match the expected content")
+			assert.Equal(t, "template.fn.crossplane.io/v1beta1", apiVersionDefault, "The default value of apiVersion does not match the expected content")
 
 			kindDefault := openapi.Components.Schemas["io.crossplane.fn.template.v1beta1.KCLInput"].SchemaProps.Properties["kind"].Default
-			require.Equal(t, "KCLInput", kindDefault, "The default value of kind does not match the expected content")
+			assert.Equal(t, "KCLInput", kindDefault, "The default value of kind does not match the expected content")
 		})
 	}
 }
 
 func TestAddDefaultAPIVersionAndKind(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name               string
 		initialSchema      spec.Schema
@@ -165,17 +171,19 @@ func TestAddDefaultAPIVersionAndKind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Call the function to add default values
 			addDefaultAPIVersionAndKind(&tt.initialSchema, tt.gvk)
 
 			// Check the apiVersion default if the property exists
 			if prop, ok := tt.initialSchema.Properties["apiVersion"]; ok {
-				require.Equal(t, tt.expectedAPIVersion, prop.Default, "apiVersion default should match expected value")
+				assert.Equal(t, tt.expectedAPIVersion, prop.Default, "apiVersion default should match expected value")
 			}
 
 			// Check the kind default if the property exists
 			if prop, ok := tt.initialSchema.Properties["kind"]; ok {
-				require.Equal(t, tt.expectedKind, prop.Default, "kind default should match expected value")
+				assert.Equal(t, tt.expectedKind, prop.Default, "kind default should match expected value")
 			}
 		})
 	}

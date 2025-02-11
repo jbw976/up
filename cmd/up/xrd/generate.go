@@ -252,6 +252,19 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 				return err
 			})
 
+			eg.Go(func() error {
+				var err error
+				gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemarunner)
+				if err != nil {
+					return err
+				}
+
+				if err := c.m.AddModels("go", gofs); err != nil {
+					return err
+				}
+				return err
+			})
+
 			return eg.Wait()
 		}); err != nil {
 			return err
