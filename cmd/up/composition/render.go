@@ -227,6 +227,7 @@ func (c *renderCmd) Run(log logging.Logger) error {
 		DependecyManager:   c.m,
 		FunctionIdentifier: c.functionIdentifier,
 		SchemaRunner:       c.schemaRunner,
+		Quiet:              c.quiet,
 	}
 
 	renderCtx, cancel := context.WithTimeout(context.Background(), c.Timeout)
