@@ -80,7 +80,8 @@ type Cmd struct {
 
 	spaceClient client.Client
 
-	quiet config.QuietFlag
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply processes flags and sets defaults.
@@ -186,6 +187,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	pterm.EnableStyling()
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
 
 	return nil
 }
@@ -244,7 +249,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		imgMap       project.ImageTagMap
 		devCtpClient client.Client
 	)
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
@@ -298,7 +303,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	)
 
 	var generatedTag name.Tag
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),

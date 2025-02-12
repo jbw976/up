@@ -91,6 +91,7 @@ type FunctionOptions struct {
 	SchemaRunner       schemarunner.SchemaRunner
 	DependecyManager   *manager.Manager
 	Quiet              config.QuietFlag
+	EventChannel       async.EventChannel
 }
 
 // Render executes the rendering logic and returns YAML output as a string.
@@ -320,16 +321,11 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions
 		project.BuildWithSchemaRunner(opts.SchemaRunner),
 	)
 
-	var imgMap project.ImageTagMap
-	err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
-		var err error
-		imgMap, err = b.Build(ctx, opts.Project, opts.ProjFS,
-			project.BuildWithEventChannel(ch, opts.Quiet),
-			project.BuildWithImageLabels(common.ImageLabels(opts)),
-			project.BuildWithDependencyManager(opts.DependecyManager),
-		)
-		return err
-	})
+	imgMap, err := b.Build(ctx, opts.Project, opts.ProjFS,
+		project.BuildWithEventChannel(opts.EventChannel, opts.Quiet),
+		project.BuildWithImageLabels(common.ImageLabels(opts)),
+		project.BuildWithDependencyManager(opts.DependecyManager),
+	)
 	if err != nil {
 		return nil, err
 	}

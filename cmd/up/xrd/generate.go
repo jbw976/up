@@ -34,7 +34,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
-	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -223,50 +222,48 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		// In parallel:
 		// * Generate schemas for XRDs
-		if err = async.WrapWithSuccessSpinners(func(_ async.EventChannel) error {
-			eg, ctx := errgroup.WithContext(ctx)
+		eg, ctx := errgroup.WithContext(ctx)
 
-			eg.Go(func() error {
-				var err error
-				kfs, err := schemagenerator.GenerateSchemaKcl(ctx, c.apisFS, []string{}, c.schemarunner)
-				if err != nil {
-					return err
-				}
-
-				if err := c.m.AddModels("kcl", kfs); err != nil {
-					return err
-				}
+		eg.Go(func() error {
+			var err error
+			kfs, err := schemagenerator.GenerateSchemaKcl(ctx, c.apisFS, []string{}, c.schemarunner)
+			if err != nil {
 				return err
-			})
+			}
 
-			eg.Go(func() error {
-				var err error
-				pfs, err := schemagenerator.GenerateSchemaPython(ctx, c.apisFS, []string{}, c.schemarunner)
-				if err != nil {
-					return err
-				}
-
-				if err := c.m.AddModels("python", pfs); err != nil {
-					return err
-				}
+			if err := c.m.AddModels("kcl", kfs); err != nil {
 				return err
-			})
+			}
+			return err
+		})
 
-			eg.Go(func() error {
-				var err error
-				gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemarunner)
-				if err != nil {
-					return err
-				}
-
-				if err := c.m.AddModels("go", gofs); err != nil {
-					return err
-				}
+		eg.Go(func() error {
+			var err error
+			pfs, err := schemagenerator.GenerateSchemaPython(ctx, c.apisFS, []string{}, c.schemarunner)
+			if err != nil {
 				return err
-			})
+			}
 
-			return eg.Wait()
-		}); err != nil {
+			if err := c.m.AddModels("python", pfs); err != nil {
+				return err
+			}
+			return err
+		})
+
+		eg.Go(func() error {
+			var err error
+			gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemarunner)
+			if err != nil {
+				return err
+			}
+
+			if err := c.m.AddModels("go", gofs); err != nil {
+				return err
+			}
+			return err
+		})
+
+		if err := eg.Wait(); err != nil {
 			return err
 		}
 

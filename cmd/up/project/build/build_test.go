@@ -40,6 +40,7 @@ import (
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/cmd/up/project/common"
+	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
@@ -194,6 +195,7 @@ func TestBuild(t *testing.T) {
 				functionIdentifier: functions.FakeIdentifier,
 				schemaRunner:       mockRunner,
 				concurrency:        1,
+				asyncWrapper:       async.IgnoreEvents,
 
 				m: mgr,
 			}

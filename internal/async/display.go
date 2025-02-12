@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package async contains utilities for running functions asynchronously and
+// displaying status updates from them.
 package async
 
 import (
@@ -19,6 +21,16 @@ import (
 
 	"github.com/upbound/up/internal/upterm"
 )
+
+// WrapperFunc is a function that can be wrapped around functions that emit
+// events for asynchronous display.
+type WrapperFunc func(fn func(ch EventChannel) error) error
+
+// IgnoreEvents is a wrapper function that runs the given function and ignores
+// any events it produces.
+func IgnoreEvents(fn func(ch EventChannel) error) error {
+	return fn(nil)
+}
 
 // WrapWithSuccessSpinners runs a given function in a separate goroutine,
 // consuming events from its event channel and using them to display a set of
@@ -28,11 +40,10 @@ func WrapWithSuccessSpinners(fn func(ch EventChannel) error) error {
 	var (
 		updateChan = make(EventChannel, 10)
 		doneChan   = make(chan error, 1)
-		err        error
 	)
 
 	go func() {
-		err = fn(updateChan)
+		err := fn(updateChan)
 		close(updateChan)
 		doneChan <- err
 	}()
@@ -55,7 +66,7 @@ func WrapWithSuccessSpinners(fn func(ch EventChannel) error) error {
 			spinner.Fail(update.Text)
 		}
 	}
-	err = <-doneChan
+	err := <-doneChan
 	_, _ = multi.Stop()
 
 	return err

@@ -51,6 +51,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	uptest "github.com/crossplane/uptest/pkg"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -111,8 +112,9 @@ type runCmd struct {
 	concurrency        uint
 	proj               *v1alpha1.Project
 
-	spaceClient client.Client
-	quiet       config.QuietFlag
+	spaceClient  client.Client
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 func (c *runCmd) Help() string {
@@ -273,6 +275,10 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
 
 	return nil
 }
@@ -347,18 +353,30 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 	total, success, errors := 0, 0, 0
 
 	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
-	functionOptions := render.FunctionOptions{
-		Project:            c.proj,
-		ProjFS:             tempProjFS,
-		Concurrency:        c.concurrency,
-		NoBuildCache:       c.NoBuildCache,
-		BuildCacheDir:      c.BuildCacheDir,
-		DependecyManager:   c.m,
-		FunctionIdentifier: c.functionIdentifier,
-		SchemaRunner:       c.schemaRunner,
-	}
 
-	efns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+	var efns []v1.Function
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		functionOptions := render.FunctionOptions{
+			Project:            c.proj,
+			ProjFS:             tempProjFS,
+			Concurrency:        c.concurrency,
+			NoBuildCache:       c.NoBuildCache,
+			BuildCacheDir:      c.BuildCacheDir,
+			DependecyManager:   c.m,
+			FunctionIdentifier: c.functionIdentifier,
+			SchemaRunner:       c.schemaRunner,
+			Quiet:              c.quiet,
+			EventChannel:       ch,
+		}
+
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+		if err != nil {
+			return err
+		}
+		efns = fns
+
+		return nil
+	})
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -471,7 +489,7 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	)
 
 	var imgMap project.ImageTagMap
-	if err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			var err error
@@ -507,7 +525,7 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	)
 
 	var generatedTag name.Tag
-	if err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err = c.asyncWrapper(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),
@@ -597,7 +615,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		devCtpKubeconfig clientcmd.ClientConfig
 		devCtpClient     client.Client
 	)
-	if err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
 		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(
 			ctx,
