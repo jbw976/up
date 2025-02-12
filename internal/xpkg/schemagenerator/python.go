@@ -21,10 +21,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/afero"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -109,24 +109,30 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 				if err != nil {
 					return errors.Wrapf(err, "failed to read file %q", path)
 				}
-				if err := appendOpenAPIPath(crdFS, bs, xrPath, &openAPIPaths); err != nil {
+				paths, err := xcrd.FilesToOpenAPI(crdFS, bs, xrPath)
+				if err != nil {
 					return err
 				}
+				openAPIPaths = append(openAPIPaths, paths...)
 			}
 			if claimPath != "" {
 				bs, err := afero.ReadFile(crdFS, claimPath)
 				if err != nil {
 					return errors.Wrapf(err, "failed to read file %q", path)
 				}
-				if err := appendOpenAPIPath(crdFS, bs, claimPath, &openAPIPaths); err != nil {
+				paths, err := xcrd.FilesToOpenAPI(crdFS, bs, claimPath)
+				if err != nil {
 					return err
 				}
+				openAPIPaths = append(openAPIPaths, paths...)
 			}
 
 		case "CustomResourceDefinition":
-			if err := appendOpenAPIPath(crdFS, bs, path, &openAPIPaths); err != nil {
+			paths, err := xcrd.FilesToOpenAPI(crdFS, bs, path)
+			if err != nil {
 				return err
 			}
+			openAPIPaths = append(openAPIPaths, paths...)
 		}
 		return nil
 	}); err != nil {
@@ -173,15 +179,6 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 	}
 
 	return schemaFS, nil
-}
-
-func appendOpenAPIPath(crdFS afero.Fs, bs []byte, path string, openAPIPaths *[]string) error {
-	openAPIPath, err := xcrd.FilesToOpenAPI(crdFS, bs, path)
-	if err != nil {
-		return err
-	}
-	*openAPIPaths = append(*openAPIPaths, openAPIPath)
-	return nil
 }
 
 // transformStructurePython combines the reorganization of Python files and the adjustment of import paths into one pass.
