@@ -8,12 +8,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
-	"golang.org/x/exp/maps"
 	"helm.sh/helm/v3/pkg/chart"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"

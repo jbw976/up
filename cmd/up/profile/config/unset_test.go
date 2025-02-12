@@ -14,7 +14,7 @@ import (
 )
 
 func TestUnsetValidateInput(t *testing.T) {
-	tf, _ := os.CreateTemp("", "")
+	tf, _ := os.CreateTemp(t.TempDir(), "")
 
 	type args struct {
 		key  string

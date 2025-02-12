@@ -6,11 +6,12 @@ package diff
 import (
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	diffv3 "github.com/r3labs/diff/v3"
-	"golang.org/x/exp/maps"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 )
@@ -92,7 +93,7 @@ func (p *prettyPrintWriter) printFieldUpdate(prefix string, change diffv3.Change
 // printNode recursively writes each value a diff tree node, prefixing values
 // with table symbols and indentation.
 func (p *prettyPrintWriter) printNode(prefix string, isLast bool, path []string, node *DiffTreeNode[treeValue]) {
-	children := maps.Values(node.children)
+	children := slices.Collect(maps.Values(node.children))
 	path = append(path, node.key)
 
 	// condense path and continue
@@ -157,7 +158,7 @@ func (p *prettyPrintWriter) Write(resources []ResourceDiff) error {
 		}
 
 		root := BuildDiffTree(change)
-		for i, child := range maps.Values(root.children) {
+		for i, child := range slices.Collect(maps.Values(root.children)) {
 			p.printNode("", i == (len(root.children)-1), []string{""}, child)
 		}
 	}

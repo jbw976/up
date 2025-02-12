@@ -299,7 +299,7 @@ func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
 	}
 
 	// If there's a warning, prompt for confirmation
-	return warnAndConfirm(warning) //nolint:govet // w
+	return warnAndConfirm(warning)
 }
 
 // warnAndConfirm displays a warning and prompts for confirmation.
