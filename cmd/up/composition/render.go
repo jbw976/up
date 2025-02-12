@@ -34,6 +34,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -240,7 +241,6 @@ func (c *renderCmd) Run(log logging.Logger) error {
 			DependecyManager:   c.m,
 			FunctionIdentifier: c.functionIdentifier,
 			SchemaRunner:       c.schemaRunner,
-			Quiet:              c.quiet,
 			EventChannel:       ch,
 		}
 
@@ -272,16 +272,18 @@ func (c *renderCmd) Run(log logging.Logger) error {
 		ContextValues:          c.ContextValues,
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
-		Quiet:                  c.quiet,
-		SpinnerText:            "Rendering",
 	}
 
-	output, err := render.Render(renderCtx, log, efns, options)
-	if err != nil {
-		return errors.Wrap(err, "unable to render function")
-	}
-	pterm.Print(output)
-	return nil
+	return upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
+		output, err := render.Render(renderCtx, log, efns, options)
+		if err != nil {
+			return errors.Wrap(err, "unable to render function")
+		}
+		pterm.Print(output)
+		return nil
+	},
+		c.quiet,
+	)
 }
 
 // Helper function to calculate the relative path and handle errors.

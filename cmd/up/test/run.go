@@ -365,7 +365,6 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			DependecyManager:   c.m,
 			FunctionIdentifier: c.functionIdentifier,
 			SchemaRunner:       c.schemaRunner,
-			Quiet:              c.quiet,
 			EventChannel:       ch,
 		}
 
@@ -439,14 +438,17 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			XRD:                    xrdPath,
 			Concurrency:            c.concurrency,
 			ImageResolver:          c.r,
-			Quiet:                  c.quiet,
-			SpinnerText:            fmt.Sprintf("Assert %s", test.Name),
 		}
 
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(*test.Spec.TimeoutSeconds)*time.Second)
 		defer cancel()
 
-		output, err := render.Render(renderCtx, log, efns, options)
+		var output string
+		err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Assert %s", test.Name), upterm.CheckmarkSuccessSpinner, func() error {
+			loutput, err := render.Render(renderCtx, log, efns, options)
+			output = loutput
+			return err
+		}, c.quiet)
 		if err != nil {
 			errors++
 			pterm.PrintOnError(err)
@@ -642,7 +644,10 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		}
 	}()
 
-	if err := kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, c.quiet); err != nil {
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		return kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, ch)
+	})
+	if err != nil {
 		return errors.Wrapf(err, "failed to install package")
 	}
 

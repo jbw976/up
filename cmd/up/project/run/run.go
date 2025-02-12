@@ -324,10 +324,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		readyCtx = timeoutCtx
 	}
 
-	err = kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, c.quiet)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.asyncWrapper(func(ch async.EventChannel) error {
+		return kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, ch)
+	})
 }
