@@ -24,8 +24,8 @@ import (
 )
 
 type createCmd struct {
-	Name string `arg:""                                                                             help:"Name of the profile to create." required:""`
-	Use  bool   `help:"Use the new profile after it's created. Default if no other profile exists."`
+	Name string `arg:""         help:"Name of the profile to create."                            required:""`
+	Use  bool   `default:"true" help:"Use the new profile after it's created. Defaults to true."`
 
 	Type profile.Type `default:"cloud" enum:"cloud,disconnected" help:"Type of profile to create: cloud or disconnected."`
 }
