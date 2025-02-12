@@ -322,7 +322,7 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions
 	)
 
 	imgMap, err := b.Build(ctx, opts.Project, opts.ProjFS,
-		project.BuildWithEventChannel(opts.EventChannel, opts.Quiet),
+		project.BuildWithEventChannel(opts.EventChannel),
 		project.BuildWithImageLabels(common.ImageLabels(opts)),
 		project.BuildWithDependencyManager(opts.DependecyManager),
 	)

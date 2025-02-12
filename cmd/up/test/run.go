@@ -494,7 +494,7 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 		eg.Go(func() error {
 			var err error
 			imgMap, err = b.Build(ctx, c.proj, c.projFS,
-				project.BuildWithEventChannel(ch, c.quiet),
+				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
 				project.BuildWithProjectBasePath(basePath),

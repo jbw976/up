@@ -270,7 +270,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		eg.Go(func() error {
 			var err error
 			imgMap, err = b.Build(ctx, proj, c.projFS,
-				project.BuildWithEventChannel(ch, c.quiet),
+				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
 				project.BuildWithProjectBasePath(basePath),

@@ -40,7 +40,6 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -113,11 +112,9 @@ type buildOptions struct {
 // BuildWithEventChannel provides a channel to which progress updates will be
 // written during the build. It is the caller's responsibility to manage the
 // lifecycle of this channel.
-func BuildWithEventChannel(ch async.EventChannel, quiet config.QuietFlag) BuildOption {
+func BuildWithEventChannel(ch async.EventChannel) BuildOption {
 	return func(o *buildOptions) {
-		if !quiet {
-			o.eventChan = ch
-		}
+		o.eventChan = ch
 	}
 }
 
