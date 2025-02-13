@@ -69,7 +69,8 @@ type Cmd struct {
 
 	spaceClient client.Client
 
-	quiet config.QuietFlag
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply processes flags and sets defaults.
@@ -175,6 +176,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	pterm.EnableStyling()
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
 
 	return nil
 }
@@ -233,7 +238,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		imgMap       project.ImageTagMap
 		devCtpClient client.Client
 	)
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
@@ -254,7 +259,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		eg.Go(func() error {
 			var err error
 			imgMap, err = b.Build(ctx, proj, c.projFS,
-				project.BuildWithEventChannel(ch, c.quiet),
+				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
 				project.BuildWithProjectBasePath(basePath),
@@ -287,7 +292,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	)
 
 	var generatedTag name.Tag
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),
@@ -308,10 +313,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		readyCtx = timeoutCtx
 	}
 
-	err = kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, c.quiet)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.asyncWrapper(func(ch async.EventChannel) error {
+		return kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, ch)
+	})
 }

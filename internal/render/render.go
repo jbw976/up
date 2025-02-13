@@ -28,11 +28,9 @@ import (
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -62,8 +60,6 @@ type Options struct {
 	Concurrency   uint
 
 	ImageResolver manager.ImageResolver
-	Quiet         config.QuietFlag
-	SpinnerText   string
 }
 
 // FunctionOptions defines the configuration for building embedded functions.
@@ -79,7 +75,7 @@ type FunctionOptions struct {
 	FunctionIdentifier functions.Identifier
 	SchemaRunner       schemarunner.SchemaRunner
 	DependecyManager   *manager.Manager
-	Quiet              config.QuietFlag
+	EventChannel       async.EventChannel
 }
 
 // Render executes the rendering logic and returns YAML output as a string.
@@ -160,30 +156,17 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	fns = append(fns, embeddedFunctions...)
 
 	// Perform rendering
-	var out xprender.Outputs
-	err = upterm.WrapWithSuccessSpinner(
-		opts.SpinnerText,
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			lout, err := xprender.Render(ctx, log, xprender.Inputs{
-				CompositeResource:   xr,
-				Composition:         comp,
-				Functions:           fns,
-				FunctionCredentials: fcreds,
-				ObservedResources:   ors,
-				ExtraResources:      ers,
-				Context:             fctx,
-			})
-			if err != nil {
-				return errors.Wrap(err, "cannot render composite resource")
-			}
-			out = lout
-			return nil
-		},
-		opts.Quiet,
-	)
+	out, err := xprender.Render(ctx, log, xprender.Inputs{
+		CompositeResource:   xr,
+		Composition:         comp,
+		Functions:           fns,
+		FunctionCredentials: fcreds,
+		ObservedResources:   ors,
+		ExtraResources:      ers,
+		Context:             fctx,
+	})
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "cannot render composite resource")
 	}
 
 	// Serialize output to YAML
@@ -309,16 +292,11 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions
 		project.BuildWithSchemaRunner(opts.SchemaRunner),
 	)
 
-	var imgMap project.ImageTagMap
-	err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
-		var err error
-		imgMap, err = b.Build(ctx, opts.Project, opts.ProjFS,
-			project.BuildWithEventChannel(ch, opts.Quiet),
-			project.BuildWithImageLabels(common.ImageLabels(opts)),
-			project.BuildWithDependencyManager(opts.DependecyManager),
-		)
-		return err
-	})
+	imgMap, err := b.Build(ctx, opts.Project, opts.ProjFS,
+		project.BuildWithEventChannel(opts.EventChannel),
+		project.BuildWithImageLabels(common.ImageLabels(opts)),
+		project.BuildWithDependencyManager(opts.DependecyManager),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -330,23 +308,14 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions
 		}
 	}
 
-	var efns []pkgv1.Function
-	err = upterm.WrapWithSuccessSpinner(
-		"Pushing embedded functions to local daemon",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			lefns, err := embeddedFunctionsToDaemon(imgMap)
-			if err != nil {
-				return errors.Wrap(err, "unable to push to local docker daemon")
-			}
-			efns = lefns
-			return nil
-		},
-		opts.Quiet,
-	)
+	stage := "Pushing embedded functions to local daemon"
+	opts.EventChannel.SendEvent(stage, async.EventStatusStarted)
+	efns, err := embeddedFunctionsToDaemon(imgMap)
 	if err != nil {
-		return nil, err
+		opts.EventChannel.SendEvent(stage, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "unable to push to local docker daemon")
 	}
+	opts.EventChannel.SendEvent(stage, async.EventStatusSuccess)
 
 	return efns, nil
 }

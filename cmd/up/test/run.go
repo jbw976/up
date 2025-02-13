@@ -40,6 +40,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	uptest "github.com/crossplane/uptest/pkg"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -100,8 +101,9 @@ type runCmd struct {
 	concurrency        uint
 	proj               *v1alpha1.Project
 
-	spaceClient client.Client
-	quiet       config.QuietFlag
+	spaceClient  client.Client
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 func (c *runCmd) Help() string {
@@ -262,6 +264,10 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
 
 	return nil
 }
@@ -336,18 +342,29 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 	total, success, errors := 0, 0, 0
 
 	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
-	functionOptions := render.FunctionOptions{
-		Project:            c.proj,
-		ProjFS:             tempProjFS,
-		Concurrency:        c.concurrency,
-		NoBuildCache:       c.NoBuildCache,
-		BuildCacheDir:      c.BuildCacheDir,
-		DependecyManager:   c.m,
-		FunctionIdentifier: c.functionIdentifier,
-		SchemaRunner:       c.schemaRunner,
-	}
 
-	efns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+	var efns []v1.Function
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		functionOptions := render.FunctionOptions{
+			Project:            c.proj,
+			ProjFS:             tempProjFS,
+			Concurrency:        c.concurrency,
+			NoBuildCache:       c.NoBuildCache,
+			BuildCacheDir:      c.BuildCacheDir,
+			DependecyManager:   c.m,
+			FunctionIdentifier: c.functionIdentifier,
+			SchemaRunner:       c.schemaRunner,
+			EventChannel:       ch,
+		}
+
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+		if err != nil {
+			return err
+		}
+		efns = fns
+
+		return nil
+	})
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -410,14 +427,17 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			XRD:                    xrdPath,
 			Concurrency:            c.concurrency,
 			ImageResolver:          c.r,
-			Quiet:                  c.quiet,
-			SpinnerText:            fmt.Sprintf("Assert %s", test.Name),
 		}
 
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(*test.Spec.TimeoutSeconds)*time.Second)
 		defer cancel()
 
-		output, err := render.Render(renderCtx, log, efns, options)
+		var output string
+		err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Assert %s", test.Name), upterm.CheckmarkSuccessSpinner, func() error {
+			loutput, err := render.Render(renderCtx, log, efns, options)
+			output = loutput
+			return err
+		}, c.quiet)
 		if err != nil {
 			errors++
 			pterm.PrintOnError(err)
@@ -460,12 +480,12 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	)
 
 	var imgMap project.ImageTagMap
-	if err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			var err error
 			imgMap, err = b.Build(ctx, c.proj, c.projFS,
-				project.BuildWithEventChannel(ch, c.quiet),
+				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
 				project.BuildWithProjectBasePath(basePath),
@@ -496,7 +516,7 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	)
 
 	var generatedTag name.Tag
-	if err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err = c.asyncWrapper(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),
@@ -586,7 +606,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		devCtpKubeconfig clientcmd.ClientConfig
 		devCtpClient     client.Client
 	)
-	if err := async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
 		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(
 			ctx,
@@ -613,7 +633,10 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		}
 	}()
 
-	if err := kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, c.quiet); err != nil {
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		return kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, ch)
+	})
+	if err != nil {
 		return errors.Wrapf(err, "failed to install package")
 	}
 

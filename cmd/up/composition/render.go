@@ -17,10 +17,13 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
+	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -105,7 +108,8 @@ type renderCmd struct {
 	r  manager.ImageResolver
 	ws *workspace.Workspace
 
-	quiet config.QuietFlag
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -201,29 +205,44 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
+
 	return nil
 }
 
 func (c *renderCmd) Run(log logging.Logger) error {
 	pterm.EnableStyling()
 
-	functionOptions := render.FunctionOptions{
-		Project:            c.proj,
-		ProjFS:             c.projFS,
-		Concurrency:        c.concurrency,
-		NoBuildCache:       c.NoBuildCache,
-		BuildCacheDir:      c.BuildCacheDir,
-		DependecyManager:   c.m,
-		FunctionIdentifier: c.functionIdentifier,
-		SchemaRunner:       c.schemaRunner,
-	}
-
 	renderCtx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	efns, err := render.BuildEmbeddedFunctionsLocalDaemon(renderCtx, functionOptions)
+	var efns []v1.Function
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		functionOptions := render.FunctionOptions{
+			Project:            c.proj,
+			ProjFS:             c.projFS,
+			Concurrency:        c.concurrency,
+			NoBuildCache:       c.NoBuildCache,
+			BuildCacheDir:      c.BuildCacheDir,
+			DependecyManager:   c.m,
+			FunctionIdentifier: c.functionIdentifier,
+			SchemaRunner:       c.schemaRunner,
+			EventChannel:       ch,
+		}
+
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(renderCtx, functionOptions)
+		if err != nil {
+			return errors.Wrap(err, "unable to build embedded functions")
+		}
+		efns = fns
+
+		return nil
+	})
 	if err != nil {
-		return errors.Wrap(err, "unable to build embedded functions")
+		return err
 	}
 
 	options := render.Options{
@@ -242,16 +261,18 @@ func (c *renderCmd) Run(log logging.Logger) error {
 		ContextValues:          c.ContextValues,
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
-		Quiet:                  c.quiet,
-		SpinnerText:            "Rendering",
 	}
 
-	output, err := render.Render(renderCtx, log, efns, options)
-	if err != nil {
-		return errors.Wrap(err, "unable to render function")
-	}
-	pterm.Print(output)
-	return nil
+	return upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
+		output, err := render.Render(renderCtx, log, efns, options)
+		if err != nil {
+			return errors.Wrap(err, "unable to render function")
+		}
+		pterm.Print(output)
+		return nil
+	},
+		c.quiet,
+	)
 }
 
 // Helper function to calculate the relative path and handle errors.

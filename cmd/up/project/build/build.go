@@ -55,7 +55,8 @@ type Cmd struct {
 
 	m *manager.Manager
 
-	quiet config.QuietFlag
+	quiet        config.QuietFlag
+	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply parses flags and applies defaults.
@@ -113,6 +114,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
 	c.quiet = quiet
+	c.asyncWrapper = async.WrapWithSuccessSpinners
+	if quiet {
+		c.asyncWrapper = async.IgnoreEvents
+	}
+
 	return nil
 }
 
@@ -166,10 +172,10 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	)
 
 	var imgMap project.ImageTagMap
-	err = async.WrapWithSuccessSpinners(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
 		imgMap, err = b.Build(ctx, proj, c.projFS,
-			project.BuildWithEventChannel(ch, c.quiet),
+			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),
 			project.BuildWithProjectBasePath(basePath),

@@ -22,12 +22,11 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
-	"github.com/upbound/up/internal/config"
-	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/internal/async"
 )
 
 // InstallConfiguration will install crossplane packages to target controlplane.
-func InstallConfiguration(ctx context.Context, cl client.Client, name string, tag name.Tag, quiet config.QuietFlag) error {
+func InstallConfiguration(ctx context.Context, cl client.Client, name string, tag name.Tag, ch async.EventChannel) error {
 	pkgSource := tag.String()
 	cfg := &xpkgv1.Configuration{
 		TypeMeta: metav1.TypeMeta{
@@ -44,68 +43,60 @@ func InstallConfiguration(ctx context.Context, cl client.Client, name string, ta
 		},
 	}
 
-	err := upterm.WrapWithSuccessSpinner(
-		"Installing package on development control plane",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli"))
-		},
-		quiet,
-	)
-	if err != nil {
+	stage := "Installing package on development control plane"
+	ch.SendEvent(stage, async.EventStatusStarted)
+	if err := cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli")); err != nil {
+		ch.SendEvent(stage, async.EventStatusFailure)
 		return err
 	}
+	ch.SendEvent(stage, async.EventStatusSuccess)
 
-	err = upterm.WrapWithSuccessSpinner(
-		"Waiting for package to be ready",
-		upterm.CheckmarkSuccessSpinner,
-		waitForPackagesReady(ctx, cl, tag),
-		quiet,
-	)
-	if err != nil {
+	stage = "Waiting for package to be ready"
+	ch.SendEvent(stage, async.EventStatusStarted)
+	if err := waitForPackagesReady(ctx, cl, tag); err != nil {
+		ch.SendEvent(stage, async.EventStatusFailure)
 		return err
 	}
+	ch.SendEvent(stage, async.EventStatusSuccess)
 
 	return nil
 }
 
-func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) func() error {
-	return func() error {
-		nn := types.NamespacedName{
-			Name: "lock",
-		}
-		var lock xpkgv1beta1.Lock
-		for {
-			time.Sleep(500 * time.Millisecond)
-			err := cl.Get(ctx, nn, &lock)
-			if err != nil {
-				return err
-			}
-
-			cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
-			if !cfgFound {
-				// Configuration not in lock yet.
-				continue
-			}
-			healthy, err := packageIsHealthy(ctx, cl, cfgPkg)
-			if err != nil {
-				return err
-			}
-			if !healthy {
-				// Configuration is not healthy yet.
-				continue
-			}
-
-			healthy, err = allDepsHealthy(ctx, cl, lock, cfgPkg)
-			if err != nil {
-				return err
-			}
-			if healthy {
-				break
-			}
-		}
-		return nil
+func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) error {
+	nn := types.NamespacedName{
+		Name: "lock",
 	}
+	var lock xpkgv1beta1.Lock
+	for {
+		time.Sleep(500 * time.Millisecond)
+		err := cl.Get(ctx, nn, &lock)
+		if err != nil {
+			return err
+		}
+
+		cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
+		if !cfgFound {
+			// Configuration not in lock yet.
+			continue
+		}
+		healthy, err := packageIsHealthy(ctx, cl, cfgPkg)
+		if err != nil {
+			return err
+		}
+		if !healthy {
+			// Configuration is not healthy yet.
+			continue
+		}
+
+		healthy, err = allDepsHealthy(ctx, cl, lock, cfgPkg)
+		if err != nil {
+			return err
+		}
+		if healthy {
+			break
+		}
+	}
+	return nil
 }
 
 func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock, pkg xpkgv1beta1.LockPackage) (bool, error) {
