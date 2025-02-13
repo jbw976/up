@@ -5,7 +5,7 @@ package dependency
 
 import (
 	"context"
-	"os"
+	"io"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -62,7 +62,7 @@ type addCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *addCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -101,14 +101,10 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 
 	c.m = m
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	ws, err := workspace.New(wd,
-		workspace.WithFS(fs),
-		workspace.WithPrinter(p),
+	ws, err := workspace.New("/",
+		workspace.WithFS(projFS),
+		// The user doesn't care about workspace warnings.
+		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),
 	)
 	if err != nil {
@@ -126,7 +122,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 }
 
 // Run executes the dep command.
-func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter, pb *pterm.BulletListPrinter) error {
+func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	_, err := xpkg.ValidDep(c.Package)
 	if err != nil {
 		return err
