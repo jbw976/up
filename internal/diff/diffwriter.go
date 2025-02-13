@@ -1,27 +1,18 @@
-// Copyright 2021 Upbound Inc
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2025 Upbound Inc.
+// All rights reserved
 
+// Package diff calculates and represents differences between resources.
 package diff
 
 import (
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 
 	diffv3 "github.com/r3labs/diff/v3"
-	"golang.org/x/exp/maps"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 )
@@ -50,18 +41,20 @@ const (
 	indentSymbol = "   "
 )
 
+// ResourceDiff represents the change in a resource as a result of a simulation.
 type ResourceDiff struct {
 	SimulationChange spacesv1alpha1.SimulationChange
 	Diff             diffv3.Changelog
 }
 
-var _ diffWriter = &prettyPrintWriter{}
+var _ Writer = &prettyPrintWriter{}
 
-type diffWriter interface {
+// Writer can write diffs.
+type Writer interface {
 	Write(resources []ResourceDiff) error
 }
 
-// prettyPrintWriter implements diffWriter, writing its responses to a buffer that can
+// prettyPrintWriter implements DiffWriter, writing its responses to a buffer that can
 // be sent to stdout.
 type prettyPrintWriter struct {
 	w      io.Writer
@@ -76,7 +69,7 @@ func (p *prettyPrintWriter) getLoggedOutputByType(value any) string {
 	}
 
 	t := reflect.TypeOf(value)
-	switch t.Kind() { //nolint:exhaustive
+	switch t.Kind() { //nolint:exhaustive // default case is sufficient.
 	case reflect.String:
 		return fmt.Sprintf("%q", value)
 	// todo(redbackthomson): Handle pretty printing maps, arrays and interfaces
@@ -96,14 +89,14 @@ func (p *prettyPrintWriter) getLoggedOutputByType(value any) string {
 func (p *prettyPrintWriter) printFieldUpdate(prefix string, change diffv3.Change) {
 	from := p.getLoggedOutputByType(change.From)
 	to := p.getLoggedOutputByType(change.To)
-	fmt.Fprintf(p.w, changeDeleteFmt, prefix+treeSymbolT, p.styles.Delete(from))
-	fmt.Fprintf(p.w, changeCreateFmt, prefix+treeSymbolL, p.styles.Create(to))
+	_, _ = fmt.Fprintf(p.w, changeDeleteFmt, prefix+treeSymbolT, p.styles.Delete(from))
+	_, _ = fmt.Fprintf(p.w, changeCreateFmt, prefix+treeSymbolL, p.styles.Create(to))
 }
 
 // printNode recursively writes each value a diff tree node, prefixing values
 // with table symbols and indentation.
 func (p *prettyPrintWriter) printNode(prefix string, isLast bool, path []string, node *DiffTreeNode[treeValue]) {
-	children := maps.Values(node.children)
+	children := slices.Collect(maps.Values(node.children))
 	path = append(path, node.key)
 
 	// condense path and continue
@@ -117,7 +110,7 @@ func (p *prettyPrintWriter) printNode(prefix string, isLast bool, path []string,
 	if isLast {
 		namePrefix = prefix + treeSymbolL
 	}
-	fmt.Fprintf(p.w, changeUpdateFmt, namePrefix, formatFieldPath(path))
+	_, _ = fmt.Fprintf(p.w, changeUpdateFmt, namePrefix, formatFieldPath(path))
 
 	// write the field diff
 	if node.IsLeaf() {
@@ -150,16 +143,16 @@ func (p *prettyPrintWriter) Write(resources []ResourceDiff) error {
 	for _, change := range resources {
 		ref := change.SimulationChange.ObjectReference
 
-		switch change.SimulationChange.Change { //nolint:exhaustive
+		switch change.SimulationChange.Change { //nolint:exhaustive // intentionally not writing other change types.
 		case spacesv1alpha1.SimulationChangeTypeCreate:
-			fmt.Fprintf(p.w, changeCreateFmt, "", p.styles.Create(formatObjectReference(ref)))
+			_, _ = fmt.Fprintf(p.w, changeCreateFmt, "", p.styles.Create(formatObjectReference(ref)))
 			continue
 		case spacesv1alpha1.SimulationChangeTypeDelete:
-			fmt.Fprintf(p.w, changeDeleteFmt, "", p.styles.Delete(formatObjectReference(ref)))
+			_, _ = fmt.Fprintf(p.w, changeDeleteFmt, "", p.styles.Delete(formatObjectReference(ref)))
 			continue
 		}
 
-		fmt.Fprintf(p.w, changeUpdateFmt, "", p.styles.Update(formatObjectReference(ref)))
+		_, _ = fmt.Fprintf(p.w, changeUpdateFmt, "", p.styles.Update(formatObjectReference(ref)))
 
 		// hide any changes to secrets
 		if change.SimulationChange.ObjectReference.Kind == "Secret" &&
@@ -168,7 +161,7 @@ func (p *prettyPrintWriter) Write(resources []ResourceDiff) error {
 		}
 
 		root := BuildDiffTree(change)
-		for i, child := range maps.Values(root.children) {
+		for i, child := range slices.Collect(maps.Values(root.children)) {
 			p.printNode("", i == (len(root.children)-1), []string{""}, child)
 		}
 	}
@@ -182,17 +175,17 @@ func (p *prettyPrintWriter) writeSummary(resources []ResourceDiff) {
 	for _, res := range resources {
 		switch res.SimulationChange.Change {
 		case spacesv1alpha1.SimulationChangeTypeCreate:
-			created += 1
+			created++
 		case spacesv1alpha1.SimulationChangeTypeDelete:
-			deleted += 1
+			deleted++
 		case spacesv1alpha1.SimulationChangeTypeUpdate:
-			updated += 1
+			updated++
 		case spacesv1alpha1.SimulationChangeTypeUnknown:
 		}
 	}
 
-	fmt.Fprintf(p.w, changeSummaryFmt, p.styles.Create(created), p.styles.Update(updated), p.styles.Delete(deleted))
-	fmt.Fprintf(p.w, "\n\n")
+	_, _ = fmt.Fprintf(p.w, changeSummaryFmt, p.styles.Create(created), p.styles.Update(updated), p.styles.Delete(deleted))
+	_, _ = fmt.Fprintf(p.w, "\n\n")
 }
 
 // formatFieldPath returns a pretty-printed a field path.
@@ -212,7 +205,7 @@ func formatObjectReference(ref spacesv1alpha1.ChangedObjectReference) string {
 
 // NewPrettyPrintWriter creates a new print writer that, when calling `Write()`, will
 // output a pretty-printed table to the writer.
-func NewPrettyPrintWriter(w io.Writer, styling bool) *prettyPrintWriter {
+func NewPrettyPrintWriter(w io.Writer, styling bool) Writer {
 	p := &prettyPrintWriter{
 		w: w,
 	}
