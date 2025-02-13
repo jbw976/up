@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package dependency contains commands for managing project dependencies.
 package dependency
 
 // Cmd contains commands for dependency cmd.
@@ -10,6 +11,7 @@ type Cmd struct {
 	CleanCache  cleanCacheCmd  `cmd:"" help:"Clean the dependency cache."`
 }
 
+// Help returns help.
 func (c *Cmd) Help() string {
 	return `
 The dependency command manages crossplane package dependencies of the project

@@ -6,7 +6,6 @@ package dependency
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -51,6 +50,7 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) 
 	}
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
+	projFS := afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
 	fs := afero.NewOsFs()
@@ -75,13 +75,8 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) 
 
 	c.m = m
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	ws, err := workspace.New(wd,
-		workspace.WithFS(fs),
+	ws, err := workspace.New("/",
+		workspace.WithFS(projFS),
 		workspace.WithPrinter(p),
 		workspace.WithPermissiveParser(),
 	)
@@ -148,7 +143,7 @@ type cleanCacheCmd struct {
 	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
 }
 
-func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 	fs := afero.NewOsFs()
@@ -165,7 +160,7 @@ func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) e
 	return nil
 }
 
-func (c *cleanCacheCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *cleanCacheCmd) Run(p pterm.TextPrinter) error {
 	if err := c.c.Clean(); err != nil {
 		return err
 	}

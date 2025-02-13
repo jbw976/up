@@ -41,6 +41,8 @@ type addTestCase struct {
 }
 
 func TestAdd(t *testing.T) {
+	t.Parallel()
+
 	tcs := map[string]addTestCase{
 		"AddFunctionWithoutVersion": {
 			inputDeps:   nil,
@@ -419,15 +421,14 @@ func (tc *addTestCase) Run(t *testing.T, makePkg func(deps []pkgmetav1.Dependenc
 		ws:      ws,
 		Package: tc.newPackage,
 	}
-	err = cmd.Run(context.Background(), &pterm.DefaultBasicText, &pterm.DefaultBulletList)
+	err = cmd.Run(context.Background(), &pterm.DefaultBasicText)
 
 	// Check if we expect an error.
 	if tc.expectError {
 		assert.ErrorContains(t, err, "supplied version does not match an existing version")
 		return // No need to proceed with further checks if this is an error case.
-	} else {
-		assert.NilError(t, err)
 	}
+	assert.NilError(t, err)
 
 	// Verify that the dep was correctly added to the metadata.
 	updatedBytes, err := afero.ReadFile(fs, "/project/meta.yaml")

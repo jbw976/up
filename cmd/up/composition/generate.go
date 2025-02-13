@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -164,13 +163,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 
 	c.m = m
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	ws, err := workspace.New(wd,
-		workspace.WithFS(fs),
+	ws, err := workspace.New("/",
+		workspace.WithFS(c.projFS),
 		// The user doesn't care about workspace warnings during composition generate.
 		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),

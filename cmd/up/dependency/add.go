@@ -5,7 +5,6 @@ package dependency
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -101,13 +100,8 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 
 	c.m = m
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	ws, err := workspace.New(wd,
-		workspace.WithFS(fs),
+	ws, err := workspace.New("/",
+		workspace.WithFS(projFS),
 		workspace.WithPrinter(p),
 		workspace.WithPermissiveParser(),
 	)
@@ -126,7 +120,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 }
 
 // Run executes the dep command.
-func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter, pb *pterm.BulletListPrinter) error {
+func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	_, err := xpkg.ValidDep(c.Package)
 	if err != nil {
 		return err
