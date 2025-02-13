@@ -6,6 +6,7 @@ package dependency
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -39,7 +40,7 @@ type updateCacheCmd struct {
 	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
 }
 
-func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -77,7 +78,8 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) 
 
 	ws, err := workspace.New("/",
 		workspace.WithFS(projFS),
-		workspace.WithPrinter(p),
+		// The user doesn't care about workspace warnings.
+		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),
 	)
 	if err != nil {

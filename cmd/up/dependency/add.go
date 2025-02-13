@@ -5,6 +5,7 @@ package dependency
 
 import (
 	"context"
+	"io"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -61,7 +62,7 @@ type addCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
+func (c *addCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -102,7 +103,8 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter) error {
 
 	ws, err := workspace.New("/",
 		workspace.WithFS(projFS),
-		workspace.WithPrinter(p),
+		// The user doesn't care about workspace warnings.
+		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),
 	)
 	if err != nil {
