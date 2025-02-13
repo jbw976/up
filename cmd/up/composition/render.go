@@ -6,7 +6,6 @@ package composition
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/internal/xpkg/workspace"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -104,9 +102,8 @@ type renderCmd struct {
 	functionCredentialsRel string
 	xrdRel                 string
 
-	m  *manager.Manager
-	r  manager.ImageResolver
-	ws *workspace.Workspace
+	m *manager.Manager
+	r manager.ImageResolver
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -114,7 +111,7 @@ type renderCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet config.QuietFlag) error {
+func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
@@ -175,25 +172,6 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, p pterm.TextPrinter, quiet
 
 	c.m = m
 	c.r = r
-
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	ws, err := workspace.New(wd,
-		workspace.WithFS(fs),
-		workspace.WithPrinter(p),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
 
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.schemaRunner = schemarunner.RealSchemaRunner{}
