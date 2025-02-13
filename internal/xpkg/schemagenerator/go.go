@@ -79,6 +79,7 @@ func GenerateSchemaGo(_ context.Context, fromFS afero.Fs, exclude []string, _ sc
 	}
 	code, err := generateGo(k8sSpec, "v1",
 		goRenameTypes,
+		goRenameEnums,
 		goReplaceNumberWithInt,
 		goRemoveRequired,
 	)
@@ -93,6 +94,7 @@ func GenerateSchemaGo(_ context.Context, fromFS afero.Fs, exclude []string, _ sc
 	for _, oapi := range openAPIs {
 		code, err := generateGo(oapi.spec, oapi.version,
 			goRenameTypes,
+			goRenameEnums,
 			goReplaceNumberWithInt,
 			goRemoveRequired,
 			goReferenceK8sTypes,
@@ -352,6 +354,54 @@ func goFixName(name string) string {
 func goRenameSchemaType(name string, schema *spec.Schema) {
 	schema.AddExtension("x-go-type-name", name)
 	schema.AddExtension("x-oapi-codegen-only-honour-go-name", true)
+}
+
+// goRenameEnums names enum values unambiguously so different generated models
+// can live in the same package.
+func goRenameEnums(s *spec3.OpenAPI) {
+	for name, schema := range s.Components.Schemas {
+		goName := goFixName(name)
+		if goName == "" {
+			delete(s.Components.Schemas, name)
+		}
+		goRenameEnumValues(goName, schema)
+		goRenamePropertyEnums(goName, schema.Properties)
+	}
+}
+
+func goRenamePropertyEnums(baseName string, props map[string]spec.Schema) {
+	for name, prop := range props {
+		goName := goFixName(baseName + strings.ToUpper(string(name[0])) + name[1:])
+
+		goRenameEnumValues(goName, &prop)
+		goRenamePropertyEnums(goName, prop.Properties)
+
+		if prop.Items != nil {
+			goRenameEnumValues(goName, prop.Items.Schema)
+			goRenamePropertyEnums(goName, prop.Items.Schema.Properties)
+		}
+
+		props[name] = prop
+	}
+}
+
+func goRenameEnumValues(typeName string, schema *spec.Schema) {
+	if schema.Enum == nil {
+		return
+	}
+
+	newNames := make([]string, len(schema.Enum))
+	for i, oldName := range schema.Enum {
+		s, ok := oldName.(string)
+		if !ok {
+			// This should always be true, but we'd rather not panic, so ignore
+			// any non-string enums.
+			continue
+		}
+		newNames[i] = typeName + s
+	}
+
+	schema.AddExtension("x-enum-varnames", newNames)
 }
 
 // goReplaceNumberWithInt adds annotations to schemas to cause oapi-codegen to
