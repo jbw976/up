@@ -15,7 +15,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/crossplane/crossplane v1.18.0
-	github.com/crossplane/crossplane-runtime v1.18.0
+	github.com/crossplane/crossplane-runtime v1.19.0
 	github.com/crossplane/crossplane/controller/apiextensions v0.15.0-rc.0
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.3.0
