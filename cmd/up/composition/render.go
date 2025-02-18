@@ -85,7 +85,7 @@ type renderCmd struct {
 	MaxConcurrency uint          `default:"8"  env:"UP_MAX_CONCURRENCY"                  help:"Maximum number of functions to build at once."`
 
 	ProjectFile   string `default:"upbound.yaml"      help:"Path to project definition file."         short:"f"`
-	CacheDir      string `default:"~/.up/cache/"      env:"CACHE_DIR"                                 help:"Directory used for caching dependency images." short:"d" type:"path"`
+	CacheDir      string `default:"~/.up/cache/"      env:"CACHE_DIR"                                 help:"Directory used for caching dependency images." type:"path"`
 	NoBuildCache  bool   `default:"false"             help:"Don't cache image layers while building."`
 	BuildCacheDir string `default:"~/.up/build-cache" help:"Path to the build cache directory."       type:"path"`
 

@@ -66,7 +66,7 @@ type inputYAML struct {
 
 type generateCmd struct {
 	File     string `arg:""                                                                                      help:"Path to the file containing the Composite Resource (XR) or Composite Resource Claim (XRC)."`
-	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    short:"d" type:"path"`
+	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    type:"path"`
 	Path     string `help:"Path to the output file where the Composite Resource Definition (XRD) will be saved." optional:""`
 	Plural   string `help:"Optional custom plural form for the Composite Resource Definition (XRD)."             optional:""`
 	Output   string `default:"file"                                                                              enum:"file,yaml,json"                                                                             help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`

@@ -73,7 +73,7 @@ var (
 type generateCmd struct {
 	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
 	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
-	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." short:"d" type:"path"`
+	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." type:"path"`
 	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go"                        help:"Language for function."                        short:"l"`
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`

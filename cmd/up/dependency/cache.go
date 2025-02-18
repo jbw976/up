@@ -38,7 +38,7 @@ type updateCacheCmd struct {
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
+	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
 }
 
 func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
@@ -149,7 +149,7 @@ type cleanCacheCmd struct {
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." short:"d" type:"path"`
+	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
 }
 
 func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context) error {
