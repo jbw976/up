@@ -255,7 +255,8 @@ func generateGo(s *spec3.OpenAPI, version string, mutators ...func(*spec3.OpenAP
 			Models: true,
 		},
 		OutputOptions: codegen.OutputOptions{
-			SkipPrune: true,
+			SkipPrune:      true,
+			NameNormalizer: string(codegen.NameNormalizerFunctionToCamelCaseWithInitialisms),
 		},
 	})
 	if err != nil {
@@ -346,7 +347,7 @@ func goFixName(name string) string {
 	}
 	genName := codegen.SchemaNameToTypeName(name)
 	prefix := codegen.SchemaNameToTypeName(name[:lastDot])
-	return strings.TrimPrefix(genName, prefix)
+	return codegen.ToCamelCaseWithInitialisms(strings.TrimPrefix(genName, prefix))
 }
 
 func goRenameSchemaType(name string, schema *spec.Schema) {
