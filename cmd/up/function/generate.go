@@ -29,6 +29,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -77,6 +78,8 @@ type generateCmd struct {
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
 
+	Flags upbound.Flags `embed:""`
+
 	functionFS        afero.Fs
 	modelsFS          afero.Fs
 	projFS            afero.Fs
@@ -95,6 +98,11 @@ type generateCmd struct {
 func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -134,7 +142,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		return err
 	}
 
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),
