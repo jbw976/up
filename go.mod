@@ -24,7 +24,7 @@ require (
 	github.com/getkin/kin-openapi v0.127.0
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/golang/tools v0.29.0
+	github.com/golang/tools v0.30.0
 	github.com/google/addlicense v1.1.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.20.3
