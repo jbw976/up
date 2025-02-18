@@ -21,7 +21,7 @@ require (
 	github.com/crossplane/uptest v1.3.0
 	github.com/docker/docker-credential-helpers v0.8.2
 	github.com/gdamore/tcell/v2 v2.8.1
-	github.com/getkin/kin-openapi v0.127.0
+	github.com/getkin/kin-openapi v0.129.0
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/tools v0.29.0
@@ -135,7 +135,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
-	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
 	github.com/jmespath-community/go-jmespath v1.1.2-0.20240930152130-6eb5a346873f // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
@@ -150,6 +149,8 @@ require (
 	github.com/muesli/mango-cobra v1.2.0 // indirect
 	github.com/muesli/mango-pflag v0.1.0 // indirect
 	github.com/muesli/roff v0.1.0 // indirect
+	github.com/oasdiff/yaml v0.0.0-20241210131133-6b86fb107d80 // indirect
+	github.com/oasdiff/yaml3 v0.0.0-20241210130736-a94c01f36349 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
