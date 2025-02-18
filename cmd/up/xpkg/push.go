@@ -1,6 +1,8 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package xpkg contains commands for building and pushing packages. These
+// commands are deprecated.
 package xpkg
 
 import (
@@ -67,7 +69,7 @@ type pushCmd struct {
 }
 
 // Run runs the push cmd.
-func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 	// If package is not defined, attempt to find single package in current
 	// directory.
 	if len(c.Package) == 0 {
@@ -93,7 +95,8 @@ func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error { //nol
 	return PushImages(p, upCtx, imgs, c.Tag, c.Create, c.Flags.Profile)
 }
 
-func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, profile string) error { //nolint:gocyclo
+// PushImages pushes images.
+func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, profile string) error { //nolint:gocognit // We will delete this soon.
 	tag, err := name.NewTag(t, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Hostname()))
 	if err != nil {
 		return err
