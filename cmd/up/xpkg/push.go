@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -27,7 +26,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/repositories"
-	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 )
@@ -96,21 +94,13 @@ func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 }
 
 // PushImages pushes images.
-func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, profile string) error { //nolint:gocognit // We will delete this soon.
+func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, _ string) error { //nolint:gocognit // We will delete this soon.
 	tag, err := name.NewTag(t, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Hostname()))
 	if err != nil {
 		return err
 	}
 
-	kc := authn.NewMultiKeychain(
-		authn.NewKeychainFromHelper(
-			credhelper.New(
-				credhelper.WithDomain(upCtx.Domain.Hostname()),
-				credhelper.WithProfile(profile),
-			),
-		),
-		authn.DefaultKeychain,
-	)
+	kc := upCtx.RegistryKeychain()
 
 	if create {
 		if !strings.Contains(tag.RegistryStr(), upCtx.RegistryEndpoint.Hostname()) {
