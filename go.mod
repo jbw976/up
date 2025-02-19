@@ -33,7 +33,7 @@ require (
 	github.com/goreleaser/nfpm/v2 v2.41.2
 	github.com/kyverno/chainsaw v0.2.13-0.20250116043056-57a42010852a
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
-	github.com/navidys/tvxwidgets v0.6.0
+	github.com/navidys/tvxwidgets v0.10.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/posener/complete v1.2.3
