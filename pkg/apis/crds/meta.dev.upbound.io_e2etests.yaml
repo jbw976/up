@@ -87,6 +87,9 @@ spec:
                     description: Version is the version of Universal Crossplane to
                       install.
                     type: string
+                    x-kubernetes-validations:
+                    - message: The version must not start with a leading 'v'
+                      rule: (self.matches('^[^v].*'))
                 type: object
               defaultConditions:
                 description: Default conditions for the test
