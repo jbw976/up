@@ -6,7 +6,7 @@ toolchain go1.24.0
 
 require (
 	github.com/crossplane/crossplane-runtime v1.19.0
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/pterm/pterm v0.12.62
 	github.com/spf13/afero v1.12.0
 	gopkg.in/yaml.v3 v3.0.1
