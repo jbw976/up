@@ -49,7 +49,7 @@ require (
 	github.com/upbound/up-sdk-go v0.3.1-0.20241105002627-7457ae3c39ea
 	github.com/upbound/up-sdk-go/apis v1.11.0
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
-	github.com/willabides/kongplete v0.3.0
+	github.com/willabides/kongplete v0.4.0
 	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
 	golang.org/x/sync v0.11.0
 	golang.org/x/term v0.29.0
