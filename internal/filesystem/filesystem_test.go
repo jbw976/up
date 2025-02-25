@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/assert"
 )
 
 type fileInfo struct {
@@ -30,7 +30,7 @@ func TestFSToTar(t *testing.T) {
 			if err == io.EOF {
 				break
 			}
-			require.NoError(t, err)
+			assert.NilError(t, err)
 			files[hdr.Name] = hdr
 		}
 		return files
@@ -130,11 +130,11 @@ func TestFSToTar(t *testing.T) {
 
 			// Validate errors if expected.
 			if tt.expectErr {
-				require.Error(t, err)
+				assert.Assert(t, err != nil)
 				return
 			}
 
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			// Read the TAR contents.
 			files := readTar(tarData)
@@ -142,11 +142,11 @@ func TestFSToTar(t *testing.T) {
 			// Validate that the correct files were included.
 			for expectedFile, expectedInfo := range tt.expectedFiles {
 				file, ok := files[expectedFile]
-				require.True(t, ok, "%s not found in tar", expectedFile)
+				assert.Assert(t, ok, "%s not found in tar", expectedFile)
 
-				require.Equal(t, expectedInfo.mode, file.Mode, "Incorrect file mode for %s", expectedFile)
-				require.Equal(t, expectedInfo.uid, file.Uid, "Incorrect UID for %s", expectedFile)
-				require.Equal(t, expectedInfo.gid, file.Gid, "Incorrect GID for %s", expectedFile)
+				assert.Equal(t, expectedInfo.mode, file.Mode, "Incorrect file mode for %s", expectedFile)
+				assert.Equal(t, expectedInfo.uid, file.Uid, "Incorrect UID for %s", expectedFile)
+				assert.Equal(t, expectedInfo.gid, file.Gid, "Incorrect GID for %s", expectedFile)
 			}
 		})
 	}
@@ -166,7 +166,7 @@ func TestCopyFilesBetweenFs(t *testing.T) {
 				// Setup source filesystem with a single file.
 				afero.WriteFile(fromFS, "file.txt", []byte("file content"), os.ModePerm)
 			},
-			setupToFs: func(toFS afero.Fs) {
+			setupToFs: func(_ afero.Fs) {
 				// No setup needed for destination filesystem.
 			},
 			expectedFiles: map[string]string{
@@ -180,7 +180,7 @@ func TestCopyFilesBetweenFs(t *testing.T) {
 				fromFS.Mkdir("dir", os.ModePerm)
 				afero.WriteFile(fromFS, "dir/file.txt", []byte("nested file content"), os.ModePerm)
 			},
-			setupToFs: func(toFS afero.Fs) {
+			setupToFs: func(_ afero.Fs) {
 				// No setup needed for destination filesystem.
 			},
 			expectedFiles: map[string]string{
@@ -194,7 +194,7 @@ func TestCopyFilesBetweenFs(t *testing.T) {
 				afero.WriteFile(fromFS, "file1.txt", []byte("file 1 content"), os.ModePerm)
 				afero.WriteFile(fromFS, "file2.txt", []byte("file 2 content"), os.ModePerm)
 			},
-			setupToFs: func(toFS afero.Fs) {
+			setupToFs: func(_ afero.Fs) {
 				// No setup needed for destination filesystem.
 			},
 			expectedFiles: map[string]string{
@@ -223,7 +223,7 @@ func TestCopyFilesBetweenFs(t *testing.T) {
 				fromFS.MkdirAll("dir1/dir2", os.ModePerm)
 				afero.WriteFile(fromFS, "dir1/dir2/file.txt", []byte("deep nested file content"), os.ModePerm)
 			},
-			setupToFs: func(toFS afero.Fs) {
+			setupToFs: func(_ afero.Fs) {
 				// No setup needed for destination filesystem.
 			},
 			expectedFiles: map[string]string{
@@ -247,16 +247,16 @@ func TestCopyFilesBetweenFs(t *testing.T) {
 
 			// Validate errors if expected.
 			if tt.expectErr {
-				require.Error(t, err)
+				assert.Assert(t, err != nil)
 				return
 			}
-			require.NoError(t, err)
+			assert.NilError(t, err)
 
 			// Validate that the expected files exist in the destination filesystem.
 			for filePath, expectedContent := range tt.expectedFiles {
 				data, err := afero.ReadFile(toFS, filePath)
-				require.NoError(t, err, "Expected file %s not found in destination filesystem", filePath)
-				require.Equal(t, expectedContent, string(data), "Content mismatch for file %s", filePath)
+				assert.NilError(t, err, "Expected file %s not found in destination filesystem", filePath)
+				assert.Equal(t, expectedContent, string(data), "Content mismatch for file %s", filePath)
 			}
 		})
 	}
@@ -272,7 +272,7 @@ func TestIsFsEmpty(t *testing.T) {
 	}{
 		{
 			name: "EmptyFileSystem",
-			setupFs: func(fs afero.Fs) {
+			setupFs: func(_ afero.Fs) {
 			},
 			expectedEmpty: true,
 			expectErr:     false,
@@ -305,12 +305,12 @@ func TestIsFsEmpty(t *testing.T) {
 			isEmpty, err := IsFsEmpty(fs)
 
 			if tt.expectErr {
-				require.Error(t, err)
+				assert.Assert(t, err != nil)
 			} else {
-				require.NoError(t, err)
+				assert.NilError(t, err)
 			}
 
-			require.Equal(t, tt.expectedEmpty, isEmpty)
+			assert.Equal(t, tt.expectedEmpty, isEmpty)
 		})
 	}
 }
@@ -417,7 +417,7 @@ func TestCopyFolder(t *testing.T) {
 			name:        "SourceDirDoesNotExist",
 			sourceDir:   "/nonexistent",
 			targetDir:   "/target",
-			setupFs:     func(fs afero.Fs) {},
+			setupFs:     func(_ afero.Fs) {},
 			expectedErr: true,
 			verifyFs: func(fs afero.Fs, t *testing.T) {
 				exists, err := afero.DirExists(fs, "/target")
