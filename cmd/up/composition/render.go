@@ -22,6 +22,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -84,9 +85,11 @@ type renderCmd struct {
 	MaxConcurrency uint          `default:"8"  env:"UP_MAX_CONCURRENCY"                  help:"Maximum number of functions to build at once."`
 
 	ProjectFile   string `default:"upbound.yaml"      help:"Path to project definition file."         short:"f"`
-	CacheDir      string `default:"~/.up/cache/"      env:"CACHE_DIR"                                 help:"Directory used for caching dependency images." short:"d" type:"path"`
+	CacheDir      string `default:"~/.up/cache/"      env:"CACHE_DIR"                                 help:"Directory used for caching dependency images." type:"path"`
 	NoBuildCache  bool   `default:"false"             help:"Don't cache image layers while building."`
 	BuildCacheDir string `default:"~/.up/build-cache" help:"Path to the build cache directory."       type:"path"`
+
+	Flags upbound.Flags `embed:""`
 
 	projFS afero.Fs
 	proj   *projectv1alpha1.Project
@@ -116,6 +119,11 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -160,7 +168,13 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 		return err
 	}
 
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCache(cache),
@@ -256,7 +270,7 @@ func (c *renderCmd) Run(log logging.Logger) error {
 // Helper function to calculate the relative path and handle errors.
 func (c *renderCmd) setRelativePath(fieldValue string, relativePath *string) error {
 	if fieldValue != "" {
-		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), fieldValue)
+		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), fieldValue) //nolint:forcetypeassert // We know the type of projFS from above.
 		if err != nil {
 			return errors.Wrap(err, "failed to make file path relative to project filesystem")
 		}

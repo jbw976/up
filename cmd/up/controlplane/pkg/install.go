@@ -48,7 +48,13 @@ func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) e
 		return errors.New(errUnknownPkgType)
 	}
 
-	c.i = image.NewResolver()
+	c.i = image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	cl, err := upCtx.BuildCurrentContextClient()
 	if err != nil {

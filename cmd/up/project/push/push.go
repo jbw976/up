@@ -22,7 +22,6 @@ import (
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
-	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -80,15 +79,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	}
 
 	c.transport = http.DefaultTransport
-	c.keychain = authn.NewMultiKeychain(
-		authn.NewKeychainFromHelper(
-			credhelper.New(
-				credhelper.WithDomain(upCtx.Domain.Hostname()),
-				credhelper.WithProfile(upCtx.ProfileName),
-			),
-		),
-		authn.DefaultKeychain,
-	)
+	c.keychain = upCtx.RegistryKeychain()
 
 	c.quiet = quiet
 	c.asyncWrapper = async.WrapWithSuccessSpinners

@@ -28,6 +28,7 @@ import (
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -106,7 +107,9 @@ type generateCmd struct {
 	Path        string `help:"Optional path to the output file where the generated Composition will be saved." optional:""`
 	ProjectFile string `default:"upbound.yaml"                                                                 help:"Path to project definition file." short:"f"`
 	Output      string `default:"file"                                                                         enum:"file,yaml,json"                   help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
-	CacheDir    string `default:"~/.up/cache/"                                                                 env:"CACHE_DIR"                         help:"Directory used for caching dependency images."                                                                                    short:"d" type:"path"`
+	CacheDir    string `default:"~/.up/cache/"                                                                 env:"CACHE_DIR"                         help:"Directory used for caching dependency images."                                                                                    type:"path"`
+
+	Flags upbound.Flags `embed:""`
 
 	projFS afero.Fs
 	apisFS afero.Fs
@@ -121,6 +124,11 @@ type generateCmd struct {
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -151,7 +159,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCache(cache),

@@ -29,6 +29,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -72,10 +73,12 @@ var (
 type generateCmd struct {
 	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
 	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
-	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." short:"d" type:"path"`
+	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." type:"path"`
 	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go"                        help:"Language for function."                        short:"l"`
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
+
+	Flags upbound.Flags `embed:""`
 
 	functionFS        afero.Fs
 	modelsFS          afero.Fs
@@ -95,6 +98,11 @@ type generateCmd struct {
 func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -134,7 +142,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		return err
 	}
 
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),

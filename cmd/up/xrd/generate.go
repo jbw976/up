@@ -25,6 +25,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -65,12 +66,14 @@ type inputYAML struct {
 
 type generateCmd struct {
 	File     string `arg:""                                                                                      help:"Path to the file containing the Composite Resource (XR) or Composite Resource Claim (XRC)."`
-	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    short:"d" type:"path"`
+	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    type:"path"`
 	Path     string `help:"Path to the output file where the Composite Resource Definition (XRD) will be saved." optional:""`
 	Plural   string `help:"Optional custom plural form for the Composite Resource Definition (XRD)."             optional:""`
 	Output   string `default:"file"                                                                              enum:"file,yaml,json"                                                                             help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
+
+	Flags upbound.Flags `embed:""`
 
 	projFS   afero.Fs
 	apisFS   afero.Fs
@@ -87,6 +90,11 @@ type generateCmd struct {
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -114,7 +122,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.relFile = c.File
 	if filepath.IsAbs(c.File) {
 		// Convert the absolute path to a relative path within projFS
-		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), c.File)
+		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), c.File) //nolint:forcetypeassert // We know the type of projFS from above.
 		if err != nil {
 			return errors.Wrap(err, "failed to make file path relative to project filesystem")
 		}
@@ -134,7 +142,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),

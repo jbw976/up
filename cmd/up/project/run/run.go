@@ -26,7 +26,6 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
-	"github.com/upbound/up/internal/credhelper"
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
@@ -99,22 +98,20 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.schemaRunner = schemarunner.RealSchemaRunner{}
 	c.transport = http.DefaultTransport
-	c.keychain = authn.NewMultiKeychain(
-		authn.NewKeychainFromHelper(
-			credhelper.New(
-				credhelper.WithDomain(upCtx.Domain.Hostname()),
-				credhelper.WithProfile(upCtx.ProfileName),
-			),
-		),
-		authn.DefaultKeychain,
-	)
+	c.keychain = upCtx.RegistryKeychain()
 
 	fs := afero.NewOsFs()
 	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
 	if err != nil {
 		return err
 	}
-	r := image.NewResolver()
+	r := image.NewResolver(
+		image.WithFetcher(
+			image.NewLocalFetcher(
+				image.WithKeychain(upCtx.RegistryKeychain()),
+			),
+		),
+	)
 
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),
