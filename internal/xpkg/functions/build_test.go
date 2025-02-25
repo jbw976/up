@@ -65,8 +65,23 @@ func TestIdentify(t *testing.T) {
 				"main.py": "",
 				"kcl.mod": "[package]",
 			},
-			// dockerBuilder has precedence.
+			// kclBuilder has precedence.
 			expectedBuilder: &kclBuilder{},
+		},
+		"GoTemplating": {
+			files: map[string]string{
+				"template1.gotmpl": "",
+				"template2.tmpl":   "",
+			},
+			expectedBuilder: &goTemplatingBuilder{},
+		},
+		"GoTemplatingInvalidFiles": {
+			files: map[string]string{
+				"template1.gotmpl": "",
+				"template2.tmpl":   "",
+				"sourcecode.go":    "package main",
+			},
+			expectError: true,
 		},
 		"Empty": {
 			files:       make(map[string]string),
@@ -231,6 +246,89 @@ func TestPythonBuild(t *testing.T) {
 		assert.NilError(t, err)
 
 		tpath := filepath.Join("/venv/fn/lib/python3.11/site-packages/function", path)
+		st, err := tfs.Stat(tpath)
+		assert.NilError(t, err)
+
+		if st.IsDir() {
+			return nil
+		}
+		wantContents, err := afero.ReadFile(fromFS, path)
+		assert.NilError(t, err)
+		gotContents, err := afero.ReadFile(tfs, tpath)
+		assert.NilError(t, err)
+		assert.DeepEqual(t, wantContents, gotContents)
+
+		return nil
+	})
+	assert.NilError(t, err)
+}
+
+//go:embed testdata/go-templating-function/**
+var goTemplatingFunction embed.FS
+
+func TestGoTemplatingBuild(t *testing.T) {
+	t.Parallel()
+
+	// Start a test registry to serve the base image.
+	regSrv, err := registry.TLS("localhost")
+	assert.NilError(t, err)
+	t.Cleanup(regSrv.Close)
+	testRegistry, err := name.NewRegistry(strings.TrimPrefix(regSrv.URL, "https://"))
+	assert.NilError(t, err)
+
+	// Put an base image in the registry that contains only a package layer. The
+	// package layer should be removed when we build a function on top of it.
+	baseImageRef := testRegistry.Repo("unittest-base-image").Tag("latest")
+	baseImage, err := mutate.ConfigFile(empty.Image, &v1.ConfigFile{
+		Architecture: "amd64",
+	})
+	assert.NilError(t, err)
+	baseLayer, err := random.Layer(1, types.OCILayer)
+	assert.NilError(t, err)
+	baseImage, err = mutate.Append(baseImage, mutate.Addendum{
+		Layer: baseLayer,
+		Annotations: map[string]string{
+			xpkg.AnnotationKey: xpkg.PackageAnnotation,
+		},
+	})
+	assert.NilError(t, err)
+	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
+	assert.NilError(t, err)
+
+	// Build a go-templating function on top of the base image.
+	b := &goTemplatingBuilder{
+		baseImage: baseImageRef.String(),
+		transport: regSrv.Client().Transport,
+	}
+	fromFS := afero.NewBasePathFs(
+		afero.FromIOFS{FS: goTemplatingFunction},
+		"testdata/go-templating-function",
+	)
+	fnImgs, err := b.Build(context.Background(), fromFS, []string{"amd64"}, "/")
+	assert.NilError(t, err)
+	assert.Assert(t, cmp.Len(fnImgs, 1))
+	fnImg := fnImgs[0]
+
+	// Ensure the default source was set correctly.
+	cfgFile, err := fnImg.ConfigFile()
+	assert.NilError(t, err)
+	assert.Assert(t, cmp.Contains(cfgFile.Config.Env, "FUNCTION_GO_TEMPLATING_DEFAULT_SOURCE=/src"))
+
+	// Verify that the code layer was added.
+	layers, err := fnImg.Layers()
+	assert.NilError(t, err)
+	assert.Assert(t, cmp.Len(layers, 1))
+	layer := layers[0]
+	rc, err := layer.Uncompressed()
+	assert.NilError(t, err)
+
+	// Make sure all the files got added with the correct contents.
+	tr := tar.NewReader(rc)
+	tfs := tarfs.New(tr)
+	_ = afero.Walk(fromFS, "/", func(path string, _ fs.FileInfo, err error) error {
+		assert.NilError(t, err)
+
+		tpath := filepath.Join("/src", path)
 		st, err := tfs.Stat(tpath)
 		assert.NilError(t, err)
 

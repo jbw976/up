@@ -42,6 +42,7 @@ func (realIdentifier) Identify(fromFS afero.Fs) (Builder, error) {
 		newKCLBuilder(),
 		newPythonBuilder(),
 		newGoBuilder(),
+		newGoTemplatingBuilder(),
 	}
 	for _, b := range builders {
 		ok, err := b.match(fromFS)
