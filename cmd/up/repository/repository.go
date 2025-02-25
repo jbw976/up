@@ -73,6 +73,7 @@ func PredictRepos() complete.Predictor {
 // Cmd contains commands for interacting with repositories.
 type Cmd struct {
 	Create     createCmd      `cmd:"" help:"Create a repository."`
+	Update     updateCmd      `cmd:"" help:"Update a repository."`
 	Delete     deleteCmd      `cmd:"" help:"Delete a repository."`
 	List       listCmd        `cmd:"" help:"List repositories for the account."`
 	Get        getCmd         `cmd:"" help:"Get a repository for the account."`

@@ -32,7 +32,7 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 type listCmd struct{}
 
 //nolint:gochecknoglobals // Would make this a const if we could.
-var fieldNames = []string{"NAME", "TYPE", "PUBLIC", "UPDATED"}
+var fieldNames = []string{"NAME", "TYPE", "PUBLIC", "PUBLISH POLICY", "UPDATED"}
 
 // Run executes the list command.
 func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, rc *repositories.Client, upCtx *upbound.Context) error {
@@ -58,5 +58,5 @@ func extractFields(obj any) []string {
 	if r.UpdatedAt != nil {
 		u = duration.HumanDuration(time.Since(*r.UpdatedAt))
 	}
-	return []string{r.Name, rt, strconv.FormatBool(r.Public), u}
+	return []string{r.Name, rt, strconv.FormatBool(r.Public), string(*r.Publish), u}
 }
