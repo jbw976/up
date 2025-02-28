@@ -5,19 +5,17 @@ import {{.ImportPath}} as {{.Alias}}
 {{- "\n" }}
 {{- end }}
 
-# _items = [
-#     metav1alpha1.CompositionTest{
-#         spec= {
-#             assertResources: []
-#             composition: ""
-#             xr: ""
-#             xrd: ""
-#             context: []
-#             extraResources: []
-#             observedResources: []
-#             timeoutSeconds: 60
-#             validate: False
-#         }
-#     }
-# ]
-# items = _items
+_items = [
+    metav1alpha1.CompositionTest{
+        metadata.name: ""
+        spec= {
+            assertResources: []
+            compositionPath: ""
+            xrPath: ""
+            xrdPath: ""
+            timeoutSeconds: 60
+            validate: False
+        }
+    }
+]
+items= _items

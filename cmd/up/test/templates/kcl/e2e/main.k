@@ -5,16 +5,17 @@ import {{.ImportPath}} as {{.Alias}}
 {{- "\n" }}
 {{- end }}
 
-# _items = [
-#     metav1alpha1.E2ETest{
-#         spec = {
-#             crossplane.autoUpgrade.channel = "Rapid"
-#             defaultConditions= ["Ready"]
-#             manifests= []
-#             extraResources= []
-#             skipDelete: False
-#             timeoutSeconds: 4500
-#         }
-#     }
-# ]
-# items = _items
+_items = [
+    metav1alpha1.E2ETest{
+        metadata.name: ""
+        spec= {
+            crossplane.autoUpgrade.channel: "Rapid"
+            defaultConditions: ["Ready"]
+            manifests: []
+            extraResources: []
+            skipDelete: False
+            timeoutSeconds: 4500
+        }
+    }
+]
+items= _items

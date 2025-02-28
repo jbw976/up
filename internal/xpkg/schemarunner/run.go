@@ -25,14 +25,60 @@ import (
 
 // SchemaRunner defines an interface for schema generation.
 type SchemaRunner interface {
-	Generate(ctx context.Context, fs afero.Fs, folder string, basePath string, imageName string, args []string) error
+	Generate(ctx context.Context, fs afero.Fs, folder string, basePath string, imageName string, args []string, options ...Option) error
 }
 
 // RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
 type RealSchemaRunner struct{}
 
+// GenerateOptions holds optional parameters for Generate.
+type GenerateOptions struct {
+	CopyToPath    string
+	CopyFromPath  string
+	WorkDirectory string
+}
+
+// Option is a function that modifies GenerateOptions.
+type Option func(*GenerateOptions)
+
+// WithCopyToPath sets the CopyToPath option.
+func WithCopyToPath(path string) Option {
+	return func(o *GenerateOptions) {
+		o.CopyToPath = path
+	}
+}
+
+// WithCopyFromPath sets the CopyFromPath option.
+func WithCopyFromPath(path string) Option {
+	return func(o *GenerateOptions) {
+		o.CopyFromPath = path
+	}
+}
+
+// WithWorkDirectory sets the WorkDirectory option.
+func WithWorkDirectory(dir string) Option {
+	return func(o *GenerateOptions) {
+		o.WorkDirectory = dir
+	}
+}
+
+// DefaultGenerateOptions provides default values.
+func DefaultGenerateOptions() GenerateOptions {
+	return GenerateOptions{
+		CopyToPath:    "/data/input",
+		CopyFromPath:  "/data/input",
+		WorkDirectory: "/data/input",
+	}
+}
+
 // Generate runs the containerized language tool for schema generation.
-func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, basePath, imageName string, command []string) error { //nolint:gocyclo // start container
+func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, basePath, imageName string, command []string, options ...Option) error { //nolint:gocyclo // start container
+	// Apply default options
+	o := DefaultGenerateOptions()
+	for _, opt := range options {
+		opt(&o) // Apply each provided option
+	}
+
 	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
 	if err != nil {
 		return errors.Wrapf(err, "failed to use the docker client")
@@ -66,14 +112,14 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image:      imageName,
 		Cmd:        command,
-		WorkingDir: "/data/input",
+		WorkingDir: o.WorkDirectory,
 	}, nil, nil, nil, "")
 	if err != nil {
 		return errors.Wrapf(err, "failed to launch container")
 	}
 
 	// Copy the tar archive to the container
-	if err := cli.CopyToContainer(ctx, resp.ID, "/data/input", bytes.NewReader(tarBuffer), container.CopyToContainerOptions{}); err != nil {
+	if err := cli.CopyToContainer(ctx, resp.ID, o.CopyToPath, bytes.NewReader(tarBuffer), container.CopyToContainerOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to copy tar to container")
 	}
 
@@ -109,7 +155,7 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	// Copy the results back from the container to the in-memory filesystem
-	if err := copyFromContainerToFs(ctx, cli, resp.ID, "/data/input", fromFS); err != nil {
+	if err := copyFromContainerToFs(ctx, cli, resp.ID, o.CopyFromPath, fromFS); err != nil {
 		return errors.Wrapf(err, "failed to copy tar from container")
 	}
 

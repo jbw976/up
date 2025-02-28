@@ -28,7 +28,14 @@ type KCLRunner struct{}
 
 // Run kcl tests manifest generation.
 func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
-	err := schemaRunner.Generate(ctx, fs, ".", basePath, "xpkg.upbound.io/upbound/kcl:v0.10.6", []string{"kcl", "run", "-o", "test.yaml"})
+	err := schemaRunner.Generate(
+		ctx,
+		fs,
+		".",
+		basePath,
+		"xpkg.upbound.io/upbound/kcl:v0.10.6",
+		[]string{"kcl", "run", "-o", "test.yaml"},
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute KCL manifest generation")
 	}
@@ -40,8 +47,17 @@ type PythonRunner struct{}
 
 // Run python tests manifest generation.
 func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
-	// ToDo(haarchri): switch to upbound
-	err := schemaRunner.Generate(ctx, fs, ".", basePath, "docker.io/haarchri/python-test:0.9", []string{"python", "-m", "extract_objects"})
+	err := schemaRunner.Generate(
+		ctx,
+		fs,
+		".",
+		basePath,
+		"xpkg.upbound.io/upbound/uptest-pyrunner:v0.2.0",
+		[]string{"/venv/test/bin/uptestpyrunner"},
+		schemarunner.WithWorkDirectory("/"),
+		schemarunner.WithCopyToPath("/venv/test/lib/python3.11/site-packages/uptestpyrunner"),
+		schemarunner.WithCopyFromPath("/test.yaml"),
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute Python manifest generation")
 	}
