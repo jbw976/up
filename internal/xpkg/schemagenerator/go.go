@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/oapi-codegen/v2/pkg/codegen"
@@ -233,6 +234,10 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 	})
 }
 
+// generateGoMutex prevents concurrent calls to `codegen.Generate` in
+// `generateGo`, since `codegen.Generate` is not concurrency safe.
+var generateGoMutex sync.Mutex //nolint:gochecknoglobals // Must be global.
+
 func generateGo(s *spec3.OpenAPI, version string, mutators ...func(*spec3.OpenAPI)) (string, error) {
 	for _, mut := range mutators {
 		mut(s)
@@ -251,6 +256,8 @@ func generateGo(s *spec3.OpenAPI, version string, mutators ...func(*spec3.OpenAP
 	}
 
 	// Generate code!
+	generateGoMutex.Lock()
+	defer generateGoMutex.Unlock()
 	goCode, err := codegen.Generate(oapiInput, codegen.Configuration{
 		PackageName: version,
 		Generate: codegen.GenerateOptions{
