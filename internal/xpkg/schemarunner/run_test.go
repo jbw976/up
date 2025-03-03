@@ -156,7 +156,7 @@ func TestCreateTarFromFs(t *testing.T) {
 type MockSchemaRunner struct{}
 
 // Generate will run MockSchemaRunner generate for Schema.
-func (m *MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _, _ string, _ string, _ []string) error {
+func (m *MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _, _ string, _ string, _ []string, _ ...Option) error {
 	// Simulate the generation of expected output files in-memory.
 	outputPath := "models/k8s/apimachinery/pkg/apis/meta/v1/managed_fields_entry.k"
 	_ = fs.MkdirAll("models/k8s/apimachinery/pkg/apis/meta/v1", os.ModePerm)
