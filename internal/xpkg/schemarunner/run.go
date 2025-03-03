@@ -119,7 +119,7 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	// Copy the tar archive to the container
-	if err := cli.CopyToContainer(ctx, resp.ID, o.CopyToPath, bytes.NewReader(tarBuffer), container.CopyToContainerOptions{}); err != nil {
+	if err := cli.CopyToContainer(ctx, resp.ID, filepath.Clean(o.CopyToPath), bytes.NewReader(tarBuffer), container.CopyToContainerOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to copy tar to container")
 	}
 
