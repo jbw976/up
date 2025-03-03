@@ -22,6 +22,7 @@ import (
 // ToOpenAPI converts the storage version of a CRD to an OpenAPI spec. The
 // version is returned along with the OpenAPI spec.
 func ToOpenAPI(crd *extv1.CustomResourceDefinition) (map[string]*spec3.OpenAPI, error) {
+	modifyCRDManifestFields(crd)
 	oapis := make(map[string]*spec3.OpenAPI, len(crd.Spec.Versions))
 
 	if len(crd.Spec.Versions) == 0 {
@@ -108,5 +109,55 @@ func addDefaultAPIVersionAndKind(s *spec.Schema, gvk schema.GroupVersionKind) {
 	if prop, ok := s.Properties["kind"]; ok {
 		prop.Default = gvk.Kind
 		s.Properties["kind"] = prop
+	}
+}
+
+func modifyCRDManifestFields(crd *extv1.CustomResourceDefinition) {
+	for i, version := range crd.Spec.Versions {
+		if version.Schema != nil && version.Schema.OpenAPIV3Schema != nil {
+			// Recursively update all properties in the schema
+			updateSchemaPropertiesXEmbeddedResource(version.Schema.OpenAPIV3Schema)
+			crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties = version.Schema.OpenAPIV3Schema.Properties
+		}
+	}
+}
+
+// updateSchemaPropertiesXEmbeddedResource recursively traverse and update schema properties at all depths.
+func updateSchemaPropertiesXEmbeddedResource(schema *extv1.JSONSchemaProps) {
+	if schema == nil {
+		return
+	}
+
+	// Modify the schema if it matches the condition
+	if schema.XEmbeddedResource && schema.XPreserveUnknownFields != nil && *schema.XPreserveUnknownFields {
+		schema.XEmbeddedResource = false
+		schema.XPreserveUnknownFields = nil
+		schema.Type = "object"
+		schema.AdditionalProperties = &extv1.JSONSchemaPropsOrBool{
+			Allows: true,
+			Schema: nil,
+		}
+	}
+
+	// Recursively update all properties inside `Properties` (objects)
+	for key, property := range schema.Properties {
+		updateSchemaPropertiesXEmbeddedResource(&property)
+		schema.Properties[key] = property
+	}
+
+	// Recursively update `AdditionalProperties` (maps)
+	if schema.AdditionalProperties != nil && schema.AdditionalProperties.Schema != nil {
+		updateSchemaPropertiesXEmbeddedResource(schema.AdditionalProperties.Schema)
+	}
+
+	// Recursively update `Items` (arrays)
+	if schema.Items != nil {
+		if schema.Items.Schema != nil {
+			updateSchemaPropertiesXEmbeddedResource(schema.Items.Schema)
+		} else if schema.Items.JSONSchemas != nil {
+			for i := range schema.Items.JSONSchemas {
+				updateSchemaPropertiesXEmbeddedResource(&schema.Items.JSONSchemas[i])
+			}
+		}
 	}
 }
