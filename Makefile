@@ -59,6 +59,15 @@ $(error Please install sha256sum)
 endif
 
 # ====================================================================================
+# Setup Images
+# Due to the way that the shared build logic works, images should
+# all be in folders at the same level (no additional levels of nesting).
+
+REGISTRY_ORGS = xpkg.upbound.io/upbound
+IMAGES = up-cli
+-include build/makelib/imagelight.mk
+
+# ====================================================================================
 # Targets
 
 # run `make help` to see the targets and options

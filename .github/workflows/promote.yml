@@ -45,6 +45,14 @@ jobs:
           username: ${{ secrets.DOCKER_USR }}
           password: ${{ secrets.DOCKER_PSW }}
 
+      - name: Login to Upbound
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2
+        if: env.XPKG_ACCESS_ID != ''
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.XPKG_ACCESS_ID }}
+          password: ${{ secrets.XPKG_TOKEN }}
+
       - name: Promote Artifacts in S3 and Docker Hub
         if: env.AWS_USR != '' && env.DOCKER_USR != ''
         run: make -j2 promote BRANCH_NAME=${GITHUB_REF##*/}
