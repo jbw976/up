@@ -34,10 +34,10 @@ func NewUnstructuredResourceApplier(dynamicClient dynamic.Interface, resourceMap
 
 func (a *UnstructuredResourceApplier) ApplyResources(ctx context.Context, resources []unstructured.Unstructured, applyStatus bool) error {
 	for i := range resources {
-		err := retry.OnError(retry.DefaultRetry, resource.IsAPIError, func() error {
+		err := retry.OnError(retry.DefaultRetry, resource.IsAPIErrorWrapped, func() error {
 			rm, err := a.resourceMapper.RESTMapping(resources[i].GroupVersionKind().GroupKind(), resources[i].GroupVersionKind().Version)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot get REST mapping")
 			}
 
 			rs := resources[i].DeepCopy()
@@ -46,7 +46,7 @@ func (a *UnstructuredResourceApplier) ApplyResources(ctx context.Context, resour
 				Force:        true,
 			})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot apply resource")
 			}
 			if !applyStatus {
 				return nil
@@ -55,8 +55,14 @@ func (a *UnstructuredResourceApplier) ApplyResources(ctx context.Context, resour
 				FieldManager: "up-controlplane-migrator",
 				Force:        true,
 			})
-			if err != nil {
-				return err
+			// Note(turkenh): We just successfully applied this resource above,
+			// so we can ignore the not found error here. This could happen if
+			// the resource was being deleted during export and garbage
+			// collected right after the resource was applied. In this case,
+			// we will get a not found error here, while applying the status,
+			// so we can ignore it.
+			if resource.IgnoreNotFound(err) != nil {
+				return errors.Wrap(err, "cannot apply resource status")
 			}
 			return nil
 		})
@@ -69,22 +75,22 @@ func (a *UnstructuredResourceApplier) ApplyResources(ctx context.Context, resour
 
 func (a *UnstructuredResourceApplier) ModifyResources(ctx context.Context, resources []unstructured.Unstructured, modify func(*unstructured.Unstructured) error) error {
 	for i := range resources {
-		err := retry.OnError(retry.DefaultRetry, resource.IsAPIError, func() error {
+		err := retry.OnError(retry.DefaultRetry, resource.IsAPIErrorWrapped, func() error {
 			rm, err := a.resourceMapper.RESTMapping(resources[i].GroupVersionKind().GroupKind(), resources[i].GroupVersionKind().Version)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot get REST mapping")
 			}
 			u, err := a.dynamicClient.Resource(rm.Resource).Namespace(resources[i].GetNamespace()).Get(ctx, resources[i].GetName(), v1.GetOptions{})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot get resource")
 			}
 			if err := modify(u); err != nil {
-				return err
+				return errors.Wrap(err, "cannot modify resource")
 			}
 
 			_, err = a.dynamicClient.Resource(rm.Resource).Namespace(resources[i].GetNamespace()).Update(ctx, u, v1.UpdateOptions{})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "cannot update resource")
 			}
 			return nil
 		})
