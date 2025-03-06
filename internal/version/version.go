@@ -40,7 +40,7 @@ const (
 var (
 	version             string
 	agentVersion        string = "0.0.0-429.g5433474"
-	mcpConnectorVersion string = "0.7.0"
+	mcpConnectorVersion string = "0.8.0"
 	gitCommit           string = "unknown-commit"
 	target              string = string(ReleaseTargetDebug)
 )

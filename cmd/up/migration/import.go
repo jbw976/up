@@ -31,6 +31,16 @@ type importCmd struct {
 
 	UnpauseAfterImport bool `default:"false" help:"When set to true, automatically unpauses all managed resources that were paused during the import process. This helps in resuming normal operations post-import. Defaults to false, requiring manual unpausing of resources if needed."`
 
+	// MCPConnectorClusterID specifies the MCP Connector cluster ID.
+	// https://github.com/upbound/mcp-connector/blob/b8a55b698d5d0c1343faf53110738f9bb1865705/cluster/charts/mcp-connector/values.yaml.tmpl#L11
+	MCPConnectorClusterID string `help:"MCP Connector cluster ID. Required for importing claims supported my MCP Connector."`
+
+	// MCPConnectorClaimNamespace defines the MCP Connector claim namespace.
+	// https://github.com/upbound/mcp-connector/blob/b8a55b698d5d0c1343faf53110738f9bb1865705/cluster/charts/mcp-connector/values.yaml.tmpl#L49
+	MCPConnectorClaimNamespace string `help:"MCP Connector claim namespace. Required for importing claims supported by MCP Connector."`
+
+	ImportClaimsOnly bool `default:"false" help:"When set to true, only Claims will be imported"`
+
 	SkipTargetCheck bool `default:"false" help:"When set to true, skips the check for a local or managed control plane during import." hidden:""`
 }
 
@@ -48,12 +58,22 @@ Examples:
     migration import --unpause-after-import
         Automatically imports and unpauses claim,composite,managed resources after the import.
 		Resources with the annotation migration.upbound.io/already-paused: "true" will remain paused.
+
+	migration import --unpause-after-import --mcp-connector-claim-namespace=default --mcp-connector-cluster-id=my-cluster-id
+		Automatically imports and unpauses claims, composites, and managed resources after the import process.
+		The metadata.name of claims will be adjusted for MCP Connector compatibility, and the corresponding composite's claimRef will also be updated.
+		Resources annotated with migration.upbound.io/already-paused: "true" will remain paused.
 `
 }
 
 // BeforeApply sets default values for the delete command, before assignment and validation.
 func (c *importCmd) BeforeApply() error {
 	c.prompter = input.NewPrompter()
+
+	if (c.MCPConnectorClaimNamespace == "") != (c.MCPConnectorClusterID == "") {
+		return errors.New("both MCPConnectorClaimNamespace and MCPConnectorClusterID must be set or both must be empty")
+	}
+
 	return nil
 }
 
@@ -83,24 +103,30 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 		InputArchive: c.Input,
 
 		UnpauseAfterImport: c.UnpauseAfterImport,
+
+		MCPConnectorClusterID:      c.MCPConnectorClusterID,
+		MCPConnectorClaimNamespace: c.MCPConnectorClaimNamespace,
+		ImportClaimsOnly:           c.ImportClaimsOnly,
 	})
 
-	errs := i.PreflightChecks(ctx)
-	if len(errs) > 0 {
-		pterm.Println("Preflight checks failed:")
-		for _, err := range errs {
-			pterm.Println("- " + err.Error())
-		}
-		if !c.Yes {
-			pterm.Println() // Blank line
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = "Do you still want to proceed?"
-			confirm.DefaultValue = false
-			result, _ := confirm.Show()
-			pterm.Println() // Blank line
-			if !result {
-				pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
-				return nil
+	if !c.ImportClaimsOnly {
+		errs := i.PreflightChecks(ctx)
+		if len(errs) > 0 {
+			pterm.Println("Preflight checks failed:")
+			for _, err := range errs {
+				pterm.Println("- " + err.Error())
+			}
+			if !c.Yes {
+				pterm.Println() // Blank line
+				confirm := pterm.DefaultInteractiveConfirm
+				confirm.DefaultText = "Do you still want to proceed?"
+				confirm.DefaultValue = false
+				result, _ := confirm.Show()
+				pterm.Println() // Blank line
+				if !result {
+					pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
+					return nil
+				}
 			}
 		}
 	}
