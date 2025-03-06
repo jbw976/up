@@ -6,6 +6,7 @@ package schemagenerator
 import (
 	"context"
 	"encoding/json"
+	"go/format"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -266,13 +267,19 @@ func generateGo(s *spec3.OpenAPI, version string, mutators ...func(*spec3.OpenAP
 		OutputOptions: codegen.OutputOptions{
 			SkipPrune:      true,
 			NameNormalizer: string(codegen.NameNormalizerFunctionToCamelCaseWithInitialisms),
+			SkipFmt:        true,
 		},
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to generate go code from OpenAPI schema")
 	}
 
-	return goCode, nil
+	goCodeBytes, err := format.Source([]byte(goCode))
+	if err != nil {
+		return "", errors.Wrap(err, "failed to format go code")
+	}
+
+	return string(goCodeBytes), nil
 }
 
 // goExtractK8sSchemas returns all k8s meta/v1 schemas from the given OpenAPI
