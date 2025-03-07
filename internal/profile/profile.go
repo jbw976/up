@@ -7,9 +7,14 @@ package profile
 import (
 	"encoding/json"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	clientcmdapiv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/yaml"
 )
 
 // TokenType is a type of Upbound session token format.
@@ -63,9 +68,11 @@ type Profile struct {
 	// selected.
 	Domain string `json:"domain,omitempty"`
 
+	RawSpaceKubeconfig json.RawMessage `json:"spaceKubeconfig,omitempty"`
+
 	// SpaceKubeconfig is the kubeconfig for the disconnected space in a
 	// disconnected profile. It must not be set for cloud profiles.
-	SpaceKubeconfig *clientcmdapi.Config `json:"spaceKubeconfig,omitempty"`
+	SpaceKubeconfig *clientcmdapi.Config `json:"-"`
 
 	// CurrentKubeContext is the current kubeconfig context for the profile, in
 	// the format used by non-interactive `up ctx`.
@@ -96,7 +103,67 @@ func (p *Profile) UnmarshalJSON(bs []byte) error {
 		p.Type = TypeCloud
 	}
 
+	if p.RawSpaceKubeconfig != nil {
+		p.SpaceKubeconfig = new(clientcmdapi.Config)
+
+		var meta metav1.TypeMeta
+		if err := yaml.Unmarshal(p.RawSpaceKubeconfig, &meta); err != nil {
+			return err
+		}
+		if meta.APIVersion == "" && meta.Kind == "" {
+			// Config was written by an old version of up, which serialized the
+			// clientcmdapi.Config directly instead of converting it to a
+			// versioned one first.
+			if err := json.Unmarshal(p.RawSpaceKubeconfig, p.SpaceKubeconfig); err != nil {
+				return err
+			}
+		} else {
+			// Config was written by a newer version of up, which serialized a
+			// versioned config.
+			var versioned clientcmdapiv1.Config
+			if err := yaml.Unmarshal(p.RawSpaceKubeconfig, &versioned); err != nil {
+				return err
+			}
+			s := runtime.NewScheme()
+			_ = clientcmdapi.SchemeBuilder.AddToScheme(s)
+			_ = clientcmdapiv1.SchemeBuilder.AddToScheme(s)
+			if err := s.Convert(&versioned, p.SpaceKubeconfig, nil); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
+}
+
+// MarshalJSON marshals a profile to JSON, converting the SpaceKubeconfig to a
+// RawSpaceKubeconfig appropriate for storage.
+func (p Profile) MarshalJSON() ([]byte, error) {
+	type profile Profile
+
+	if p.SpaceKubeconfig != nil {
+		s := runtime.NewScheme()
+		_ = clientcmdapi.SchemeBuilder.AddToScheme(s)
+		_ = clientcmdapiv1.SchemeBuilder.AddToScheme(s)
+
+		var versioned clientcmdapiv1.Config
+		if err := s.Convert(p.SpaceKubeconfig, &versioned, nil); err != nil {
+			return nil, err
+		}
+		versioned.APIVersion = "v1"
+		versioned.Kind = "Config"
+		bs, err := yaml.Marshal(&versioned)
+		if err != nil {
+			return nil, err
+		}
+		p.RawSpaceKubeconfig, err = yaml.YAMLToJSON(bs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	pc := profile(p)
+	return json.Marshal(pc)
 }
 
 // Validate returns an error if the profile is invalid.
@@ -140,6 +207,14 @@ func (p Redacted) MarshalJSON() ([]byte, error) {
 	if pc.SpaceKubeconfig != nil {
 		if err := clientcmdapi.RedactSecrets(pc.SpaceKubeconfig); err != nil {
 			return nil, errors.Wrap(err, "failed to redact kubeconfig")
+		}
+		bs, err := yaml.Marshal(pc.SpaceKubeconfig)
+		if err != nil {
+			return nil, err
+		}
+		p.RawSpaceKubeconfig, err = yaml.YAMLToJSON(bs)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return json.Marshal(&pc)
