@@ -19,7 +19,7 @@ require (
 	github.com/crossplane/crossplane/controller/apiextensions v0.15.0-rc.0
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.3.0
-	github.com/docker/docker-credential-helpers v0.9.1
+	github.com/docker/docker-credential-helpers v0.9.2
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/getkin/kin-openapi v0.129.0
 	github.com/goccy/go-yaml v1.12.0
