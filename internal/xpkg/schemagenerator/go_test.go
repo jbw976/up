@@ -29,6 +29,7 @@ func TestGenerateGo(t *testing.T) {
 		"models/io/k8s/meta/v1/meta.go",
 		"models/co/acme/platform/v1alpha1/accountscaffold.go",
 		"models/co/acme/platform/v1alpha1/xaccountscaffold.go",
+		"models/io/upbound/azure/web/v1beta1/linuxfunctionapp.go",
 	}
 
 	files := token.NewFileSet()

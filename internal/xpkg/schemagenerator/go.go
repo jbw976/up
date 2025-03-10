@@ -348,8 +348,8 @@ func goRenamePropertyTypes(baseName string, props map[string]spec.Schema) {
 		goRenamePropertyTypes(goName, prop.Properties)
 
 		if prop.Items != nil {
-			goRenameSchemaType(goName, prop.Items.Schema)
-			goRenamePropertyTypes(goName, prop.Items.Schema.Properties)
+			goRenameSchemaType(goName+"Item", prop.Items.Schema)
+			goRenamePropertyTypes(goName+"Item", prop.Items.Schema.Properties)
 		}
 
 		props[name] = prop
@@ -392,8 +392,8 @@ func goRenamePropertyEnums(baseName string, props map[string]spec.Schema) {
 		goRenamePropertyEnums(goName, prop.Properties)
 
 		if prop.Items != nil {
-			goRenameEnumValues(goName, prop.Items.Schema)
-			goRenamePropertyEnums(goName, prop.Items.Schema.Properties)
+			goRenameEnumValues(goName+"Item", prop.Items.Schema)
+			goRenamePropertyEnums(goName+"Item", prop.Items.Schema.Properties)
 		}
 
 		props[name] = prop
