@@ -8,37 +8,29 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
-	diffv3 "github.com/r3labs/diff/v3"
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/resource"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 
-	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	upctx "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -51,15 +43,6 @@ const (
 	// fieldManagerName is the name used to server side apply changes to the
 	// simulated control plan.
 	fieldManagerName = "up-cli"
-
-	// annotationKeyClonedState is the annotation key storing the JSON
-	// representation of the state of the resource at control plane clone time.
-	annotationKeyClonedState = "simulation.spaces.upbound.io/cloned-state"
-
-	// simulationCompleteReason is the value present in the `reason` field of
-	// the `AcceptingChanges` condition (on a Simulation) once the results have
-	// been published.
-	simulationCompleteReason = "SimulationComplete"
 )
 
 // failOnCondition is the simulation condition that signals a failure in the
@@ -152,23 +135,24 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		totalSteps++
 	}
 
-	sim, err := c.createSimulation(ctx, spacesClient)
+	run, err := c.startRun(ctx, kongCtx, spacesClient)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error starting simulation")
 	}
-	p.Printfln("Simulation %q created", sim.Name)
+
+	p.Printfln("Simulation %q created", run.Simulation().Name)
 
 	// wait for simulated ctp to be able to accept changes
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulated control plane to start", 1, totalSteps),
 		upterm.CheckmarkSuccessSpinner,
-		c.waitForSimulationAcceptingChangesStep(ctx, sim, spacesClient),
+		waitForConditionStep(ctx, spacesClient, run, simulation.AcceptingChanges(), wait.WithTimeout(controlPlaneReadyTimeout)),
 		c.quiet,
 	); err != nil {
 		return err
 	}
 
-	simConfig, err := getControlPlaneConfig(ctx, upCtx, types.NamespacedName{Namespace: c.Group, Name: *sim.Status.SimulatedControlPlaneName})
+	simConfig, err := run.RESTConfig(ctx, upCtx)
 	if err != nil {
 		return err
 	}
@@ -192,7 +176,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
 		stepSpinner,
-		c.waitForSimulationCompleteStep(ctx, sim, spacesClient),
+		waitForConditionStep(ctx, spacesClient, run, simulation.Complete()),
 		c.quiet,
 	); err != nil {
 		return err
@@ -201,9 +185,9 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	// compute + print diff
 	s, _ := stepSpinner.Start(upterm.StepCounter("Computing simulated differences", 4, totalSteps))
 
-	c.debugPrintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(sim.Status.Changes))
+	c.debugPrintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(run.Simulation().Status.Changes))
 
-	diffSet, err := c.createResourceDiffSet(ctx, kongCtx, simConfig, sim.Status.Changes)
+	diffSet, err := run.DiffSet(ctx, upCtx)
 	if err != nil {
 		return err
 	}
@@ -216,7 +200,9 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		if err := upterm.WrapWithSuccessSpinner(
 			upterm.StepCounter("Terminating simulation", 5, totalSteps),
 			stepSpinner,
-			c.terminateSimulation(ctx, sim, spacesClient),
+			func() error {
+				return run.Terminate(ctx, spacesClient)
+			},
 			c.quiet,
 		); err != nil {
 			return err
@@ -239,80 +225,35 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	return nil
 }
 
-// createSimulation creates a new simulation object.
-func (c *CreateCmd) createSimulation(ctx context.Context, client client.Client) (*spacesv1alpha1.Simulation, error) {
-	sim := &spacesv1alpha1.Simulation{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.SimulationName,
-			Namespace: c.Group,
-		},
-		Spec: spacesv1alpha1.SimulationSpec{
-			ControlPlaneName: c.SourceName,
-			DesiredState:     spacesv1alpha1.SimulationStateAcceptingChanges,
-		},
-	}
-
-	if sim.Name == "" {
-		sim.GenerateName = c.SourceName + "-"
+// startRun starts a simulation using the configuration defined in the command
+// options.
+func (c *CreateCmd) startRun(ctx context.Context, kongCtx *kong.Context, spacesClient client.Client) (*simulation.Run, error) {
+	runOpts := []simulation.Option{
+		simulation.WithDebugPrintfFunc(func(format string, args ...any) {
+			c.debugPrintf(kongCtx.Stderr, format, args)
+		}),
+		simulation.WithCompleteAfter(1 * time.Minute),
 	}
 
 	if c.CompleteAfter != nil {
-		sim.Spec.CompletionCriteria = []spacesv1alpha1.CompletionCriterion{{
-			Type:     spacesv1alpha1.CompletionCriterionTypeDuration,
-			Duration: metav1.Duration{Duration: *c.CompleteAfter},
-		}}
+		runOpts = append(runOpts, simulation.WithCompleteAfter(*c.CompleteAfter))
 	}
 
-	if err := client.Create(ctx, sim); err != nil {
-		return nil, errors.Wrap(err, "error creating simulation")
+	if c.SimulationName != "" {
+		runOpts = append(runOpts, simulation.WithName(c.SimulationName))
 	}
 
-	return sim, nil
+	return simulation.Start(ctx, spacesClient, types.NamespacedName{
+		Name:      c.SourceName,
+		Namespace: c.Group,
+	}, runOpts...)
 }
 
-// waitForSimulationAcceptingChangesStep pauses until the given simulation is
-// able to accept changes, or times out.
-func (c *CreateCmd) waitForSimulationAcceptingChangesStep(ctx context.Context, sim *spacesv1alpha1.Simulation, client client.Client) func() error {
+// waitForConditionStep defines a step to poll until a specific wait condition
+// is met.
+func waitForConditionStep(ctx context.Context, spacesClient client.Client, run *simulation.Run, cond simulation.WaitConditionFunc, opts ...wait.Option) func() error {
 	return func() error {
-		if err := wait.For(func(ctx context.Context) (bool, error) {
-			if err := client.Get(ctx, types.NamespacedName{Name: sim.Name, Namespace: sim.Namespace}, sim); err != nil {
-				return false, err
-			}
-			return sim.Status.GetCondition(spacesv1alpha1.TypeAcceptingChanges).Status == corev1.ConditionTrue, nil
-		}, wait.WithImmediate(), wait.WithInterval(time.Second*2), wait.WithTimeout(controlPlaneReadyTimeout), wait.WithContext(ctx)); err != nil {
-			return errors.Wrap(err, "timed out before simulation could accept changes")
-		}
-		return nil
-	}
-}
-
-// waitForSimulationCompleteStep pauses until the given simulation has been
-// marked as complete.
-func (c *CreateCmd) waitForSimulationCompleteStep(ctx context.Context, sim *spacesv1alpha1.Simulation, client client.Client) func() error {
-	return func() error {
-		if err := wait.For(func(ctx context.Context) (bool, error) {
-			if err := client.Get(ctx, types.NamespacedName{Name: sim.Name, Namespace: sim.Namespace}, sim); err != nil {
-				return false, err
-			}
-			if sim.Spec.DesiredState != spacesv1alpha1.SimulationStateComplete {
-				return false, nil
-			}
-			return sim.Status.GetCondition(spacesv1alpha1.TypeAcceptingChanges).Reason == simulationCompleteReason, nil
-		}, wait.WithImmediate(), wait.WithInterval(time.Second*2), wait.WithContext(ctx)); err != nil {
-			return errors.Wrap(err, "error while waiting for simulation to complete")
-		}
-		return nil
-	}
-}
-
-// terminateSimulation marks the simulation as terminated.
-func (c *CreateCmd) terminateSimulation(ctx context.Context, sim *spacesv1alpha1.Simulation, client client.Client) func() error {
-	return func() error {
-		sim.Spec.DesiredState = spacesv1alpha1.SimulationStateTerminated
-		if err := client.Update(ctx, sim); err != nil {
-			return errors.Wrap(err, "unable to terminate simulation")
-		}
-		return nil
+		return run.WaitForCondition(ctx, spacesClient, cond, opts...)
 	}
 }
 
@@ -335,162 +276,6 @@ func (c *CreateCmd) applyChangesetStep(config *rest.Config) func() error {
 
 		return nil
 	}
-}
-
-// removeFieldsForDiff removes any fields that should be excluded from the diff.
-func (c *CreateCmd) removeFieldsForDiff(u *unstructured.Unstructured) error {
-	// based on the filters in the simulation preprocessor
-	// https://github.com/upbound/spaces/blob/v1.8.0/internal/controller/mxe/simulation/preprocess.go#L100-L108
-	trim := []string{
-		"metadata.generateName",
-		"metadata.uid",
-		"metadata.resourceVersion",
-		"metadata.generation",
-		"metadata.creationTimestamp",
-		"metadata.ownerReferences",
-		"metadata.managedFields",
-		"metadata.annotations['kubectl.kubernetes.io/last-applied-configuration']",
-		fmt.Sprintf("metadata.annotations['%s']", annotationKeyClonedState),
-		"spec.compositionRevisionRef",
-	}
-
-	wildcards := []string{
-		"status.conditions[*].lastTransitionTime",
-	}
-
-	p := fieldpath.Pave(u.UnstructuredContent())
-
-	// expand each wildcard path and add to list to trim
-	for _, wildcard := range wildcards {
-		expanded, err := p.ExpandWildcards(wildcard)
-		if err != nil {
-			return errors.Wrap(err, "unable to expand wildcards in ignored fields")
-		}
-		trim = append(trim, expanded...)
-	}
-
-	for _, path := range trim {
-		if err := p.DeleteField(path); err != nil {
-			return errors.Wrap(err, "cannot delete field")
-		}
-	}
-
-	return nil
-}
-
-// createResourceDiffSet reads through all of the changes from the simulation
-// status and looks up the difference between the initial version of the
-// resource and the version currently in the API server (at the time of the
-// function call).
-func (c *CreateCmd) createResourceDiffSet(ctx context.Context, kongCtx *kong.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { //nolint:gocyclo // TODO: simplify this
-	lookup, err := kube.NewDiscoveryResourceLookup(config)
-	if err != nil {
-		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to create resource lookup client")
-	}
-
-	dyn, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to create dynamic client")
-	}
-
-	diffSet := make([]diff.ResourceDiff, 0, len(changes))
-
-	c.debugPrintf(kongCtx.Stderr, "iterating over %d changes\n", len(changes))
-
-	// stores a list of resources that we want to filter in the diff, that
-	// aren't being filtered in the reconciler
-	trimKind := []schema.GroupVersionKind{
-		{Group: "apiextensions.crossplane.io", Version: "v1", Kind: "CompositionRevision"},
-		{Group: "pkg.crossplane.io", Version: "v1beta1", Kind: "DeploymentRuntimeConfig"},
-	}
-
-	for _, change := range changes {
-		gvk := schema.FromAPIVersionAndKind(change.ObjectReference.APIVersion, change.ObjectReference.Kind)
-
-		// todo(redbackthomson): Remove this logic once we have done a better
-		// job of filtering in the reconciler
-		if slices.Contains(trimKind, gvk) {
-			c.debugPrintf(kongCtx.Stderr, "skipping gvk %+v\n", gvk)
-			continue
-		}
-
-		rs, err := lookup.Get(gvk)
-		if err != nil {
-			c.debugPrintf(kongCtx.Stderr, "unable to find gvk from lookup %q\n", gvk)
-			return []diff.ResourceDiff{}, err
-		}
-
-		switch change.Change { //nolint:exhaustive // Proceed with the rest of the loop if other.
-		case spacesv1alpha1.SimulationChangeTypeCreate:
-			diffSet = append(diffSet, diff.ResourceDiff{
-				SimulationChange: change,
-			})
-			c.debugPrintf(kongCtx.Stderr, "appended create to diff set for %v\n", change.ObjectReference)
-			continue
-		case spacesv1alpha1.SimulationChangeTypeDelete:
-			diffSet = append(diffSet, diff.ResourceDiff{
-				SimulationChange: change,
-			})
-			c.debugPrintf(kongCtx.Stderr, "appended delete to diff set for %v\n", change.ObjectReference)
-			continue
-		}
-
-		var cl dynamic.ResourceInterface
-		ncl := dyn.Resource(schema.GroupVersionResource{
-			Group:    rs.Group,
-			Version:  rs.Version,
-			Resource: rs.Name,
-		})
-		if change.ObjectReference.Namespace != nil {
-			cl = ncl.Namespace(*change.ObjectReference.Namespace)
-		} else {
-			cl = ncl
-		}
-
-		after, err := cl.Get(ctx, change.ObjectReference.Name, metav1.GetOptions{})
-		if err != nil {
-			return []diff.ResourceDiff{}, errors.Wrap(err, "unable to get object from simulated control plane")
-		}
-
-		beforeRaw, ok := after.GetAnnotations()[annotationKeyClonedState]
-		if !ok {
-			c.debugPrintf(kongCtx.Stderr, "object %v is missing the previous cloned state annotation\n", change.ObjectReference)
-			continue
-		}
-		beforeObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, []byte(beforeRaw))
-		if err != nil {
-			return []diff.ResourceDiff{}, errors.Wrapf(err, "previous cloned state annotation on %v could not be decoded", change.ObjectReference)
-		}
-
-		before, ok := beforeObj.(*unstructured.Unstructured)
-		if !ok {
-			return []diff.ResourceDiff{}, errors.Wrap(err, "before object not unstructured")
-		}
-		if err := c.removeFieldsForDiff(after); err != nil {
-			return []diff.ResourceDiff{}, errors.Wrapf(err, "unable to remove fields before diff")
-		}
-
-		if err := c.removeFieldsForDiff(before); err != nil {
-			return []diff.ResourceDiff{}, errors.Wrapf(err, "unable to remove fields before diff")
-		}
-
-		diffd, err := diffv3.Diff(before.UnstructuredContent(), after.UnstructuredContent())
-		if err != nil {
-			return []diff.ResourceDiff{}, errors.Wrapf(err, "unable to calculate diff for object %v", change.ObjectReference)
-		}
-
-		// we filtered out all of the changes
-		if len(diffd) == 0 {
-			continue
-		}
-
-		diffSet = append(diffSet, diff.ResourceDiff{
-			SimulationChange: change,
-			Diff:             diffd,
-		})
-		c.debugPrintf(kongCtx.Stderr, "appended update to diff set for %v\n", change.ObjectReference)
-	}
-	return diffSet, nil
 }
 
 // outputDiff outputs the diff to the location, and in the format, specified by
@@ -516,46 +301,11 @@ func (c *CreateCmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDif
 	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec // nothing system sensitive in the file
 }
 
+// debugPrintf defines a printer for writing debug logs from internal methods.
 func (c *CreateCmd) debugPrintf(stderr io.Writer, format string, args ...any) {
 	if c.Flags.Debug > 0 {
 		fmt.Fprintf(stderr, format, args...) //nolint:errcheck // Fine if debug output fails to print.
 	}
-}
-
-// getControlPlaneConfig gets a REST config for a given control plane within
-// the space.
-func getControlPlaneConfig(ctx context.Context, upCtx *upbound.Context, ctp types.NamespacedName) (*rest.Config, error) {
-	po := clientcmd.NewDefaultPathOptions()
-	var err error
-
-	conf, err := po.GetStartingConfig()
-	if err != nil {
-		return nil, err
-	}
-	state, err := upctx.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
-	if err != nil {
-		return nil, err
-	}
-
-	var ok bool
-	var space upctx.Space
-
-	if space, ok = state.(upctx.Space); !ok {
-		if group, ok := state.(*upctx.Group); ok {
-			space = group.Space
-		} else if ctp, ok := state.(*upctx.ControlPlane); ok {
-			space = ctp.Group.Space
-		} else {
-			return nil, errors.New("current kubeconfig is not pointed at a space cluster")
-		}
-	}
-
-	spaceClient, err := space.BuildKubeconfig(ctp)
-	if err != nil {
-		return nil, err
-	}
-
-	return spaceClient.ClientConfig()
 }
 
 // loadResources builds a list of resources from the given path.
