@@ -30,7 +30,7 @@ func NewPausingResourceImporter(r ResourceReader, a ResourceApplier) *PausingRes
 	}
 }
 
-func (im *PausingResourceImporter) ImportResources(ctx context.Context, gr string, restoreStatus, pausedBeforeExport, importClaimsOnly bool, mcpConnectorClusterID, mcpConnectorClaimNamespace string) (int, error) {
+func (im *PausingResourceImporter) ImportResources(ctx context.Context, gr string, restoreStatus, pausedBeforeExport bool, mcpConnectorClusterID, mcpConnectorClaimNamespace string) (int, error) {
 	resources, typeMeta, err := im.reader.ReadResources(gr)
 	if err != nil {
 		return 0, errors.Wrapf(err, "cannot get %q resources", gr)
@@ -113,58 +113,33 @@ func (im *PausingResourceImporter) ImportResources(ctx context.Context, gr strin
 		}
 	}
 
-	// We pause all resources that are managed, claim, or composite, if they are not paused before in export
+	// We pause all resources that are managed, claim, or composite, if they not paused before in export
 	if !pausedBeforeExport && typeMeta != nil {
 		hasSubresource = typeMeta.WithStatusSubresource
 		for _, c := range typeMeta.Categories {
-			if importClaimsOnly {
-				// If ImportClaimsOnly is true, only process "claim" and skip "managed" & "composite"
-				if c != "claim" {
-					continue
-				}
-			} else {
-				// If ImportClaimsOnly is false, process "managed", "claim", and "composite"
-				if c != "managed" && c != "claim" && c != "composite" {
-					continue
-				}
-			}
-
-			// Process the resources based on the category
-			for i := range resources {
-				annotations := resources[i].GetAnnotations()
-				if annotations["crossplane.io/paused"] == "true" {
-					// If already paused, add the migration-specific annotation
-					meta.AddAnnotations(&resources[i], map[string]string{
-						"migration.upbound.io/already-paused": "true",
-					})
-				} else {
-					// Otherwise, add the crossplane pause annotation
-					meta.AddAnnotations(&resources[i], map[string]string{
-						"crossplane.io/paused": "true",
-					})
-				}
-			}
-			break
-		}
-	}
-
-	var filteredResources []unstructured.Unstructured
-
-	if importClaimsOnly {
-		hasSubresource = false
-		restoreStatus = false
-		for _, c := range typeMeta.Categories {
-			if c == "claim" {
+			// - Claim/Composite: We don't want Crossplane controllers to create new resources before we import all.
+			// - Managed: Same reason as above, but also don't want to take control of cloud resources yet.
+			if c == "managed" || c == "claim" || c == "composite" {
 				for i := range resources {
-					filteredResources = append(filteredResources, resources[i])
+					annotations := resources[i].GetAnnotations()
+					if annotations["crossplane.io/paused"] == "true" {
+						// If already paused, add the migration-specific annotation
+						meta.AddAnnotations(&resources[i], map[string]string{
+							"migration.upbound.io/already-paused": "true",
+						})
+					} else {
+						// Otherwise, add the crossplane pause annotation
+						meta.AddAnnotations(&resources[i], map[string]string{
+							"crossplane.io/paused": "true",
+						})
+					}
 				}
+				break
 			}
 		}
-	} else {
-		filteredResources = resources
 	}
 
-	if err = im.applier.ApplyResources(ctx, filteredResources, restoreStatus && hasSubresource); err != nil {
+	if err = im.applier.ApplyResources(ctx, resources, restoreStatus && hasSubresource); err != nil {
 		return 0, errors.Wrapf(err, "cannot apply %q resources", gr)
 	}
 

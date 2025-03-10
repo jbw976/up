@@ -39,8 +39,6 @@ type importCmd struct {
 	// https://github.com/upbound/mcp-connector/blob/b8a55b698d5d0c1343faf53110738f9bb1865705/cluster/charts/mcp-connector/values.yaml.tmpl#L49
 	MCPConnectorClaimNamespace string `help:"MCP Connector claim namespace. Required for importing claims supported by MCP Connector."`
 
-	ImportClaimsOnly bool `default:"false" help:"When set to true, only Claims will be imported"`
-
 	SkipTargetCheck bool `default:"false" help:"When set to true, skips the check for a local or managed control plane during import." hidden:""`
 }
 
@@ -106,27 +104,24 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 
 		MCPConnectorClusterID:      c.MCPConnectorClusterID,
 		MCPConnectorClaimNamespace: c.MCPConnectorClaimNamespace,
-		ImportClaimsOnly:           c.ImportClaimsOnly,
 	})
 
-	if !c.ImportClaimsOnly {
-		errs := i.PreflightChecks(ctx)
-		if len(errs) > 0 {
-			pterm.Println("Preflight checks failed:")
-			for _, err := range errs {
-				pterm.Println("- " + err.Error())
-			}
-			if !c.Yes {
-				pterm.Println() // Blank line
-				confirm := pterm.DefaultInteractiveConfirm
-				confirm.DefaultText = "Do you still want to proceed?"
-				confirm.DefaultValue = false
-				result, _ := confirm.Show()
-				pterm.Println() // Blank line
-				if !result {
-					pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
-					return nil
-				}
+	errs := i.PreflightChecks(ctx)
+	if len(errs) > 0 {
+		pterm.Println("Preflight checks failed:")
+		for _, err := range errs {
+			pterm.Println("- " + err.Error())
+		}
+		if !c.Yes {
+			pterm.Println() // Blank line
+			confirm := pterm.DefaultInteractiveConfirm
+			confirm.DefaultText = "Do you still want to proceed?"
+			confirm.DefaultValue = false
+			result, _ := confirm.Show()
+			pterm.Println() // Blank line
+			if !result {
+				pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
+				return nil
 			}
 		}
 	}

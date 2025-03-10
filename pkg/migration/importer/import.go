@@ -74,8 +74,6 @@ type Options struct {
 	MCPConnectorClusterID string
 	// MCPConnectorClaimNamespace indicates that claims names will be adjusted for MCP Connector compatibility.
 	MCPConnectorClaimNamespace string
-	// ImportClaimsOnly indicates that we only import claims
-	ImportClaimsOnly bool // default: false
 }
 
 // ControlPlaneStateImporter is the importer for control plane state.
@@ -127,74 +125,72 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	r := NewPausingResourceImporter(NewFileSystemReader(*im.fs), NewUnstructuredResourceApplier(im.dynamicClient, im.resourceMapper))
 
 	total := 0
-	if !im.options.ImportClaimsOnly {
 
-		// Import base resources which are defined with the `baseResources` variable.
-		// They could be considered as the custom or native resources that do not depend on any packages (e.g. Managed Resources) or XRDs (e.g. Claims/Composites).
-		// They are imported first to make sure that all the resources that depend on them can be imported at a later stage.
-		importBaseMsg := "Importing base resources... "
-		s, _ = migration.DefaultSpinner.Start(importBaseMsg + fmt.Sprintf("0 / %d", len(baseResources)))
-		baseCounts := make(map[string]int, len(baseResources))
-		for i, gr := range baseResources {
-			count, err := r.ImportResources(ctx, gr, false, im.options.PausedBeforeExport, im.options.ImportClaimsOnly, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
-			if err != nil {
-				s.Fail(importBaseMsg + stepFailed)
-				return errors.Wrapf(err, "cannot import %q resources", gr)
-			}
-			s.UpdateText(fmt.Sprintf("(%d / %d) Importing %s...", i, len(baseResources), gr))
-			baseCounts[gr] = count
+	// Import base resources which are defined with the `baseResources` variable.
+	// They could be considered as the custom or native resources that do not depend on any packages (e.g. Managed Resources) or XRDs (e.g. Claims/Composites).
+	// They are imported first to make sure that all the resources that depend on them can be imported at a later stage.
+	importBaseMsg := "Importing base resources... "
+	s, _ = migration.DefaultSpinner.Start(importBaseMsg + fmt.Sprintf("0 / %d", len(baseResources)))
+	baseCounts := make(map[string]int, len(baseResources))
+	for i, gr := range baseResources {
+		count, err := r.ImportResources(ctx, gr, false, im.options.PausedBeforeExport, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
+		if err != nil {
+			s.Fail(importBaseMsg + stepFailed)
+			return errors.Wrapf(err, "cannot import %q resources", gr)
 		}
-
-		for _, count := range baseCounts {
-			total += count
-		}
-		s.Success(importBaseMsg + fmt.Sprintf("%d resources imported! 📥", total))
-		//////////////////////////////////////////
-
-		// Wait for all XRDs and Packages to be ready before importing the resources that depend on them.
-
-		waitXRDsMsg := "Waiting for XRDs... "
-		s, _ = migration.DefaultSpinner.Start(waitXRDsMsg)
-		if err := im.waitForConditions(ctx, s, schema.GroupKind{Group: "apiextensions.crossplane.io", Kind: "CompositeResourceDefinition"}, []xpv1.ConditionType{"Established"}); err != nil {
-			s.Fail(waitXRDsMsg + stepFailed)
-			return errors.Wrap(err, "there are unhealthy CompositeResourceDefinitions")
-		}
-		s.Success(waitXRDsMsg + "Established! ⏳")
-
-		waitPkgsMsg := "Waiting for Packages... "
-		s, _ = migration.DefaultSpinner.Start(waitPkgsMsg)
-		for _, k := range []schema.GroupKind{
-			{Group: "pkg.crossplane.io", Kind: "Provider"},
-			{Group: "pkg.crossplane.io", Kind: "Function"},
-			{Group: "pkg.crossplane.io", Kind: "Configuration"},
-		} {
-			if err := im.waitForConditions(ctx, s, k, []xpv1.ConditionType{"Installed", "Healthy"}); err != nil {
-				s.Fail(waitPkgsMsg + stepFailed)
-				return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
-			}
-		}
-
-		// Note(turkenh): We should not need to wait for ProviderRevision, FunctionRevision, and ConfigurationRevision.
-		// Crossplane should not report packages as ready before revisions are healthy. This is a bug in Crossplane
-		// version <1.14 which was fixed with https://github.com/crossplane/crossplane/pull/4647
-		// Todo(turkenh): Remove these once Crossplane 1.13 is no longer supported.
-		for _, k := range []schema.GroupKind{
-			{Group: "pkg.crossplane.io", Kind: "ProviderRevision"},
-			{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
-			{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
-		} {
-			if err := im.waitForConditions(ctx, s, k, []xpv1.ConditionType{"Healthy"}); err != nil {
-				s.Fail(waitPkgsMsg + stepFailed)
-				return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
-			}
-		}
-
-		s.Success(waitPkgsMsg + "Installed and Healthy! ⏳")
-		//////////////////////////////////////////
-
-		// Reset the resource mapper to make sure all CRDs introduced by packages or XRDs are available.
-		im.resourceMapper.Reset()
+		s.UpdateText(fmt.Sprintf("(%d / %d) Importing %s...", i, len(baseResources), gr))
+		baseCounts[gr] = count
 	}
+
+	for _, count := range baseCounts {
+		total += count
+	}
+	s.Success(importBaseMsg + fmt.Sprintf("%d resources imported! 📥", total))
+	//////////////////////////////////////////
+
+	// Wait for all XRDs and Packages to be ready before importing the resources that depend on them.
+
+	waitXRDsMsg := "Waiting for XRDs... "
+	s, _ = migration.DefaultSpinner.Start(waitXRDsMsg)
+	if err := im.waitForConditions(ctx, s, schema.GroupKind{Group: "apiextensions.crossplane.io", Kind: "CompositeResourceDefinition"}, []xpv1.ConditionType{"Established"}); err != nil {
+		s.Fail(waitXRDsMsg + stepFailed)
+		return errors.Wrap(err, "there are unhealthy CompositeResourceDefinitions")
+	}
+	s.Success(waitXRDsMsg + "Established! ⏳")
+
+	waitPkgsMsg := "Waiting for Packages... "
+	s, _ = migration.DefaultSpinner.Start(waitPkgsMsg)
+	for _, k := range []schema.GroupKind{
+		{Group: "pkg.crossplane.io", Kind: "Provider"},
+		{Group: "pkg.crossplane.io", Kind: "Function"},
+		{Group: "pkg.crossplane.io", Kind: "Configuration"},
+	} {
+		if err := im.waitForConditions(ctx, s, k, []xpv1.ConditionType{"Installed", "Healthy"}); err != nil {
+			s.Fail(waitPkgsMsg + stepFailed)
+			return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
+		}
+	}
+
+	// Note(turkenh): We should not need to wait for ProviderRevision, FunctionRevision, and ConfigurationRevision.
+	// Crossplane should not report packages as ready before revisions are healthy. This is a bug in Crossplane
+	// version <1.14 which was fixed with https://github.com/crossplane/crossplane/pull/4647
+	// Todo(turkenh): Remove these once Crossplane 1.13 is no longer supported.
+	for _, k := range []schema.GroupKind{
+		{Group: "pkg.crossplane.io", Kind: "ProviderRevision"},
+		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
+		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
+	} {
+		if err := im.waitForConditions(ctx, s, k, []xpv1.ConditionType{"Healthy"}); err != nil {
+			s.Fail(waitPkgsMsg + stepFailed)
+			return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
+		}
+	}
+
+	s.Success(waitPkgsMsg + "Installed and Healthy! ⏳")
+	//////////////////////////////////////////
+
+	// Reset the resource mapper to make sure all CRDs introduced by packages or XRDs are available.
+	im.resourceMapper.Reset()
 
 	// Import remaining resources other than the base resources.
 	importRemainingMsg := "Importing remaining resources... "
@@ -219,7 +215,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 			continue
 		}
 
-		count, err := r.ImportResources(ctx, info.Name(), true, im.options.PausedBeforeExport, im.options.ImportClaimsOnly, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
+		count, err := r.ImportResources(ctx, info.Name(), true, im.options.PausedBeforeExport, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
 		if err != nil {
 			return errors.Wrapf(err, "cannot import %q resources", info.Name())
 		}
