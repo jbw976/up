@@ -89,9 +89,11 @@ spec:
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
               timeoutSeconds:
+                default: 30
                 description: |-
                   Timeout for the test in seconds
-                  Optional. Default is 30s.
+                  Required. Default is 30s.
+                minimum: 1
                 type: integer
               validate:
                 description: |-
@@ -118,6 +120,8 @@ spec:
                   XRD specifies the XRD definition path.
                   Optional.
                 type: string
+            required:
+            - timeoutSeconds
             type: object
         required:
         - spec

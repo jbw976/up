@@ -426,7 +426,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			ImageResolver:          c.r,
 		}
 
-		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(*test.Spec.TimeoutSeconds)*time.Second)
+		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)
 		defer cancel()
 
 		var output string
