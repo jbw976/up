@@ -21,6 +21,7 @@ import (
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -297,8 +298,12 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 
 	foundFolders, _ := filesystem.FindNestedFoldersWithPattern(c.modelsFS, "kcl/models", "*.k")
 	importStatements := make([]kclImportStatement, 0, len(foundFolders))
+
+	// Track existing aliases to prevent duplicates
+	existingAliases := make(map[string]bool)
+
 	for _, folder := range foundFolders {
-		importPath, alias := formatKclImportPath(folder)
+		importPath, alias := kcl.FormatKclImportPath(folder, existingAliases)
 		importStatements = append(importStatements, kclImportStatement{
 			ImportPath: importPath,
 			Alias:      alias,
@@ -370,18 +375,4 @@ func needsModelsSymlink(language string) bool {
 	default:
 		return false
 	}
-}
-
-// formatKclImportPath converts KCL paths to importable format.
-func formatKclImportPath(path string) (string, string) {
-	modelsIndex := strings.Index(path, "models")
-	if modelsIndex == -1 {
-		return "", ""
-	}
-
-	importPath := strings.ReplaceAll(path[modelsIndex:], "/", ".")
-	parts := strings.Split(importPath, ".")
-	alias := parts[len(parts)-2] + parts[len(parts)-1]
-
-	return importPath, alias
 }
