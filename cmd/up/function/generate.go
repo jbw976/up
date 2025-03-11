@@ -28,6 +28,7 @@ import (
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -345,9 +346,13 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 	templates := template.Must(template.ParseFS(kclTemplate, "templates/kcl/*"))
 
 	foundFolders, _ := filesystem.FindNestedFoldersWithPattern(c.modelsFS, "kcl/models", "*.k")
+
+	// Track existing aliases to prevent duplicates
+	existingAliases := make(map[string]bool)
+
 	importStatements := make([]kclImportStatement, 0, len(foundFolders))
 	for _, folder := range foundFolders {
-		importPath, alias := formatKclImportPath(folder)
+		importPath, alias := kcl.FormatKclImportPath(folder, existingAliases)
 		importStatements = append(importStatements, kclImportStatement{
 			ImportPath: importPath,
 			Alias:      alias,
@@ -508,22 +513,4 @@ func (c *generateCmd) readAndUnmarshalComposition() (*v1.Composition, error) {
 	}
 
 	return &comp, nil
-}
-
-// Helper function to convert kcl paths to the desired import format.
-func formatKclImportPath(path string) (string, string) {
-	// Find the position of "models" in the path and keep only the part after it
-	modelsIndex := strings.Index(path, "models")
-	if modelsIndex == -1 {
-		return "", ""
-	}
-
-	// Trim everything before "models" and replace slashes with dots
-	importPath := strings.ReplaceAll(path[modelsIndex:], "/", ".")
-
-	// Extract alias using the last two components of the path
-	parts := strings.Split(importPath, ".")
-	alias := parts[len(parts)-2] + parts[len(parts)-1] // e.g., redshiftv1beta1
-
-	return importPath, alias
 }
