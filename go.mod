@@ -51,7 +51,7 @@ require (
 	github.com/willabides/kongplete v0.4.0
 	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
 	golang.org/x/sync v0.12.0
-	golang.org/x/term v0.29.0
+	golang.org/x/term v0.30.0
 	google.golang.org/api v0.224.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -341,7 +341,7 @@ require (
 	golang.org/x/mod v0.24.0
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.22.0
 	golang.org/x/time v0.10.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
