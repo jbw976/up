@@ -26,9 +26,10 @@ type CompositionTest struct {
 // +k8s:deepcopy-gen=true
 type CompositionTestSpec struct {
 	// Timeout for the test in seconds
-	// Optional. Default is 30s.
-	// +kubebuilder:validation:Optional
-	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+	// Required. Default is 30s.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=30
+	TimeoutSeconds int `json:"timeoutSeconds"`
 
 	// Validate indicates whether to validate managed resources against schemas.
 	// Optional.
