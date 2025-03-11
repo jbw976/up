@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -108,11 +109,20 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 		return errors.Wrapf(err, "failed to create tar from fs")
 	}
 
+	// Fetch all environment variables starting with "UP_"
+	var envVars []string
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "UP_") {
+			envVars = append(envVars, e)
+		}
+	}
+
 	// Create the container
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image:      imageName,
 		Cmd:        command,
 		WorkingDir: o.WorkDirectory,
+		Env:        envVars,
 	}, nil, nil, nil, "")
 	if err != nil {
 		return errors.Wrapf(err, "failed to launch container")
