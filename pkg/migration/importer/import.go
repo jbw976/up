@@ -70,6 +70,10 @@ type Options struct {
 	UnpauseAfterImport bool // default: false
 	// PausedBeforeExport indicates whether that resources paused before in export.
 	PausedBeforeExport bool // default: false
+	// MCPConnectorClusterID indicates that claims names will be adjusted for MCP Connector compatibility.
+	MCPConnectorClusterID string
+	// MCPConnectorClaimNamespace indicates that claims names will be adjusted for MCP Connector compatibility.
+	MCPConnectorClaimNamespace string
 }
 
 // ControlPlaneStateImporter is the importer for control plane state.
@@ -120,6 +124,8 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	// It will import all Claims, Composites and Managed resource with the `crossplane.io/paused` annotation set to `true`.
 	r := NewPausingResourceImporter(NewFileSystemReader(*im.fs), NewUnstructuredResourceApplier(im.dynamicClient, im.resourceMapper))
 
+	total := 0
+
 	// Import base resources which are defined with the `baseResources` variable.
 	// They could be considered as the custom or native resources that do not depend on any packages (e.g. Managed Resources) or XRDs (e.g. Claims/Composites).
 	// They are imported first to make sure that all the resources that depend on them can be imported at a later stage.
@@ -127,7 +133,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	s, _ = migration.DefaultSpinner.Start(importBaseMsg + fmt.Sprintf("0 / %d", len(baseResources)))
 	baseCounts := make(map[string]int, len(baseResources))
 	for i, gr := range baseResources {
-		count, err := r.ImportResources(ctx, gr, false, im.options.PausedBeforeExport)
+		count, err := r.ImportResources(ctx, gr, false, im.options.PausedBeforeExport, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
 		if err != nil {
 			s.Fail(importBaseMsg + stepFailed)
 			return errors.Wrapf(err, "cannot import %q resources", gr)
@@ -135,7 +141,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 		s.UpdateText(fmt.Sprintf("(%d / %d) Importing %s...", i, len(baseResources), gr))
 		baseCounts[gr] = count
 	}
-	total := 0
+
 	for _, count := range baseCounts {
 		total += count
 	}
@@ -209,7 +215,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 			continue
 		}
 
-		count, err := r.ImportResources(ctx, info.Name(), true, im.options.PausedBeforeExport)
+		count, err := r.ImportResources(ctx, info.Name(), true, im.options.PausedBeforeExport, im.options.MCPConnectorClusterID, im.options.MCPConnectorClaimNamespace)
 		if err != nil {
 			return errors.Wrapf(err, "cannot import %q resources", info.Name())
 		}

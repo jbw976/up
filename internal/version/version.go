@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package version contains functions for versions inside the cli
 package version
 
 import (
@@ -30,21 +31,23 @@ const (
 	errNotSemVerFmt           = "%s; couldn't covert version to semver"
 )
 
-type releaseTarget string
+// Target will be used to ReleaseTarget.
+type Target string
 
 const (
-	ReleaseTargetRelease releaseTarget = "release"
-	ReleaseTargetDebug   releaseTarget = "debug"
+	// ReleaseTargetRelease used as release.
+	ReleaseTargetRelease Target = "release"
+	// ReleaseTargetDebug used as debug.
+	ReleaseTargetDebug  Target = "debug"
+	agentVersion               = "0.0.0-429.g5433474"
+	mcpConnectorVersion        = "0.8.0"
+	gitCommit                  = "unknown-commit"
+	releaseTarget              = string(ReleaseTargetDebug)
 )
 
-var (
-	version             string
-	agentVersion        string = "0.0.0-429.g5433474"
-	mcpConnectorVersion string = "0.7.0"
-	gitCommit           string = "unknown-commit"
-	target              string = string(ReleaseTargetDebug)
-)
+var version string
 
+// UserAgent Function to print the UserAgent.
 func UserAgent() string {
 	return fmt.Sprintf("%s/%s (%s; %s)", productName, version, runtime.GOOS, runtime.GOARCH)
 }
@@ -70,8 +73,8 @@ func MCPConnectorVersion() string {
 }
 
 // ReleaseTarget returns the target type that the binary was built with.
-func ReleaseTarget() releaseTarget {
-	switch target {
+func ReleaseTarget() Target {
+	switch releaseTarget {
 	case string(ReleaseTargetRelease):
 		return ReleaseTargetRelease
 	case string(ReleaseTargetDebug):
@@ -82,7 +85,7 @@ func ReleaseTarget() releaseTarget {
 }
 
 type client interface {
-	Do(*http.Request) (*http.Response, error)
+	Do(req *http.Request) (res *http.Response, err error)
 }
 
 type defaultClient struct {
@@ -160,7 +163,7 @@ func (i *Informer) getCurrent(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close() //nolint:gosec,errcheck
+	defer resp.Body.Close() //nolint:errcheck // nothing todo here
 
 	v, err := io.ReadAll(resp.Body)
 	if err != nil {
