@@ -15,7 +15,7 @@ on:
 env:
   # Common versions
   GO_VERSION: '1.23'
-  GOLANGCI_VERSION: 'v1.64.6'
+  GOLANGCI_VERSION: 'v1.64.7'
   DOCKER_BUILDX_VERSION: 'v0.17.1'
   REGISTRY_ORGS: xpkg.upbound.io/upbound
 
