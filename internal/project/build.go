@@ -325,6 +325,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 			parser.FsDir("/"),
 			parser.FsFilters(parser.SkipNotYAML()),
 		),
+		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
 		mut...,
@@ -578,6 +579,7 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 		parser.NewFsBackend(metaFS, parser.FsDir("/")),
 		nil,
 		examplesParser,
+		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
 	)

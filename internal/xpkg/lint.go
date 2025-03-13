@@ -15,6 +15,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
@@ -26,6 +27,7 @@ const (
 	errNotMetaProvider                   = "package meta type is not Provider"
 	errNotMetaConfiguration              = "package meta type is not Configuration"
 	errNotMetaFunction                   = "package meta type is not Function"
+	errNotMetaController                 = "package meta type is not Upbound Controller"
 	errNotCRD                            = "object is not a CRD"
 	errNotMutatingWebhookConfiguration   = "object is not a MutatingWebhookConfiguration"
 	errNotValidatingWebhookConfiguration = "object is not a ValidatingWebhookConfiguration"
@@ -59,6 +61,10 @@ func NewFunctionLinter() linter.Linter {
 	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsFunction), linter.ObjectLinterFns(IsCRD))
 }
 
+func NewControllerLinter() linter.Linter {
+	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsController), linter.ObjectLinterFns(IsCRD))
+}
+
 // OneMeta checks that there is only one meta object in the package.
 func OneMeta(pkg linter.Package) error {
 	if len(pkg.GetMeta()) != 1 {
@@ -90,6 +96,15 @@ func IsFunction(o runtime.Object) error {
 	po, _ := scheme.TryConvert(o, &pkgmetav1.Function{})
 	if _, ok := po.(*pkgmetav1.Function); !ok {
 		return errors.New(errNotMetaFunction)
+	}
+	return nil
+}
+
+// IsController checks that an object is a Controller meta type.
+func IsController(o runtime.Object) error {
+	po, _ := scheme.TryConvert(o, &upboundpkgmetav1alpha1.Controller{})
+	if _, ok := po.(*upboundpkgmetav1alpha1.Controller); !ok {
+		return errors.New(errNotMetaController)
 	}
 	return nil
 }

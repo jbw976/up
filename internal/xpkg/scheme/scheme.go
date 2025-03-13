@@ -14,6 +14,7 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	pkgmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -32,6 +33,9 @@ func BuildMetaScheme() (*runtime.Scheme, error) {
 		return nil, err
 	}
 	if err := projectv1alpha1.AddToScheme(metaScheme); err != nil {
+		return nil, err
+	}
+	if err := upboundpkgmetav1alpha1.AddToScheme(metaScheme); err != nil {
 		return nil, err
 	}
 	return metaScheme, nil

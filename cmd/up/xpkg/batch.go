@@ -490,6 +490,7 @@ func (c *batchCmd) getBuilder(service string) (*xpkg.Builder, error) {
 			parser.FsFilters(
 				buildFilters(ex, c.Ignore)...),
 		),
+		nil, // Helm backend is not used in the batch command (or not supported yet).
 		pp,
 		examples.New(),
 	), nil

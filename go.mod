@@ -379,3 +379,6 @@ replace (
 replace github.com/upbound/up/pkg/migration => ./pkg/migration
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go v1.2.11
+
+// TODO(turkenh): Remove once https://github.com/upbound/up-sdk-go/pull/142 is merged.
+replace github.com/upbound/up-sdk-go/apis => github.com/turkenh/up-sdk-go/apis v0.0.0-20250313081409-ec20bc048786

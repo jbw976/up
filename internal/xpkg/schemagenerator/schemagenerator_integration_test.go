@@ -213,7 +213,7 @@ func TestSchemas(t *testing.T) {
 			mutators := tc.args.mutators(fs)
 
 			// Initialize the builder with schemaKclFS, valid backends, and mutators
-			builder := xpkg.New(pkgBe, nil, pkgEx, pkgp, nil, mutators...)
+			builder := xpkg.New(pkgBe, nil, pkgEx, nil, pkgp, nil, mutators...)
 
 			img, _, err := builder.Build(context.TODO())
 

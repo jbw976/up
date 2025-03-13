@@ -6,6 +6,7 @@ package xpkg
 import (
 	"context"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -45,6 +46,11 @@ func (c *buildCmd) AfterApply() error {
 		return err
 	}
 
+	hl, err := filepath.Abs(c.HelmRoot)
+	if err != nil {
+		return err
+	}
+
 	var authBE parser.Backend
 	if ax, err := filepath.Abs(c.AuthExt); err == nil {
 		if axf, err := c.fs.Open(ax); err == nil {
@@ -63,6 +69,7 @@ func (c *buildCmd) AfterApply() error {
 	}
 
 	c.builder = xpkg.New(
+		// Package Backend
 		parser.NewFsBackend(
 			c.fs,
 			parser.FsDir(root),
@@ -71,13 +78,27 @@ func (c *buildCmd) AfterApply() error {
 					buildFilters(root, c.Ignore),
 					xpkg.SkipContains(c.ExamplesRoot), xpkg.SkipContains(c.AuthExt))...),
 		),
+		// Auth Backend
 		authBE,
+		// Examples Backend
 		parser.NewFsBackend(
 			c.fs,
 			parser.FsDir(ex),
 			parser.FsFilters(
 				buildFilters(ex, c.Ignore)...),
 		),
+		// Helm Backend
+		parser.NewFsBackend(
+			c.fs,
+			parser.FsDir(hl),
+			parser.FsFilters(
+				parser.SkipDirs(),
+				parser.SkipEmpty(),
+				func(path string, info os.FileInfo) (bool, error) {
+					// Skip any file other than chart.tgz
+					return info.Name() != "chart.tgz", nil
+				},
+			)),
 		pp,
 		examples.New(),
 	)
@@ -101,6 +122,7 @@ type buildCmd struct {
 	Controller   string   `help:"Controller image used as base for package."`
 	PackageRoot  string   `default:"."                                                                                                                                           help:"Path to package directory."                short:"f"`
 	ExamplesRoot string   `default:"./examples"                                                                                                                                  help:"Path to package examples directory."       short:"e"`
+	HelmRoot     string   `default:"./helm"                                                                                                                                  help:"Path to helm directory."       short:"h"`
 	AuthExt      string   `default:"auth.yaml"                                                                                                                                   help:"Path to an authentication extension file." short:"a"`
 	Ignore       []string `help:"Paths, specified relative to --package-root, to exclude from the package."`
 }

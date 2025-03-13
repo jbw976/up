@@ -23,6 +23,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
@@ -34,6 +35,7 @@ const (
 	errParserExample     = "failed to parse examples"
 	errLintPackage       = "failed to lint package"
 	errInitBackend       = "failed to initialize package parsing backend"
+	errInitHelmBackend   = "failed to initialize helm parsing backend"
 	errTarFromStream     = "failed to build tarball from stream"
 	errLayerFromTar      = "failed to convert tarball to image layer"
 	errDigestInvalid     = "failed to get digest from image layer"
@@ -94,23 +96,25 @@ func (t *teeReader) Annotate() any {
 
 // Builder defines an xpkg Builder.
 type Builder struct {
-	pb       parser.Backend
-	eb       parser.Backend
-	ab       parser.Backend
-	pp       parser.Parser
-	ep       *examples.Parser
-	mutators []Mutator
+	packageBackend  parser.Backend
+	examplesBackend parser.Backend
+	authBackend     parser.Backend
+	helmBackend     parser.Backend
+	packageParser   parser.Parser
+	examplesParser  *examples.Parser
+	mutators        []Mutator
 }
 
 // New returns a new Builder.
-func New(pkg, ab, ex parser.Backend, pp parser.Parser, ep *examples.Parser, mutators ...Mutator) *Builder {
+func New(pkg, ab, ex, h parser.Backend, pp parser.Parser, ep *examples.Parser, mutators ...Mutator) *Builder {
 	return &Builder{
-		pb:       pkg,
-		ab:       ab,
-		eb:       ex,
-		pp:       pp,
-		ep:       ep,
-		mutators: mutators,
+		packageBackend:  pkg,
+		authBackend:     ab,
+		examplesBackend: ex,
+		helmBackend:     h,
+		packageParser:   pp,
+		examplesParser:  ep,
+		mutators:        mutators,
 	}
 }
 
@@ -155,14 +159,14 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	// assume examples exist
 	examplesExist := true
 	// Get package YAML stream.
-	pkgReader, err := b.pb.Init(ctx)
+	pkgReader, err := b.packageBackend.Init(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, errInitBackend)
 	}
 	defer func() { _ = pkgReader.Close() }()
 
 	// Get examples YAML stream.
-	exReader, err := b.eb.Init(ctx)
+	exReader, err := b.examplesBackend.Init(ctx)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, nil, errors.Wrap(err, errInitBackend)
 	}
@@ -172,7 +176,16 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 		examplesExist = false
 	}
 
-	pkg, err := b.pp.Parse(ctx, pkgReader)
+	var helmReader io.ReadCloser
+	if b.helmBackend != nil {
+		helmReader, err = b.helmBackend.Init(ctx)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, nil, errors.Wrap(err, errInitHelmBackend)
+		}
+		defer func() { _ = helmReader.Close() }()
+	}
+
+	pkg, err := b.packageParser.Parse(ctx, pkgReader)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, errParserPackage)
 	}
@@ -191,13 +204,13 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	case v1beta1.FunctionKind:
 		linter = NewFunctionLinter()
 	case pkgmetav1.ProviderKind:
-		if b.ab != nil { // if we have an auth.yaml file
+		if b.authBackend != nil { // if we have an auth.yaml file
 			if p, ok := meta.(metav1.Object); ok {
 				if group, ok := p.GetAnnotations()[authMetaAnno]; ok {
 					// if we found an annotation auth.upbound.io/group then look for the object
 					// specified there like aws.upbound.io and annotate that with auth.upbound.io/config
 					// and embed the contents of the auth.yaml file
-					ar, err := b.ab.Init(ctx)
+					ar, err := b.authBackend.Init(ctx)
 					if err != nil {
 						return nil, nil, errors.Wrap(err, errParseAuth)
 					}
@@ -228,6 +241,8 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 			}
 		}
 		linter = NewProviderLinter()
+	case upboundpkgmetav1alpha1.ControllerKind:
+		linter = NewControllerLinter()
 	}
 	if err := linter.Lint(pkg); err != nil {
 		return nil, nil, errors.Wrap(err, errLintPackage)
@@ -256,7 +271,7 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	// examples exist, create the layer
 	if examplesExist {
 		exBuf := new(bytes.Buffer)
-		if _, err = b.ep.Parse(ctx, annotatedTeeReadCloser(exReader, exBuf)); err != nil {
+		if _, err = b.examplesParser.Parse(ctx, annotatedTeeReadCloser(exReader, exBuf)); err != nil {
 			return nil, nil, errors.Wrap(err, errParserExample)
 		}
 
@@ -265,6 +280,19 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 			return nil, nil, err
 		}
 		layers = append(layers, exLayer)
+	}
+
+	// helm chart exists, create the layer if we are building an Upbound Controller
+	if helmReader != nil && meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind {
+		helmBuf := new(bytes.Buffer)
+		if _, err := io.Copy(helmBuf, helmReader); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to read helm chart")
+		}
+		helmLayer, err := Layer(helmBuf, XpkgHelmChartFile, HelmChartAnnotation, int64(helmBuf.Len()), StreamFileMode, &cfg)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to create helm layer")
+		}
+		layers = append(layers, helmLayer)
 	}
 
 	for _, mut := range b.mutators {
