@@ -46,7 +46,7 @@ require (
 	github.com/spf13/afero v1.12.0
 	github.com/spf13/cobra v1.9.1
 	github.com/upbound/up-sdk-go v1.11.1-0.20250224193803-c699c3b48709
-	github.com/upbound/up-sdk-go/apis v1.11.0
+	github.com/upbound/up-sdk-go/apis v1.11.1-0.20250314215204-a69e9641293b
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
 	github.com/willabides/kongplete v0.4.0
 	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
@@ -379,6 +379,3 @@ replace (
 replace github.com/upbound/up/pkg/migration => ./pkg/migration
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go v1.2.11
-
-// TODO(turkenh): Remove once https://github.com/upbound/up-sdk-go/pull/142 is merged.
-replace github.com/upbound/up-sdk-go/apis => github.com/turkenh/up-sdk-go/apis v0.0.0-20250313081409-ec20bc048786

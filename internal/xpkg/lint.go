@@ -15,8 +15,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
 )
@@ -61,6 +61,8 @@ func NewFunctionLinter() linter.Linter {
 	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsFunction), linter.ObjectLinterFns(IsCRD))
 }
 
+// NewControllerLinter is a convenience function for creating a package linter for
+// Upbound controllers.
 func NewControllerLinter() linter.Linter {
 	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsController), linter.ObjectLinterFns(IsCRD))
 }
@@ -158,7 +160,8 @@ func IsValidatingWebhookConfiguration(o runtime.Object) error {
 // IsXRD checks that an object is a CompositeResourceDefinition.
 func IsXRD(o runtime.Object) error {
 	if _, ok := o.(*v1.CompositeResourceDefinition); !ok {
-		return errors.New(fmt.Sprintf(errNotXRD, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind))
+		// return errors.New(fmt.Sprintf(errNotXRD, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind))
+		return fmt.Errorf(errNotXRD, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind)
 	}
 	return nil
 }
@@ -166,7 +169,7 @@ func IsXRD(o runtime.Object) error {
 // IsComposition checks that an object is a Composition.
 func IsComposition(o runtime.Object) error {
 	if _, ok := o.(*v1.Composition); !ok {
-		return errors.New(fmt.Sprintf(errNotComposition, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind))
+		return fmt.Errorf(errNotComposition, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind)
 	}
 	return nil
 }

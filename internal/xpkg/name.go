@@ -38,7 +38,7 @@ const (
 	// XpkgHelmChartFile is the name of the file in an Upbound Controller
 	// package image that contains the helm chart.
 	XpkgHelmChartFile = "helm/chart.tgz"
-	
+
 	// AnnotationKey is the key value for xpkg annotations.
 	AnnotationKey string = "io.crossplane.xpkg"
 	// PackageAnnotation is the annotation value used for the package.yaml

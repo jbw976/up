@@ -1,0 +1,7 @@
+apiVersion: meta.pkg.upbound.io/v1alpha1
+kind: Controller
+metadata:
+  name: test-controller
+spec:
+  controller:
+    image: upbound/test-controller:v0.1.0

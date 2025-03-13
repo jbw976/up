@@ -23,8 +23,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
@@ -35,24 +35,27 @@ const (
 	errParserExample     = "failed to parse examples"
 	errLintPackage       = "failed to lint package"
 	errInitBackend       = "failed to initialize package parsing backend"
-	errInitHelmBackend   = "failed to initialize helm parsing backend"
-	errTarFromStream     = "failed to build tarball from stream"
-	errLayerFromTar      = "failed to convert tarball to image layer"
-	errDigestInvalid     = "failed to get digest from image layer"
-	errBuildImage        = "failed to build image from layers"
-	errConfigFile        = "failed to get config file from image"
-	errMutateConfig      = "failed to mutate config for image"
+	errInitHelmBackend   = "failed to initialize helm backend"
+	errBuildImage        = "failed to build image"
+	errDigestInvalid     = "digest is invalid"
+	errLayerFromTar      = "failed to create layer from tar"
+	errTarFromStream     = "failed to create tar from stream"
+	errConfigFile        = "failed to get config file"
+	errMutateConfig      = "failed to mutate config"
+	errParseAuth         = "failed to parse auth"
+	errAuthNotAnnotated  = "failed to annotate auth"
+	errControllerNoHelm  = "controller package requires a helm chart"
 	errBuildObjectScheme = "failed to build scheme for package encoder"
-	errParseAuth         = "an auth extension was supplied but could not be parsed"
-	errAuthNotAnnotated  = "an auth extension was supplied but the " + ProviderConfigKind + " object could not be found"
 	authMetaAnno         = "auth.upbound.io/group"
-	AuthObjectAnno       = "auth.upbound.io/config"
-	ProviderConfigKind   = "ProviderConfig"
+	// AuthObjectAnno is the auth object annotation.
+	AuthObjectAnno = "auth.upbound.io/config"
+	// ProviderConfigKind is the kind of the provider config.
+	ProviderConfigKind = "ProviderConfig"
 )
 
 // Mutator defines a mutation / add additional layers on an image and its config.
 type Mutator interface {
-	Mutate(v1.Image, v1.Config) (v1.Image, v1.Config, error)
+	Mutate(i v1.Image, c v1.Config) (v1.Image, v1.Config, error)
 }
 
 // annotatedTeeReadCloser is a copy of io.TeeReader that implements
@@ -133,6 +136,7 @@ func WithController(img v1.Image) BuildOpt {
 	}
 }
 
+// AuthExtension is the structure of the auth.yaml file.
 type AuthExtension struct {
 	Version      string `yaml:"version"`
 	Discriminant string `yaml:"discriminant"`
@@ -148,7 +152,7 @@ type AuthExtension struct {
 }
 
 // Build compiles a Crossplane package from an on-disk package.
-func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtime.Object, error) { //nolint:gocyclo
+func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtime.Object, error) { //nolint:gocognit // TODO: refactor
 	bOpts := &buildOpts{
 		base: empty.Image,
 	}
@@ -282,8 +286,12 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 		layers = append(layers, exLayer)
 	}
 
-	// helm chart exists, create the layer if we are building an Upbound Controller
-	if helmReader != nil && meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind {
+	if meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind {
+		// Controller packages must have a helm chart
+		if helmReader == nil {
+			return nil, nil, errors.New(errControllerNoHelm)
+		}
+		// Create the helm layer from the helm chart
 		helmBuf := new(bytes.Buffer)
 		if _, err := io.Copy(helmBuf, helmReader); err != nil {
 			return nil, nil, errors.Wrap(err, "failed to read helm chart")
@@ -345,7 +353,7 @@ func encode(pkg linter.Package) (*bytes.Buffer, error) {
 
 // SkipContains supplies a FilterFn that skips paths that contain the give pattern.
 func SkipContains(pattern string) parser.FilterFn {
-	return func(path string, info os.FileInfo) (bool, error) {
+	return func(path string, _ os.FileInfo) (bool, error) {
 		return strings.Contains(path, pattern), nil
 	}
 }

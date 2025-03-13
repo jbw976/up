@@ -94,7 +94,7 @@ func (c *buildCmd) AfterApply() error {
 			parser.FsFilters(
 				parser.SkipDirs(),
 				parser.SkipEmpty(),
-				func(path string, info os.FileInfo) (bool, error) {
+				func(_ string, info os.FileInfo) (bool, error) {
 					// Skip any file other than chart.tgz
 					return info.Name() != "chart.tgz", nil
 				},
@@ -122,7 +122,7 @@ type buildCmd struct {
 	Controller   string   `help:"Controller image used as base for package."`
 	PackageRoot  string   `default:"."                                                                                                                                           help:"Path to package directory."                short:"f"`
 	ExamplesRoot string   `default:"./examples"                                                                                                                                  help:"Path to package examples directory."       short:"e"`
-	HelmRoot     string   `default:"./helm"                                                                                                                                  help:"Path to helm directory."       short:"h"`
+	HelmRoot     string   `default:"./helm"                                                                                                                                      help:"Path to helm directory."                   short:"h"`
 	AuthExt      string   `default:"auth.yaml"                                                                                                                                   help:"Path to an authentication extension file." short:"a"`
 	Ignore       []string `help:"Paths, specified relative to --package-root, to exclude from the package."`
 }
@@ -147,7 +147,7 @@ Even more details can be found in the xpkg reference document.`
 }
 
 // Run executes the build command.
-func (c *buildCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *buildCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	var buildOpts []xpkg.BuildOpt
 	if c.Controller != "" {
 		ref, err := name.ParseReference(c.Controller)
