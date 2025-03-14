@@ -18,9 +18,10 @@ type TokenType string
 const (
 	// TokenTypeUser is the user type of token.
 	TokenTypeUser TokenType = "user"
-	// TokenTypeToken is the token type of token.
-	TokenTypeToken TokenType = "token"
-
+	// TokenTypeRobot is the robot type of token.
+	TokenTypeRobot TokenType = "robot"
+	// TokenTypePAT is the token type of token.
+	TokenTypePAT TokenType = "token"
 	// DefaultName is the default profile name.
 	DefaultName = "default"
 )
@@ -99,7 +100,7 @@ func (p *Profile) UnmarshalJSON(bs []byte) error {
 }
 
 // Validate returns an error if the profile is invalid.
-func (p Profile) Validate() error {
+func (p *Profile) Validate() error {
 	switch p.Type {
 	case TypeDisconnected:
 		if p.SpaceKubeconfig == nil {

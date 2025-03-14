@@ -119,7 +119,7 @@ func TestConstructAuth(t *testing.T) {
 				token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2MTg1MTc5NDMsImV4cCI6MTY1MDA1Mzk0MywiYXVkIjoiaHR0cHM6Ly9kYW5pZWxtYW5ndW0uY29tIiwic3ViIjoiZ2VvcmdlZGFuaWVsbWFuZ3VtQGdtYWlsLmNvbSIsIkpUSSI6Imhhc2hlZGRhbiJ9.zI42wXvwDHiATx9ycECz7JyATTn9P07wN-TRXvtCGcM",
 			},
 			want: want{
-				pType: profile.TokenTypeToken,
+				pType: profile.TokenTypePAT,
 				auth: &auth{
 					ID:       "hasheddan",
 					Password: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2MTg1MTc5NDMsImV4cCI6MTY1MDA1Mzk0MywiYXVkIjoiaHR0cHM6Ly9kYW5pZWxtYW5ndW0uY29tIiwic3ViIjoiZ2VvcmdlZGFuaWVsbWFuZ3VtQGdtYWlsLmNvbSIsIkpUSSI6Imhhc2hlZGRhbiJ9.zI42wXvwDHiATx9ycECz7JyATTn9P07wN-TRXvtCGcM",
@@ -134,7 +134,7 @@ func TestConstructAuth(t *testing.T) {
 				password: "forget-about-me",
 			},
 			want: want{
-				pType: profile.TokenTypeToken,
+				pType: profile.TokenTypePAT,
 				auth: &auth{
 					ID:       "hasheddan",
 					Password: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2MTg1MTc5NDMsImV4cCI6MTY1MDA1Mzk0MywiYXVkIjoiaHR0cHM6Ly9kYW5pZWxtYW5ndW0uY29tIiwic3ViIjoiZ2VvcmdlZGFuaWVsbWFuZ3VtQGdtYWlsLmNvbSIsIkpUSSI6Imhhc2hlZGRhbiJ9.zI42wXvwDHiATx9ycECz7JyATTn9P07wN-TRXvtCGcM",
@@ -195,7 +195,17 @@ func TestParseID(t *testing.T) {
 			},
 			want: want{
 				id:    "hasheddan",
-				pType: profile.TokenTypeToken,
+				pType: profile.TokenTypePAT,
+			},
+		},
+		"SuccessfulTokenTypeRobot": {
+			reason: "Providing a valid robot token should return a TokenTypeRobot.",
+			args: args{
+				token: "eyJhbGciOiJSUzI1NiIsImtpZCI6IlRfIiwidHlwIjoiSldUIn0.eyJhdWQiOiJ1cGJvdW5kLmlvIiwiZXhwIjoyMDU3MzEwOTE5LCJqdGkiOiIyOTg1YTMyOC0xZDg0LTQ3ZjMtYjVkNC0wYTBkNjhhOGJjMDQiLCJpc3MiOiJodHRwczovL2FwaS51cGJvdW5kLmlvL3YxIiwic3ViIjoicm9ib3R8ODZlOWEzNmQtOWY2Yy00YWQxLTkxYjEtZjljODdiMDA3OGZjIn0.YPt5sbCN1uiV2K8LdnVNOjnfhkvFpZ4RtcynCJR5mkxx0bJHV1w8kC0ZrYe7e5qNxeU_88vZS7qamoWmNRzn6bvI59h05RFzPaP1tIehlZ2EWRGmlM7wIZAlsfM-kanSnZQGwMsmsqAzn-54-G-RxiKC4dD552Go-lFlp2rkDz273wIdZvO10ocqoGNzvtuTcnYAHhLfafgEBPWsjTP09x_Mf-u3eA8t0nL2aPH9WrEJNl66D5F4Ex0NMQFW60ZWTdgCQRio6ZcYHUX3hL6DSljAEpTedIRzwk8R8R-uAohoT62WXnP4BaMxpnrIQPzBAZyAIhWZqeyTnWmtdb9Imw",
+			},
+			want: want{
+				id:    "2985a328-1d84-47f3-b5d4-0a0d68a8bc04",
+				pType: profile.TokenTypeRobot,
 			},
 		},
 		"Successful": {

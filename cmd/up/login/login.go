@@ -49,6 +49,7 @@ const (
 	errParseCookieFmt = "unable to parse session cookie: %s"
 	errNoIDInToken    = "token is missing ID"
 	errUpdateConfig   = "unable to update config file"
+	errNoSubInToken   = "no sub claim in token"
 )
 
 // BeforeApply sets default values in login before assignment and validation.
@@ -126,6 +127,11 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
 		return c.simpleAuth(ctx, upCtx)
+	}
+
+	if upCtx.Profile.TokenType == profile.TokenTypeRobot {
+		p.Printfln("%s logged in to organization %s", upCtx.Profile.ID, upCtx.Organization)
+		return nil
 	}
 
 	// start webserver listening on port
@@ -214,10 +220,15 @@ type auth struct {
 	Remember bool   `json:"remember"`
 }
 
-func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID string) error {
-	session, err := extractSession(res, upbound.CookieName)
-	if err != nil {
-		return err
+func setSession(ctx context.Context, upCtx *upbound.Context, res *http.Response, tokenType profile.TokenType, authID, token string) error {
+	session := token
+	var err error
+
+	if res != nil {
+		session, err = extractSession(res, upbound.CookieName)
+		if err != nil {
+			return err
+		}
 	}
 
 	// If profile name was not provided and no default exists, set name to 'default'.
@@ -294,7 +305,7 @@ func constructAuth(username, token, password string) (*auth, profile.TokenType, 
 	if err != nil {
 		return nil, "", err
 	}
-	if profType == profile.TokenTypeToken {
+	if profType == profile.TokenTypePAT || profType == profile.TokenTypeRobot {
 		password = token
 	}
 	return &auth{
@@ -304,7 +315,9 @@ func constructAuth(username, token, password string) (*auth, profile.TokenType, 
 	}, profType, nil
 }
 
-// parseID gets a user ID by either parsing a token or returning the username.
+// parseID extracts a user ID from a provided token, if available; otherwise, it
+// returns the given username. It determines the token type based on the subject
+// prefix and returns an appropriate profile.TokenType.
 func parseID(user, token string) (string, profile.TokenType, error) {
 	if token != "" {
 		p := jwt.Parser{}
@@ -316,7 +329,15 @@ func parseID(user, token string) (string, profile.TokenType, error) {
 		if claims.Id == "" {
 			return "", "", errors.New(errNoIDInToken)
 		}
-		return claims.Id, profile.TokenTypeToken, nil
+		if claims.Subject == "" {
+			return "", "", errors.New(errNoSubInToken)
+		}
+		switch {
+		case strings.HasPrefix(claims.Subject, "robot|"):
+			return claims.Id, profile.TokenTypeRobot, nil
+		default:
+			return claims.Id, profile.TokenTypePAT, nil
+		}
 	}
 	return user, profile.TokenTypeUser, nil
 }
@@ -395,7 +416,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.C
 	if !ok {
 		return errors.New("failed to get user details, code may have expired")
 	}
-	return setSession(ctx, upCtx, res, profile.TokenTypeUser, username)
+	return setSession(ctx, upCtx, res, profile.TokenTypeUser, username, "")
 }
 
 type callbackServer struct {
@@ -484,25 +505,48 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 	}
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-	auth, profType, err := constructAuth(c.Username, c.Token, c.Password)
+
+	userID, profType, err := parseID(c.Username, c.Token)
+	if err != nil {
+		return err
+	}
+
+	var (
+		auth *auth
+		res  *http.Response
+	)
+
+	auth, _, err = constructAuth(userID, c.Token, c.Password)
 	if err != nil {
 		return errors.Wrap(err, errLoginFailed)
 	}
-	jsonStr, err := json.Marshal(auth)
-	if err != nil {
-		return errors.Wrap(err, errLoginFailed)
+
+	// Skip API request for robot tokens
+	if profType != profile.TokenTypeRobot {
+		jsonStr, err := json.Marshal(auth)
+		if err != nil {
+			return errors.Wrap(err, errLoginFailed)
+		}
+
+		if upCtx.APIEndpoint == nil {
+			return errors.Wrap(errors.New("API endpoint is not set"), errLoginFailed)
+		}
+
+		loginEndpoint := *upCtx.APIEndpoint
+		loginEndpoint.Path = loginPath
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, loginEndpoint.String(), bytes.NewReader(jsonStr))
+		if err != nil {
+			return errors.Wrap(err, errLoginFailed)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		res, err = c.client.Do(req)
+		if err != nil {
+			return errors.Wrap(err, errLoginFailed)
+		}
+		defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
 	}
-	loginEndpoint := *upCtx.APIEndpoint
-	loginEndpoint.Path = loginPath
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, loginEndpoint.String(), bytes.NewReader(jsonStr))
-	if err != nil {
-		return errors.Wrap(err, errLoginFailed)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	res, err := c.client.Do(req)
-	if err != nil {
-		return errors.Wrap(err, errLoginFailed)
-	}
-	defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
-	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID), errLoginFailed)
+	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID, c.Token), errLoginFailed)
 }
