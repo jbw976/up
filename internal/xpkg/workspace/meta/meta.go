@@ -127,7 +127,7 @@ func upsertDeps(d v1beta1.Dependency, o runtime.Object) error {
 			Version: d.Constraints,
 		}
 
-		switch d.Type {
+		switch *d.Type {
 		case v1beta1.ProviderPackageType:
 			dep.Provider = &d.Package
 		case v1beta1.ConfigurationPackageType:

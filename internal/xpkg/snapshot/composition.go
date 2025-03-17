@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	verrors "k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/validate"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
@@ -152,7 +153,7 @@ func (c *CompositionValidator) validatePipelineFunctionRefs(comp *xpextv1.Compos
 	// Figure out the valid function names based on the dependencies.
 	functionDeps := make(map[string]bool)
 	for _, dep := range deps {
-		if dep.Type != v1beta1.FunctionPackageType {
+		if *dep.Type != v1beta1.FunctionPackageType {
 			continue
 		}
 		reg, err := name.NewRepository(dep.Package)
@@ -206,7 +207,7 @@ func (c *CompositionValidator) collectFunctionDeps() ([]v1beta1.Dependency, erro
 		fnRepo := projRepo.Registry.Repo(projRepo.RepositoryStr() + "_" + info.Name())
 		deps[i] = v1beta1.Dependency{
 			Package: fnRepo.String(),
-			Type:    v1beta1.FunctionPackageType,
+			Type:    ptr.To(v1beta1.FunctionPackageType),
 		}
 	}
 

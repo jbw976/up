@@ -220,7 +220,8 @@ func (m *Manager) Resolve(ctx context.Context, d v1beta1.Dependency) (v1beta1.De
 		return ud, m.acc, err
 	}
 
-	ud.Type = e.Type()
+	t := e.Type()
+	ud.Type = &t
 	ud.Package = d.Package
 	ud.Constraints = e.Version()
 
@@ -256,7 +257,8 @@ func (m *Manager) AddAll(ctx context.Context, d v1beta1.Dependency) (v1beta1.Dep
 		}
 	}
 
-	ud.Type = e.Type()
+	t := e.Type()
+	ud.Type = &t
 	ud.Package = d.Package
 	ud.Constraints = e.Version()
 

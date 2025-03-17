@@ -539,7 +539,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				result: &validate.Result{
 					Errors: []error{
 						&validator.ValidationError{
-							TypeCode: validator.WarningTypeCode,
+							TypeCode: 100,
 							Message:  `function "crossplane-contrib-function-auto-ready" does not take input`,
 							Name:     "spec.pipeline[0].input",
 						},
@@ -612,7 +612,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				result: &validate.Result{
 					Errors: []error{
 						&validator.ValidationError{
-							TypeCode: validator.WarningTypeCode,
+							TypeCode: 100,
 							Message:  `Object 'Kind' is missing in '{"apiVersion":"v1"}'`,
 							Name:     "spec.pipeline[0].input",
 						},
@@ -685,7 +685,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				result: &validate.Result{
 					Errors: []error{
 						&validator.ValidationError{
-							TypeCode: validator.WarningTypeCode,
+							TypeCode: 100,
 							Message:  `incorrect input type for step "auto-ready"; valid inputs: [my-function.com/v1alpha1, Kind=Input]`,
 							Name:     "spec.pipeline[0].input.apiVersion",
 						},
@@ -770,7 +770,7 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				result: &validate.Result{
 					Errors: []error{
 						&validator.ValidationError{
-							TypeCode: 601, // This is a type code from the openapi validation library.
+							TypeCode: 601,
 							Message:  `boolField in body must be of type boolean: "string" (my-function.com/v1alpha1, Kind=Input)`,
 							Name:     "spec.pipeline[0].input.boolField",
 						},

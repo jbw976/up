@@ -31,7 +31,7 @@ func TestConvertToV1beta1(t *testing.T) {
 			expectedOutput: v1beta1.Dependency{
 				Constraints: "v1.0.0",
 				Package:     "provider-example",
-				Type:        v1beta1.ProviderPackageType,
+				Type:        ptr.To(v1beta1.ProviderPackageType),
 			},
 			expectedBool: true,
 		},
@@ -44,7 +44,7 @@ func TestConvertToV1beta1(t *testing.T) {
 			expectedOutput: v1beta1.Dependency{
 				Constraints: "v1.0.0",
 				Package:     "configuration-example",
-				Type:        v1beta1.ConfigurationPackageType,
+				Type:        ptr.To(v1beta1.ConfigurationPackageType),
 			},
 			expectedBool: true,
 		},
@@ -57,7 +57,7 @@ func TestConvertToV1beta1(t *testing.T) {
 			expectedOutput: v1beta1.Dependency{
 				Constraints: "v1.0.0",
 				Package:     "function-example",
-				Type:        v1beta1.FunctionPackageType,
+				Type:        ptr.To(v1beta1.FunctionPackageType),
 			},
 			expectedBool: true,
 		},

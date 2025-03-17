@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package dep contains functions to work with dependencies.
 package dep
 
 import (
@@ -8,6 +9,7 @@ import (
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
@@ -70,11 +72,11 @@ func NewWithType(pkg string, t string) v1beta1.Dependency {
 
 	switch normalized {
 	case string(v1beta1.ConfigurationPackageType):
-		d.Type = v1beta1.ConfigurationPackageType
+		d.Type = ptr.To(v1beta1.ConfigurationPackageType)
 	case string(v1beta1.FunctionPackageType):
-		d.Type = v1beta1.FunctionPackageType
+		d.Type = ptr.To(v1beta1.FunctionPackageType)
 	case string(v1beta1.ProviderPackageType):
-		d.Type = v1beta1.ProviderPackageType
+		d.Type = ptr.To(v1beta1.ProviderPackageType)
 	}
 
 	return d

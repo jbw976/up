@@ -67,7 +67,7 @@ func TestUpsert(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-gcp",
-						Type:        v1beta1.ConfigurationPackageType,
+						Type:        ptr.To(v1beta1.ConfigurationPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -107,12 +107,12 @@ func TestUpsert(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: ">=1.0.5",
 					},
 					{
 						Package:     "crossplane-contrib/function-test",
-						Type:        v1beta1.FunctionPackageType,
+						Type:        ptr.To(v1beta1.FunctionPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -146,7 +146,7 @@ func TestUpsert(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-gcp",
-						Type:        v1beta1.ConfigurationPackageType,
+						Type:        ptr.To(v1beta1.ConfigurationPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -186,12 +186,12 @@ func TestUpsert(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: ">=1.0.5",
 					},
 					{
 						Package:     "crossplane/provider-gcp",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -231,12 +231,12 @@ func TestUpsert(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: ">=1.0.5",
 					},
 					{
 						Package:     "crossplane/provider-gcp",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -656,7 +656,7 @@ func TestDependsOn(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -692,7 +692,7 @@ func TestDependsOn(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: "v1.0.0",
 					},
 				},
@@ -736,17 +736,17 @@ func TestDependsOn(t *testing.T) {
 				deps: []v1beta1.Dependency{
 					{
 						Package:     "crossplane/provider-gcp",
-						Type:        v1beta1.ConfigurationPackageType,
+						Type:        ptr.To(v1beta1.ConfigurationPackageType),
 						Constraints: ">=v1.0.1",
 					},
 					{
 						Package:     "crossplane/provider-aws",
-						Type:        v1beta1.ProviderPackageType,
+						Type:        ptr.To(v1beta1.ProviderPackageType),
 						Constraints: "v1.0.0",
 					},
 					{
 						Package:     "crossplane-contrib/function-test",
-						Type:        v1beta1.FunctionPackageType,
+						Type:        ptr.To(v1beta1.FunctionPackageType),
 						Constraints: "v1.0.0",
 					},
 				},

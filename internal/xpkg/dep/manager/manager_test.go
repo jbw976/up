@@ -213,7 +213,7 @@ func TestSnapshot(t *testing.T) {
 			args: args{
 				dep: v1beta1.Dependency{
 					Package:     "registry.upbound.io/upbound/platform-ref-aws",
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: "v0.2.1",
 				},
 				meta: &metav1.Provider{
@@ -275,7 +275,7 @@ func TestSnapshot(t *testing.T) {
 			args: args{
 				dep: v1beta1.Dependency{
 					Package:     "crossplane/provider-aws",
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: "v0.2.1",
 				},
 				meta: &metav1.Provider{
@@ -337,7 +337,7 @@ func TestSnapshot(t *testing.T) {
 			args: args{
 				dep: v1beta1.Dependency{
 					Package:     "registry.upbound.io/upbound/platform-ref-aws",
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: "no",
 				},
 				meta: &metav1.Provider{
@@ -460,7 +460,7 @@ func WithPackageObjects(ref name.Reference, meta runtime.Object, objs ...runtime
 	}
 }
 
-func (m *MockFetcher) Fetch(ctx context.Context, ref name.Reference, secrets ...string) (v1.Image, error) {
+func (m *MockFetcher) Fetch(_ context.Context, ref name.Reference, _ ...string) (v1.Image, error) {
 	objs, ok := m.pkgMeta[ref]
 	if !ok {
 		return nil, errors.New("entry does not exist in pkgMeta map")
@@ -468,7 +468,7 @@ func (m *MockFetcher) Fetch(ctx context.Context, ref name.Reference, secrets ...
 	return newPackageImage(objs...), nil
 }
 
-func (m *MockFetcher) Head(ctx context.Context, ref name.Reference, secrets ...string) (*v1.Descriptor, error) {
+func (m *MockFetcher) Head(_ context.Context, _ name.Reference, _ ...string) (*v1.Descriptor, error) {
 	h, _ := v1.NewHash("test")
 
 	return &v1.Descriptor{
@@ -476,7 +476,7 @@ func (m *MockFetcher) Head(ctx context.Context, ref name.Reference, secrets ...s
 	}, nil
 }
 
-func (m *MockFetcher) Tags(ctx context.Context, ref name.Reference, secrets ...string) ([]string, error) {
+func (m *MockFetcher) Tags(_ context.Context, _ name.Reference, _ ...string) ([]string, error) {
 	if m.tags != nil {
 		return m.tags, nil
 	}

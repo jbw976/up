@@ -1,5 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
+//revive:disable:error-strings
 
 package xpkg
 
@@ -22,6 +23,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/test"
+	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	xpmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
@@ -78,7 +80,7 @@ func TestFromImage(t *testing.T) {
 					Deps: []v1beta1.Dependency{
 						{
 							Package:     "crossplane/provider-gcp",
-							Type:        v1beta1.ProviderPackageType,
+							Type:        ptr.To(v1beta1.ProviderPackageType),
 							Constraints: "v0.18.0",
 						},
 					},
@@ -248,7 +250,7 @@ func TestFromDir(t *testing.T) {
 					Deps: []v1beta1.Dependency{
 						{
 							Package:     "crossplane/provider-aws",
-							Type:        v1beta1.ProviderPackageType,
+							Type:        ptr.To(v1beta1.ProviderPackageType),
 							Constraints: "v0.20.0",
 						},
 					},
@@ -293,7 +295,7 @@ func TestFromDir(t *testing.T) {
 					Deps: []v1beta1.Dependency{
 						{
 							Package:     "crossplane/provider-aws",
-							Type:        v1beta1.ProviderPackageType,
+							Type:        ptr.To(v1beta1.ProviderPackageType),
 							Constraints: "v0.20.0",
 						},
 					},
@@ -433,4 +435,129 @@ func newPackageImage(path string) v1.Image {
 func digest(i v1.Image) string {
 	h, _ := i.Digest()
 	return h.String()
+}
+
+type MetaSpec struct {
+	DependsOn []xpmetav1.Dependency
+}
+
+type Spec struct {
+	MetaSpec MetaSpec
+}
+
+type Metadata struct {
+	Spec Spec
+}
+
+func TestProcessDependsOn(t *testing.T) {
+	configKind := "Configuration"
+	functionKind := "Function"
+	providerKind := "Provider"
+	packageValue := "test-package"
+
+	cases := map[string]struct {
+		input Metadata
+		want  Metadata
+		error error
+	}{
+		"ValidConfiguration": {
+			input: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:    &configKind,
+								Package: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			want: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:          &configKind,
+								Package:       &packageValue,
+								Configuration: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			error: nil,
+		},
+		"ValidFunction": {
+			input: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:    &functionKind,
+								Package: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			want: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:     &functionKind,
+								Package:  &packageValue,
+								Function: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			error: nil,
+		},
+		"ValidProvider": {
+			input: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:    &providerKind,
+								Package: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			want: Metadata{
+				Spec: Spec{
+					MetaSpec: MetaSpec{
+						DependsOn: []xpmetav1.Dependency{
+							{
+								Kind:     &providerKind,
+								Package:  &packageValue,
+								Provider: &packageValue,
+							},
+						},
+					},
+				},
+			},
+			error: nil,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			input := tc.input
+			err := processDependsOn(&input)
+
+			if diff := cmp.Diff(tc.want, input); diff != "" {
+				t.Errorf("processDependsOn() mismatch (-want +got):\n%s", diff)
+			}
+
+			if (err != nil) != (tc.error != nil) || (err != nil && err.Error() != tc.error.Error()) {
+				t.Errorf("Expected error %v, got %v", tc.error, err)
+			}
+		})
+	}
 }

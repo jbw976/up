@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package xpkg contains function for marshal xpkg packages.
 package xpkg
 
 import (
@@ -8,6 +9,7 @@ import (
 	"context"
 	"io"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	cv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -15,6 +17,7 @@ import (
 	"github.com/spf13/afero/tarfs"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
@@ -42,8 +45,6 @@ const (
 	errNotExactlyOneMeta            = "not exactly one package meta type"
 	maxFileSize                     = 1024 * 1024 * 1024
 )
-
-var crdGVK = apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
 
 // Marshaler represents a xpkg Marshaler.
 type Marshaler struct {
@@ -95,7 +96,7 @@ func WithJSONParser(p JSONPackageParser) MarshalerOption {
 
 // FromImage takes a xpkg.Image and returns a ParsedPackage for consumption by
 // upstream callers.
-func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:gocyclo
+func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:gocyclo // layer handler
 	manifest, err := i.Image.Manifest()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get image manifest")
@@ -204,6 +205,11 @@ func processPackage(pkg linter.Package) (*ParsedPackage, error) {
 	}
 
 	meta := metas[0]
+
+	if err := processDependsOn(meta); err != nil {
+		return nil, errors.Wrap(err, "error convert dependsOn")
+	}
+
 	var linter linter.Linter
 	var pkgType v1beta1.PackageType
 	switch meta.GetObjectKind().GroupVersionKind().Kind {
@@ -226,6 +232,78 @@ func processPackage(pkg linter.Package) (*ParsedPackage, error) {
 		Objs:    pkg.GetObjects(),
 		PType:   pkgType,
 	}, nil
+}
+
+// processDependsOn updates the Configuration, Function, and Provider fields based on Kind.
+func processDependsOn(meta interface{}) error { //nolint:gocognit // interface handling
+	val := reflect.ValueOf(meta).Elem()
+
+	specField := val.FieldByName("Spec")
+	if !specField.IsValid() {
+		return errors.New("spec is not available")
+	}
+
+	metaSpecField := specField.FieldByName("MetaSpec")
+	if !metaSpecField.IsValid() {
+		return errors.New("metaSpec is not available")
+	}
+
+	dependsOnField := metaSpecField.FieldByName("DependsOn")
+	if !dependsOnField.IsValid() || dependsOnField.Kind() != reflect.Slice {
+		return nil
+	}
+
+	for i := range dependsOnField.Len() {
+		dep := dependsOnField.Index(i)
+
+		kindField := dep.FieldByName("Kind")
+		packageField := dep.FieldByName("Package")
+
+		// Skip dependency if Kind is not set (nil or empty string)
+		if !kindField.IsValid() || (kindField.Kind() == reflect.Ptr && kindField.IsNil()) {
+			continue
+		}
+
+		var kind string
+		if kindField.Kind() == reflect.Ptr {
+			kind = kindField.Elem().String()
+		} else {
+			kind = kindField.String()
+		}
+
+		// Skip if Kind is an empty string
+		if kind == "" {
+			continue
+		}
+
+		var packageValue string
+		if packageField.Kind() == reflect.Ptr && !packageField.IsNil() {
+			packageValue = packageField.Elem().String()
+		} else {
+			packageValue = packageField.String()
+		}
+
+		// Assign package value to the corresponding field based on Kind
+		switch kind {
+		case "Configuration":
+			configField := dep.FieldByName("Configuration")
+			if configField.IsValid() && configField.CanSet() {
+				configField.Set(reflect.ValueOf(&packageValue))
+			}
+		case "Function":
+			functionField := dep.FieldByName("Function")
+			if functionField.IsValid() && functionField.CanSet() {
+				functionField.Set(reflect.ValueOf(&packageValue))
+			}
+		case "Provider":
+			providerField := dep.FieldByName("Provider")
+			if providerField.IsValid() && providerField.CanSet() {
+				providerField.Set(reflect.ValueOf(&packageValue))
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *Marshaler) parseNDJSON(reader io.ReadCloser) (*ParsedPackage, error) {
@@ -274,11 +352,16 @@ func applyImageMeta(m xpkg.ImageMeta, pkg *ParsedPackage) *ParsedPackage {
 }
 
 func convertXRD2CRD(pkg *ParsedPackage) (*ParsedPackage, error) {
+	crdGVK := apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
+
 	for _, obj := range pkg.Objects() {
 		if obj.GetObjectKind().GroupVersionKind().Kind == "CompositeResourceDefinition" {
-			xrd := obj.(*v1.CompositeResourceDefinition)
+			xrd, ok := obj.(*v1.CompositeResourceDefinition)
+			if !ok {
+				continue
+			}
 
-			crd, err := xcrd.ForCompositeResource(obj.(*v1.CompositeResourceDefinition))
+			crd, err := xcrd.ForCompositeResource(xrd)
 			if err != nil {
 				return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q", xrd.GetName())
 			}
@@ -286,7 +369,7 @@ func convertXRD2CRD(pkg *ParsedPackage) (*ParsedPackage, error) {
 			pkg.Objs = append(pkg.Objs, crd)
 
 			if xrd.Spec.ClaimNames != nil {
-				claimCrd, err := xcrd.ForCompositeResourceClaim(obj.(*v1.CompositeResourceDefinition))
+				claimCrd, err := xcrd.ForCompositeResourceClaim(xrd)
 				if err != nil {
 					return nil, errors.Wrapf(err, "cannot derive claim CRD from XRD %q", xrd.GetName())
 				}
@@ -299,7 +382,7 @@ func convertXRD2CRD(pkg *ParsedPackage) (*ParsedPackage, error) {
 	return pkg, nil
 }
 
-func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) { //nolint:gocyclo
+func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) {
 	deps, err := determineDeps(pkg.MetaObj)
 	if err != nil {
 		return nil, err
@@ -331,23 +414,23 @@ func convertToV1beta1(in xpmetav1.Dependency) v1beta1.Dependency {
 
 	if in.Provider != nil {
 		betaD.Package = *in.Provider
-		betaD.Type = v1beta1.ProviderPackageType
+		betaD.Type = ptr.To(v1beta1.ProviderPackageType)
 	}
 
 	if in.Configuration != nil {
 		betaD.Package = *in.Configuration
-		betaD.Type = v1beta1.ConfigurationPackageType
+		betaD.Type = ptr.To(v1beta1.ConfigurationPackageType)
 	}
 
 	if in.Function != nil {
 		betaD.Package = *in.Function
-		betaD.Type = v1beta1.FunctionPackageType
+		betaD.Type = ptr.To(v1beta1.FunctionPackageType)
 	}
 
 	return betaD
 }
 
-func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { //nolint:gocyclo
+func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error { //nolint:gocyclo // layer handler
 	layers, err := i.Image.Layers()
 	if err != nil {
 		return errors.Wrap(err, "failed to get image layers")

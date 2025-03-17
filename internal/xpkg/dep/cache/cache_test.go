@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/afero"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
@@ -145,22 +146,21 @@ func TestGet(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	cacheRoot := "/tmp/cache"
-
 	dep1 := v1beta1.Dependency{
 		Package:     "crossplane/exist-xpkg",
-		Type:        v1beta1.ProviderPackageType,
+		Type:        ptr.To(v1beta1.ProviderPackageType),
 		Constraints: "latest",
 	}
 
 	dep2 := v1beta1.Dependency{
 		Package:     "crossplane/dep2-xpkg",
-		Type:        v1beta1.ProviderPackageType,
+		Type:        ptr.To(v1beta1.ProviderPackageType),
 		Constraints: "latest",
 	}
 
 	dep3 := v1beta1.Dependency{
 		Package:     "registry.upbound.io/upbound/dep3-xpkg",
-		Type:        v1beta1.ProviderPackageType,
+		Type:        ptr.To(v1beta1.ProviderPackageType),
 		Constraints: "latest",
 	}
 
@@ -542,7 +542,7 @@ func TestWatch(t *testing.T) {
 func cacheFileCnt(fs afero.Fs, dir string) int {
 	var cnt int
 	afero.Walk(fs, dir,
-		func(path string, info os.FileInfo, err error) error {
+		func(_ string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}

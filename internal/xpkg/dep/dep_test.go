@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
@@ -41,7 +42,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     providerAws,
-					Type:        v1beta1.ProviderPackageType,
+					Type:        ptr.To(v1beta1.ProviderPackageType),
 					Constraints: image.DefaultVer,
 				},
 			},
@@ -54,7 +55,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     functionTest,
-					Type:        v1beta1.FunctionPackageType,
+					Type:        ptr.To(v1beta1.FunctionPackageType),
 					Constraints: image.DefaultVer,
 				},
 			},
@@ -67,7 +68,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     providerAws,
-					Type:        v1beta1.ProviderPackageType,
+					Type:        ptr.To(v1beta1.ProviderPackageType),
 					Constraints: "v1.0.0",
 				},
 			},
@@ -80,7 +81,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     providerAws,
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: ">=v1.0.0",
 				},
 			},
@@ -93,7 +94,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     providerAws,
-					Type:        v1beta1.ProviderPackageType,
+					Type:        ptr.To(v1beta1.ProviderPackageType),
 					Constraints: "v1.0.0",
 				},
 			},
@@ -106,7 +107,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     providerAws,
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: ">=v1.0.0",
 				},
 			},
@@ -119,7 +120,7 @@ func TestNew(t *testing.T) {
 			want: want{
 				dep: v1beta1.Dependency{
 					Package:     privateProviderAws,
-					Type:        v1beta1.ConfigurationPackageType,
+					Type:        ptr.To(v1beta1.ConfigurationPackageType),
 					Constraints: ">=v1.0.0",
 				},
 			},

@@ -459,7 +459,7 @@ func (tc *addTestCase) Run(t *testing.T, makePkg func(deps []pkgmetav1.Dependenc
 	// Verify that the dep was added to the cache.
 	cchPkg, err := cch.Get(pkgv1beta1.Dependency{
 		Package:     tc.imageTag.RegistryStr() + "/" + tc.imageTag.RepositoryStr(),
-		Type:        tc.packageType,
+		Type:        &tc.packageType,
 		Constraints: tc.imageTag.TagStr(),
 	})
 	assert.NilError(t, err)

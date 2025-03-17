@@ -4,6 +4,8 @@
 package manager
 
 import (
+	"k8s.io/utils/ptr"
+
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	metav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
@@ -19,15 +21,15 @@ func ConvertToV1beta1(in metav1.Dependency) (v1beta1.Dependency, bool) {
 	switch {
 	case in.Provider != nil:
 		betaD.Package = *in.Provider
-		betaD.Type = v1beta1.ProviderPackageType
+		betaD.Type = ptr.To(v1beta1.ProviderPackageType)
 
 	case in.Configuration != nil:
 		betaD.Package = *in.Configuration
-		betaD.Type = v1beta1.ConfigurationPackageType
+		betaD.Type = ptr.To(v1beta1.ConfigurationPackageType)
 
 	case in.Function != nil:
 		betaD.Package = *in.Function
-		betaD.Type = v1beta1.FunctionPackageType
+		betaD.Type = ptr.To(v1beta1.FunctionPackageType)
 
 	default:
 		return betaD, false

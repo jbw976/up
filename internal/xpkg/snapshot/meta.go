@@ -171,11 +171,11 @@ func (v *TypeValidator) validate(_ context.Context, i int, d v1beta1.Dependency)
 	if got == nil {
 		return nil
 	}
-	if got.Type() != d.Type {
+	if got.Type() != *d.Type {
 		return &validator.ValidationError{
-			Name: fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(d.Type))),
+			Name: fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(*d.Type))),
 			Message: fmt.Sprintf(errWrongPkgTypeFmt,
-				strings.ToLower(string(d.Type)),
+				strings.ToLower(string(*d.Type)),
 				strings.ToLower(d.Package),
 				strings.ToLower(string(got.PType)),
 			),
@@ -209,7 +209,7 @@ func (v *VersionValidator) validate(ctx context.Context, i int, d v1beta1.Depend
 	}
 	if len(vers) == 0 {
 		return &validator.ValidationError{
-			Name:    fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(d.Type))),
+			Name:    fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(*d.Type))),
 			Message: fmt.Sprintf(errPackageDNEFmt, d.Package),
 		}
 	}
