@@ -727,7 +727,7 @@ func displayTestResults(ttotal, tsuccess, terr int) {
 	printlnFunc("Failed tests:        ", terr)
 }
 
-func assertions(ctx context.Context, output string, expectedAssertions []runtime.RawExtension) error {
+func assertions(ctx context.Context, output string, expectedAssertions []runtime.RawExtension) error { //nolint:gocognit // match resources is longer
 	// Split the rendered output into individual manifests
 	manifests := strings.Split(output, "---")
 	renderedManifests := make([]unstructured.Unstructured, 0, len(manifests))
@@ -767,6 +767,7 @@ func assertions(ctx context.Context, output string, expectedAssertions []runtime
 		expectedAPIVersion := expected.GetAPIVersion()
 		expectedKind := expected.GetKind()
 		expectedName := expected.GetName()
+		expectedAnnotations := expected.GetAnnotations()
 
 		matchFound := false
 
@@ -774,26 +775,38 @@ func assertions(ctx context.Context, output string, expectedAssertions []runtime
 			if rendered.GetAPIVersion() == expectedAPIVersion &&
 				rendered.GetKind() == expectedKind &&
 				rendered.GetName() == expectedName {
-				checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
-				if err != nil {
-					return fmt.Errorf("error during manifest check: %w", err)
+				renderedAnnotations := rendered.GetAnnotations()
+				// Ensure expectedAnnotations is a subset of renderedAnnotations
+				subsetMatch := true
+				for key, expectedValue := range expectedAnnotations {
+					if renderedValue, exists := renderedAnnotations[key]; !exists || renderedValue != expectedValue {
+						subsetMatch = false
+						break
+					}
 				}
 
-				if len(checkErrs) == 0 {
+				if subsetMatch {
+					checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
+					if err != nil {
+						return fmt.Errorf("error during manifest check: %w", err)
+					}
+
+					if len(checkErrs) == 0 {
+						matchFound = true
+						break // Found a fully matching manifest
+					}
+
 					matchFound = true
-					break // Found a match, no need to check further
+					// Convert `checkErrs` (field.ErrorList) into a Chainsaw structured error
+					assertionErrors = append(assertionErrors, chainsawerrors.ResourceError(
+						chainsawcompilers.DefaultCompilers,
+						expected,
+						rendered,
+						false,
+						chainsawapis.NewBindings(),
+						checkErrs, // field.ErrorList
+					))
 				}
-
-				matchFound = true
-				// Convert `checkErrs` (field.ErrorList) into a Chainsaw structured error
-				assertionErrors = append(assertionErrors, chainsawerrors.ResourceError(
-					chainsawcompilers.DefaultCompilers,
-					expected,
-					rendered,
-					false,
-					chainsawapis.NewBindings(),
-					checkErrs, // field.ErrorList
-				))
 			}
 		}
 
