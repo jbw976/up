@@ -336,7 +336,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 }
 
 func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
-	total, success, errors := 0, 0, 0
+	total, success, errs := 0, 0, 0
 
 	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
 
@@ -366,18 +366,19 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		return 0, 0, 0, err
 	}
 
+	var allErrors []error
 	for _, test := range tests {
 		total++
 
 		observedResourcesPath, err := writeToFile(tempProjFS, test.Spec.ObservedResources, "observed")
 		if err != nil {
-			errors++
+			errs++
 			continue
 		}
 
 		extraResourcesPath, err := writeToFile(tempProjFS, test.Spec.ExtraResources, "extraresources")
 		if err != nil {
-			errors++
+			errs++
 			continue
 		}
 
@@ -385,7 +386,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.XR.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XR}, "xr")
 			if err != nil {
-				errors++
+				errs++
 				continue
 			}
 			xrPath = path
@@ -395,7 +396,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.Composition.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
 			if err != nil {
-				errors++
+				errs++
 				continue
 			}
 			compositionPath = path
@@ -405,7 +406,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.XRD.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
 			if err != nil {
-				errors++
+				errs++
 				continue
 			}
 			xrdPath = path
@@ -436,18 +437,24 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			return err
 		}, c.quiet)
 		if err != nil {
-			errors++
+			errs++
 			pterm.PrintOnError(err)
 			continue
 		}
-
 		if err := assertions(ctx, output, test.Spec.AssertResources); err != nil {
-			errors++
+			errs++
+			allErrors = append(allErrors, err)
 			continue
 		}
 		success++
 	}
-	return total, success, errors, nil
+
+	var finalErr error
+	if len(allErrors) > 0 {
+		finalErr = errors.Join(allErrors...)
+	}
+
+	return total, success, errs, finalErr
 }
 
 func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
