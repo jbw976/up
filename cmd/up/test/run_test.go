@@ -106,7 +106,7 @@ metadata:
 				expectedAssertions = append(expectedAssertions, runtime.RawExtension{Raw: expectedJSON})
 			}
 
-			err := assertions(ctx, tt.output, expectedAssertions)
+			err := assertions(ctx, tt.output, "test", expectedAssertions, nil)
 
 			if tt.expectErr {
 				if err == nil {

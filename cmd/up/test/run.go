@@ -313,6 +313,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 
 		ttotal, tsuccess, terr, err = c.uptest(ctx, upCtx, tests)
 		if err != nil {
+			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute e2e tests")
 		}
 	} else {
@@ -322,6 +323,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		}
 		ttotal, tsuccess, terr, err = c.render(ctx, log, tests)
 		if err != nil {
+			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute composition tests")
 		}
 	}
@@ -336,7 +338,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 }
 
 func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
-	total, success, errors := 0, 0, 0
+	total, success, errs := 0, 0, 0
 
 	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
 
@@ -366,18 +368,21 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		return 0, 0, 0, err
 	}
 
+	var finalErr error
 	for _, test := range tests {
 		total++
 
 		observedResourcesPath, err := writeToFile(tempProjFS, test.Spec.ObservedResources, "observed")
 		if err != nil {
-			errors++
+			errs++
+			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 
 		extraResourcesPath, err := writeToFile(tempProjFS, test.Spec.ExtraResources, "extraresources")
 		if err != nil {
-			errors++
+			errs++
+			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 
@@ -385,7 +390,8 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.XR.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XR}, "xr")
 			if err != nil {
-				errors++
+				errs++
+				finalErr = errors.Join(finalErr, err)
 				continue
 			}
 			xrPath = path
@@ -395,7 +401,8 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.Composition.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
 			if err != nil {
-				errors++
+				errs++
+				finalErr = errors.Join(finalErr, err)
 				continue
 			}
 			compositionPath = path
@@ -405,7 +412,8 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		if len(test.Spec.XRD.Raw) > 0 {
 			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
 			if err != nil {
-				errors++
+				errs++
+				finalErr = errors.Join(finalErr, err)
 				continue
 			}
 			xrdPath = path
@@ -429,25 +437,30 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)
 		defer cancel()
 
-		var output string
-		err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Assert %s", test.Name), upterm.CheckmarkSuccessSpinner, func() error {
-			loutput, err := render.Render(renderCtx, log, efns, options)
-			output = loutput
-			return err
-		}, c.quiet)
+		output, err := render.Render(renderCtx, log, efns, options)
 		if err != nil {
-			errors++
+			errs++
+			finalErr = errors.Join(finalErr, err)
 			pterm.PrintOnError(err)
 			continue
 		}
 
-		if err := assertions(ctx, output, test.Spec.AssertResources); err != nil {
-			errors++
+		if err = c.asyncWrapper(func(ch async.EventChannel) error {
+			eg, ctx := errgroup.WithContext(ctx)
+			eg.Go(func() error {
+				err = assertions(ctx, output, test.Name, test.Spec.AssertResources, ch)
+				return err
+			})
+			return eg.Wait()
+		}); err != nil {
+			errs++
+			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 		success++
 	}
-	return total, success, errors, nil
+
+	return total, success, errs, finalErr
 }
 
 func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
@@ -731,12 +744,16 @@ func displayTestResults(ttotal, tsuccess, terr int) {
 	printlnFunc("Failed tests:        ", terr)
 }
 
-func assertions(ctx context.Context, output string, expectedAssertions []runtime.RawExtension) error {
+func assertions(ctx context.Context, output, testName string, expectedAssertions []runtime.RawExtension, ch async.EventChannel) error {
+	statusStage := fmt.Sprintf("Assert %s", testName)
+	ch.SendEvent(statusStage, async.EventStatusStarted)
+
 	// Split the rendered output into individual manifests
 	manifests := parseManifests(output)
 	renderedManifests := convertToUnstructured(manifests)
 	expectedObjects, err := parseExpectedAssertions(expectedAssertions)
 	if err != nil {
+		ch.SendEvent(statusStage, async.EventStatusFailure)
 		return err
 	}
 
@@ -745,8 +762,11 @@ func assertions(ctx context.Context, output string, expectedAssertions []runtime
 	if len(assertionErrors) > 0 {
 		finalErr := formatErrors(assertionErrors)
 		upterm.PrintColoredError(finalErr)
+		ch.SendEvent(statusStage, async.EventStatusFailure)
 		return finalErr
 	}
+
+	ch.SendEvent(statusStage, async.EventStatusSuccess)
 
 	return nil
 }
