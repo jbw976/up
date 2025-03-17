@@ -527,21 +527,17 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	}
 
 	total, success, errs := 0, 0, 0
-	var allErrors []error
+	var finalErr error
+
 	for _, test := range tests {
 		total++
 		err = c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
 		if err != nil {
 			errs++
-			allErrors = append(allErrors, err)
-			continue // Continue to the next test instead of stopping the loop
+			finalErr = errors.Join(finalErr, err)
+			continue
 		}
 		success++
-	}
-
-	var finalErr error
-	if len(allErrors) > 0 {
-		finalErr = errors.Join(allErrors...)
 	}
 
 	return total, success, errs, finalErr
