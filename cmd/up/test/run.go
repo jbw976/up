@@ -526,17 +526,21 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 		return 0, 0, 0, err
 	}
 
-	total, success, errors := 0, 0, 0
+	total, success, errs := 0, 0, 0
+	var finalErr error
+
 	for _, test := range tests {
 		total++
-		err := c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
+		err = c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
 		if err != nil {
-			errors++
-			continue // Continue to the next test instead of stopping the loop
+			errs++
+			finalErr = errors.Join(finalErr, err)
+			continue
 		}
 		success++
 	}
-	return total, success, errors, nil
+
+	return total, success, errs, finalErr
 }
 
 func writeClientConfig(clientConfig clientcmd.ClientConfig, dir string) (string, error) {
