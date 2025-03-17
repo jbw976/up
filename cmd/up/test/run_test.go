@@ -16,6 +16,7 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -478,12 +479,7 @@ func TestWriteClientConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a real temporary directory
-			tmpDir, err := os.MkdirTemp("", "test-kubeconfig")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.RemoveAll(tmpDir) // Cleanup after test
-
+			tmpDir := t.TempDir()
 			kubeconfigPath, err := writeClientConfig(tt.clientConfig, tmpDir)
 
 			if tt.expectErr {
@@ -511,6 +507,133 @@ func TestWriteClientConfig(t *testing.T) {
 			_, err = os.Stat(kubeconfigPath)
 			if err != nil {
 				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestIsMatchingManifest(t *testing.T) {
+	tests := []struct {
+		name                string
+		expected            unstructured.Unstructured
+		rendered            unstructured.Unstructured
+		expectedAnnotations map[string]string
+		expectMatch         bool
+	}{
+		{
+			name: "MatchingAll",
+			expected: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "test",
+						"annotations": map[string]interface{}{
+							"crossplane.io/composition-resource-name": "test",
+						},
+					},
+				},
+			},
+			rendered: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "test",
+						"annotations": map[string]interface{}{
+							"crossplane.io/composition-resource-name": "test",
+						},
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				"crossplane.io/composition-resource-name": "test",
+			},
+			expectMatch: true,
+		},
+		{
+			name: "MatchingWithoutName",
+			expected: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"crossplane.io/composition-resource-name": "test",
+						},
+					},
+				},
+			},
+			rendered: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							"crossplane.io/composition-resource-name": "test",
+						},
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				"crossplane.io/composition-resource-name": "test",
+			},
+			expectMatch: true,
+		},
+		{
+			name: "MismatchingName",
+			expected: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "test-configmap",
+					},
+				},
+			},
+			rendered: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "different-name",
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{},
+			expectMatch:         false,
+		},
+		{
+			name: "MissingAnnotation",
+			expected: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "test-configmap",
+					},
+				},
+			},
+			rendered: unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "ec2.aws.upbound.io/v1beta1",
+					"kind":       "SecurityGroupRule",
+					"metadata": map[string]interface{}{
+						"name": "test-configmap",
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				"env": "production",
+			},
+			expectMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if isMatchingManifest(tt.expected, tt.rendered, tt.expectedAnnotations) != tt.expectMatch {
+				t.Errorf("Test %q failed: expected match result %v", tt.name, tt.expectMatch)
 			}
 		})
 	}
