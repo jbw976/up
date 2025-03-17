@@ -729,92 +729,123 @@ func displayTestResults(ttotal, tsuccess, terr int) {
 
 func assertions(ctx context.Context, output string, expectedAssertions []runtime.RawExtension) error {
 	// Split the rendered output into individual manifests
-	manifests := strings.Split(output, "---")
-	renderedManifests := make([]unstructured.Unstructured, 0, len(manifests))
-
-	for _, manifest := range manifests {
-		manifest = strings.TrimSpace(manifest)
-		if manifest == "" {
-			continue
-		}
-
-		var obj map[string]interface{}
-		if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
-			continue
-		}
-
-		// Convert to Unstructured format for easier matching
-		var unstructuredObj unstructured.Unstructured
-		unstructuredObj.SetUnstructuredContent(obj)
-
-		renderedManifests = append(renderedManifests, unstructuredObj)
+	manifests := parseManifests(output)
+	renderedManifests := convertToUnstructured(manifests)
+	expectedObjects, err := parseExpectedAssertions(expectedAssertions)
+	if err != nil {
+		return err
 	}
 
-	// Convert expected assertions to Unstructured format
-	expectedObjects := make([]unstructured.Unstructured, 0, len(expectedAssertions))
-	for _, assertion := range expectedAssertions {
-		var expectedObj unstructured.Unstructured
-		if err := json.Unmarshal(assertion.Raw, &expectedObj); err != nil {
-			return fmt.Errorf("failed to unmarshal expected assertion: %w", err)
-		}
-		expectedObjects = append(expectedObjects, expectedObj)
-	}
-
-	// Compare Rendered Manifests Against Expected Assertions
-	var assertionErrors []error
-
-	for _, expected := range expectedObjects {
-		expectedAPIVersion := expected.GetAPIVersion()
-		expectedKind := expected.GetKind()
-		expectedName := expected.GetName()
-
-		matchFound := false
-
-		for _, rendered := range renderedManifests {
-			if rendered.GetAPIVersion() == expectedAPIVersion &&
-				rendered.GetKind() == expectedKind &&
-				rendered.GetName() == expectedName {
-				checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
-				if err != nil {
-					return fmt.Errorf("error during manifest check: %w", err)
-				}
-
-				if len(checkErrs) == 0 {
-					matchFound = true
-					break // Found a match, no need to check further
-				}
-
-				matchFound = true
-				// Convert `checkErrs` (field.ErrorList) into a Chainsaw structured error
-				assertionErrors = append(assertionErrors, chainsawerrors.ResourceError(
-					chainsawcompilers.DefaultCompilers,
-					expected,
-					rendered,
-					false,
-					chainsawapis.NewBindings(),
-					checkErrs, // field.ErrorList
-				))
-			}
-		}
-
-		if !matchFound {
-			assertionErrors = append(assertionErrors, errors.Errorf("no actual resource found: %s/%s/%s", expectedAPIVersion, expectedKind, expectedName))
-		}
-	}
+	assertionErrors := compareManifests(ctx, renderedManifests, expectedObjects)
 
 	if len(assertionErrors) > 0 {
-		formattedErrors := make([]string, len(assertionErrors))
-		for i, e := range assertionErrors {
-			formattedErrors[i] = e.Error()
-		}
-
-		// Join errors with newline instead of `;`
-		finalErr := fmt.Errorf("\n%s", strings.Join(formattedErrors, "\n"))
+		finalErr := formatErrors(assertionErrors)
 		upterm.PrintColoredError(finalErr)
 		return finalErr
 	}
 
 	return nil
+}
+
+func parseManifests(output string) []string {
+	manifests := strings.Split(output, "---")
+	parsedManifests := make([]string, 0, len(manifests))
+	for _, manifest := range manifests {
+		trimmed := strings.TrimSpace(manifest)
+		if trimmed != "" {
+			parsedManifests = append(parsedManifests, trimmed)
+		}
+	}
+	return parsedManifests
+}
+
+func convertToUnstructured(manifests []string) []unstructured.Unstructured {
+	renderedManifests := make([]unstructured.Unstructured, 0, len(manifests))
+	for _, manifest := range manifests {
+		var obj map[string]interface{}
+		if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
+			continue
+		}
+		var unstructuredObj unstructured.Unstructured
+		unstructuredObj.SetUnstructuredContent(obj)
+		renderedManifests = append(renderedManifests, unstructuredObj)
+	}
+	return renderedManifests
+}
+
+func parseExpectedAssertions(expectedAssertions []runtime.RawExtension) ([]unstructured.Unstructured, error) {
+	expectedObjects := make([]unstructured.Unstructured, 0, len(expectedAssertions))
+	for _, assertion := range expectedAssertions {
+		var expectedObj unstructured.Unstructured
+		if err := json.Unmarshal(assertion.Raw, &expectedObj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal expected assertion: %w", err)
+		}
+		expectedObjects = append(expectedObjects, expectedObj)
+	}
+	return expectedObjects, nil
+}
+
+func compareManifests(ctx context.Context, renderedManifests, expectedObjects []unstructured.Unstructured) []error {
+	var assertionErrors []error
+	for _, expected := range expectedObjects {
+		if err := matchExpectedManifest(ctx, expected, renderedManifests); err != nil {
+			assertionErrors = append(assertionErrors, err)
+		}
+	}
+	return assertionErrors
+}
+
+func matchExpectedManifest(ctx context.Context, expected unstructured.Unstructured, renderedManifests []unstructured.Unstructured) error {
+	expectedAPIVersion, expectedKind, expectedName := expected.GetAPIVersion(), expected.GetKind(), expected.GetName()
+	expectedAnnotations := expected.GetAnnotations()
+
+	for _, rendered := range renderedManifests {
+		if isMatchingManifest(expected, rendered, expectedAnnotations) {
+			checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
+			if err != nil {
+				return fmt.Errorf("error during manifest check: %w", err)
+			}
+
+			if len(checkErrs) == 0 {
+				return nil
+			}
+
+			return chainsawerrors.ResourceError(
+				chainsawcompilers.DefaultCompilers,
+				expected,
+				rendered,
+				false,
+				chainsawapis.NewBindings(),
+				checkErrs,
+			)
+		}
+	}
+
+	return errors.Errorf("no actual resource found: %s/%s/%s", expectedAPIVersion, expectedKind, expectedName)
+}
+
+func isMatchingManifest(expected, rendered unstructured.Unstructured, expectedAnnotations map[string]string) bool {
+	if rendered.GetAPIVersion() != expected.GetAPIVersion() ||
+		rendered.GetKind() != expected.GetKind() ||
+		rendered.GetName() != expected.GetName() {
+		return false
+	}
+
+	renderedAnnotations := rendered.GetAnnotations()
+	for key, expectedValue := range expectedAnnotations {
+		if renderedValue, exists := renderedAnnotations[key]; !exists || renderedValue != expectedValue {
+			return false
+		}
+	}
+	return true
+}
+
+func formatErrors(errors []error) error {
+	formattedErrors := make([]string, len(errors))
+	for i, e := range errors {
+		formattedErrors[i] = e.Error()
+	}
+	return fmt.Errorf("\n%s", strings.Join(formattedErrors, "\n"))
 }
 
 func writeToFile(fs afero.Fs, resources []runtime.RawExtension, filename string) (string, error) {
