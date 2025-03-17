@@ -81,7 +81,7 @@ type runCmd struct {
 	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
 	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 
-	Kubectl string `env:"KUBECTL"  help:"Absolute path to the kubectl binary. Defaults to the one in $PATH."  type:"path"`
+	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
 	Public bool          `help:"Create new repositories with public visibility."`
 	E2E    bool          `help:"Run E2E"                                         name:"e2e"`
