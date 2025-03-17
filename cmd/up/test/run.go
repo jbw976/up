@@ -313,6 +313,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 
 		ttotal, tsuccess, terr, err = c.uptest(ctx, upCtx, tests)
 		if err != nil {
+			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute e2e tests")
 		}
 	} else {
@@ -322,6 +323,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		}
 		ttotal, tsuccess, terr, err = c.render(ctx, log, tests)
 		if err != nil {
+			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute composition tests")
 		}
 	}
