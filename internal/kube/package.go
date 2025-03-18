@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -144,12 +143,12 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 		}
 	}
 
-	switch lpkg.Type {
-	case ptr.To(xpkgv1beta1.ConfigurationPackageType):
+	switch *lpkg.Type {
+	case xpkgv1beta1.ConfigurationPackageType:
 		pkg = &xpkgv1.ConfigurationRevision{}
-	case ptr.To(xpkgv1beta1.ProviderPackageType):
+	case xpkgv1beta1.ProviderPackageType:
 		pkg = &xpkgv1.ProviderRevision{}
-	case ptr.To(xpkgv1beta1.FunctionPackageType):
+	case xpkgv1beta1.FunctionPackageType:
 		pkg = &xpkgv1.FunctionRevision{}
 	}
 
