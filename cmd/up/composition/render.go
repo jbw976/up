@@ -205,11 +205,8 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 	return nil
 }
 
-func (c *renderCmd) Run(log logging.Logger) error {
+func (c *renderCmd) Run(ctx context.Context, log logging.Logger) error {
 	pterm.EnableStyling()
-
-	renderCtx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-	defer cancel()
 
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
@@ -225,7 +222,7 @@ func (c *renderCmd) Run(log logging.Logger) error {
 			EventChannel:       ch,
 		}
 
-		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(renderCtx, functionOptions)
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
 		if err != nil {
 			return errors.Wrap(err, "unable to build embedded functions")
 		}
@@ -254,6 +251,9 @@ func (c *renderCmd) Run(log logging.Logger) error {
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
 	}
+
+	renderCtx, cancel := context.WithTimeout(ctx, c.Timeout)
+	defer cancel()
 
 	return upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
 		output, err := render.Render(renderCtx, log, efns, options)
