@@ -119,7 +119,7 @@ type batchCmd struct {
 }
 
 // Run executes the batch command.
-func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error { //nolint:gocyclo
+func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
 	baseImgMap := make(map[string]v1.Image, len(c.Platform))
 	for _, p := range c.Platform {
 		tokens := strings.Split(p, "_")
@@ -145,7 +145,7 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		concurrency <- struct{}{}
 	}
 	for _, s := range c.SmallerProviders {
-		go func() { //nolint:contextcheck
+		go func() { //nolint:contextcheck // ignore context check
 			// if concurrency is limited
 			if c.Concurrency != 0 {
 				<-concurrency
@@ -181,7 +181,7 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 // the smaller provider controller binary (which is platform specific) on top
 // of the addendum layers and then pushes the built multi-arch package
 // (if `len(c.Platforms) > 1`) to the specified package repository.
-func (c *batchCmd) processService(p pterm.TextPrinter, upCtx *upbound.Context, baseImgMap map[string]v1.Image, s string) error { //nolint:gocyclo
+func (c *batchCmd) processService(p pterm.TextPrinter, upCtx *upbound.Context, baseImgMap map[string]v1.Image, s string) error { //nolint:gocognit // TODO: refactor
 	imgs := make([]v1.Image, 0, len(c.Platform))
 	// image layers added on top of the base image by xpkg push to be reused
 	// across the platforms so that they are computed only once.
@@ -490,6 +490,7 @@ func (c *batchCmd) getBuilder(service string) (*xpkg.Builder, error) {
 			parser.FsFilters(
 				buildFilters(ex, c.Ignore)...),
 		),
+		nil, // Helm backend is not used in the batch command (or not supported yet).
 		pp,
 		examples.New(),
 	), nil

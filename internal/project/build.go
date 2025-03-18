@@ -325,6 +325,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 			parser.FsDir("/"),
 			parser.FsFilters(parser.SkipNotYAML()),
 		),
+		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
 		mut...,
@@ -578,6 +579,7 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 		parser.NewFsBackend(metaFS, parser.FsDir("/")),
 		nil,
 		examplesParser,
+		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
 	)
@@ -720,7 +722,7 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 }
 
 // NewBuilder returns a new project builder.
-func NewBuilder(opts ...BuilderOption) *realBuilder { //nolint:revive // works as intendend
+func NewBuilder(opts ...BuilderOption) *realBuilder { //nolint:revive // works as intended
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
 		schemaRunner:       schemarunner.RealSchemaRunner{},

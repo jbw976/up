@@ -24,6 +24,7 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
@@ -34,23 +35,27 @@ const (
 	errParserExample     = "failed to parse examples"
 	errLintPackage       = "failed to lint package"
 	errInitBackend       = "failed to initialize package parsing backend"
-	errTarFromStream     = "failed to build tarball from stream"
-	errLayerFromTar      = "failed to convert tarball to image layer"
-	errDigestInvalid     = "failed to get digest from image layer"
-	errBuildImage        = "failed to build image from layers"
-	errConfigFile        = "failed to get config file from image"
-	errMutateConfig      = "failed to mutate config for image"
+	errInitHelmBackend   = "failed to initialize helm backend"
+	errBuildImage        = "failed to build image"
+	errDigestInvalid     = "digest is invalid"
+	errLayerFromTar      = "failed to create layer from tar"
+	errTarFromStream     = "failed to create tar from stream"
+	errConfigFile        = "failed to get config file"
+	errMutateConfig      = "failed to mutate config"
+	errParseAuth         = "failed to parse auth"
+	errAuthNotAnnotated  = "failed to annotate auth"
+	errControllerNoHelm  = "controller package requires a helm chart"
 	errBuildObjectScheme = "failed to build scheme for package encoder"
-	errParseAuth         = "an auth extension was supplied but could not be parsed"
-	errAuthNotAnnotated  = "an auth extension was supplied but the " + ProviderConfigKind + " object could not be found"
 	authMetaAnno         = "auth.upbound.io/group"
-	AuthObjectAnno       = "auth.upbound.io/config"
-	ProviderConfigKind   = "ProviderConfig"
+	// AuthObjectAnno is the auth object annotation.
+	AuthObjectAnno = "auth.upbound.io/config"
+	// ProviderConfigKind is the kind of the provider config.
+	ProviderConfigKind = "ProviderConfig"
 )
 
 // Mutator defines a mutation / add additional layers on an image and its config.
 type Mutator interface {
-	Mutate(v1.Image, v1.Config) (v1.Image, v1.Config, error)
+	Mutate(i v1.Image, c v1.Config) (v1.Image, v1.Config, error)
 }
 
 // annotatedTeeReadCloser is a copy of io.TeeReader that implements
@@ -94,23 +99,25 @@ func (t *teeReader) Annotate() any {
 
 // Builder defines an xpkg Builder.
 type Builder struct {
-	pb       parser.Backend
-	eb       parser.Backend
-	ab       parser.Backend
-	pp       parser.Parser
-	ep       *examples.Parser
-	mutators []Mutator
+	packageBackend  parser.Backend
+	examplesBackend parser.Backend
+	authBackend     parser.Backend
+	helmBackend     parser.Backend
+	packageParser   parser.Parser
+	examplesParser  *examples.Parser
+	mutators        []Mutator
 }
 
 // New returns a new Builder.
-func New(pkg, ab, ex parser.Backend, pp parser.Parser, ep *examples.Parser, mutators ...Mutator) *Builder {
+func New(pkg, ab, ex, h parser.Backend, pp parser.Parser, ep *examples.Parser, mutators ...Mutator) *Builder {
 	return &Builder{
-		pb:       pkg,
-		ab:       ab,
-		eb:       ex,
-		pp:       pp,
-		ep:       ep,
-		mutators: mutators,
+		packageBackend:  pkg,
+		authBackend:     ab,
+		examplesBackend: ex,
+		helmBackend:     h,
+		packageParser:   pp,
+		examplesParser:  ep,
+		mutators:        mutators,
 	}
 }
 
@@ -129,6 +136,7 @@ func WithController(img v1.Image) BuildOpt {
 	}
 }
 
+// AuthExtension is the structure of the auth.yaml file.
 type AuthExtension struct {
 	Version      string `yaml:"version"`
 	Discriminant string `yaml:"discriminant"`
@@ -144,7 +152,7 @@ type AuthExtension struct {
 }
 
 // Build compiles a Crossplane package from an on-disk package.
-func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtime.Object, error) { //nolint:gocyclo
+func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtime.Object, error) { //nolint:gocognit // TODO: refactor
 	bOpts := &buildOpts{
 		base: empty.Image,
 	}
@@ -155,14 +163,14 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	// assume examples exist
 	examplesExist := true
 	// Get package YAML stream.
-	pkgReader, err := b.pb.Init(ctx)
+	pkgReader, err := b.packageBackend.Init(ctx)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, errInitBackend)
 	}
 	defer func() { _ = pkgReader.Close() }()
 
 	// Get examples YAML stream.
-	exReader, err := b.eb.Init(ctx)
+	exReader, err := b.examplesBackend.Init(ctx)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, nil, errors.Wrap(err, errInitBackend)
 	}
@@ -172,7 +180,16 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 		examplesExist = false
 	}
 
-	pkg, err := b.pp.Parse(ctx, pkgReader)
+	var helmReader io.ReadCloser
+	if b.helmBackend != nil {
+		helmReader, err = b.helmBackend.Init(ctx)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, nil, errors.Wrap(err, errInitHelmBackend)
+		}
+		defer func() { _ = helmReader.Close() }()
+	}
+
+	pkg, err := b.packageParser.Parse(ctx, pkgReader)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, errParserPackage)
 	}
@@ -191,13 +208,13 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	case v1beta1.FunctionKind:
 		linter = NewFunctionLinter()
 	case pkgmetav1.ProviderKind:
-		if b.ab != nil { // if we have an auth.yaml file
+		if b.authBackend != nil { // if we have an auth.yaml file
 			if p, ok := meta.(metav1.Object); ok {
 				if group, ok := p.GetAnnotations()[authMetaAnno]; ok {
 					// if we found an annotation auth.upbound.io/group then look for the object
 					// specified there like aws.upbound.io and annotate that with auth.upbound.io/config
 					// and embed the contents of the auth.yaml file
-					ar, err := b.ab.Init(ctx)
+					ar, err := b.authBackend.Init(ctx)
 					if err != nil {
 						return nil, nil, errors.Wrap(err, errParseAuth)
 					}
@@ -228,6 +245,8 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 			}
 		}
 		linter = NewProviderLinter()
+	case upboundpkgmetav1alpha1.ControllerKind:
+		linter = NewControllerLinter()
 	}
 	if err := linter.Lint(pkg); err != nil {
 		return nil, nil, errors.Wrap(err, errLintPackage)
@@ -256,7 +275,7 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 	// examples exist, create the layer
 	if examplesExist {
 		exBuf := new(bytes.Buffer)
-		if _, err = b.ep.Parse(ctx, annotatedTeeReadCloser(exReader, exBuf)); err != nil {
+		if _, err = b.examplesParser.Parse(ctx, annotatedTeeReadCloser(exReader, exBuf)); err != nil {
 			return nil, nil, errors.Wrap(err, errParserExample)
 		}
 
@@ -265,6 +284,23 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 			return nil, nil, err
 		}
 		layers = append(layers, exLayer)
+	}
+
+	if meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind {
+		// Controller packages must have a helm chart
+		if helmReader == nil {
+			return nil, nil, errors.New(errControllerNoHelm)
+		}
+		// Create the helm layer from the helm chart
+		helmBuf := new(bytes.Buffer)
+		if _, err := io.Copy(helmBuf, helmReader); err != nil {
+			return nil, nil, errors.Wrap(err, "failed to read helm chart")
+		}
+		helmLayer, err := Layer(helmBuf, XpkgHelmChartFile, HelmChartAnnotation, int64(helmBuf.Len()), StreamFileMode, &cfg)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "failed to create helm layer")
+		}
+		layers = append(layers, helmLayer)
 	}
 
 	for _, mut := range b.mutators {
@@ -317,7 +353,7 @@ func encode(pkg linter.Package) (*bytes.Buffer, error) {
 
 // SkipContains supplies a FilterFn that skips paths that contain the give pattern.
 func SkipContains(pattern string) parser.FilterFn {
-	return func(path string, info os.FileInfo) (bool, error) {
+	return func(path string, _ os.FileInfo) (bool, error) {
 		return strings.Contains(path, pattern), nil
 	}
 }

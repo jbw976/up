@@ -35,6 +35,10 @@ const (
 	// that contains the examples YAML stream.
 	XpkgExamplesFile string = ".up/examples.yaml"
 
+	// XpkgHelmChartFile is the name of the file in an Upbound Controller
+	// package image that contains the helm chart.
+	XpkgHelmChartFile = "helm/chart.tgz"
+
 	// AnnotationKey is the key value for xpkg annotations.
 	AnnotationKey string = "io.crossplane.xpkg"
 	// PackageAnnotation is the annotation value used for the package.yaml
@@ -54,6 +58,8 @@ const (
 	SchemaPythonAnnotation string = "schema.python"
 	// SchemaGoAnnotation is the annotation value used for the go schema layer.
 	SchemaGoAnnotation string = "schema.go"
+	// HelmChartAnnotation is the annotation value used for the helm chart layer.
+	HelmChartAnnotation = "helm"
 )
 
 func truncate(str string, num int) string {
