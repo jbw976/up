@@ -71,10 +71,18 @@ func (r *Run) RESTConfig(ctx context.Context, upCtx *upbound.Context) (*rest.Con
 		}
 	}
 
-	if r.simulation.Status.SimulatedControlPlaneName == nil {
-		return nil, errors.New("simulation has not been populated with a simulated control plane name")
+	// TODO(redbackthomson): TEMPORARY FIX FOR BUG IN SIMULATION RECONCILER.
+	// REPLACE WITH STATUS
+	// if r.simulation.Status.SimulatedControlPlaneName == nil {
+
+	// 	return nil, errors.New("simulation has not been populated with a simulated control plane name")
+	// }
+	simCtpName, ok := r.simulation.ObjectMeta.Labels["simulation.spaces.upbound.io/simulated-control-plane"]
+	if !ok {
+		return nil, errors.New("simulated control plane name not in label")
 	}
-	ctp := types.NamespacedName{Namespace: r.simulation.GetNamespace(), Name: *r.simulation.Status.SimulatedControlPlaneName}
+
+	ctp := types.NamespacedName{Namespace: r.simulation.GetNamespace(), Name: simCtpName} //*r.simulation.Status.SimulatedControlPlaneName}
 	spaceClient, err := space.BuildKubeconfig(ctp)
 	if err != nil {
 		return nil, err
@@ -100,6 +108,15 @@ func (r *Run) WaitForCondition(ctx context.Context, client client.Client, condit
 		return conditionFunc(r.simulation)
 	}, waitOpts...); err != nil {
 		return errors.Wrap(err, "error while waiting for simulation to complete")
+	}
+	return nil
+}
+
+// Complete updates the Simulation, setting the desired state to "Complete".
+func (r *Run) Complete(ctx context.Context, client client.Client) error {
+	r.simulation.Spec.DesiredState = spacesv1alpha1.SimulationStateComplete
+	if err := client.Update(ctx, r.simulation); err != nil {
+		return errors.Wrap(err, "unable to complete simulation")
 	}
 	return nil
 }

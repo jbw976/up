@@ -1,18 +1,18 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package run provides the `up project run` command.
-package run
+// Package simulate provides the `up project simulate` command.
+package simulate
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
@@ -24,17 +24,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
+	runcmd "github.com/upbound/up/cmd/up/project/run"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
-	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/ctx"
+	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
@@ -45,23 +49,18 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-// Flags are the cmd line flags specific to `up project run`. These are
-// separated from Cmd struct so that they can be re-used elsewhere in the CLI.
-type Flags struct {
-	ProjectFile    string `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                                        short:"f"`
-	Repository     string `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
-	NoBuildCache   bool   `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir  string `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                                      type:"path"`
-	MaxConcurrency uint   `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                                       help:"Maximum number of functions to build and push at once."`
-}
-
-// Cmd is the `up project run` command.
+// Cmd is the `up project simulate` command.
 type Cmd struct {
-	Flags
+	runcmd.Flags
 
-	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
-	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
+	SourceControlPlaneName string `arg:"" help:"Name of the source control plane"`
+	SimulationName         string `help:"The name of the simulation resource" short:"n" optional:""`
+
+	Output            string `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
+	Wait              bool   `default:"true"                                                                                              help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
+	TerminateOnFinish bool   `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
+
+	ControlPlaneGroup string        `short:"g" help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies."               type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
@@ -192,7 +191,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error {
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -231,8 +230,18 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 	}
 
-	if c.ControlPlaneName == "" {
-		c.ControlPlaneName = proj.Name
+	simOpts := []simulation.Option{}
+
+	if c.SimulationName != "" {
+		simOpts = append(simOpts, simulation.WithName(c.SimulationName))
+	}
+
+	sim, err := simulation.Start(ctx, c.spaceClient, types.NamespacedName{
+		Namespace: c.ControlPlaneGroup,
+		Name:      c.SourceControlPlaneName,
+	}, simOpts...)
+	if err != nil {
+		return errors.Wrap(err, "failed to start simulation")
 	}
 
 	b := project.NewBuilder(
@@ -241,34 +250,18 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
 
-	var (
-		imgMap       project.ImageTagMap
-		devCtpClient client.Client
-	)
+	var imgMap project.ImageTagMap
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
-			var err error
-			devCtpClient, _, err = ctp.EnsureControlPlane(
-				ctx,
-				upCtx,
-				c.spaceClient,
-				c.ControlPlaneGroup,
-				c.ControlPlaneName,
-				ch,
-				ctp.SkipDevCheck(c.Force),
-				ctp.DevControlPlane(),
-			)
-
-			ctpSchemeBuilders := []*scheme.Builder{
-				xpkgv1.SchemeBuilder,
-				xpkgv1beta1.SchemeBuilder,
-			}
-			for _, bld := range ctpSchemeBuilders {
-				if err := bld.AddToScheme(devCtpClient.Scheme()); err != nil {
-					return err
-				}
+			stageStatus := "Waiting for Simulation to begin accepting changes"
+			ch.SendEvent(stageStatus, async.EventStatusStarted)
+			err := sim.WaitForCondition(ctx, c.spaceClient, simulation.AcceptingChanges())
+			if err != nil {
+				ch.SendEvent(stageStatus, async.EventStatusFailure)
+			} else {
+				ch.SendEvent(stageStatus, async.EventStatusSuccess)
 			}
 			return err
 		})
@@ -301,6 +294,25 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		}
 	}
 
+	simConfig, err := sim.RESTConfig(ctx, upCtx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get simulated control plane kubeconfig")
+	}
+	simClient, err := client.New(simConfig, client.Options{})
+	if err != nil {
+		return errors.Wrap(err, "failed to build simulated control plane client")
+	}
+
+	ctpSchemeBuilders := []*scheme.Builder{
+		xpkgv1.SchemeBuilder,
+		xpkgv1beta1.SchemeBuilder,
+	}
+	for _, bld := range ctpSchemeBuilders {
+		if err := bld.AddToScheme(simClient.Scheme()); err != nil {
+			return err
+		}
+	}
+
 	pusher := project.NewPusher(
 		project.PushWithUpboundContext(upCtx),
 		project.PushWithTransport(c.transport),
@@ -330,7 +342,69 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		readyCtx = timeoutCtx
 	}
 
-	return c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(readyCtx, devCtpClient, proj.Name, generatedTag, ch)
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
+		return kube.InstallConfiguration(readyCtx, simClient, proj.Name, generatedTag, ch)
 	})
+	if err != nil {
+		return err
+	}
+
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
+		eg, _ := errgroup.WithContext(ctx)
+
+		eg.Go(func() error {
+			stageStatus := "Simulating changes"
+			ch.SendEvent(stageStatus, async.EventStatusStarted)
+			time.Sleep(1 * time.Minute)
+			ch.SendEvent(stageStatus, async.EventStatusSuccess)
+			return err
+		})
+
+		eg.Go(func() error {
+			// query for changes
+			return nil
+		})
+
+		return eg.Wait()
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := sim.Complete(ctx, c.spaceClient); err != nil {
+		return err
+	}
+
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
+		stageStatus := "Waiting for Simulation to complete"
+		ch.SendEvent(stageStatus, async.EventStatusStarted)
+		err := sim.WaitForCondition(ctx, c.spaceClient, simulation.Complete())
+		if err != nil {
+			ch.SendEvent(stageStatus, async.EventStatusFailure)
+		} else {
+			ch.SendEvent(stageStatus, async.EventStatusSuccess)
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	diffSet, err := sim.DiffSet(ctx, upCtx)
+	if err != nil {
+		return err
+	}
+
+	buf := &strings.Builder{}
+	writer := diff.NewPrettyPrintWriter(buf, true)
+	_ = writer.Write(diffSet)
+
+	if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
+		return errors.Wrap(err, "failed to write output")
+	}
+	if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
+		return errors.Wrap(err, "failed to write output")
+	}
+
+	return nil
 }

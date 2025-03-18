@@ -111,9 +111,13 @@ func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, ch
 
 	// stores a list of resources that we want to filter in the diff, that
 	// aren't being filtered in the reconciler
-	trimKind := []schema.GroupVersionKind{
-		{Group: "apiextensions.crossplane.io", Version: "v1", Kind: "CompositionRevision"},
-		{Group: "pkg.crossplane.io", Version: "v1beta1", Kind: "DeploymentRuntimeConfig"},
+	trimKind := []schema.GroupKind{
+		{Group: "apiextensions.crossplane.io", Kind: "CompositionRevision"},
+		{Group: "pkg.crossplane.io", Kind: "DeploymentRuntimeConfig"},
+		{Group: "pkg.crossplane.io", Kind: "Lock"},
+		{Group: "pkg.crossplane.io", Kind: "Function"},
+		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
+		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
 	}
 
 	for _, change := range changes {
@@ -121,7 +125,7 @@ func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, ch
 
 		// todo(redbackthomson): Remove this logic once we have done a better
 		// job of filtering in the reconciler
-		if slices.Contains(trimKind, gvk) {
+		if slices.Contains(trimKind, gvk.GroupKind()) {
 			r.debugPrintf("skipping gvk %+v\n", gvk)
 			continue
 		}
