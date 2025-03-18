@@ -143,13 +143,15 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 		}
 	}
 
-	switch *lpkg.Type {
-	case xpkgv1beta1.ConfigurationPackageType:
-		pkg = &xpkgv1.ConfigurationRevision{}
-	case xpkgv1beta1.ProviderPackageType:
-		pkg = &xpkgv1.ProviderRevision{}
-	case xpkgv1beta1.FunctionPackageType:
-		pkg = &xpkgv1.FunctionRevision{}
+	if lpkg.Type != nil {
+		switch *lpkg.Type {
+		case xpkgv1beta1.ConfigurationPackageType:
+			pkg = &xpkgv1.ConfigurationRevision{}
+		case xpkgv1beta1.ProviderPackageType:
+			pkg = &xpkgv1.ProviderRevision{}
+		case xpkgv1beta1.FunctionPackageType:
+			pkg = &xpkgv1.FunctionRevision{}
+		}
 	}
 
 	err := cl.Get(ctx, types.NamespacedName{Name: lpkg.Name}, pkg)
