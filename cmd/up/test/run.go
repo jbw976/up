@@ -81,8 +81,7 @@ type runCmd struct {
 	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
 	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 
-	Chainsaw string `env:"CHAINSAW" help:"Absolute path to the chainsaw binary. Defaults to the one in $PATH." type:"path"`
-	Kubectl  string `env:"KUBECTL"  help:"Absolute path to the kubectl binary. Defaults to the one in $PATH."  type:"path"`
+	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
 	Public bool          `help:"Create new repositories with public visibility."`
 	E2E    bool          `help:"Run E2E"                                         name:"e2e"`
@@ -116,8 +115,8 @@ Examples:
     run tests/*
         Executes only composition tests within the 'tests/' directory.
 
-    run tests/* --e2e --chainsaw=_output/chainsaw --kubectl=_output/kubectl
-        Runs e2e tests in 'tests/' while specifying custom paths for the Chainsaw and Kubectl binaries.
+    run tests/* --e2e --kubectl=_output/kubectl
+        Runs e2e tests in 'tests/' while specifying custom paths for the Kubectl binary.
 `
 }
 
@@ -241,8 +240,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 		}
 
 		tools := map[string]*string{
-			"chainsaw": &c.Chainsaw,
-			"kubectl":  &c.Kubectl,
+			"kubectl": &c.Kubectl,
 		}
 
 		for tool, path := range tools {
@@ -696,7 +694,6 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 
 	vars := map[string]string{
 		"KUBECTL":    c.Kubectl,
-		"CHAINSAW":   c.Chainsaw,
 		"KUBECONFIG": kubeconfigPath,
 	}
 
