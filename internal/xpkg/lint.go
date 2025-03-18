@@ -34,6 +34,7 @@ const (
 	errNotXRD                            = "object is not a CompositeResourceDefinition (XRD); got Group: %s, Version: %s, Kind: %s"
 	errNotComposition                    = "object is not a Composition; got Group: %s, Version: %s, Kind: %s"
 	errBadConstraints                    = "package version constraints are poorly formatted"
+	errNoCRDs                            = "package doesn't contain any CRDs"
 )
 
 // NewProviderLinter is a convenience function for creating a package linter for
@@ -64,7 +65,7 @@ func NewFunctionLinter() linter.Linter {
 // NewControllerLinter is a convenience function for creating a package linter for
 // Upbound controllers.
 func NewControllerLinter() linter.Linter {
-	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsController), linter.ObjectLinterFns(IsCRD))
+	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta, AtLeastOneCRD), linter.ObjectLinterFns(IsController), linter.ObjectLinterFns(IsCRD))
 }
 
 // OneMeta checks that there is only one meta object in the package.
@@ -73,6 +74,16 @@ func OneMeta(pkg linter.Package) error {
 		return errors.New(errNotExactlyOneMeta)
 	}
 	return nil
+}
+
+// AtLeastOneCRD checks that there is at least one CRD in the package.
+func AtLeastOneCRD(pkg linter.Package) error {
+	for _, o := range pkg.GetObjects() {
+		if _, ok := o.(*extv1.CustomResourceDefinition); ok {
+			return nil
+		}
+	}
+	return errors.New(errNoCRDs)
 }
 
 // IsProvider checks that an object is a Provider meta type.
