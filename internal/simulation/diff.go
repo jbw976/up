@@ -31,10 +31,24 @@ const (
 	annotationKeyClonedState = "simulation.spaces.upbound.io/cloned-state"
 )
 
+var (
+	// defaultExcludedTypes is the set of types that should be excluded from the
+	// diff set by default, which are not already being excluded by the
+	// reconciler.
+	defaultExcludedTypes = []schema.GroupKind{
+		{Group: "apiextensions.crossplane.io", Kind: "CompositionRevision"},
+		{Group: "pkg.crossplane.io", Kind: "DeploymentRuntimeConfig"},
+		{Group: "pkg.crossplane.io", Kind: "Lock"},
+		{Group: "pkg.crossplane.io", Kind: "Function"},
+		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
+		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
+	}
+)
+
 // DiffSet connects to the simulated control plane and calculates each of the
 // changes within every resource marked as updated in the status of the
 // simulation.
-func (r *Run) DiffSet(ctx context.Context, upCtx *upbound.Context) ([]diff.ResourceDiff, error) {
+func (r *Run) DiffSet(ctx context.Context, upCtx *upbound.Context, excluded []schema.GroupKind) ([]diff.ResourceDiff, error) {
 	if len(r.diffSet) > 0 {
 		return r.diffSet, nil
 	}
@@ -42,7 +56,7 @@ func (r *Run) DiffSet(ctx context.Context, upCtx *upbound.Context) ([]diff.Resou
 	if err != nil {
 		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to connect to simulated control plane")
 	}
-	r.diffSet, err = r.createResourceDiffSet(ctx, config, r.simulation.Status.Changes)
+	r.diffSet, err = r.createResourceDiffSet(ctx, config, r.simulation.Status.Changes, excluded)
 	if err != nil {
 		return []diff.ResourceDiff{}, errors.Wrap(err, "error while creating resource diff set")
 	}
@@ -54,15 +68,16 @@ func removeFieldsForDiff(u *unstructured.Unstructured) error {
 	// based on the filters in the simulation preprocessor
 	// https://github.com/upbound/spaces/blob/v1.8.0/internal/controller/mxe/simulation/preprocess.go#L100-L108
 	trim := []string{
-		"metadata.generateName",
-		"metadata.uid",
-		"metadata.resourceVersion",
-		"metadata.generation",
-		"metadata.creationTimestamp",
-		"metadata.ownerReferences",
-		"metadata.managedFields",
-		"metadata.annotations['kubectl.kubernetes.io/last-applied-configuration']",
 		fmt.Sprintf("metadata.annotations['%s']", annotationKeyClonedState),
+		"metadata.annotations['kubectl.kubernetes.io/last-applied-configuration']",
+		"metadata.creationTimestamp",
+		"metadata.finalizers",
+		"metadata.generateName",
+		"metadata.generation",
+		"metadata.managedFields",
+		"metadata.ownerReferences",
+		"metadata.resourceVersion",
+		"metadata.uid",
 		"spec.compositionRevisionRef",
 	}
 
@@ -94,7 +109,7 @@ func removeFieldsForDiff(u *unstructured.Unstructured) error {
 // status and looks up the difference between the initial version of the
 // resource and the version currently in the API server (at the time of the
 // function call).
-func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange) ([]diff.ResourceDiff, error) { //nolint:gocyclo // TODO: simplify this
+func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, changes []spacesv1alpha1.SimulationChange, excluded []schema.GroupKind) ([]diff.ResourceDiff, error) { //nolint:gocyclo // TODO: simplify this
 	lookup, err := kube.NewDiscoveryResourceLookup(config)
 	if err != nil {
 		return []diff.ResourceDiff{}, errors.Wrap(err, "unable to create resource lookup client")
@@ -109,23 +124,14 @@ func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, ch
 
 	r.debugPrintf("iterating over %d changes\n", len(changes))
 
-	// stores a list of resources that we want to filter in the diff, that
-	// aren't being filtered in the reconciler
-	trimKind := []schema.GroupKind{
-		{Group: "apiextensions.crossplane.io", Kind: "CompositionRevision"},
-		{Group: "pkg.crossplane.io", Kind: "DeploymentRuntimeConfig"},
-		{Group: "pkg.crossplane.io", Kind: "Lock"},
-		{Group: "pkg.crossplane.io", Kind: "Function"},
-		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
-		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
-	}
+	allExcluded := append(excluded, defaultExcludedTypes...)
 
 	for _, change := range changes {
 		gvk := schema.FromAPIVersionAndKind(change.ObjectReference.APIVersion, change.ObjectReference.Kind)
 
 		// todo(redbackthomson): Remove this logic once we have done a better
 		// job of filtering in the reconciler
-		if slices.Contains(trimKind, gvk.GroupKind()) {
+		if slices.Contains(allExcluded, gvk.GroupKind()) {
 			r.debugPrintf("skipping gvk %+v\n", gvk)
 			continue
 		}

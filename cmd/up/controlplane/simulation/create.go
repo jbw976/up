@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest"
@@ -187,7 +188,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 
 	c.debugPrintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(run.Simulation().Status.Changes))
 
-	diffSet, err := run.DiffSet(ctx, upCtx)
+	diffSet, err := run.DiffSet(ctx, upCtx, []schema.GroupKind{})
 	if err != nil {
 		return err
 	}

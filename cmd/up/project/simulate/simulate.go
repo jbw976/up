@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -49,6 +51,12 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
+var (
+	additionalExcluded = []schema.GroupKind{
+		{Group: "pkg.crossplane.io", Kind: "Configuration"},
+	}
+)
+
 // Cmd is the `up project simulate` command.
 type Cmd struct {
 	runcmd.Flags
@@ -56,9 +64,9 @@ type Cmd struct {
 	SourceControlPlaneName string `arg:"" help:"Name of the source control plane"`
 	SimulationName         string `help:"The name of the simulation resource" short:"n" optional:""`
 
-	Output            string `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
-	Wait              bool   `default:"true"                                                                                              help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
-	TerminateOnFinish bool   `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
+	Output            string         `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
+	TerminateOnFinish bool           `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
+	CompleteAfter     *time.Duration `default:"60s"                                                                                                           help:"The amount of time the simulated control plane should run before ending the simulation"`
 
 	ControlPlaneGroup string        `short:"g" help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies."               type:"path"`
@@ -255,7 +263,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
-			stageStatus := "Waiting for Simulation to begin accepting changes"
+			stageStatus := "Initializing simulation"
 			ch.SendEvent(stageStatus, async.EventStatusStarted)
 			err := sim.WaitForCondition(ctx, c.spaceClient, simulation.AcceptingChanges())
 			if err != nil {
@@ -355,13 +363,15 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		eg.Go(func() error {
 			stageStatus := "Simulating changes"
 			ch.SendEvent(stageStatus, async.EventStatusStarted)
-			time.Sleep(1 * time.Minute)
+			time.Sleep(*c.CompleteAfter)
 			ch.SendEvent(stageStatus, async.EventStatusSuccess)
 			return err
 		})
 
 		eg.Go(func() error {
-			// query for changes
+			// TODO(redbackthomson): Provide useful feedback for the user about
+			// happenings inside the simulation (eg. the applied claims changing
+			// status)
 			return nil
 		})
 
@@ -390,21 +400,43 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		return err
 	}
 
-	diffSet, err := sim.DiffSet(ctx, upCtx)
+	diffSet, err := sim.DiffSet(ctx, upCtx, additionalExcluded)
 	if err != nil {
 		return err
 	}
 
-	buf := &strings.Builder{}
-	writer := diff.NewPrettyPrintWriter(buf, true)
-	_ = writer.Write(diffSet)
-
-	if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
-		return errors.Wrap(err, "failed to write output")
+	if err := c.outputDiff(kongCtx, diffSet); err != nil {
+		return err
 	}
-	if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
-		return errors.Wrap(err, "failed to write output")
+
+	if c.TerminateOnFinish {
+		if err := sim.Terminate(ctx, c.spaceClient); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// outputDiff outputs the diff to the location, and in the format, specified by
+// the command line arguments.
+func (c *Cmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) error {
+	stdout := c.Output == ""
+
+	// todo(redbackthomson): Use a different printer for JSON or YAML output
+	buf := &strings.Builder{}
+	writer := diff.NewPrettyPrintWriter(buf, stdout)
+	_ = writer.Write(diffSet)
+
+	if stdout {
+		if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
+			return errors.Wrap(err, "failed to write output")
+		}
+		if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
+			return errors.Wrap(err, "failed to write output")
+		}
+		return nil
+	}
+
+	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec // nothing system sensitive in the file
 }
