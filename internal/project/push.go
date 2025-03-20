@@ -22,6 +22,7 @@ import (
 	sdkerrs "github.com/upbound/up-sdk-go/errors"
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
@@ -131,7 +132,7 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 		return imgTag, err
 	}
 
-	if isUpboundRepository(p.upCtx, imgTag.Repository) {
+	if isUpboundRepository(p.upCtx, imgTag.Repository) && p.upCtx.Profile.TokenType != profile.TokenTypeRobot {
 		stage := "Ensuring repository exists"
 		os.eventChan.SendEvent(stage, async.EventStatusStarted)
 		err = p.createRepository(ctx, imgTag.Repository, os.createPublicRepositories)
@@ -157,7 +158,7 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 			os.eventChan.SendEvent(stage, async.EventStatusStarted)
 			// Create the subrepository if needed. We can only do this for the
 			// Upbound registry; assume other registries will create on push.
-			if isUpboundRepository(p.upCtx, repo) {
+			if isUpboundRepository(p.upCtx, repo) && p.upCtx.Profile.TokenType != profile.TokenTypeRobot {
 				err := p.createRepository(egCtx, repo, os.createPublicRepositories)
 				if err != nil {
 					os.eventChan.SendEvent(stage, async.EventStatusFailure)

@@ -36,7 +36,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
@@ -255,7 +254,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 	}
 
 	pterm.EnableStyling()
-	logger := logging.NewLogrLogger(zap.New(zap.UseDevMode(false)))
+	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet

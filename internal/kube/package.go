@@ -67,36 +67,39 @@ func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) e
 		Name: "lock",
 	}
 	var lock xpkgv1beta1.Lock
-	for {
-		time.Sleep(500 * time.Millisecond)
-		err := cl.Get(ctx, nn, &lock)
-		if err != nil {
-			return err
+
+	backoff := wait.Backoff{
+		Duration: 500 * time.Millisecond, // Initial delay
+		Factor:   2.0,                    // Multiplier for each retry
+		Jitter:   0.1,                    // Randomize delay slightly
+		Steps:    10,                     // Maximum number of retries
+	}
+
+	return wait.ExponentialBackoff(backoff, func() (bool, error) {
+		if err := cl.Get(ctx, nn, &lock); err != nil {
+			return false, nil //nolint:nilerr // Retry the operation
 		}
 
 		cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
 		if !cfgFound {
-			// Configuration not in lock yet.
-			continue
+			return false, nil
 		}
+
 		healthy, err := packageIsHealthy(ctx, cl, cfgPkg)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !healthy {
-			// Configuration is not healthy yet.
-			continue
+			return false, nil
 		}
 
 		healthy, err = allDepsHealthy(ctx, cl, lock, cfgPkg)
 		if err != nil {
-			return err
+			return false, err
 		}
-		if healthy {
-			break
-		}
-	}
-	return nil
+
+		return healthy, nil
+	})
 }
 
 func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock, pkg xpkgv1beta1.LockPackage) (bool, error) {

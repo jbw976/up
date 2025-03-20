@@ -1,0 +1,15 @@
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: Project
+metadata:
+  name: e2e-test
+spec:
+  dependsOn:
+  - provider: xpkg.upbound.io/upbound/provider-kubernetes
+    version: '>=v0.0.0'
+  description: This is where you can describe your project.
+  license: Apache-2.0
+  maintainer: Upbound User <user@example.com>
+  readme: |
+    This is where you can add a readme for your project.
+  repository: xpkg.upbound.io/upbound/e2e-test
+  source: github.com/upbound/project-template

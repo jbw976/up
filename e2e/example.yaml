@@ -1,0 +1,5 @@
+apiVersion: acme.comp/v1beta1
+kind: XCluster
+metadata:
+  name: example
+spec: {}

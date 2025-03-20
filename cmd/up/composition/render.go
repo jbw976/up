@@ -12,7 +12,6 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
@@ -193,7 +192,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
-	logger := logging.NewLogrLogger(zap.New(zap.UseDevMode(false)))
+	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.quiet = quiet

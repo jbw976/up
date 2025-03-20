@@ -1,0 +1,31 @@
+---
+apiVersion: platform.example.com/v1alpha1
+kind: XStorageBucket
+metadata:
+  name: example-python
+status:
+  conditions:
+  - lastTransitionTime: "2024-01-01T00:00:00Z"
+    message: 'Unready resources: bucket'
+    reason: Creating
+    status: "False"
+    type: Ready
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: Bucket
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: bucket
+  generateName: example-python-
+  labels:
+    crossplane.io/composite: example-python
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-python
+    uid: ""
+spec:
+  forProvider:
+    region: us-west-1

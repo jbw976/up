@@ -345,3 +345,282 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_USR }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_PSW }}
           AWS_DEFAULT_REGION: us-east-1
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: publish-artifacts
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: output
+          path: _output
+
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      - name: up
+        run: |
+          mkdir -p ~/up-cli-bin
+          mv _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
+          chmod +x ~/up-cli-bin/up
+
+      - name: up version
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up version
+
+      - name: up login with robot
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up login -t ${{ secrets.UPBOUND_ROBOT_TOKEN }} --organization=upbound
+
+      - name: up project init
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up project init e2e-test
+
+      - name: assert project
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project.yaml
+          expected_result: PASSED
+
+      - name: up project deps
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes
+
+      - name: assert project with deps
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project-with-dependencies.yaml
+          expected_result: PASSED
+
+      - name: up example generate
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up example generate \
+            --type xr \
+            --api-group acme.comp \
+            --api-version v1beta1 \
+            --kind XCluster \
+            --name example
+
+      - name: assert claim
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/examples/xcluster/example.yaml
+          assert_file_path: e2e/example.yaml
+          expected_result: PASSED
+
+      - name: up xrd generate
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up xrd generate examples/xcluster/example.yaml
+
+      - name: assert xrd
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/definition.yaml
+          assert_file_path: e2e/definition.yaml
+          expected_result: PASSED
+
+      - name: up composition generate
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up composition generate examples/xcluster/example.yaml
+
+      - name: assert composition
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/composition.yaml
+          assert_file_path: e2e/composition.yaml
+          expected_result: PASSED
+
+      - name: assert project after composition generate
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project-after-compositon-generate.yaml
+          expected_result: PASSED
+
+      - name: up function generate
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up function generate xcluster apis/xclusters/composition.yaml
+
+      - name: assert composition with embedded function
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/composition.yaml
+          assert_file_path: e2e/composition-with-embedded-function.yaml
+          expected_result: PASSED
+
+      - name: assert main.k from embedded function
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/functions/xcluster/main.k
+          assert_file_path: e2e/main.k
+          expected_result: PASSED
+
+      - name: up project build
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up project build
+
+      - name: assert uppkg exists
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: ls _output/e2e-test.uppkg
+          contains: _output/e2e-test.uppkg
+          expected_result: PASSED
+
+      - name: Login to xpkg with robot
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.UPBOUND_ROBOT_ID }}
+          password: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
+
+      - name: up project push
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project push --tag=${VERSION}
+
+  e2e-example-project-aws:
+    runs-on: ubuntu-24.04
+    needs: publish-artifacts
+    if: needs.detect-noop.outputs.noop != 'true'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: output
+          path: _output
+
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      - name: up
+        run: |
+          mkdir -p ~/up-cli-bin
+          mv _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
+          chmod +x ~/up-cli-bin/up
+
+      - name: up version
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up version
+
+      - name: clone example-project-aws
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          git clone https://github.com/upbound/example-project-aws
+
+      - name: up build example-project-aws
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd example-project-aws
+          up project build
+
+      - name: up compositon render example-project-aws
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd example-project-aws
+          up composition render apis/kcl/composition.yaml examples/kcl/example.yaml --xrd apis/xstoragebuckets/definition.yaml -q >> render-kcl.yaml
+          up composition render apis/go/composition.yaml examples/go/example.yaml --xrd apis/xstoragebuckets/definition.yaml -q >> render-go.yaml
+          up composition render apis/python/composition.yaml examples/python/example.yaml --xrd apis/xstoragebuckets/definition.yaml -q >> render-python.yaml
+
+      - name: assert up composition render kcl
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat example-project-aws/render-kcl.yaml
+          assert_file_path: e2e/render-kcl.yaml
+          expected_result: PASSED
+
+      - name: assert up composition render go
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat example-project-aws/render-go.yaml
+          assert_file_path: e2e/render-go.yaml
+          expected_result: PASSED
+
+      - name: assert up composition render python
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat example-project-aws/render-python.yaml
+          assert_file_path: e2e/render-python.yaml
+          expected_result: PASSED
+
+      - name: up test run example-project-aws
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd example-project-aws
+          up test run tests/*
+
+      - name: up login with robot
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up login -t ${{ secrets.UPBOUND_ROBOT_TOKEN }} --organization=upbound
+
+      - name: up ctx
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          up ctx upbound/upbound-gcp-us-central-1/default
+
+      - name: Login to xpkg with robot
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.UPBOUND_ROBOT_ID }}
+          password: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
+
+      - name: up test run --e2e example-project-aws
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd example-project-aws
+          up test run tests/e2etest-storagebucket-kcl --e2e

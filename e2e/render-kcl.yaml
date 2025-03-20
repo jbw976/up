@@ -1,0 +1,174 @@
+---
+apiVersion: platform.example.com/v1alpha1
+kind: XStorageBucket
+metadata:
+  name: example-kcl
+status:
+  conditions:
+  - lastTransitionTime: "2024-01-01T00:00:00Z"
+    message: 'Unready resources: example-kcl-acl, example-kcl-boc, example-kcl-bucket,
+      and 3 more'
+    reason: Creating
+    status: "False"
+    type: Ready
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketACL
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-acl
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-acl
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    acl: public-read
+    bucketRef:
+      name: example-kcl-bucket
+    region: us-west-1
+  managementPolicies:
+  - '*'
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketOwnershipControls
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-boc
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-boc
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    bucketRef:
+      name: example-kcl-bucket
+    region: us-west-1
+    rule:
+    - objectOwnership: BucketOwnerPreferred
+  managementPolicies:
+  - '*'
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: Bucket
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-bucket
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-bucket
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    region: us-west-1
+  managementPolicies:
+  - '*'
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketServerSideEncryptionConfiguration
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-encryption
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-encryption
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    bucketRef:
+      name: example-kcl-bucket
+    region: us-west-1
+    rule:
+    - applyServerSideEncryptionByDefault:
+      - sseAlgorithm: AES256
+      bucketKeyEnabled: true
+  managementPolicies:
+  - '*'
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketPublicAccessBlock
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-pab
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-pab
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    blockPublicAcls: false
+    blockPublicPolicy: false
+    bucketRef:
+      name: example-kcl-bucket
+    ignorePublicAcls: false
+    region: us-west-1
+    restrictPublicBuckets: false
+  managementPolicies:
+  - '*'
+---
+apiVersion: s3.aws.upbound.io/v1beta1
+kind: BucketVersioning
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: example-kcl-versioning
+  generateName: example-kcl-
+  labels:
+    crossplane.io/composite: example-kcl
+  name: example-kcl-versioning
+  ownerReferences:
+  - apiVersion: platform.example.com/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: XStorageBucket
+    name: example-kcl
+    uid: ""
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    bucketRef:
+      name: example-kcl-bucket
+    region: us-west-1
+    versioningConfiguration:
+    - status: Enabled
+  managementPolicies:
+  - '*'

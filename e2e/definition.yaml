@@ -1,0 +1,28 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xclusters.acme.comp
+spec:
+  group: acme.comp
+  names:
+    categories:
+    - crossplane
+    kind: XCluster
+    plural: xclusters
+  versions:
+  - name: v1beta1
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        description: XCluster is the Schema for the XCluster API.
+        properties:
+          spec:
+            description: XClusterSpec defines the desired state of XCluster.
+            type: object
+          status:
+            description: XClusterStatus defines the observed state of XCluster.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true

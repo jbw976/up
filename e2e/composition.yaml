@@ -1,0 +1,13 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xclusters.acme.comp
+spec:
+  compositeTypeRef:
+    apiVersion: acme.comp/v1beta1
+    kind: XCluster
+  mode: Pipeline
+  pipeline:
+  - functionRef:
+      name: crossplane-contrib-function-auto-ready
+    step: crossplane-contrib-function-auto-ready
