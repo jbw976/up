@@ -4,7 +4,6 @@
 package project
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
@@ -408,7 +406,7 @@ func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs,
 // level of the provided filesystem. The resulting images are returned in a map
 // where the keys are their tags, suitable for writing to a file with
 // go-containerregistry's `tarball.MultiWrite`.
-func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) { //nolint:gocognit // This is fine.
+func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) {
 	var (
 		imgMap = make(map[name.Tag]v1.Image)
 		imgMu  sync.Mutex
@@ -453,23 +451,6 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 				return errors.Wrapf(err, "failed to build function %q", fnName)
 			}
 
-			// go-containerregistry's "tarball" format does not preserve the
-			// original manifest when it writes an image to disk; rather, it
-			// reconstructs it from its own manifest format. The reconstructed
-			// manifest always uses the docker media types, so if the original
-			// image used the OCI media types the digest of the image will
-			// change.
-			//
-			// Round-trip the images through the tarball format to ensure their
-			// digests won't change if we write them out in tarball format
-			// later. It's important that we do this now because we use the
-			// digest of the function's index to construct a dependency for the
-			// configuration package.
-			imgs, err = tarballRoundTrip(imgs)
-			if err != nil {
-				return err
-			}
-
 			// Construct an index so we know the digest for the dependency. This
 			// index will be reproduced when we push the image.
 			idx, imgs, err := xpkg.BuildIndex(imgs...)
@@ -511,25 +492,6 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 	}
 
 	return imgMap, deps, nil
-}
-
-func tarballRoundTrip(imgs []v1.Image) ([]v1.Image, error) {
-	ret := make([]v1.Image, len(imgs))
-
-	for j := range imgs {
-		orig := imgs[j]
-		var buf bytes.Buffer
-		if err := tarball.Write(nil, orig, &buf); err != nil {
-			return nil, errors.Wrap(err, "failed to serialize image")
-		}
-		out, err := tarball.Image(func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(buf.Bytes())), nil }, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to deserialize image")
-		}
-		ret[j] = out
-	}
-
-	return ret, nil
 }
 
 // buildFunction builds images for a single function whose source resides in the

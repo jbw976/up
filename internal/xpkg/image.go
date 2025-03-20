@@ -10,6 +10,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
@@ -31,7 +32,7 @@ type ImageMeta struct {
 // AnnotateImage reads in the layers of the given v1.Image and annotates the
 // xpkg layers with their corresponding annotations, returning a new v1.Image
 // containing the annotation details.
-func AnnotateImage(i v1.Image) (v1.Image, error) { //nolint:gocyclo
+func AnnotateImage(i v1.Image) (v1.Image, error) {
 	cfgFile, err := i.ConfigFile()
 	if err != nil {
 		return nil, err
@@ -44,6 +45,17 @@ func AnnotateImage(i v1.Image) (v1.Image, error) { //nolint:gocyclo
 
 	addendums := make([]mutate.Addendum, 0)
 
+	// IMPORTANT: go-containerregistry's "tarball" format, which we use for
+	// on-disk representation xpkgs, always uses Docker media types. That means
+	// if we write out an image that uses OCI media types to a tarball, then
+	// read it back in, its digest will change.
+	//
+	// The code below is careful to use Docker media types when adding layers,
+	// and set Docker media types for the image's manifest and config before
+	// returning. This ensures that any callers taking the digest of the image
+	// will get the same digest again if they round-trip it through an on-disk
+	// tarball.
+
 	for _, l := range layers {
 		d, err := l.Digest()
 		if err != nil {
@@ -51,7 +63,8 @@ func AnnotateImage(i v1.Image) (v1.Image, error) { //nolint:gocyclo
 		}
 		if annotation, ok := cfgFile.Config.Labels[Label(d.String())]; ok {
 			addendums = append(addendums, mutate.Addendum{
-				Layer: l,
+				Layer:     l,
+				MediaType: types.DockerLayer,
 				Annotations: map[string]string{
 					AnnotationKey: annotation,
 				},
@@ -59,7 +72,8 @@ func AnnotateImage(i v1.Image) (v1.Image, error) { //nolint:gocyclo
 			continue
 		}
 		addendums = append(addendums, mutate.Addendum{
-			Layer: l,
+			Layer:     l,
+			MediaType: types.DockerLayer,
 		})
 	}
 
@@ -76,7 +90,15 @@ func AnnotateImage(i v1.Image) (v1.Image, error) { //nolint:gocyclo
 		}
 	}
 
-	return mutate.ConfigFile(img, cfgFile)
+	img, err = mutate.ConfigFile(img, cfgFile)
+	if err != nil {
+		return nil, err
+	}
+
+	img = mutate.MediaType(img, types.DockerManifestSchema2)
+	img = mutate.ConfigMediaType(img, types.DockerConfigJSON)
+
+	return img, nil
 }
 
 // BuildIndex applies annotations to each of the given images and then generates
