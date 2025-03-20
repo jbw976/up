@@ -16,11 +16,13 @@ import (
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
 	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
@@ -125,14 +127,20 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	}
 
 	// Load observed and extra resources
-	ors, err := xprender.LoadObservedResources(opts.ProjFS, opts.ObservedResources)
-	if err != nil {
-		return "", errors.Wrapf(err, "cannot load observed composed resources from %q", opts.ObservedResources)
+	var ors []composed.Unstructured
+	if opts.ExtraResources != "" {
+		ors, err = xprender.LoadObservedResources(opts.ProjFS, opts.ObservedResources)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot load observed composed resources from %q", opts.ObservedResources)
+		}
 	}
 
-	ers, err := xprender.LoadExtraResources(opts.ProjFS, opts.ExtraResources)
-	if err != nil {
-		return "", errors.Wrapf(err, "cannot load extra resources from %q", opts.ExtraResources)
+	var ers []unstructured.Unstructured
+	if opts.ExtraResources != "" {
+		ers, err = xprender.LoadExtraResources(opts.ProjFS, opts.ExtraResources)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot load extra resources from %q", opts.ExtraResources)
+		}
 	}
 
 	// Load context values
