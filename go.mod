@@ -167,7 +167,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230919002926-dbcd01c402b2 // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230919002926-dbcd01c402b2 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20210315223345-82c243799c99 // indirect
