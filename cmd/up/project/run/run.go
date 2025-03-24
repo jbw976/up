@@ -260,6 +260,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 				ctp.SkipDevCheck(c.Force),
 				ctp.DevControlPlane(),
 			)
+			if err != nil {
+				return err
+			}
 
 			ctpSchemeBuilders := []*scheme.Builder{
 				xpkgv1.SchemeBuilder,

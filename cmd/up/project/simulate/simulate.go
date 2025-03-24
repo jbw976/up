@@ -65,6 +65,8 @@ type Cmd struct {
 	SourceControlPlaneName string `arg:"" help:"Name of the source control plane"`
 	Name                   string `help:"The name of the simulation resource" short:"n" optional:""`
 
+	Tag string `help:"An existing tag of the project to simulate. If not specified, defaults to building and pushing a new version" optional:""`
+
 	Output            string         `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
 	TerminateOnFinish bool           `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
 	CompleteAfter     *time.Duration `default:"60s"                                                                                                           help:"The amount of time the simulated control plane should run before ending the simulation"`
@@ -85,6 +87,7 @@ type Cmd struct {
 	concurrency        uint
 
 	spaceClient client.Client
+	tag         name.Tag
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -275,16 +278,18 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 			return err
 		})
 
-		eg.Go(func() error {
-			var err error
-			imgMap, err = b.Build(ctx, proj, c.projFS,
-				project.BuildWithEventChannel(ch),
-				project.BuildWithImageLabels(common.ImageLabels(c)),
-				project.BuildWithDependencyManager(c.m),
-				project.BuildWithProjectBasePath(basePath),
-			)
-			return err
-		})
+		if c.Tag == "" {
+			eg.Go(func() error {
+				var err error
+				imgMap, err = b.Build(ctx, proj, c.projFS,
+					project.BuildWithEventChannel(ch),
+					project.BuildWithImageLabels(common.ImageLabels(c)),
+					project.BuildWithDependencyManager(c.m),
+					project.BuildWithProjectBasePath(basePath),
+				)
+				return err
+			})
+		}
 
 		return eg.Wait()
 	})
@@ -322,26 +327,34 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		}
 	}
 
-	pusher := project.NewPusher(
-		project.PushWithUpboundContext(upCtx),
-		project.PushWithTransport(c.transport),
-		project.PushWithAuthKeychain(c.keychain),
-		project.PushWithMaxConcurrency(c.concurrency),
-	)
+	var tag name.Tag
+	if c.Tag == "" {
+		pusher := project.NewPusher(
+			project.PushWithUpboundContext(upCtx),
+			project.PushWithTransport(c.transport),
+			project.PushWithAuthKeychain(c.keychain),
+			project.PushWithMaxConcurrency(c.concurrency),
+		)
 
-	var generatedTag name.Tag
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		opts := []project.PushOption{
-			project.PushWithEventChannel(ch),
-			project.PushWithCreatePublicRepositories(c.Public),
+		err = c.asyncWrapper(func(ch async.EventChannel) error {
+			opts := []project.PushOption{
+				project.PushWithEventChannel(ch),
+				project.PushWithCreatePublicRepositories(c.Public),
+			}
+
+			var err error
+			tag, err = pusher.Push(ctx, proj, imgMap, opts...)
+			return err
+		})
+		if err != nil {
+			return err
 		}
-
+	} else {
 		var err error
-		generatedTag, err = pusher.Push(ctx, proj, imgMap, opts...)
-		return err
-	})
-	if err != nil {
-		return err
+		tag, err = name.NewTag(fmt.Sprintf("%s:%s", c.Repository, c.Tag))
+		if err != nil {
+			return err
+		}
 	}
 
 	readyCtx := ctx
@@ -352,7 +365,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 	}
 
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(readyCtx, simClient, proj.Name, generatedTag, ch)
+		return kube.InstallConfiguration(readyCtx, simClient, proj.Name, tag, ch)
 	})
 	if err != nil {
 		return err
