@@ -71,18 +71,11 @@ func (r *Run) RESTConfig(ctx context.Context, upCtx *upbound.Context) (*rest.Con
 		}
 	}
 
-	// TODO(redbackthomson): TEMPORARY FIX FOR BUG IN SIMULATION RECONCILER.
-	// REPLACE WITH STATUS
-	// if r.simulation.Status.SimulatedControlPlaneName == nil {
-
-	// 	return nil, errors.New("simulation has not been populated with a simulated control plane name")
-	// }
-	simCtpName, ok := r.simulation.ObjectMeta.Labels["simulation.spaces.upbound.io/simulated-control-plane"]
-	if !ok {
-		return nil, errors.New("simulated control plane name not in label")
+	if r.simulation.Status.SimulatedControlPlaneName == nil {
+		return nil, errors.New("simulation has not been populated with a simulated control plane name")
 	}
 
-	ctp := types.NamespacedName{Namespace: r.simulation.GetNamespace(), Name: simCtpName} //*r.simulation.Status.SimulatedControlPlaneName}
+	ctp := types.NamespacedName{Namespace: r.simulation.GetNamespace(), Name: *r.simulation.Status.SimulatedControlPlaneName}
 	spaceClient, err := space.BuildKubeconfig(ctp)
 	if err != nil {
 		return nil, err

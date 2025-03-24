@@ -29,6 +29,7 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	runcmd "github.com/upbound/up/cmd/up/project/run"
@@ -53,7 +54,7 @@ import (
 
 var (
 	additionalExcluded = []schema.GroupKind{
-		{Group: "pkg.crossplane.io", Kind: "Configuration"},
+		xpv1.ConfigurationGroupVersionKind.GroupKind(),
 	}
 )
 
@@ -62,7 +63,7 @@ type Cmd struct {
 	runcmd.Flags
 
 	SourceControlPlaneName string `arg:"" help:"Name of the source control plane"`
-	SimulationName         string `help:"The name of the simulation resource" short:"n" optional:""`
+	Name                   string `help:"The name of the simulation resource" short:"n" optional:""`
 
 	Output            string         `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
 	TerminateOnFinish bool           `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
@@ -240,8 +241,8 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 
 	simOpts := []simulation.Option{}
 
-	if c.SimulationName != "" {
-		simOpts = append(simOpts, simulation.WithName(c.SimulationName))
+	if c.Name != "" {
+		simOpts = append(simOpts, simulation.WithName(c.Name))
 	}
 
 	sim, err := simulation.Start(ctx, c.spaceClient, types.NamespacedName{

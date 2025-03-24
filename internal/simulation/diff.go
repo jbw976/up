@@ -18,6 +18,9 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
+	xpextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	"github.com/upbound/up/internal/diff"
@@ -36,12 +39,12 @@ var (
 	// diff set by default, which are not already being excluded by the
 	// reconciler.
 	defaultExcludedTypes = []schema.GroupKind{
-		{Group: "apiextensions.crossplane.io", Kind: "CompositionRevision"},
-		{Group: "pkg.crossplane.io", Kind: "DeploymentRuntimeConfig"},
-		{Group: "pkg.crossplane.io", Kind: "Lock"},
-		{Group: "pkg.crossplane.io", Kind: "Function"},
-		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
-		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
+		xpextensionsv1.CompositionRevisionGroupVersionKind.GroupKind(),
+		xpv1.ConfigurationRevisionGroupVersionKind.GroupKind(),
+		xpv1.FunctionGroupVersionKind.GroupKind(),
+		xpv1.FunctionRevisionGroupVersionKind.GroupKind(),
+		xpv1beta1.DeploymentRuntimeConfigGroupVersionKind.GroupKind(),
+		xpv1beta1.LockGroupVersionKind.GroupKind(),
 	}
 )
 
