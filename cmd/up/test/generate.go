@@ -41,10 +41,10 @@ Examples:
     test generate xstoragebucket
         Creates a composition test with the default language (KCL) in the folder 'tests/test-xstoragebucket'.
 
-    function generate xstoragebucket --language python
+    test generate xstoragebucket --language python
         Creates a composition test with Python language support in the folder 'tests/test-xstoragebucket'.
 
-    function generate xstoragebucket --language python --e2e
+    test generate xstoragebucket --language python --e2e
         Creates a e2etest with Python language support in the folder 'tests/e2etest-xstoragebucket'.
 `
 }
