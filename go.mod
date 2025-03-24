@@ -21,7 +21,7 @@ require (
 	github.com/crossplane/uptest v1.3.0
 	github.com/docker/docker-credential-helpers v0.9.3
 	github.com/gdamore/tcell/v2 v2.8.1
-	github.com/getkin/kin-openapi v0.130.0
+	github.com/getkin/kin-openapi v0.131.0
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/tools v0.31.0
