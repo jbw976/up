@@ -90,11 +90,11 @@ func TestSchemas(t *testing.T) {
 				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
-					_ = fs.Mkdir("/ws", os.ModePerm)
-					_ = fs.Mkdir("/ws/apis", os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
+					_ = fs.Mkdir("ws", os.ModePerm)
+					_ = fs.Mkdir("ws/apis", os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
 				mutators: func(fs afero.Fs) []xpkg.Mutator {
@@ -138,11 +138,11 @@ func TestSchemas(t *testing.T) {
 				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
-					_ = fs.Mkdir("/ws", os.ModePerm)
-					_ = fs.Mkdir("/ws/apis", os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
+					_ = fs.Mkdir("ws", os.ModePerm)
+					_ = fs.Mkdir("ws/apis", os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
 				mutators: func(fs afero.Fs) []xpkg.Mutator {
