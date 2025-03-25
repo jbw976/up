@@ -45,7 +45,7 @@ func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string
 	var openAPIPaths []string
 
 	// Walk the virtual filesystem to find and process target files
-	if err := afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

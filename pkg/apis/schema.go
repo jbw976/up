@@ -7,11 +7,11 @@ import (
 	"context"
 	"embed"
 
-	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
@@ -24,12 +24,10 @@ var crdsFS embed.FS
 
 // GenerateSchema will generate meta apis schemas.
 func GenerateSchema(ctx context.Context, m *manager.Manager, sr schemarunner.SchemaRunner) error {
-	basePathFS := afero.NewCopyOnWriteFs(afero.NewBasePathFs(
-		afero.FromIOFS{FS: crdsFS},
-		"crds",
-	), afero.NewMemMapFs())
-	schemaFS := afero.NewCopyOnWriteFs(basePathFS, afero.NewMemMapFs())
-
+	schemaFS, err := filesystem.EmbedCopyOnWriteFs(crdsFS)
+	if err != nil {
+		return err
+	}
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {

@@ -7,6 +7,7 @@ package filesystem
 import (
 	"archive/tar"
 	"bytes"
+	"embed"
 	"io"
 	"io/fs"
 	"os"
@@ -455,4 +456,48 @@ func MemOverlay(fs afero.Fs) afero.Fs {
 	// being able to use paths relative to /), so create a no-op BasePathFs on
 	// top of the CopyOnWriteFs.
 	return afero.NewBasePathFs(afero.NewCopyOnWriteFs(fs, afero.NewMemMapFs()), "/")
+}
+
+// EmbedCopyOnWriteFs creates a copy-on-write Afero filesystem from the provided embedded FS.
+func EmbedCopyOnWriteFs(inFS embed.FS) (afero.Fs, error) {
+	// Create a fresh in-memory filesystem
+	memFs := afero.NewMemMapFs()
+
+	// Copy all embedded files into the memFs (flattened into root)
+	if err := fs.WalkDir(inFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories (we only care about files)
+		if d.IsDir() {
+			return nil
+		}
+
+		// Read the embedded file
+		data, err := fs.ReadFile(inFS, path)
+		if err != nil {
+			return err
+		}
+
+		// Extract just the filename (ignore original subdirs)
+		filename := filepath.Base(path)
+
+		// Create and write the file in memFs (at root `/`)
+		f, err := memFs.Create(filename) // <-- No subdirs, just the filename
+		if err != nil {
+			return err
+		}
+
+		_, err = f.Write(data)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	// Return as a CopyOnWriteFs to allow modifications
+	return afero.NewCopyOnWriteFs(
+		afero.NewReadOnlyFs(memFs), // Base (immutable) layer
+		afero.NewMemMapFs(),        // Overlay (mutable) layer
+	), nil
 }

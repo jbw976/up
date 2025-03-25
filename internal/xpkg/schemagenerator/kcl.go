@@ -10,10 +10,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/afero"
-	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
@@ -45,7 +45,7 @@ func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, g
 	var crdPaths []string
 
 	// Walk the virtual filesystem to find and process target files
-	if err := afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

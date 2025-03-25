@@ -1,0 +1,132 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: compositiontests.meta.dev.upbound.io
+spec:
+  group: meta.dev.upbound.io
+  names:
+    categories:
+    - meta
+    kind: CompositionTest
+    listKind: CompositionTestList
+    plural: compositiontests
+    shortNames:
+    - comptest
+    singular: compositiontest
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CompositionTest defines the schema for the CompositionTest custom
+          resource.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CompositionTestSpec defines the specification for the CompositionTest
+              custom resource.
+            properties:
+              assertResources:
+                description: |-
+                  AssertResources defines assertions to validate resources after test completion.
+                  Optional.
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
+              composition:
+                description: |-
+                  Composition specifies the composition definition inline.
+                  Optional.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              compositionPath:
+                description: |-
+                  Composition specifies the composition definition path.
+                  Optional.
+                type: string
+              context:
+                description: |-
+                  Context specifies context for the Function Pipeline inline or path.
+                  Optional.
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
+              extraResources:
+                description: |-
+                  ExtraResources specifies additional resources inline or path.
+                  Optional.
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
+              observedResources:
+                description: |-
+                  ObservedResources specifies additional observed resources inline or path.
+                  Optional.
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
+              timeoutSeconds:
+                default: 30
+                description: |-
+                  Timeout for the test in seconds
+                  Required. Default is 30s.
+                minimum: 1
+                type: integer
+              validate:
+                description: |-
+                  Validate indicates whether to validate managed resources against schemas.
+                  Optional.
+                type: boolean
+              xr:
+                description: XR specifies the composite resource (XR) inline.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              xrPath:
+                description: |-
+                  XR specifies the composite resource (XR) path.
+                  Optional.
+                type: string
+              xrd:
+                description: |-
+                  XRD specifies the XRD definition inline.
+                  Optional.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              xrdPath:
+                description: |-
+                  XRD specifies the XRD definition path.
+                  Optional.
+                type: string
+            required:
+            - timeoutSeconds
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

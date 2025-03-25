@@ -1,0 +1,130 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: e2etests.meta.dev.upbound.io
+spec:
+  group: meta.dev.upbound.io
+  names:
+    categories:
+    - meta
+    kind: E2ETest
+    listKind: E2ETestList
+    plural: e2etests
+    shortNames:
+    - e2e
+    singular: e2etest
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: E2ETest defines the schema for the E2ETest custom resource.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: E2ETestSpec defines the specification for the E2ETest custom
+              resource.
+            properties:
+              crossplane:
+                description: Crossplane configuration for the test
+                properties:
+                  autoUpgrade:
+                    default:
+                      channel: Stable
+                    description: AutoUpgrades defines the auto upgrade configuration
+                      for Crossplane.
+                    properties:
+                      channel:
+                        default: Stable
+                        description: |-
+                          Channel defines the upgrade channels for Crossplane. We support the following channels where 'Stable' is the
+                          default:
+                          - None: disables auto-upgrades and keeps the control plane at its current version of Crossplane.
+                          - Patch: automatically upgrades the control plane to the latest supported patch version when it
+                            becomes available while keeping the minor version the same.
+                          - Stable: automatically upgrades the control plane to the latest supported patch release on minor
+                            version N-1, where N is the latest supported minor version.
+                          - Rapid: automatically upgrades the cluster to the latest supported patch release on the latest
+                            supported minor version.
+                        enum:
+                        - None
+                        - Patch
+                        - Stable
+                        - Rapid
+                        type: string
+                    type: object
+                  state:
+                    default: Running
+                    description: |-
+                      State defines the state for crossplane and provider workloads. We support
+                      the following states where 'Running' is the default:
+                      - Running: Starts/Scales up all crossplane and provider workloads in the ControlPlane
+                      - Paused: Pauses/Scales down all crossplane and provider workloads in the ControlPlane
+                    enum:
+                    - Running
+                    - Paused
+                    type: string
+                  version:
+                    description: Version is the version of Universal Crossplane to
+                      install.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: The version must not start with a leading 'v'
+                      rule: (self.matches('^[^v].*'))
+                type: object
+              defaultConditions:
+                description: Default conditions for the test
+                items:
+                  type: string
+                minItems: 1
+                type: array
+              extraResources:
+                description: Additional resources for the test
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
+              manifests:
+                description: Required manifests for the test
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                minItems: 1
+                type: array
+              skipDelete:
+                description: If true, skip resource deletion after test
+                type: boolean
+              timeoutSeconds:
+                description: Timeout for the test in seconds
+                minimum: 1
+                type: integer
+            required:
+            - crossplane
+            - manifests
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
