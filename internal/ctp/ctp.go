@@ -17,12 +17,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -207,16 +204,6 @@ func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp type
 	ctpClient, err := client.New(kubeconfig, client.Options{})
 	if err != nil {
 		return nil, nil, err
-	}
-
-	ctpSchemeBuilders := []*scheme.Builder{
-		xpkgv1.SchemeBuilder,
-		xpkgv1beta1.SchemeBuilder,
-	}
-	for _, bld := range ctpSchemeBuilders {
-		if err := bld.AddToScheme(ctpClient.Scheme()); err != nil {
-			return nil, nil, err
-		}
 	}
 
 	return ctpClient, spaceClient, nil

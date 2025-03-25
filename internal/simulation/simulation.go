@@ -74,6 +74,7 @@ func (r *Run) RESTConfig(ctx context.Context, upCtx *upbound.Context) (*rest.Con
 	if r.simulation.Status.SimulatedControlPlaneName == nil {
 		return nil, errors.New("simulation has not been populated with a simulated control plane name")
 	}
+
 	ctp := types.NamespacedName{Namespace: r.simulation.GetNamespace(), Name: *r.simulation.Status.SimulatedControlPlaneName}
 	spaceClient, err := space.BuildKubeconfig(ctp)
 	if err != nil {
@@ -100,6 +101,15 @@ func (r *Run) WaitForCondition(ctx context.Context, client client.Client, condit
 		return conditionFunc(r.simulation)
 	}, waitOpts...); err != nil {
 		return errors.Wrap(err, "error while waiting for simulation to complete")
+	}
+	return nil
+}
+
+// Complete updates the Simulation, setting the desired state to "Complete".
+func (r *Run) Complete(ctx context.Context, client client.Client) error {
+	r.simulation.Spec.DesiredState = spacesv1alpha1.SimulationStateComplete
+	if err := client.Update(ctx, r.simulation); err != nil {
+		return errors.Wrap(err, "unable to complete simulation")
 	}
 	return nil
 }
