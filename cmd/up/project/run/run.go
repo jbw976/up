@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
@@ -24,6 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
@@ -48,11 +48,11 @@ import (
 // Flags are the cmd line flags specific to `up project run`. These are
 // separated from Cmd struct so that they can be re-used elsewhere in the CLI.
 type Flags struct {
-	ProjectFile    string `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                                        short:"f"`
-	Repository     string `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
-	NoBuildCache   bool   `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir  string `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                                      type:"path"`
-	MaxConcurrency uint   `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                                       help:"Maximum number of functions to build and push at once."`
+	ProjectFile    string `default:"upbound.yaml"                                                                           help:"Path to project definition file."         short:"f"`
+	Repository     string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
+	NoBuildCache   bool   `default:"false"                                                                                  help:"Don't cache image layers while building."`
+	BuildCacheDir  string `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."       type:"path"`
+	MaxConcurrency uint   `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                        help:"Maximum number of functions to build and push at once."`
 }
 
 // Cmd is the `up project run` command.
@@ -62,7 +62,7 @@ type Cmd struct {
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
 	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies."               type:"path"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
 	GlobalFlags       upbound.Flags `embed:""`

@@ -29,7 +29,6 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
-	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	runcmd "github.com/upbound/up/cmd/up/project/run"
@@ -52,27 +51,21 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-var (
-	additionalExcluded = []schema.GroupKind{
-		xpv1.ConfigurationGroupVersionKind.GroupKind(),
-	}
-)
-
 // Cmd is the `up project simulate` command.
 type Cmd struct {
 	runcmd.Flags
 
-	SourceControlPlaneName string `arg:"" help:"Name of the source control plane"`
-	Name                   string `help:"The name of the simulation resource" short:"n" optional:""`
+	SourceControlPlaneName string `arg:""                                     help:"Name of the source control plane"`
+	Name                   string `help:"The name of the simulation resource" optional:""                             short:"n"`
 
 	Tag string `help:"An existing tag of the project to simulate. If not specified, defaults to building and pushing a new version" optional:""`
 
 	Output            string         `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
-	TerminateOnFinish bool           `default:"true"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
-	CompleteAfter     *time.Duration `default:"60s"                                                                                                           help:"The amount of time the simulated control plane should run before ending the simulation"`
+	TerminateOnFinish bool           `default:"true"                                                                                              help:"Terminate the simulation after the completion criteria is met"`
+	CompleteAfter     *time.Duration `default:"60s"                                                                                               help:"The amount of time the simulated control plane should run before ending the simulation"`
 
-	ControlPlaneGroup string        `short:"g" help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies."               type:"path"`
+	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
+	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
 	GlobalFlags       upbound.Flags `embed:""`
@@ -87,7 +80,6 @@ type Cmd struct {
 	concurrency        uint
 
 	spaceClient client.Client
-	tag         name.Tag
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -203,7 +195,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error {
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -414,7 +406,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		return err
 	}
 
-	diffSet, err := sim.DiffSet(ctx, upCtx, additionalExcluded)
+	diffSet, err := sim.DiffSet(ctx, upCtx, []schema.GroupKind{
+		xpkgv1.ConfigurationGroupVersionKind.GroupKind(),
+	})
 	if err != nil {
 		return err
 	}
@@ -452,5 +446,5 @@ func (c *Cmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) err
 		return nil
 	}
 
-	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec // nothing system sensitive in the file
+	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec,gomnd // nothing system sensitive in the file
 }

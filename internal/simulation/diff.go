@@ -34,20 +34,6 @@ const (
 	annotationKeyClonedState = "simulation.spaces.upbound.io/cloned-state"
 )
 
-var (
-	// defaultExcludedTypes is the set of types that should be excluded from the
-	// diff set by default, which are not already being excluded by the
-	// reconciler.
-	defaultExcludedTypes = []schema.GroupKind{
-		xpextensionsv1.CompositionRevisionGroupVersionKind.GroupKind(),
-		xpv1.ConfigurationRevisionGroupVersionKind.GroupKind(),
-		xpv1.FunctionGroupVersionKind.GroupKind(),
-		xpv1.FunctionRevisionGroupVersionKind.GroupKind(),
-		xpv1beta1.DeploymentRuntimeConfigGroupVersionKind.GroupKind(),
-		xpv1beta1.LockGroupVersionKind.GroupKind(),
-	}
-)
-
 // DiffSet connects to the simulated control plane and calculates each of the
 // changes within every resource marked as updated in the status of the
 // simulation.
@@ -127,7 +113,17 @@ func (r *Run) createResourceDiffSet(ctx context.Context, config *rest.Config, ch
 
 	r.debugPrintf("iterating over %d changes\n", len(changes))
 
-	allExcluded := append(excluded, defaultExcludedTypes...)
+	// the set of types that should be excluded from the diff set by
+	// default, which are not already being excluded by the reconciler.
+	allExcluded := []schema.GroupKind{
+		xpextensionsv1.CompositionRevisionGroupVersionKind.GroupKind(),
+		xpv1.ConfigurationRevisionGroupVersionKind.GroupKind(),
+		xpv1.FunctionGroupVersionKind.GroupKind(),
+		xpv1.FunctionRevisionGroupVersionKind.GroupKind(),
+		xpv1beta1.DeploymentRuntimeConfigGroupVersionKind.GroupKind(),
+		xpv1beta1.LockGroupVersionKind.GroupKind(),
+	}
+	allExcluded = append(allExcluded, excluded...)
 
 	for _, change := range changes {
 		gvk := schema.FromAPIVersionAndKind(change.ObjectReference.APIVersion, change.ObjectReference.Kind)
