@@ -49,7 +49,6 @@ require (
 	github.com/upbound/up-sdk-go/apis v1.11.1-0.20250314215204-a69e9641293b
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
 	github.com/willabides/kongplete v0.4.0
-	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6
 	golang.org/x/sync v0.12.0
 	golang.org/x/term v0.30.0
 	google.golang.org/api v0.224.0
@@ -224,6 +223,7 @@ require (
 	go.opentelemetry.io/contrib/detectors/gcp v1.34.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
+	golang.org/x/exp v0.0.0-20241004190924-225e2abe05e6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5 // indirect
 )

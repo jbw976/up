@@ -153,7 +153,7 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 	}
 
 	var openAPIs []goOpenAPI
-	return openAPIs, afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+	return openAPIs, afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

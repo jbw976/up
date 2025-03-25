@@ -87,14 +87,14 @@ func TestSchemas(t *testing.T) {
 		"KCLSchemas": {
 			reason: "Should successfully build and have a kcl layer.",
 			args: args{
-				rootDir: "/",
+				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
-					_ = fs.Mkdir("/ws", os.ModePerm)
-					_ = fs.Mkdir("/ws/apis", os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
+					_ = fs.Mkdir("ws", os.ModePerm)
+					_ = fs.Mkdir("ws/apis", os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
 				mutators: func(fs afero.Fs) []xpkg.Mutator {
@@ -135,14 +135,14 @@ func TestSchemas(t *testing.T) {
 		"PythonSchemas": {
 			reason: "Should successfully build and have a python layer.",
 			args: args{
-				rootDir: "/",
+				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
-					_ = fs.Mkdir("/ws", os.ModePerm)
-					_ = fs.Mkdir("/ws/apis", os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
+					_ = fs.Mkdir("ws", os.ModePerm)
+					_ = fs.Mkdir("ws/apis", os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/crossplane.yaml", testSchemaConfiguration, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/composition.yaml", testSchemaComposition, os.ModePerm)
+					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
 				mutators: func(fs afero.Fs) []xpkg.Mutator {

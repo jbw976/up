@@ -6,8 +6,10 @@ package filesystem
 import (
 	"archive/tar"
 	"bytes"
+	"embed"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -538,6 +540,67 @@ func TestCopyFileIfExists(t *testing.T) {
 			}
 
 			tt.verifyFs(fs, t)
+		})
+	}
+}
+
+//go:embed testfiles/*
+var testCRDs embed.FS
+
+func TestEmbedCopyOnWriteFs(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputFS        embed.FS
+		expectedFiles  []string
+		shouldWrite    bool
+		expectWriteErr bool
+		expectErr      bool
+	}{
+		{
+			name:    "ValidEmbeddedCRDs",
+			inputFS: testCRDs,
+			expectedFiles: []string{
+				"meta.dev.upbound.io_compositiontests.yaml",
+				"meta.dev.upbound.io_e2etests.yaml",
+				"meta.dev.upbound.io_projects.yaml",
+			},
+			shouldWrite:    true,
+			expectWriteErr: false,
+			expectErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs, err := EmbedCopyOnWriteFs(tt.inputFS)
+			if tt.expectErr {
+				assert.Assert(t, err != nil)
+				return
+			}
+			assert.NilError(t, err)
+
+			for _, file := range tt.expectedFiles {
+				exists, err := afero.Exists(fs, filepath.Base(file)) // because it flattens to root
+				assert.NilError(t, err)
+				assert.Assert(t, exists, "expected file %s to exist", file)
+
+				content, err := afero.ReadFile(fs, filepath.Base(file))
+				assert.NilError(t, err)
+				assert.Assert(t, len(content) > 0, "file %s should not be empty", file)
+			}
+
+			if tt.shouldWrite {
+				err := afero.WriteFile(fs, "newfile.yaml", []byte("hello"), os.ModePerm)
+				if tt.expectWriteErr {
+					assert.Assert(t, err != nil)
+				} else {
+					assert.NilError(t, err)
+
+					exists, err := afero.Exists(fs, "newfile.yaml")
+					assert.NilError(t, err)
+					assert.Assert(t, exists, "expected newfile.yaml to exist after writing")
+				}
+			}
 		})
 	}
 }
