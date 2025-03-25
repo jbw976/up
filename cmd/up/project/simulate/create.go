@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package simulate provides the `up project simulate` command.
 package simulate
 
 import (
@@ -51,8 +50,8 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-// Cmd is the `up project simulate` command.
-type Cmd struct {
+// CreateCmd is the `up project simulate` command.
+type CreateCmd struct {
 	runcmd.Flags
 
 	SourceControlPlaneName string `arg:""                                     help:"Name of the source control plane"`
@@ -62,6 +61,7 @@ type Cmd struct {
 
 	Output            string         `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
 	TerminateOnFinish bool           `default:"true"                                                                                              help:"Terminate the simulation after the completion criteria is met"`
+	Wait              bool           `default:"true"                                                                                              help:"Wait until the simulation completes and output the difference."`
 	CompleteAfter     *time.Duration `default:"60s"                                                                                               help:"The amount of time the simulated control plane should run before ending the simulation"`
 
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
@@ -86,7 +86,7 @@ type Cmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *CreateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
@@ -195,7 +195,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
+func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -363,6 +363,20 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		return err
 	}
 
+	if !c.Wait {
+		err = c.asyncWrapper(func(ch async.EventChannel) error {
+			status := fmt.Sprintf("Simulation running as %s/%s", sim.Simulation().Namespace, sim.Simulation().Name)
+			ch.SendEvent(status, async.EventStatusStarted)
+			ch.SendEvent(status, async.EventStatusSuccess)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, _ := errgroup.WithContext(ctx)
 
@@ -413,7 +427,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 		return err
 	}
 
-	if err := c.outputDiff(kongCtx, diffSet); err != nil {
+	if err := outputDiff(kongCtx, diffSet, c.Output); err != nil {
 		return err
 	}
 
@@ -428,8 +442,8 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Con
 
 // outputDiff outputs the diff to the location, and in the format, specified by
 // the command line arguments.
-func (c *Cmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) error {
-	stdout := c.Output == ""
+func outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff, output string) error {
+	stdout := output == ""
 
 	// todo(redbackthomson): Use a different printer for JSON or YAML output
 	buf := &strings.Builder{}
@@ -446,5 +460,5 @@ func (c *Cmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) err
 		return nil
 	}
 
-	return os.WriteFile(c.Output, []byte(buf.String()), 0o644) //nolint:gosec,gomnd // nothing system sensitive in the file
+	return os.WriteFile(output, []byte(buf.String()), 0o644) //nolint:gosec,gomnd // nothing system sensitive in the file
 }
