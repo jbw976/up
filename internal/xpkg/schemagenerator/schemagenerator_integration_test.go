@@ -87,7 +87,7 @@ func TestSchemas(t *testing.T) {
 		"KCLSchemas": {
 			reason: "Should successfully build and have a kcl layer.",
 			args: args{
-				rootDir: "/",
+				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
 					_ = fs.Mkdir("/ws", os.ModePerm)
@@ -135,7 +135,7 @@ func TestSchemas(t *testing.T) {
 		"PythonSchemas": {
 			reason: "Should successfully build and have a python layer.",
 			args: args{
-				rootDir: "/",
+				rootDir: "",
 				fs: func() afero.Fs {
 					fs := afero.NewMemMapFs()
 					_ = fs.Mkdir("/ws", os.ModePerm)
