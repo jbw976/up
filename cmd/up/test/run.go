@@ -36,10 +36,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	uptest "github.com/crossplane/uptest/pkg"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
@@ -633,6 +635,16 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to create control plane")
+	}
+
+	ctpSchemeBuilders := []*scheme.Builder{
+		v1.SchemeBuilder,
+		xpkgv1beta1.SchemeBuilder,
+	}
+	for _, bld := range ctpSchemeBuilders {
+		if err := bld.AddToScheme(devCtpClient.Scheme()); err != nil {
+			return err
+		}
 	}
 
 	defer func() {
