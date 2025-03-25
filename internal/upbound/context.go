@@ -294,6 +294,7 @@ func (c *Context) buildSDKConfig(endpoint *url.URL) (*up.Config, error) {
 		})
 	}
 	var tr http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec // Let the user be unsafe.
 		},
