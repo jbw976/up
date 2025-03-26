@@ -45,7 +45,7 @@ require (
 	github.com/sourcegraph/jsonrpc2 v0.2.0
 	github.com/spf13/afero v1.12.0
 	github.com/spf13/cobra v1.9.1
-	github.com/upbound/up-sdk-go v1.11.1-0.20250224193803-c699c3b48709
+	github.com/upbound/up-sdk-go v1.12.0
 	github.com/upbound/up-sdk-go/apis v1.11.1-0.20250314215204-a69e9641293b
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
 	github.com/willabides/kongplete v0.4.0
