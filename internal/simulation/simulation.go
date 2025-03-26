@@ -212,6 +212,7 @@ func Start(ctx context.Context, client client.Client, sourceControlPlane types.N
 	return r, nil
 }
 
+// GetExisting returns the simulated run associated with an existing simulation.
 func GetExisting(ctx context.Context, client client.Client, ref types.NamespacedName, opts ...Option) (*Run, error) {
 	r := &Run{
 		debugPrintf: func(_ string, _ ...any) {},

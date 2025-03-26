@@ -9,7 +9,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
-	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,16 +28,14 @@ import (
 
 // completeCmd is the `up project simulate complete` command.
 type completeCmd struct {
-	ProjectFile string `default:"upbound.yaml"                                                                           help:"Path to project definition file."         short:"f"`
-	Name        string `arg:"" help:"The name of the simulation resource"`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file."    short:"f"`
+	Name        string `arg:""                 help:"The name of the simulation resource"`
 
 	Output            string `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
 	TerminateOnFinish bool   `default:"true"                                                                                              help:"Terminate the simulation after the completion criteria is met"`
 
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
 	GlobalFlags       upbound.Flags `embed:""`
-
-	projFS afero.Fs
 
 	spaceClient client.Client
 

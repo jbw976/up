@@ -1,8 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package simulation contains commands for working with project
-// simulations.
+// Package simulate contains commands for working with project simulations.
 package simulate
 
 // Cmd contains commands for managing project simulations.
