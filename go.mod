@@ -43,7 +43,7 @@ require (
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	github.com/sourcegraph/go-lsp v0.0.0-20240223163137-f80c5dd31dfd
 	github.com/sourcegraph/jsonrpc2 v0.2.0
-	github.com/spf13/afero v1.12.0
+	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/upbound/up-sdk-go v1.11.1-0.20250224193803-c699c3b48709
 	github.com/upbound/up-sdk-go/apis v1.11.1-0.20250314215204-a69e9641293b
