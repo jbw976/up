@@ -330,6 +330,7 @@ func (rt *cookieImpersonatingRoundTripper) RoundTrip(req *http.Request) (*http.R
 // K8s controller-runtime client.
 func (c *Context) BuildControllerClientConfig() (*rest.Config, error) {
 	var tr http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: c.InsecureSkipTLSVerify, //nolint:gosec // Let the user be unsafe.
 		},

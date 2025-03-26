@@ -83,6 +83,7 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 	// we need to read session cookie from body. We should add support in the
 	// SDK so that we can be consistent across all commands.
 	var tr http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: upCtx.InsecureSkipTLSVerify, //nolint:gosec // Let the user be insecure.
 		},
