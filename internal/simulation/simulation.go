@@ -211,3 +211,24 @@ func Start(ctx context.Context, client client.Client, sourceControlPlane types.N
 
 	return r, nil
 }
+
+// GetExisting returns the simulated run associated with an existing simulation.
+func GetExisting(ctx context.Context, client client.Client, ref types.NamespacedName, opts ...Option) (*Run, error) {
+	r := &Run{
+		debugPrintf: func(_ string, _ ...any) {},
+	}
+
+	sim := &spacesv1alpha1.Simulation{}
+
+	if err := client.Get(ctx, ref, sim); err != nil {
+		return nil, errors.Wrap(err, "error getting existing simulation")
+	}
+
+	for _, o := range opts {
+		o(r, sim)
+	}
+
+	r.simulation = sim
+
+	return r, nil
+}
