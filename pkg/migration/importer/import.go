@@ -171,21 +171,6 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 		}
 	}
 
-	// Note(turkenh): We should not need to wait for ProviderRevision, FunctionRevision, and ConfigurationRevision.
-	// Crossplane should not report packages as ready before revisions are healthy. This is a bug in Crossplane
-	// version <1.14 which was fixed with https://github.com/crossplane/crossplane/pull/4647
-	// Todo(turkenh): Remove these once Crossplane 1.13 is no longer supported.
-	for _, k := range []schema.GroupKind{
-		{Group: "pkg.crossplane.io", Kind: "ProviderRevision"},
-		{Group: "pkg.crossplane.io", Kind: "FunctionRevision"},
-		{Group: "pkg.crossplane.io", Kind: "ConfigurationRevision"},
-	} {
-		if err := im.waitForConditions(ctx, s, k, []xpv1.ConditionType{"Healthy"}); err != nil {
-			s.Fail(waitPkgsMsg + stepFailed)
-			return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
-		}
-	}
-
 	s.Success(waitPkgsMsg + "Installed and Healthy! ⏳")
 	//////////////////////////////////////////
 
