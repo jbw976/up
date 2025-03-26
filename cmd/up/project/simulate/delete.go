@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package simulate provides the `up project simulate` command.
 package simulate
 
 import (
@@ -9,7 +8,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -26,13 +24,10 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-// completeCmd is the `up project simulation complete` command.
-type completeCmd struct {
+// deleteCmd is the `up project simulation delete` command.
+type deleteCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file."    short:"f"`
 	Name        string `arg:""                 help:"The name of the simulation resource"`
-
-	Output            string `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
-	TerminateOnFinish bool   `default:"true"                                                                                              help:"Terminate the simulation after the completion criteria is met"`
 
 	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
 	GlobalFlags       upbound.Flags `embed:""`
@@ -44,7 +39,7 @@ type completeCmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *completeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *deleteCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
 	if err != nil {
 		return err
@@ -110,7 +105,7 @@ func (c *completeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 }
 
 // Run is the body of the command.
-func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error {
+func (c *deleteCmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	sim, err := simulation.GetExisting(ctx, c.spaceClient, types.NamespacedName{
 		Namespace: c.ControlPlaneGroup,
 		Name:      c.Name,
@@ -138,40 +133,8 @@ func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *
 		}
 	}
 
-	if err := sim.Complete(ctx, c.spaceClient); err != nil {
+	if err := sim.Delete(ctx, c.spaceClient); err != nil {
 		return err
-	}
-
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		stageStatus := "Waiting for Simulation to complete"
-		ch.SendEvent(stageStatus, async.EventStatusStarted)
-		err := sim.WaitForCondition(ctx, c.spaceClient, simulation.Complete())
-		if err != nil {
-			ch.SendEvent(stageStatus, async.EventStatusFailure)
-		} else {
-			ch.SendEvent(stageStatus, async.EventStatusSuccess)
-		}
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	diffSet, err := sim.DiffSet(ctx, upCtx, []schema.GroupKind{
-		xpkgv1.ConfigurationGroupVersionKind.GroupKind(),
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := outputDiff(kongCtx, diffSet, c.Output); err != nil {
-		return err
-	}
-
-	if c.TerminateOnFinish {
-		if err := sim.Terminate(ctx, c.spaceClient); err != nil {
-			return err
-		}
 	}
 
 	return nil
