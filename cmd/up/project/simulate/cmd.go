@@ -8,7 +8,7 @@ package simulate
 type Cmd struct {
 	Create   CreateCmd   `cmd:"" help:"Start a new project simulation and wait for the results."`
 	Complete completeCmd `cmd:"" help:"Force complete an in-progress project simulation"`
-	// Delete deleteCmd `cmd:"" help:"Delete a control plane simulation."`
+	Delete   deleteCmd   `cmd:"" help:"Delete a control plane simulation."`
 }
 
 // Help prints help.

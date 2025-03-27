@@ -123,6 +123,14 @@ func (r *Run) Terminate(ctx context.Context, client client.Client) error {
 	return nil
 }
 
+// Delete deletes the Simulation.
+func (r *Run) Delete(ctx context.Context, client client.Client) error {
+	if err := client.Delete(ctx, r.simulation); err != nil {
+		return errors.Wrap(err, "unable to delete simulation")
+	}
+	return nil
+}
+
 // Simulation returns the simulation defined in the run.
 func (r *Run) Simulation() *spacesv1alpha1.Simulation {
 	return r.simulation
