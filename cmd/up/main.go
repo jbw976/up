@@ -149,6 +149,7 @@ type alpha struct {
 	Get           query.GetCmd      `cmd:""        help:"Get objects in the current control plane."                 hidden:""                                                                                           maturity:"alpha"`
 	Space         space.Cmd         `cmd:""        help:"Interact with Spaces."                                     maturity:"alpha"`
 	Ctx           ctx.Cmd           `cmd:""        help:"Select an Upbound kubeconfig context."                     maturity:"alpha"`
+	XpkgAppend    xpkg.AppendCmd    `cmd:""        help:"Append additional files to an xpkg."                       maturity:"alpha"`
 }
 
 const helpDescription = `The Upbound CLI.
