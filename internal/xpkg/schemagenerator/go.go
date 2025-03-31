@@ -387,6 +387,8 @@ func goFixName(name string) string {
 	if lastDot == -1 {
 		return name
 	}
+	generateGoMutex.Lock()
+	defer generateGoMutex.Unlock()
 	genName := codegen.SchemaNameToTypeName(name)
 	prefix := codegen.SchemaNameToTypeName(name[:lastDot])
 	return codegen.ToCamelCaseWithInitialisms(strings.TrimPrefix(genName, prefix))
