@@ -5,14 +5,15 @@ package xpkg
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pterm/pterm"
+	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 )
 
@@ -27,12 +28,17 @@ const (
 )
 
 // AfterApply parses flags and sets defaults.
-func (c *AppendCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *appendCmd) AfterApply(kongCtx *kong.Context) error {
 	// TODO(jastang): consider prompting about re-signing if already signed
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
+
 	// Get default docker auth.
-	c.keychain = remote.WithAuthFromKeychain(authn.NewMultiKeychain(authn.DefaultKeychain))
+	c.keychain = remote.WithAuthFromKeychain(upCtx.RegistryKeychain())
 
 	// Make sure the ref parses properly
 	ref, err := name.ParseReference(c.RemoteRef)
@@ -51,6 +57,8 @@ func (c *AppendCmd) AfterApply(kongCtx *kong.Context) error {
 		c.destRef = dest
 	}
 
+	c.fs = afero.NewBasePathFs(afero.NewOsFs(), c.ExtensionsRoot)
+
 	c.appender = xpkg.NewAppender(
 		c.keychain,
 		c.indexRef,
@@ -59,16 +67,17 @@ func (c *AppendCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-// AppendCmd appends an additional manifest of package extensions to a crossplane package.
-type AppendCmd struct {
+// appendCmd appends an additional manifest of package extensions to a crossplane package.
+type appendCmd struct {
 	// Arguments
 	RemoteRef string `arg:"" help:"The fully qualified remote image reference" required:""`
 
 	// Flags. Keep sorted alphabetically.
-	Destination    string `help:"Optional OCI reference to write to. If not set, the command will modify the input reference." optional:""`
-	ExtensionsRoot string `default:"./extensions"                                                                              help:"An optional directory of arbitrary files for additional consumers of the package." placeholder:"PATH" type:"path"`
-
+	Destination    string        `help:"Optional OCI reference to write to. If not set, the command will modify the input reference." optional:""`
+	ExtensionsRoot string        `default:"./extensions"                                                                              help:"An optional directory of arbitrary files for additional consumers of the package." placeholder:"PATH" type:"path"`
+	Flags          upbound.Flags `embed:""`
 	// Internal state. These aren't part of the user-exposed CLI structure.
+	fs       afero.Fs
 	indexRef name.Reference
 	destRef  name.Reference
 	keychain remote.Option
@@ -76,10 +85,10 @@ type AppendCmd struct {
 }
 
 // Help returns the help message for the xpkg-append command.
-func (c *AppendCmd) Help() string {
+func (c *appendCmd) Help() string {
 	return `
 This command creates a tarball from a local directory of additional package
-assets, such as images or documentation, and appends them to a remote image.
+assets, such as images or documentation, and appends them to a remote package.
 
 If your remote image is already signed, this command will invalidate current signatures and the updated image will need to be re-signed.
 
@@ -92,9 +101,9 @@ Examples:
 }
 
 // Run executes the append command.
-func (c *AppendCmd) Run(p pterm.TextPrinter) error {
+func (c *appendCmd) Run(p pterm.TextPrinter) error {
 	// Create a layered v1.Image from the extensions root dir.
-	extManifest, err := xpkg.ImageFromFiles(c.ExtensionsRoot)
+	extManifest, err := xpkg.ImageFromFiles(c.fs, c.ExtensionsRoot)
 	if err != nil {
 		return errors.Wrap(err, errCreateExtensionsTarball)
 	}

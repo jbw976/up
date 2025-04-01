@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 )
@@ -97,7 +98,7 @@ func TestExtensionsImage(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			extManifest, err := ImageFromFiles(tc.args.root)
+			extManifest, err := ImageFromFiles(afero.NewBasePathFs(afero.NewOsFs(), tc.args.root), tc.args.root)
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nAppend(...): -want err, +got err:\n%s", tc.reason, diff)
