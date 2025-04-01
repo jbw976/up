@@ -20,8 +20,10 @@ type Cmd struct {
 	XPExtract xpExtractCmd `cmd:"" help:"Extract package contents into a Crossplane cache compatible format. Fetches from a remote registry by default." maturity:"alpha"`
 	Push      pushCmd      `cmd:"" help:"Push a package."`
 	Batch     batchCmd     `cmd:"" help:"Batch build and push a family of service-scoped provider packages."                                             maturity:"alpha"`
+	Append    appendCmd    `cmd:"" help:"Append additional files to an xpkg."                                                                            maturity:"alpha"`
 }
 
+// Help returns the help string for the `xpkg` command group.
 func (c *Cmd) Help() string {
 	return `
 This command is deprecated and will be removed in a future release.

@@ -11,9 +11,14 @@ import (
 	"os"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/filesystem"
 )
 
 // Layer creates a v1.Layer that represetns the layer contents for the xpkg and
@@ -74,4 +79,51 @@ func writeLayer(tw *tar.Writer, hdr *tar.Header, buf io.Reader) error {
 // Label constructs a specially formated label using the annotationKey.
 func Label(annotation string) string {
 	return fmt.Sprintf("%s:%s", AnnotationKey, annotation)
+}
+
+// ImageFromFiles creates a v1.Image from arbitrary files on disk.
+// Each top-level directory at `root` is a separate layer.
+// The function performs no interpretation (parsing) of the files.
+func ImageFromFiles(baseFs afero.Fs, root string) (v1.Image, error) {
+	extManifest := empty.Image
+
+	entries, err := afero.ReadDir(baseFs, root)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// For now, we don't configure any special options e.g. symlink support.
+		src, err := filesystem.FSToTar(afero.NewBasePathFs(baseFs, entry.Name()), entry.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		// Create layer from the in-memory tarball
+		layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(src)), nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		// Append layer from the dir tarball
+		extManifest, err = mutate.Append(
+			extManifest,
+			mutate.Addendum{
+				Layer: layer,
+				Annotations: map[string]string{
+					AnnotationKey: entry.Name(),
+				},
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return extManifest, nil
 }
