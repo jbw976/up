@@ -87,8 +87,7 @@ func Label(annotation string) string {
 func ImageFromFiles(baseFs afero.Fs, root string) (v1.Image, error) {
 	extManifest := empty.Image
 
-	// We don't need detailed FileInfo or recursive traversal.
-	entries, err := os.ReadDir(root)
+	entries, err := afero.ReadDir(baseFs, root)
 	if err != nil {
 		return nil, err
 	}

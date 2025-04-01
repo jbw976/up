@@ -103,7 +103,7 @@ Examples:
 // Run executes the append command.
 func (c *appendCmd) Run(p pterm.TextPrinter) error {
 	// Create a layered v1.Image from the extensions root dir.
-	extManifest, err := xpkg.ImageFromFiles(c.fs, c.ExtensionsRoot)
+	extManifest, err := xpkg.ImageFromFiles(c.fs, "/")
 	if err != nil {
 		return errors.Wrap(err, errCreateExtensionsTarball)
 	}
