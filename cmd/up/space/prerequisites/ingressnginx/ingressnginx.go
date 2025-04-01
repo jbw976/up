@@ -36,7 +36,7 @@ const (
 	chartName = "ingress-nginx"
 
 	// Chart version to be installed.
-	version                 = "4.7.1"
+	version                 = "4.12.1"
 	errFmtCreateHelmManager = "failed to create helm manager for %s"
 	errFmtCreateK8sClient   = "failed to create kubernetes client for helm chart %s"
 	errFmtCreateNamespace   = "failed to create namespace %s"
