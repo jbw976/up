@@ -59,6 +59,11 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 
 			src, err := filesystem.FSToTar(fromFS, b.packagePath,
 				filesystem.WithSymlinkBasePath(osBasePath),
+				// Files might not be world-readable in the local filesystem, so
+				// make them owned by the user that needs to read them in the
+				// function pod to ensure they can be used by the interpreter.
+				filesystem.WithUIDOverride(crossplaneFunctionRunnerUID),
+				filesystem.WithGIDOverride(crossplaneFunctionRunnerGID),
 			)
 			if err != nil {
 				return errors.Wrap(err, "failed to tar layer contents")
