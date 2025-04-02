@@ -41,7 +41,7 @@ func (c *appendCmd) AfterApply(kongCtx *kong.Context) error {
 	c.keychain = remote.WithAuthFromKeychain(upCtx.RegistryKeychain())
 
 	// Make sure the ref parses properly
-	ref, err := name.ParseReference(c.RemoteRef)
+	ref, err := name.ParseReference(c.RemoteRef, name.StrictValidation)
 	if err != nil {
 		return errors.Wrap(err, errParseReference)
 	}
@@ -50,7 +50,7 @@ func (c *appendCmd) AfterApply(kongCtx *kong.Context) error {
 
 	// Write to an explicit desintation ref if set
 	if c.Destination != "" {
-		dest, err := name.ParseReference(c.Destination)
+		dest, err := name.ParseReference(c.Destination, name.StrictValidation)
 		if err != nil {
 			return errors.Wrap(err, errParseDestReference)
 		}
