@@ -128,7 +128,7 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 
 	// Load observed and extra resources
 	var ors []composed.Unstructured
-	if opts.ExtraResources != "" {
+	if opts.ObservedResources != "" {
 		ors, err = xprender.LoadObservedResources(opts.ProjFS, opts.ObservedResources)
 		if err != nil {
 			return "", errors.Wrapf(err, "cannot load observed composed resources from %q", opts.ObservedResources)
