@@ -75,18 +75,18 @@ func buildFunctionMap(project *v1alpha1.Project, projectFS afero.Fs, oldReposito
 	fnMap := make(map[string]string)
 	for _, info := range infos {
 		if info.IsDir() {
-			oldRepo := fmt.Sprintf("%s_%s", oldRepository, info.Name())
-			oldRef, err := name.ParseReference(oldRepo)
+			oldRepoStr := fmt.Sprintf("%s_%s", oldRepository, info.Name())
+			oldRepo, err := name.NewRepository(oldRepoStr, name.StrictValidation)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to parse old function repo")
 			}
-			oldName := xpkg.ToDNSLabel(oldRef.Context().RepositoryStr())
-			newRepo := fmt.Sprintf("%s_%s", newRepository, info.Name())
-			newRef, err := name.ParseReference(newRepo)
+			oldName := xpkg.ToDNSLabel(oldRepo.RepositoryStr())
+			newRepoStr := fmt.Sprintf("%s_%s", newRepository, info.Name())
+			newRepo, err := name.NewRepository(newRepoStr, name.StrictValidation)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to parse new function repo")
 			}
-			newName := xpkg.ToDNSLabel(newRef.Context().RepositoryStr())
+			newName := xpkg.ToDNSLabel(newRepo.RepositoryStr())
 
 			fnMap[oldName] = newName
 		}
@@ -99,7 +99,10 @@ func updateCompositions(ws *workspace.Workspace, fnMap map[string]string) error 
 	projFS := ws.Filesystem()
 	for _, node := range ws.View().Nodes() {
 		var comp xpextv1.Composition
-		unst := node.GetObject().(*unstructured.Unstructured)
+		unst, ok := node.GetObject().(*unstructured.Unstructured)
+		if !ok {
+			return errors.Errorf("unexpected node type %T in workspace", node.GetObject())
+		}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(unst.UnstructuredContent(), &comp)
 		if err != nil {
 			continue
