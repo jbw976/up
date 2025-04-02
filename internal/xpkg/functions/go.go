@@ -46,7 +46,7 @@ func (b *goBuilder) Build(ctx context.Context, _ afero.Fs, architectures []strin
 
 	builder, err := build.NewGo(ctx, osBasePath,
 		build.WithBaseImages(func(_ context.Context, _ string) (name.Reference, build.Result, error) {
-			ref, err := name.ParseReference(b.baseImage)
+			ref, err := name.ParseReference(b.baseImage, name.StrictValidation)
 			if err != nil {
 				return nil, nil, err
 			}
