@@ -30,13 +30,13 @@ func TestValidVer(t *testing.T) {
 			reason: "Should return an error that an empty package is invalid.",
 			args:   args{},
 			want: want{
-				err: errors.New("could not parse reference: empty package name, invalid package dependency supplied"),
+				err: errors.New("invalid package dependency supplied: empty package name"),
 			},
 		},
 		"SuccessNoVersion": {
 			reason: "Should return that the package name is valid.",
 			args: args{
-				pkg: "crossplane/provider-aws",
+				pkg: "registry.example.com/crossplane/provider-aws",
 			},
 			want: want{
 				valid: true,
@@ -45,7 +45,7 @@ func TestValidVer(t *testing.T) {
 		"SuccessVersionSpecifiedWithAt": {
 			reason: "Should return that the package name is valid with version specified using '@'.",
 			args: args{
-				pkg: "crossplane/provider-aws@v1.2.0",
+				pkg: "registry.example.com/crossplane/provider-aws@v1.2.0",
 			},
 			want: want{
 				valid: true,
@@ -54,7 +54,7 @@ func TestValidVer(t *testing.T) {
 		"SuccessSemVersionSpecifiedWithAt": {
 			reason: "Should return that the package name is valid with version specified using '@'.",
 			args: args{
-				pkg: "crossplane/provider-aws@>=v1.2.0",
+				pkg: "registry.example.com/crossplane/provider-aws@>=v1.2.0",
 			},
 			want: want{
 				valid: true,
@@ -63,53 +63,71 @@ func TestValidVer(t *testing.T) {
 		"SuccessSemVersionSpecifiedWithColon": {
 			reason: "Should return that the package name is valid with version specified using ':'.",
 			args: args{
-				pkg: "crossplane/provider-aws:>=v1.2.0",
+				pkg: "registry.example.com/crossplane/provider-aws:>=v1.2.0",
 			},
 			want: want{
 				valid: true,
+			},
+		},
+		"SuccessDigestConstraint": {
+			reason: "Should return valid for valid digest constraints.",
+			args: args{
+				pkg: "registry.example.com/crossplane/provider-aws@sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+			},
+			want: want{
+				valid: true,
+			},
+		},
+		"SuccessDigestConstraintWithColon": {
+			reason: "Should return valid for valid digest constraints using the colon delimiter.",
+			args: args{
+				pkg: "registry.example.com/crossplane/provider-aws:sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+			},
+			want: want{
+				valid: true,
+			},
+		},
+		"InvalidDigestConstraint": {
+			reason: "Should return valid for valid digest constraints.",
+			args: args{
+				pkg: "registry.example.com/crossplane/provider-aws@fakealgorithm:asdf",
+			},
+			want: want{
+				err: errors.New("invalid package dependency supplied: invalid digest version constraint: found non-hex character in hash: s"),
 			},
 		},
 		"InvalidPackageName": {
 			reason: "Should return an error if the package name is invalid.",
 			args: args{
-				pkg: "invalid-package-name!@1.0.0",
+				pkg: "registry.example.com/invalid-package-name!@1.0.0",
 			},
 			want: want{
-				err: errors.New("invalid package dependency supplied: could not parse reference: invalid-package-name!"),
+				err: errors.New("invalid package dependency supplied: could not parse package repository: repository can only contain the characters `abcdefghijklmnopqrstuvwxyz0123456789_-./`: invalid-package-name!"), //nolint:revive // Error includes punctuation from invalid string.
+			},
+		},
+		"IncompletePackageName": {
+			reason: "Should return an error if the package name does not include a registry.",
+			args: args{
+				pkg: "crossplane/provider-aws@1.0.0",
+			},
+			want: want{
+				err: errors.New("invalid package dependency supplied: could not parse package repository: strict validation requires the registry to be explicitly defined"),
 			},
 		},
 		"InvalidSemVerConstraint": {
 			reason: "Should return an error if the version constraint is invalid.",
 			args: args{
-				pkg: "crossplane/provider-aws@invalid-version",
+				pkg: "registry.example.com/crossplane/provider-aws@invalid-version",
 			},
 			want: want{
-				err: errors.New("invalid SemVer constraint invalid-version: invalid package dependency supplied"),
-			},
-		},
-		"SuccessLatestColonIsDelimiter": {
-			reason: "Should correctly identify the latest colon as the version delimiter.",
-			args: args{
-				pkg: "registry/repo/crossplane/provider-aws:>=v1.2.0",
-			},
-			want: want{
-				valid: true,
-			},
-		},
-		"ErrorLatestColonIsDelimiter": {
-			reason: "Should correctly identify the latest colon as the version delimiter.",
-			args: args{
-				pkg: "registry/repo/crossplane/provider-aws:>=v1.2:0",
-			},
-			want: want{
-				err: errors.New("invalid SemVer constraint >=v1.2:0: invalid package dependency supplied"),
+				err: errors.New("invalid package dependency supplied: invalid SemVer constraint: improper constraint: invalid-version"),
 			},
 		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			valid, err := parsePackageReference(tc.args.pkg)
+			valid, err := ValidDep(tc.args.pkg)
 
 			if diff := cmp.Diff(tc.want.valid, valid); diff != "" {
 				t.Errorf("\n%s\nparsePackageReference(...): -want valid, +got valid:\n%s", tc.reason, diff)
