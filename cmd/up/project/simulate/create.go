@@ -343,7 +343,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		}
 	} else {
 		var err error
-		tag, err = name.NewTag(fmt.Sprintf("%s:%s", c.Repository, c.Tag))
+		tag, err = name.NewTag(fmt.Sprintf("%s:%s", c.Repository, c.Tag), name.StrictValidation)
 		if err != nil {
 			return err
 		}
