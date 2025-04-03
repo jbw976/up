@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
@@ -68,6 +69,9 @@ func TestAppend(t *testing.T) {
 			}
 			if !cmp.Equal(extManifest.Platform, noPlatform) {
 				t.Errorf("Unexpected platform information on manifest: %s/%s", extManifest.Platform.OS, extManifest.Platform.Architecture)
+			}
+			if !cmp.Equal(extManifest.MediaType, types.DockerManifestSchema2) {
+				t.Errorf("Unexpected manifest media type for index: %s", extManifest.MediaType)
 			}
 		})
 	}
