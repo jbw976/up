@@ -638,3 +638,68 @@ func TestIsMatchingManifest(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateAndValidateName(t *testing.T) {
+	tests := []struct {
+		name     string
+		prefix   string
+		input    string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "ShortNameOK",
+			prefix:   "cp",
+			input:    "webapp",
+			expected: "cp-webapp",
+			wantErr:  false,
+		},
+		{
+			name:     "Exact63Characters",
+			prefix:   "cp",
+			input:    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefgh",
+			expected: "cp-abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefgh",
+			wantErr:  false,
+		},
+		{
+			name:     "Over63CharactersShouldTruncate",
+			prefix:   "cp",
+			input:    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmno",
+			expected: "cp-abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefgh",
+			wantErr:  false,
+		},
+		{
+			name:     "InvalidCharacters",
+			prefix:   "cp",
+			input:    "Invalid_Chars",
+			expected: "",
+			wantErr:  true,
+		},
+		{
+			name:     "EndsWithDashAfterTruncation",
+			prefix:   "prefix",
+			input:    "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc-",
+			expected: "prefix-abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc",
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := truncateAndValidateName(tt.prefix, tt.input)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Expected error: %v, got: %v", tt.wantErr, err)
+			}
+
+			if err == nil {
+				if len(got) > 63 {
+					t.Errorf("Name too long: got %d characters", len(got))
+				}
+				if got != tt.expected {
+					t.Errorf("Expected name %q, got %q", tt.expected, got)
+				}
+			}
+		})
+	}
+}

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -599,7 +600,10 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	// Channel to signal function return
 	retChan := make(chan struct{})
 
-	controlplaneName := fmt.Sprintf("%s-%s", c.ControlPlaneNamePrefix, test.Name)
+	controlplaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
+	if err != nil {
+		return errors.Wrap(err, "failed to create control plane")
+	}
 
 	go func() {
 		select {
@@ -656,7 +660,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		}
 	}()
 
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		return kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, ch)
 	})
 	if err != nil {
@@ -912,4 +916,22 @@ func writeToFile(fs afero.Fs, resources []runtime.RawExtension, filename string)
 	}
 
 	return filePath, nil
+}
+
+// truncateAndValidateName ensures the final name is <=63 chars and valid as a DNS-1123 label.
+func truncateAndValidateName(prefix, name string) (string, error) {
+	fullName := fmt.Sprintf("%s-%s", prefix, name)
+
+	// Truncate to 63 characters max
+	if len(fullName) > 63 {
+		fullName = fullName[:63]
+	}
+
+	// Trim trailing dashes in case truncation ends with '-'
+	fullName = strings.TrimRight(fullName, "-")
+	if errs := validation.IsDNS1123Label(fullName); len(errs) > 0 {
+		return "", fmt.Errorf("invalid DNS-1123 label: %v", errs)
+	}
+
+	return fullName, nil
 }
