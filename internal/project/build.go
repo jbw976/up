@@ -171,6 +171,15 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 		},
 	}
 
+	// If the user didn't specify a version constraint for their project, use
+	// v1.18 as the default, since our configurations require v1.18 or newer for
+	// digest support in the package manager.
+	if cfg.Spec.Crossplane == nil || cfg.Spec.Crossplane.Version == "" {
+		cfg.Spec.Crossplane = &xpmetav1.CrossplaneConstraints{
+			Version: ">=v1.18.0",
+		}
+	}
+
 	functionsSource := afero.NewBasePathFs(projectFS, project.Spec.Paths.Functions)
 	// By default we search the whole project directory except the examples
 	// directory.

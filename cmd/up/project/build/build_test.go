@@ -357,7 +357,11 @@ func TestBuild(t *testing.T) {
 					"meta.crossplane.io/readme":      proj.Spec.Readme,
 				},
 			})
-			assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, proj.Spec.Crossplane)
+			// Our project doesn't have a Crossplane constraint, so we should
+			// get the default.
+			assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
+				Version: ">=v1.18.0",
+			})
 			// Validate that the configuration depends on all the project
 			// dependencies and the embedded functions.
 			assert.Assert(t, cmp.Len(cfgMeta.Spec.MetaSpec.DependsOn, len(proj.Spec.DependsOn)+len(fnImages)))
