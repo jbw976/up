@@ -148,16 +148,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 	s.Success(importBaseMsg + fmt.Sprintf("%d resources imported! 📥", total))
 	//////////////////////////////////////////
 
-	// Wait for all XRDs and Packages to be ready before importing the resources that depend on them.
-
-	waitXRDsMsg := "Waiting for XRDs... "
-	s, _ = migration.DefaultSpinner.Start(waitXRDsMsg)
-	if err := im.waitForConditions(ctx, s, schema.GroupKind{Group: "apiextensions.crossplane.io", Kind: "CompositeResourceDefinition"}, []xpv1.ConditionType{"Established"}); err != nil {
-		s.Fail(waitXRDsMsg + stepFailed)
-		return errors.Wrap(err, "there are unhealthy CompositeResourceDefinitions")
-	}
-	s.Success(waitXRDsMsg + "Established! ⏳")
-
+	// Wait for all Packages and XRDs to be ready before importing the resources that depend on them.
 	waitPkgsMsg := "Waiting for Packages... "
 	s, _ = migration.DefaultSpinner.Start(waitPkgsMsg)
 	for _, k := range []schema.GroupKind{
@@ -170,8 +161,15 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 			return errors.Wrapf(err, "there are unhealthy %qs", k.Kind)
 		}
 	}
-
 	s.Success(waitPkgsMsg + "Installed and Healthy! ⏳")
+
+	waitXRDsMsg := "Waiting for XRDs... "
+	s, _ = migration.DefaultSpinner.Start(waitXRDsMsg)
+	if err := im.waitForConditions(ctx, s, schema.GroupKind{Group: "apiextensions.crossplane.io", Kind: "CompositeResourceDefinition"}, []xpv1.ConditionType{"Established"}); err != nil {
+		s.Fail(waitXRDsMsg + stepFailed)
+		return errors.Wrap(err, "there are unhealthy CompositeResourceDefinitions")
+	}
+	s.Success(waitXRDsMsg + "Established! ⏳")
 	//////////////////////////////////////////
 
 	// Reset the resource mapper to make sure all CRDs introduced by packages or XRDs are available.
