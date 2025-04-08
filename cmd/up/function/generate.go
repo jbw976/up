@@ -9,11 +9,11 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"html/template"
 	"io"
 	"path"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -63,6 +63,8 @@ var (
 	kclTemplate embed.FS
 	//go:embed templates/python/**
 	pythonTemplate embed.FS
+	//go:embed templates/go-templating/**
+	goTemplatingTemplate embed.FS
 
 	// The go template contains a go.mod, so we can't embed it as an
 	// embed.FS. Instead we have to embed it as a tar archive and extract it in
@@ -75,7 +77,7 @@ type generateCmd struct {
 	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
 	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
 	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." type:"path"`
-	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go"                        help:"Language for function."                        short:"l"`
+	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go,go-templating"          help:"Language for function."                        short:"l"`
 	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
 	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
 
@@ -254,6 +256,11 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 		if err != nil {
 			return errors.Wrap(err, "failed to handle go")
 		}
+	case "go-templating":
+		functionSpecificFs, err = c.generateGoTemplatingFiles()
+		if err != nil {
+			return errors.Wrap(err, "failed to handle go-templating")
+		}
 	default:
 		return errors.Errorf("unsupported language: %s", c.Language)
 	}
@@ -270,7 +277,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 				return nil
 			}
 
-			modelsPath := ".up/" + c.Language + "/models"
+			modelsPath := filepath.Join(".up", c.Language, "models")
 
 			functionFS, ok := c.functionFS.(*afero.BasePathFs)
 			if !ok {
@@ -324,8 +331,12 @@ func needsModelsSymlink(language string) bool {
 		// Go references modules via replace directives in go.mod rather than
 		// via a symlink.
 		return false
+	case "go-templating":
+		// go-templating references schemas by relative path in the
+		// modeline. Models are required only at dev time and must not be in the
+		// final function image.
+		return false
 	default:
-		// We shouldn't reach this.
 		return false
 	}
 }
@@ -451,6 +462,30 @@ func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
 			Version: "v0.0.0",
 			Replace: filepath.Join(relRoot, ".up", "go", "models"),
 		}},
+	}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+type goTemplatingTemplateData struct {
+	ModelIndexPath string
+}
+
+func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	modelPath, err := filepath.Rel(c.fsPath, "/.up/json/models/index.schema.json")
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot determine model path")
+	}
+
+	templates := template.Must(template.ParseFS(goTemplatingTemplate, "templates/go-templating/**"))
+	tmplData := goTemplatingTemplateData{
+		ModelIndexPath: modelPath,
 	}
 
 	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
