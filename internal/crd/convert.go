@@ -104,10 +104,12 @@ func FilesToOpenAPI(fs afero.Fs, bs []byte, path string) ([]string, error) {
 func addDefaultAPIVersionAndKind(s *spec.Schema, gvk schema.GroupVersionKind) {
 	if prop, ok := s.Properties["apiVersion"]; ok {
 		prop.Default = gvk.GroupVersion().String()
+		prop.Enum = []interface{}{gvk.GroupVersion().String()}
 		s.Properties["apiVersion"] = prop
 	}
 	if prop, ok := s.Properties["kind"]; ok {
 		prop.Default = gvk.Kind
+		prop.Enum = []interface{}{gvk.Kind}
 		s.Properties["kind"] = prop
 	}
 }
