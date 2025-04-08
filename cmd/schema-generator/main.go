@@ -25,6 +25,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
@@ -41,6 +42,7 @@ type cli struct {
 	PythonExcludes []string `help:"List of CRD filenames to exclude from Python schema generation."`
 	KclExcludes    []string `help:"List of CRD filenames to exclude from KCL schema generation."`
 	GoExcludes     []string `help:"List of CRD filenames to exclude from Go schema generation."`
+	JSONExcludes   []string `help:"List of CRD filenames to exclude from JSON schema generation."`
 }
 
 const customHelpMessage = `
@@ -130,7 +132,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // sc
 				return errors.Wrapf(err, "error parsing image")
 			}
 
-			memFs := afero.NewMemMapFs()
+			memFs := filesystem.MemOverlay(afero.NewMemMapFs())
 			if cerr := copyCrdToFs(parsedPkg, memFs); cerr != nil {
 				return errors.Wrapf(cerr, "error copying CRDs to filesystem")
 			}
@@ -222,6 +224,10 @@ func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate Go schema")
 	}
+	jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, memFs, c.JSONExcludes, schemaRunner)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate JSON schema")
+	}
 
 	var muts []xpkg.Mutator
 	if pfs != nil {
@@ -232,6 +238,9 @@ func (c *cli) runSchemaGeneration(ctx context.Context, memFs afero.Fs, image v1.
 	}
 	if gofs != nil {
 		muts = append(muts, mutators.NewSchemaMutator(schema.New(gofs, "", xpkg.StreamFileMode), xpkg.SchemaGoAnnotation))
+	}
+	if jsonfs != nil {
+		muts = append(muts, mutators.NewSchemaMutator(schema.New(jsonfs, "", xpkg.StreamFileMode), xpkg.SchemaJSONAnnotation))
 	}
 
 	for _, mut := range muts {

@@ -69,6 +69,19 @@ func GenerateSchema(ctx context.Context, m *manager.Manager, sr schemarunner.Sch
 		return err
 	})
 
+	eg.Go(func() error {
+		var err error
+		jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, schemaFS, []string{}, sr)
+		if err != nil {
+			return err
+		}
+
+		if err := m.AddModels("json", jsonfs); err != nil {
+			return err
+		}
+		return err
+	})
+
 	if err := eg.Wait(); err != nil {
 		return errors.Wrap(err, "unable to generate meta schemas")
 	}

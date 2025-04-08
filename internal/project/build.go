@@ -261,6 +261,26 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 		return nil
 	})
 
+	// Generate JSON Schemas for go-templating
+	eg.Go(func() error {
+		jsonfs, err := schemagenerator.GenerateSchemaJSON(egCtx, apisSource, apiExcludes, b.schemaRunner)
+		if err != nil {
+			return err
+		}
+
+		if jsonfs != nil {
+			mutMu.Lock()
+			mut = append(mut, mutators.NewSchemaMutator(schema.New(jsonfs, "", xpkg.StreamFileMode), xpkg.SchemaJSONAnnotation))
+			mutMu.Unlock()
+			if os.depManager != nil {
+				if err := os.depManager.AddModels("json", jsonfs); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
 	// Generate meta apis Schemas
 	eg.Go(func() error {
 		if os.depManager != nil {

@@ -58,6 +58,8 @@ const (
 	SchemaPythonAnnotation string = "schema.python"
 	// SchemaGoAnnotation is the annotation value used for the go schema layer.
 	SchemaGoAnnotation string = "schema.go"
+	// SchemaJSONAnnotation is the annotation value used for the json schema layer.
+	SchemaJSONAnnotation string = "schema.json"
 	// HelmChartAnnotation is the annotation value used for the helm chart layer.
 	HelmChartAnnotation = "helm"
 )
