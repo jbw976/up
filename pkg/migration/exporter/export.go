@@ -83,6 +83,13 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 
 	// TODO(turkenh): Check if we can use `afero.NewMemMapFs()` just like import and avoid the need for a temporary directory.
 	fs := afero.Afero{Fs: afero.NewOsFs()}
+
+	// Check if the output path points to an existing directory
+	fileInfo, err := fs.Stat(e.options.OutputArchive)
+	if err == nil && fileInfo.IsDir() {
+		return errors.Errorf("output path %q is a directory. Please specify a file path for the exported archive.", e.options.OutputArchive)
+	}
+
 	// We are using a temporary directory to store the exported state before
 	// archiving it. This temporary directory will be deleted after the archive
 	// is created.
