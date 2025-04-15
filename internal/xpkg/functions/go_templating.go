@@ -114,7 +114,9 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 			}
 
 			// Set the default source to match our source directory.
-			img, err = setImageEnvvar(img, "FUNCTION_GO_TEMPLATING_DEFAULT_SOURCE", "/src")
+			img, err = setImageEnvvars(img, map[string]string{
+				"FUNCTION_GO_TEMPLATING_DEFAULT_SOURCE": "/src",
+			})
 			if err != nil {
 				return errors.Wrap(err, "failed to configure go-templating source path")
 			}
