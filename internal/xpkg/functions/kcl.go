@@ -87,7 +87,10 @@ func (b *kclBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures [
 			}
 
 			// Set the default source to match our source directory.
-			img, err = setImageEnvvar(img, "FUNCTION_KCL_DEFAULT_SOURCE", "/src")
+			img, err = setImageEnvvars(img, map[string]string{
+				"FUNCTION_KCL_DEFAULT_SOURCE": "/src",
+				"KCL_PKG_PATH":                "/src",
+			})
 			if err != nil {
 				return errors.Wrap(err, "failed to configure KCL source path")
 			}
@@ -165,13 +168,16 @@ func isNonBaseLayer(desc v1.Descriptor) bool {
 	return slices.Contains(nonBaseLayerAnns, ann)
 }
 
-func setImageEnvvar(image v1.Image, key string, value string) (v1.Image, error) {
+func setImageEnvvars(image v1.Image, envVars map[string]string) (v1.Image, error) {
 	cfgFile, err := image.ConfigFile()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get config file")
 	}
 	cfg := cfgFile.Config
-	cfg.Env = append(cfg.Env, fmt.Sprintf("%s=%s", key, value))
+
+	for k, v := range envVars {
+		cfg.Env = append(cfg.Env, fmt.Sprintf("%s=%s", k, v))
+	}
 
 	image, err = mutate.Config(image, cfg)
 	if err != nil {
