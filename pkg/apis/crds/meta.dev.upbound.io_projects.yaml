@@ -103,6 +103,49 @@ spec:
                 type: array
               description:
                 type: string
+              imageConfig:
+                items:
+                  description: ImageConfig defines a set of rules for matching and
+                    rewriting images.
+                  properties:
+                    matchImages:
+                      description: MatchImages is a list of image matching rules that
+                        should be satisfied.
+                      items:
+                        description: ImageMatch defines a rule for matching image.
+                        properties:
+                          prefix:
+                            description: Prefix is the prefix that should be matched.
+                            type: string
+                          type:
+                            default: Prefix
+                            description: Type is the type of match.
+                            enum:
+                            - Prefix
+                            type: string
+                        required:
+                        - prefix
+                        type: object
+                      type: array
+                      x-kubernetes-validations:
+                      - message: matchImages should have at least one element.
+                        rule: size(self) > 0
+                    rewriteImage:
+                      description: RewriteImage defines how a matched image should
+                        be rewritten.
+                      properties:
+                        prefix:
+                          description: Prefix is the prefix to use when rewriting
+                            the image.
+                          type: string
+                      required:
+                      - prefix
+                      type: object
+                  required:
+                  - matchImages
+                  - rewriteImage
+                  type: object
+                type: array
               license:
                 type: string
               maintainer:
