@@ -195,7 +195,7 @@ func copyCrdToFs(pp *xpkgmarshaler.ParsedPackage, fs afero.Fs) error {
 			return errors.Wrapf(err, "failed to serialize CRD %d", i)
 		}
 
-		crdName := fmt.Sprintf("/%s_%s.yaml", crd.Spec.Group, crd.Spec.Names.Plural)
+		crdName := fmt.Sprintf("%s_%s.yaml", crd.Spec.Group, crd.Spec.Names.Plural)
 		filePath := filepath.Join(pp.DepName, crdName)
 
 		err = afero.WriteFile(fs, filePath, data, 0o644)
