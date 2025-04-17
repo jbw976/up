@@ -266,6 +266,19 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 			return err
 		})
 
+		eg.Go(func() error {
+			var err error
+			jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, c.apisFS, []string{}, c.schemarunner)
+			if err != nil {
+				return err
+			}
+
+			if err := c.m.AddModels("json", jsonfs); err != nil {
+				return err
+			}
+			return err
+		})
+
 		if err := eg.Wait(); err != nil {
 			return err
 		}

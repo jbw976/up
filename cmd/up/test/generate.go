@@ -7,10 +7,10 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"html/template"
 	"io"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"

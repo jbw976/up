@@ -76,6 +76,12 @@ func TestGenerateCmd_Run(t *testing.T) {
 			expectedFiles: []string{"fn.go", "fn_test.go", "go.mod", "go.sum", "main.go"},
 			err:           nil,
 		},
+		"LanguageGoTemplating": {
+			name:          "fn5",
+			language:      "go-templating",
+			expectedFiles: []string{"00-prelude.yaml.gotmpl", "01-compose.yaml.gotmpl"},
+			err:           nil,
+		},
 		"InvalidName": {
 			name:          "apis/network/aws-yaml",
 			language:      "python",
@@ -142,6 +148,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				projFS:            projFS,
 				proj:              proj,
 				modelsFS:          testModelsFS,
+				fsPath:            filepath.Join(tempProjDir, "functions", tc.name),
 				functionFS:        functionFS,
 				Language:          tc.language,
 				CompositionPath:   tc.compositionPath,

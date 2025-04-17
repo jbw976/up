@@ -7,6 +7,7 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -275,7 +277,46 @@ func (m *Manager) AddModels(language string, fromFS afero.Fs) error {
 	langFs := afero.NewBasePathFs(*m.cacheModels, language)
 
 	// Copy files from schemaFS to the language folder in cacheModels
-	return filesystem.CopyFilesBetweenFs(fromFS, langFs)
+	if err := filesystem.CopyFilesBetweenFs(fromFS, langFs); err != nil {
+		return err
+	}
+
+	// Carry out any language-specific work for the models.
+	return m.processModelsForLanguage(language, langFs)
+}
+
+// processModelsForLanguage does any language-specific work after adding models
+// to the manager's model cache.
+func (m *Manager) processModelsForLanguage(language string, langFs afero.Fs) error {
+	switch language {
+	case "json":
+		// For JSON, create and write the index schema, an anyOf of all the
+		// specific schemas we've collected from any source.
+		schemas, err := afero.Glob(langFs, "models/*.schema.json")
+		if err != nil {
+			return err
+		}
+
+		metaFile := filepath.Join("models", "index.schema.json")
+		var metaSchema jsonschema.Schema
+		for _, schema := range schemas {
+			if schema == metaFile {
+				continue
+			}
+			metaSchema.AnyOf = append(metaSchema.AnyOf, &jsonschema.Schema{
+				Ref: filepath.Base(schema),
+			})
+		}
+		bs, err := json.Marshal(metaSchema)
+		if err != nil {
+			return err
+		}
+
+		return afero.WriteFile(langFs, metaFile, bs, 0o644)
+
+	default:
+		return nil
+	}
 }
 
 func (m *Manager) retrieveAllDeps(ctx context.Context, p *xpkg.ParsedPackage) error {
