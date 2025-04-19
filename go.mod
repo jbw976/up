@@ -34,7 +34,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/kyverno/chainsaw v0.2.13-0.20250116043056-57a42010852a
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
-	github.com/navidys/tvxwidgets v0.10.0
+	github.com/navidys/tvxwidgets v0.11.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/posener/complete v1.2.3
@@ -391,7 +391,7 @@ require (
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0
 	golang.org/x/time v0.11.0 // indirect
-	golang.org/x/tools v0.29.0 // indirect
+	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
