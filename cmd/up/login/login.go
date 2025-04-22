@@ -121,6 +121,8 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
+
+	UseDeviceCode bool `help:"Use authentication flow based on device code. We will also use this if it can't launch a browser in your behalf, e.g. in remote SSH"`
 }
 
 // Run executes the login command.
@@ -155,18 +157,17 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	resultEP.Path = loginResultEndpoint
 	browser.Stderr = nil
 	browser.Stdout = nil
-	if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
-		ep := getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, "")
-		qrterminal.Generate(ep, qrterminal.L, os.Stdout)
-		p.Println("Could not open a browser!")
-		p.Println("Please go to", ep, "and then enter code manually")
-		// TODO(nullable-eth): Add a prompter with timeout?  Difficult to know when they actually
-		// finished login to know when the TOTP would expire
-		t, err := c.prompter.Prompt("Code", false)
-		if err != nil {
-			return errors.Wrap(err, errLoginFailed)
+	if c.UseDeviceCode {
+		if err = c.handleDeviceLogin(upCtx, token, p); err != nil {
+			return err
 		}
-		token <- t
+	} else {
+		if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
+			p.Println("Could not open a browser!")
+			if err = c.handleDeviceLogin(upCtx, token, p); err != nil {
+				return err
+			}
+		}
 	}
 
 	// wait for response on webserver or timeout
@@ -550,4 +551,18 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 		defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
 	}
 	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID, c.Token), errLoginFailed)
+}
+
+func (c *LoginCmd) handleDeviceLogin(upCtx *upbound.Context, token chan<- string, p pterm.TextPrinter) error {
+	ep := getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, "")
+	qrterminal.Generate(ep, qrterminal.L, os.Stdout)
+	p.Println("Please go to", ep, "and then enter code")
+	// TODO(nullable-eth): Add a prompter with timeout?  Difficult to know when they actually
+	// finished login to know when the TOTP would expire
+	t, err := c.prompter.Prompt("Code", false)
+	if err != nil {
+		return errors.Wrap(err, errLoginFailed)
+	}
+	token <- t
+	return nil
 }
