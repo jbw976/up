@@ -159,13 +159,13 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 	browser.Stdout = nil
 	if c.UseDeviceCode {
 		if err = c.handleDeviceLogin(upCtx, token, p); err != nil {
-			return errors.Wrap(err, "unable to login with device code")
+			return err
 		}
 	} else {
 		if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
 			p.Println("Could not open a browser!")
 			if err = c.handleDeviceLogin(upCtx, token, p); err != nil {
-				return errors.Wrap(err, "unable to login with device code")
+				return err
 			}
 		}
 	}
