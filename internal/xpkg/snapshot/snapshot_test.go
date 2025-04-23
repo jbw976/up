@@ -23,11 +23,13 @@ import (
 var (
 	testSingleVersionCRD []byte
 	testMultiVersionCRD  []byte
+	testSingleVersionXRD []byte
 )
 
 func init() {
 	testSingleVersionCRD, _ = afero.ReadFile(afero.NewOsFs(), "testdata/single-version-crd.yaml")
 	testMultiVersionCRD, _ = afero.ReadFile(afero.NewOsFs(), "testdata/multiple-version-crd.yaml")
+	testSingleVersionXRD, _ = afero.ReadFile(afero.NewOsFs(), "testdata/single-version-xrd.yaml")
 }
 
 func TestWSLoadValidators(t *testing.T) {
@@ -59,6 +61,21 @@ func TestWSLoadValidators(t *testing.T) {
 			}()),
 			validators: map[schema.GroupVersionKind]struct{}{
 				schema.FromAPIVersionAndKind("acm.aws.crossplane.io/v1alpha1", "Certificate"): {},
+			},
+		},
+		"SuccessfulLoadFromXRD": {
+			reason: "Should add a validator for CRDs from XRD",
+			wsroot: "/ws",
+			opt: workspace.WithFS(func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = fs.Mkdir("/ws", os.ModePerm)
+				_ = afero.WriteFile(fs, "/ws/valid.yaml", testSingleVersionXRD, os.ModePerm)
+				return fs
+			}()),
+			validators: map[schema.GroupVersionKind]struct{}{
+				schema.FromAPIVersionAndKind("platform.example.com/v1alpha1", "StorageBucket"):                {},
+				schema.FromAPIVersionAndKind("platform.example.com/v1alpha1", "XStorageBucket"):               {},
+				schema.FromAPIVersionAndKind("apiextensions.crossplane.io/v1", "CompositeResourceDefinition"): {},
 			},
 		},
 		"SuccessfulLoadMultiVersionFromCRD": {
