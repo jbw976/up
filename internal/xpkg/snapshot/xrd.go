@@ -14,6 +14,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
@@ -121,6 +122,12 @@ func (v *XRDSchemaValidator) validate(ctx context.Context, xrd *xpextv1.Composit
 // validateOpenAPIV3Schema validates the spec.versions[*].schema.openAPIV3Schema
 // section of the given XRD definition.
 func validateOpenAPIV3Schema(ctx context.Context, xrd *xpextv1.CompositeResourceDefinition) []error {
+	// we need to set UID
+	// ValidateCustomResourceDefinition is checking ownerReference and UID
+	// ref: https://github.com/kubernetes/apimachinery/blob/6a84120b17236460f404ba6486926f62cbf733dd/pkg/api/validation/objectmeta.go#L82-L84
+	if xrd.UID == "" {
+		xrd.UID = types.UID("dummy-uid")
+	}
 	crd, err := xcrd.ForCompositeResource(xrd)
 	if err != nil {
 		return nil
