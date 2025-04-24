@@ -154,6 +154,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err

@@ -157,6 +157,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err

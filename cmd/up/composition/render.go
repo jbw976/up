@@ -178,6 +178,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	m, err := manager.New(
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err

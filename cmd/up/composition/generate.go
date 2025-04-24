@@ -170,6 +170,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	m, err := manager.New(
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err
