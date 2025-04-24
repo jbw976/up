@@ -66,7 +66,7 @@ type Cache interface {
 // ImageResolver.
 type ImageResolver interface {
 	ResolveDigest(ctx context.Context, dep v1beta1.Dependency) (string, error)
-	ResolveImage(ctx context.Context, dep v1beta1.Dependency) (string, v1.Image, error)
+	ResolveImage(ctx context.Context, dep v1beta1.Dependency) (string, v1.Image, *v1.Descriptor, error)
 	ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error)
 }
 
@@ -365,7 +365,7 @@ func (m *Manager) addAllDeps(ctx context.Context, p *xpkg.ParsedPackage) error {
 
 func (m *Manager) addPkg(ctx context.Context, d v1beta1.Dependency) (*xpkg.ParsedPackage, error) {
 	// this is expensive
-	t, i, err := m.i.ResolveImage(ctx, d)
+	t, i, dgst, err := m.i.ResolveImage(ctx, d)
 	if err != nil {
 		return nil, err
 	}
@@ -375,17 +375,12 @@ func (m *Manager) addPkg(ctx context.Context, d v1beta1.Dependency) (*xpkg.Parse
 		return nil, err
 	}
 
-	digest, err := i.Digest()
-	if err != nil {
-		return nil, err
-	}
-
 	p, err := m.x.FromImage(ixpkg.Image{
 		Meta: ixpkg.ImageMeta{
 			Repo:     deriveRepoName(tag),
 			Registry: tag.RegistryStr(),
 			Version:  t,
-			Digest:   digest.String(),
+			Digest:   dgst.Digest.String(),
 		},
 		Image: i,
 	})

@@ -68,7 +68,7 @@ func WithFetcher(f Fetcher) ResolverOption {
 }
 
 // ResolveImage resolves the image corresponding to the given v1beta1.Dependency.
-func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (string, v1.Image, error) {
+func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (string, v1.Image, *v1.Descriptor, error) {
 	var (
 		cons string
 		err  error
@@ -78,13 +78,13 @@ func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (stri
 	if utils.IsDigest(&d) {
 		cons, err = r.ResolveDigest(ctx, d)
 		if err != nil {
-			return "", nil, errors.Errorf("failed to resolve %s@%s: %w", d.Package, d.Constraints, err)
+			return "", nil, nil, errors.Errorf("failed to resolve %s@%s: %w", d.Package, d.Constraints, err)
 		}
 		path = fmt.Sprintf("%s@%s", d.Package, cons)
 	} else {
 		cons, err = r.ResolveTag(ctx, d)
 		if err != nil {
-			return "", nil, errors.Errorf("failed to resolve %s:%s: %w", d.Package, d.Constraints, err)
+			return "", nil, nil, errors.Errorf("failed to resolve %s:%s: %w", d.Package, d.Constraints, err)
 		}
 		path = FullTag(v1beta1.Dependency{
 			Package:     d.Package,
@@ -95,11 +95,16 @@ func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (stri
 
 	remoteImageRef, err := name.ParseReference(path)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	i, err := r.f.Fetch(ctx, remoteImageRef)
-	return cons, i, err
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	digest, err := r.f.Head(ctx, remoteImageRef)
+	return cons, i, digest, err
 }
 
 // ResolveTag resolves the tag corresponding to the given v1beta1.Dependency.
