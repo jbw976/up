@@ -11,7 +11,7 @@ require (
 	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/chroma v0.10.0
 	github.com/alecthomas/kong v0.9.0
-	github.com/aws/aws-sdk-go v1.55.5
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/crossplane/crossplane v1.19.2-0.20250403080209-6c24c9dc7c8a
