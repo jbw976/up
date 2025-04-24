@@ -17,6 +17,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -125,7 +126,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				schemaRunner: mockRunner,
 			}
 
-			err = c.Run(context.Background())
+			err = c.Run(context.Background(), upterm.DefaultObjPrinter)
 			if tc.err != nil {
 				assert.ErrorContains(t, err, tc.err.Error())
 				return

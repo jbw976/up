@@ -126,9 +126,6 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 		}
 	}
 
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	pterm.Println("Importing control plane state...")
 	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
 

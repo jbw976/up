@@ -8,8 +8,6 @@ import (
 	"io"
 
 	"github.com/pterm/pterm"
-
-	"github.com/upbound/up/internal/config"
 )
 
 var (
@@ -68,9 +66,19 @@ func init() {
 }
 
 // WrapWithSuccessSpinner adds spinners around message and run function.
-func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() error, quiet config.QuietFlag) error {
-	if quiet {
+func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() error, printer ObjectPrinter) error {
+	if bool(printer.Quiet) {
 		return f()
+	}
+
+	if !printer.Pretty {
+		pterm.Printfln("%s …", msg)
+		if err := f(); err != nil {
+			pterm.Printfln("%s ✗ ", msg)
+			return err
+		}
+		pterm.Printfln("%s ✓ ", msg)
+		return nil
 	}
 
 	s, err := spinner.Start(msg)

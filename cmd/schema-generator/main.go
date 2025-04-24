@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -20,11 +21,13 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/term"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
@@ -36,6 +39,11 @@ import (
 )
 
 type cli struct {
+	Format config.Format    `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"                short:"q"`
+	Pretty *bool            `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
+	DryRun bool             `help:"dry-run output."      name:"dry-run"`
+
 	SourceImage string `help:"The source image to pull."    required:""`
 	TargetImage string `help:"The target image to push to." required:""`
 
@@ -43,6 +51,8 @@ type cli struct {
 	KclExcludes    []string `help:"List of CRD filenames to exclude from KCL schema generation."`
 	GoExcludes     []string `help:"List of CRD filenames to exclude from Go schema generation."`
 	JSONExcludes   []string `help:"List of CRD filenames to exclude from JSON schema generation."`
+
+	printer upterm.ObjectPrinter
 }
 
 const customHelpMessage = `
@@ -62,6 +72,32 @@ Examples:
 		Pulls the source image, appends schema layers, but excludes specific CRD files from the Python schema generation, then pushes to the target image.
 `
 
+// AfterApply configures global settings before executing commands.
+func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong requires an error return.
+	var pretty bool
+	if c.Pretty != nil {
+		pretty = *c.Pretty
+	} else {
+		pretty = term.IsTerminal(int(os.Stdout.Fd()))
+	}
+
+	pterm.EnableStyling()
+	if !pretty {
+		pterm.DisableStyling()
+	}
+
+	printer := upterm.DefaultObjPrinter
+	printer.DryRun = c.DryRun
+	printer.Format = c.Format
+	printer.Pretty = pretty
+	printer.Quiet = c.Quiet
+
+	ctx.Bind(printer)
+	ctx.BindTo(&printer, (*upterm.Printer)(nil))
+	c.printer = printer
+	return nil
+}
+
 func main() {
 	c := cli{}
 
@@ -71,8 +107,6 @@ func main() {
 			Compact: true,
 		}),
 	)
-
-	pterm.EnableStyling()
 
 	if err := parser.Run(&c); err != nil {
 		log.Fatalf("Error: %v", err)
@@ -140,7 +174,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // sc
 			err = upterm.WrapWithSuccessSpinner("Schema Generation", upterm.CheckmarkSuccessSpinner, func() error {
 				img, err = c.runSchemaGeneration(gCtx, memFs, img, configFile.Config)
 				return err
-			}, false)
+			}, c.printer)
 			if err != nil {
 				return errors.Wrapf(err, "error generating schema for architecture %v", desc.Platform)
 			}
@@ -176,7 +210,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // sc
 			targetRef,
 			multiArchIndex,
 			keychain)
-	}, false)
+	}, c.printer)
 	if err != nil {
 		return errors.Wrapf(err, "error pushing multi-arch image to registry %v", c.TargetImage)
 	}

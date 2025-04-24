@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -17,8 +16,6 @@ import (
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
-	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
@@ -33,13 +30,10 @@ type deleteCmd struct {
 	GlobalFlags       upbound.Flags `embed:""`
 
 	spaceClient client.Client
-
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *deleteCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *deleteCmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
 	if err != nil {
 		return err
@@ -91,14 +85,6 @@ func (c *deleteCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
 	if err != nil {
 		return err
-	}
-
-	pterm.EnableStyling()
-
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
-		c.asyncWrapper = async.IgnoreEvents
 	}
 
 	return nil

@@ -198,7 +198,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo // multiple output options
-	pterm.EnableStyling()
 	composition, plural, err := c.newComposition(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to create composition")

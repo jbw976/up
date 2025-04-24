@@ -15,7 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -48,7 +47,7 @@ type Cmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -81,19 +80,21 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.quiet = printer.Quiet
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
 
 	return nil
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
-	pterm.EnableStyling()
-
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
 	proj, err := project.Parse(c.projFS, projFilePath)
 	if err != nil {
@@ -120,7 +121,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			imgMap, err = c.loadPackages()
 			return err
 		},
-		c.quiet,
+		printer,
 	)
 
 	pusher := project.NewPusher(

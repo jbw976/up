@@ -22,6 +22,7 @@ import (
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 )
@@ -88,7 +89,7 @@ func TestPush(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(context.Background(), upCtx)
+			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 
 			// Pull the configuration image from the server and unpack its

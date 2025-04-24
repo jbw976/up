@@ -22,6 +22,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -158,7 +159,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				ws:                ws,
 			}
 
-			err = c.Run(context.Background())
+			err = c.Run(context.Background(), upterm.DefaultObjPrinter)
 
 			if tc.err == nil {
 				assert.NilError(t, err)

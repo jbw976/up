@@ -113,7 +113,7 @@ type renderCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
@@ -195,18 +195,20 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.quiet = printer.Quiet
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
 
 	return nil
 }
 
-func (c *renderCmd) Run(ctx context.Context, log logging.Logger) error {
-	pterm.EnableStyling()
-
+func (c *renderCmd) Run(ctx context.Context, log logging.Logger, printer upterm.ObjectPrinter) error {
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
@@ -262,7 +264,7 @@ func (c *renderCmd) Run(ctx context.Context, log logging.Logger) error {
 		pterm.Print(output)
 		return nil
 	},
-		c.quiet,
+		printer,
 	)
 }
 

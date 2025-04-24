@@ -185,12 +185,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 }
 
 // Run executes the test generation command.
-func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // generate multiple languages
+func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // generate multiple languages
 	var (
 		err            error
 		testSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
 	)
-	pterm.EnableStyling()
 
 	if errs := validation.IsDNS1035Label(c.testName); len(errs) > 0 {
 		return errors.Errorf("'%s' is not a valid test name. DNS-1035 constraints: %s", c.testName, strings.Join(errs, "; "))
@@ -227,7 +226,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // gene
 			}
 		}
 		return nil
-	}, c.quiet)
+	}, printer)
 	if err != nil {
 		return err
 	}
@@ -276,7 +275,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // gene
 				}
 			}
 			return nil
-		}, c.quiet)
+		}, printer)
 	if err != nil {
 		return err
 	}

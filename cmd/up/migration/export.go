@@ -113,9 +113,6 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
 		}
 	}
 
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	pterm.Println("Exporting control plane state...")
 
 	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}

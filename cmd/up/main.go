@@ -11,6 +11,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
+	"golang.org/x/term"
 
 	"github.com/upbound/up/cmd/up/composition"
 	"github.com/upbound/up/cmd/up/controlplane"
@@ -54,18 +55,23 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong req
 		ctx.Stdout, ctx.Stderr = io.Discard, io.Discard
 	}
 	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
-	// TODO(hasheddan): configure pretty print styling to match Upbound
-	// branding.
-	if !c.Pretty {
-		// NOTE(hasheddan): enabling styling can make processing output with
-		// other tooling difficult.
+
+	var pretty bool
+	if c.Pretty != nil {
+		pretty = *c.Pretty
+	} else {
+		pretty = term.IsTerminal(int(os.Stdout.Fd()))
+	}
+
+	pterm.EnableStyling()
+	if !pretty {
 		pterm.DisableStyling()
 	}
 
 	printer := upterm.DefaultObjPrinter
 	printer.DryRun = c.DryRun
 	printer.Format = c.Format
-	printer.Pretty = c.Pretty
+	printer.Pretty = pretty
 	printer.Quiet = c.Quiet
 
 	ctx.Bind(printer)
@@ -85,9 +91,9 @@ func (c *cli) BeforeReset(ctx *kong.Context, p *kong.Path) error {
 }
 
 type cli struct {
-	Format config.Format    `default:"default"           enum:"default,json,yaml" help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
-	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"             short:"q"`
-	Pretty bool             `help:"Pretty print output." name:"pretty"`
+	Format config.Format    `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"                short:"q"`
+	Pretty *bool            `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
 	DryRun bool             `help:"dry-run output."      name:"dry-run"`
 
 	// Manage Upbound Resources

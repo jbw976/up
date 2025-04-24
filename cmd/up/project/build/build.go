@@ -60,7 +60,7 @@ type Cmd struct {
 }
 
 // AfterApply parses flags and applies defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -119,19 +119,20 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.quiet = printer.Quiet
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
-
 	return nil
 }
 
 // Run runs the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // This is fine.
-	pterm.EnableStyling()
-
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // This is fine.
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -146,7 +147,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			proj = lproj
 			return nil
 		},
-		c.quiet,
+		printer,
 	)
 	if err != nil {
 		return err
@@ -225,7 +226,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			}
 			return nil
 		},
-		c.quiet,
+		printer,
 	)
 	if err != nil {
 		return err

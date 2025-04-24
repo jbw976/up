@@ -62,9 +62,6 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 	// Determine action
 	action, operationFunc := c.getActionAndFunc()
 
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	pterm.Printfln("%s resources...", action)
 	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
 

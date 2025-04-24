@@ -48,14 +48,14 @@ type ObjectPrinter struct {
 //nolint:gochecknoglobals // TODO(adamwg): Make this a function returning the default printer.
 var DefaultObjPrinter = ObjectPrinter{
 	Quiet:        false,
-	Pretty:       false,
+	Pretty:       true,
 	DryRun:       false,
 	Format:       config.FormatDefault,
 	TablePrinter: pterm.DefaultTable.WithSeparator("   "),
 }
 
 func init() {
-	pterm.DisableStyling()
+	pterm.EnableStyling()
 }
 
 // Print will print a single option or an array/slice of objects.
@@ -66,18 +66,12 @@ func init() {
 // When printing JSON or YAML, this will print *all* fields, regardless of
 // the list of fields.
 func (p *ObjectPrinter) Print(obj any, fieldNames []string, extractFields func(any) []string) error {
-	// Step 1: If user specified quiet, skip printing entirely
+	// If user specified quiet, skip printing entirely
 	if p.Quiet {
 		return nil
 	}
 
-	// Step 2: Enable color printing if desired. Note: This is only
-	// implemented for the default table printing, not JSON or YAML.
-	if p.Pretty {
-		pterm.EnableStyling()
-	}
-
-	// Step 3: Print the object with the appropriate formatting.
+	// Print the object with the appropriate formatting.
 	switch p.Format {
 	case config.FormatJSON:
 		return printJSON(obj)
@@ -92,18 +86,11 @@ func (p *ObjectPrinter) Print(obj any, fieldNames []string, extractFields func(a
 
 // PrintTemplate prints an object using a go template.
 func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
-	// Step 1: If user specified quiet, skip printing entirely
+	// If user specified quiet, skip printing entirely
 	if p.Quiet {
 		return nil
 	}
-
-	// Step 2: Enable color printing if desired. Note: This is only
-	// implemented for the default table printing, not JSON or YAML.
-	if p.Pretty {
-		pterm.EnableStyling()
-	}
-
-	// Step 3: Print the object with the appropriate formatting.
+	// Print the object with the appropriate formatting.
 	switch p.Format {
 	case config.FormatJSON:
 		return printJSON(obj)

@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +23,7 @@ import (
 	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // completeCmd is the `up project simulation complete` command.
@@ -44,7 +44,7 @@ type completeCmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *completeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *completeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
 	if err != nil {
 		return err
@@ -98,14 +98,15 @@ func (c *completeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		return err
 	}
 
-	pterm.EnableStyling()
-
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.quiet = printer.Quiet
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
-
 	return nil
 }
 

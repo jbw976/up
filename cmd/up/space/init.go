@@ -36,7 +36,6 @@ import (
 	"github.com/upbound/up/cmd/up/space/defaults"
 	spacefeature "github.com/upbound/up/cmd/up/space/features"
 	"github.com/upbound/up/cmd/up/space/prerequisites"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
@@ -95,8 +94,8 @@ type initCmd struct {
 	kClient    kubernetes.Interface
 	dClient    dynamic.Interface
 	pullSecret *kube.ImagePullApplicator
-	quiet      config.QuietFlag
 	features   *feature.Flags
+	printer    upterm.ObjectPrinter
 }
 
 func init() {
@@ -114,14 +113,10 @@ func (c *initCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
+func (c *initCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
-
-	// NOTE(tnthornton) we currently only have support for stylized output.
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
 
 	upCtx, err := upbound.NewFromFlags(c.Upbound)
 	if err != nil {
@@ -214,8 +209,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) erro
 		return err
 	}
 	c.prereqs = prereqs
-
-	c.quiet = quiet
+	c.printer = printer
 	return nil
 }
 
@@ -262,7 +256,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 				return nil
 			}
 		}
-		if err := installPrereqs(status, c.quiet); err != nil {
+		if err := installPrereqs(status, c.printer); err != nil {
 			return err
 		}
 	}
@@ -290,7 +284,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	return nil
 }
 
-func installPrereqs(status *prerequisites.Status, quiet config.QuietFlag) error {
+func installPrereqs(status *prerequisites.Status, printer upterm.ObjectPrinter) error {
 	for i, p := range status.NotInstalled {
 		if err := upterm.WrapWithSuccessSpinner(
 			upterm.StepCounter(
@@ -300,7 +294,7 @@ func installPrereqs(status *prerequisites.Status, quiet config.QuietFlag) error 
 			),
 			upterm.CheckmarkSuccessSpinner,
 			p.Install,
-			quiet,
+			printer,
 		); err != nil {
 			pterm.Println()
 			pterm.Println()
@@ -338,7 +332,7 @@ func (c *initCmd) applySecret(ctx context.Context, regFlags *authorizedRegistryF
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 3),
 		upterm.CheckmarkSuccessSpinner,
 		creatPullSecret,
-		c.quiet,
+		c.printer,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()
@@ -372,7 +366,7 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 		return nil
 	}
 
-	if c.quiet {
+	if c.printer.Quiet {
 		return install()
 	}
 
@@ -380,7 +374,7 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 		upterm.StepCounter("Initializing Space components", 2, 3),
 		upterm.CheckmarkSuccessSpinner,
 		install,
-		c.quiet,
+		c.printer,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()

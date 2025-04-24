@@ -119,7 +119,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.relXrdFilePath = c.XRDFilePath
 	if filepath.IsAbs(c.relXrdFilePath) {
 		// Convert the absolute path to a relative path within projFS
-		relPath, err := filepath.Rel(afero.FullBaseFsPath(c.projFS.(*afero.BasePathFs), "."), c.relXrdFilePath)
+		projFS, ok := c.projFS.(*afero.BasePathFs)
+		if !ok {
+			return errors.Errorf("unexpected filesystem type %T for project", projFS)
+		}
+		relPath, err := filepath.Rel(afero.FullBaseFsPath(projFS, "."), c.relXrdFilePath)
 		if err != nil {
 			return errors.Wrap(err, "failed to make file path relative to project filesystem")
 		}
@@ -138,7 +142,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 func (c *generateCmd) Run() error {
-	pterm.EnableStyling()
 	// get xr or xrc/claim as input otherwise ask interactive
 	if c.Type == "" {
 		c.Type = c.getInteractiveType()

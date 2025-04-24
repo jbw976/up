@@ -22,7 +22,6 @@ import (
 
 	spacefeature "github.com/upbound/up/cmd/up/space/features"
 	"github.com/upbound/up/cmd/up/space/prerequisites"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
@@ -59,7 +58,7 @@ type upgradeCmd struct {
 	helmParams map[string]any
 	kClient    kubernetes.Interface
 	pullSecret *kube.ImagePullApplicator
-	quiet      config.QuietFlag
+	printer    upterm.ObjectPrinter
 	features   *feature.Flags
 	oldVersion string
 	downgrade  bool
@@ -72,14 +71,10 @@ func (c *upgradeCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint:gocyclo // lot of checks
+func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
-
-	// NOTE(tnthornton) we currently only have support for stylized output.
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
 
 	upCtx, err := upbound.NewFromFlags(c.Upbound)
 	if err != nil {
@@ -167,7 +162,7 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) e
 	}
 	c.prereqs = prereqs
 
-	c.quiet = quiet
+	c.printer = printer
 	return nil
 }
 
@@ -202,7 +197,7 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 				return nil
 			}
 		}
-		if err := installPrereqs(status, c.quiet); err != nil {
+		if err := installPrereqs(status, c.printer); err != nil {
 			return err
 		}
 	}
@@ -223,7 +218,7 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 2),
 		upterm.CheckmarkSuccessSpinner,
 		pullSecret,
-		c.quiet,
+		c.printer,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()
@@ -271,7 +266,7 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 		upterm.StepCounter(fmt.Sprintf("%s Space from v%s to v%s", verb, c.oldVersion, version), 2, 2),
 		upterm.CheckmarkSuccessSpinner,
 		upgrade,
-		c.quiet,
+		c.printer,
 	); err != nil {
 		pterm.Println()
 		pterm.Println()

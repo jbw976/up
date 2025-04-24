@@ -32,6 +32,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -205,7 +206,7 @@ func TestBuild(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(context.Background(), upCtx)
+			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.

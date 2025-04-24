@@ -17,7 +17,6 @@ import (
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/upterm"
 )
 
 const (
@@ -71,11 +70,6 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 	kongCtx.Bind(mgr)
-
-	// NOTE(tnthornton) we currently only have support for stylized output.
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	c.confirm()
 
 	return nil

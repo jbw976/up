@@ -21,11 +21,11 @@ func IgnoreEvents(fn func(ch EventChannel) error) error {
 	return fn(nil)
 }
 
-// WrapWithSuccessSpinners runs a given function in a separate goroutine,
+// WrapWithSuccessSpinnersPretty runs a given function in a separate goroutine,
 // consuming events from its event channel and using them to display a set of
 // spinners on the terminal. One spinner will be generated for each unique event
 // text received. A checkmark will be displayed on success.
-func WrapWithSuccessSpinners(fn func(ch EventChannel) error) error {
+func WrapWithSuccessSpinnersPretty(fn func(ch EventChannel) error) error {
 	var (
 		updateChan = make(EventChannel, 10)
 		doneChan   = make(chan error, 1)
@@ -36,7 +36,6 @@ func WrapWithSuccessSpinners(fn func(ch EventChannel) error) error {
 		close(updateChan)
 		doneChan <- err
 	}()
-
 	multi := &pterm.DefaultMultiPrinter
 	multi, _ = multi.Start()
 	spinners := make(map[string]*pterm.SpinnerPrinter)
@@ -57,6 +56,48 @@ func WrapWithSuccessSpinners(fn func(ch EventChannel) error) error {
 	}
 	err := <-doneChan
 	_, _ = multi.Stop()
-
 	return err
+}
+
+// WrapWithSuccessSpinnersNonPretty runs a given function in a separate goroutine,
+// consuming events from its event channel and using them to display a set of
+// output on the terminal. A checkmark will be displayed on success.
+func WrapWithSuccessSpinnersNonPretty(fn func(ch EventChannel) error) error {
+	var (
+		updateChan = make(EventChannel, 10)
+		doneChan   = make(chan error, 1)
+	)
+
+	go func() {
+		err := fn(updateChan)
+		close(updateChan)
+		doneChan <- err
+	}()
+
+	statusMap := make(map[string]string)
+	printed := make(map[string]bool)
+
+	for update := range updateChan {
+		prevStatus := statusMap[update.Text]
+		switch update.Status {
+		case EventStatusStarted:
+			if !printed[update.Text] {
+				pterm.Println(update.Text + " …")
+				printed[update.Text] = true
+				statusMap[update.Text] = "started"
+			}
+		case EventStatusSuccess:
+			if prevStatus != "success" {
+				pterm.Println(update.Text + " ✓")
+				statusMap[update.Text] = "success"
+			}
+		case EventStatusFailure:
+			if prevStatus != "failure" {
+				pterm.Println(update.Text + " ✗")
+				statusMap[update.Text] = "failure"
+			}
+		}
+	}
+
+	return <-doneChan
 }

@@ -48,7 +48,6 @@ import (
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
@@ -102,7 +101,7 @@ type runCmd struct {
 	proj               *v1alpha1.Project
 
 	spaceClient  client.Client
-	quiet        config.QuietFlag
+	printer      upterm.ObjectPrinter
 	asyncWrapper async.WrapperFunc
 }
 
@@ -123,7 +122,7 @@ Examples:
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error { //nolint: gocognit // we have multiple tests
+func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint: gocognit // we have multiple tests
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -256,14 +255,17 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error
 		}
 	}
 
-	pterm.EnableStyling()
 	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.printer = printer
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
 
 	return nil
@@ -289,7 +291,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 
 			return nil
 		},
-		c.quiet,
+		c.printer,
 	); err != nil {
 		return err
 	}
@@ -673,7 +675,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		func() error {
 			return kube.ApplyResources(ctx, devCtpClient, test.Spec.ExtraResources)
 		},
-		c.quiet,
+		c.printer,
 	); err != nil {
 		return errors.Wrap(err, "failed to apply extra resources")
 	}
@@ -743,6 +745,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 }
 
 func displayTestResults(ttotal, tsuccess, terr int) {
+	pterm.DisableStyling()
 	printlnFunc := pterm.Success.Println
 	if terr > 0 {
 		printlnFunc = pterm.Error.Println

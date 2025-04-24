@@ -42,10 +42,6 @@ type disconnectCmd struct {
 }
 
 func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
-	// NOTE(tnthornton) we currently only have support for stylized output.
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	upCtx, err := upbound.NewFromFlags(c.Upbound)
 	if err != nil {
 		return err

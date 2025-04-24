@@ -100,9 +100,6 @@ func (c *CreateCmd) Validate() error {
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, quiet config.QuietFlag) error {
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	if c.Group == "" {
 		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
@@ -117,7 +114,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, qu
 }
 
 // Run executes the create command.
-func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client) error { //nolint:gocyclo // TODO: simplify this
+func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client, printer upterm.ObjectPrinter) error { //nolint:gocyclo // TODO: simplify this
 	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
 
 	var srcCtp spacesv1beta1.ControlPlane
@@ -148,7 +145,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Waiting for simulated control plane to start", 1, totalSteps),
 		upterm.CheckmarkSuccessSpinner,
 		waitForConditionStep(ctx, spacesClient, run, simulation.AcceptingChanges(), wait.WithTimeout(controlPlaneReadyTimeout)),
-		c.quiet,
+		printer,
 	); err != nil {
 		return err
 	}
@@ -163,7 +160,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Applying the changeset to the simulation control plane", 2, totalSteps),
 		stepSpinner,
 		c.applyChangesetStep(simConfig),
-		c.quiet,
+		printer,
 	); err != nil {
 		return err
 	}
@@ -178,7 +175,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
 		stepSpinner,
 		waitForConditionStep(ctx, spacesClient, run, simulation.Complete()),
-		c.quiet,
+		printer,
 	); err != nil {
 		return err
 	}
@@ -204,7 +201,7 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 			func() error {
 				return run.Terminate(ctx, spacesClient)
 			},
-			c.quiet,
+			printer,
 		); err != nil {
 			return err
 		}

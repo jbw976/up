@@ -16,7 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -86,7 +85,7 @@ type CreateCmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *CreateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
@@ -183,19 +182,21 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) er
 		return err
 	}
 
-	pterm.EnableStyling()
-
-	c.quiet = quiet
-	c.asyncWrapper = async.WrapWithSuccessSpinners
-	if quiet {
+	c.quiet = printer.Quiet
+	switch {
+	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
+	case printer.Pretty:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
+	default:
+		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
 	}
 
 	return nil
 }
 
 // Run is the body of the command.
-func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
+func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // long chain of commands
 	var proj *v1alpha1.Project
 	err := upterm.WrapWithSuccessSpinner(
 		"Parsing project metadata",
@@ -210,7 +211,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 			proj = lproj
 			return nil
 		},
-		c.quiet,
+		printer,
 	)
 	if err != nil {
 		return err

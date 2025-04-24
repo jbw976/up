@@ -185,12 +185,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO: refactor
+func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // TODO: refactor
 	var (
 		err                error
 		functionSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
 	)
-	pterm.EnableStyling()
 
 	if errs := validation.IsDNS1035Label(c.Name); len(errs) > 0 {
 		return errors.Errorf("'%s' is not a valid function name. DNS-1035 constraints: %s", c.Name, strings.Join(errs, "; "))
@@ -235,7 +234,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 			}
 		}
 		return nil
-	}, c.quiet)
+	}, printer)
 	if err != nil {
 		return err
 	}
@@ -292,7 +291,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 			}
 
 			return nil
-		}, c.quiet)
+		}, printer)
 	if err != nil {
 		return err
 	}
@@ -312,7 +311,7 @@ func (c *generateCmd) Run(ctx context.Context) error { //nolint:gocognit // TODO
 				}
 				return nil
 			},
-			c.quiet,
+			printer,
 		)
 		if err != nil {
 			return err

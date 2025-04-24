@@ -169,7 +169,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocognit // TODO: Refactor
-	pterm.EnableStyling()
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))

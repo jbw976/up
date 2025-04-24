@@ -98,10 +98,6 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(robots.NewClient(cfg))
 	kongCtx.Bind(tokens.NewClient(cfg))
 
-	// NOTE(tnthornton) we currently only have support for stylized output.
-	pterm.EnableStyling()
-	upterm.DefaultObjPrinter.Pretty = true
-
 	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
