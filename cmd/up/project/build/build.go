@@ -84,6 +84,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
+	prj, err := project.Parse(c.projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+
 	// Output can be anywhere, doesn't have to be in the project directory.
 	c.outputFS = afero.NewOsFs()
 	fs := afero.NewOsFs()
@@ -94,6 +99,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(prj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -114,7 +120,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.m = m
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
+	)
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))

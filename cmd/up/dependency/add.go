@@ -13,9 +13,11 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
@@ -77,7 +79,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	projFS := afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
-	_, err = project.Parse(projFS, c.ProjectFile)
+	prj, err := project.Parse(projFS, c.ProjectFile)
 	if err != nil {
 		return errors.New("this is not a project directory")
 	}
@@ -90,6 +92,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(prj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -129,7 +132,10 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 }
 
 // Run executes the dep command.
-func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *addCmd) Run(ctx context.Context, _ pterm.TextPrinter) error {
+	// ToDo(haarchri): rebase
+	pterm.EnableStyling()
+
 	_, err := xpkg.ValidDep(c.Package)
 	if err != nil {
 		return err
@@ -137,28 +143,48 @@ func (c *addCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 	d := dep.New(c.Package)
 
-	ud, _, err := c.m.AddAll(ctx, d)
-	if err != nil {
-		return errors.Wrapf(err, "in %s", c.Package)
+	var ud v1beta1.Dependency
+	if err = upterm.WrapWithSuccessSpinner(
+		"Updating cache dependencies...",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			ud, _, err = c.m.AddAll(ctx, d)
+			if err != nil {
+				return errors.Wrapf(err, "in %s", c.Package)
+			}
+			return nil
+		},
+		false,
+	); err != nil {
+		return err
 	}
-	p.Printfln("%s:%s added to cache", ud.Package, ud.Constraints)
-
+	pterm.Success.Printfln("%s:%s added to cache", ud.Package, ud.Constraints)
 	meta := c.ws.View().Meta()
 
 	if meta != nil {
-		// Metadata file exists in the workspace, upsert the new dependency
-		// use the user-specified constraints if provided; otherwise, use latest
-		if d.Constraints != "" {
-			ud.Constraints = d.Constraints
-		}
-		if err := meta.Upsert(ud); err != nil {
-			return err
-		}
+		if err = upterm.WrapWithSuccessSpinner(
+			"Updating project dependencies...",
+			upterm.CheckmarkSuccessSpinner,
+			func() error {
+				// Metadata file exists in the workspace, upsert the new dependency
+				// use the user-specified constraints if provided; otherwise, use latest
+				if d.Constraints != "" {
+					ud.Constraints = d.Constraints
+				}
+				if err := meta.Upsert(ud); err != nil {
+					return err
+				}
 
-		if err := c.ws.Write(meta); err != nil {
+				if err := c.ws.Write(meta); err != nil {
+					return err
+				}
+				return nil
+			},
+			false,
+		); err != nil {
 			return err
 		}
 	}
-	p.Printfln("%s:%s added to project dependency", ud.Package, ud.Constraints)
+	pterm.Success.Printfln("%s:%s added to project dependency", ud.Package, ud.Constraints)
 	return nil
 }

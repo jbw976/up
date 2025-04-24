@@ -8,12 +8,15 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/cli/cli/config"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -22,6 +25,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/imageutil"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 // SchemaRunner defines an interface for schema generation.
@@ -30,7 +35,28 @@ type SchemaRunner interface {
 }
 
 // RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
-type RealSchemaRunner struct{}
+type RealSchemaRunner struct {
+	imageConfigs []projectv1alpha1.ImageConfig
+}
+
+// NewRealSchemaRunner for RealSchemaRunner with SchemaRunnerOption.
+func NewRealSchemaRunner(opts ...ROption) *RealSchemaRunner {
+	r := &RealSchemaRunner{}
+	for _, o := range opts {
+		o(r)
+	}
+	return r
+}
+
+// ROption configures the SchemaRunner.
+type ROption func(*RealSchemaRunner)
+
+// WithImageConfig adds image rewriting rules to the SchemaRunner.
+func WithImageConfig(cfgs []projectv1alpha1.ImageConfig) ROption {
+	return func(r *RealSchemaRunner) {
+		r.imageConfigs = cfgs
+	}
+}
 
 // GenerateOptions holds optional parameters for Generate.
 type GenerateOptions struct {
@@ -74,6 +100,10 @@ func DefaultGenerateOptions() GenerateOptions {
 
 // Generate runs the containerized language tool for schema generation.
 func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, basePath, imageName string, command []string, options ...Option) error { //nolint:gocyclo // start container
+	if len(r.imageConfigs) > 0 {
+		imageName = imageutil.RewriteImage(imageName, r.imageConfigs)
+	}
+
 	// Apply default options
 	o := DefaultGenerateOptions()
 	for _, opt := range options {
@@ -86,8 +116,15 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 	}
 
 	if _, _, err := cli.ImageInspectWithRaw(ctx, imageName); err != nil {
+		authStr, err := defaultRegistryAuth(imageName)
+		if err != nil {
+			return errors.Wrap(err, "failed to get default auth")
+		}
+
 		// Attempt to pull the image if it's not found locally
-		out, pullErr := cli.ImagePull(ctx, imageName, image.PullOptions{})
+		out, pullErr := cli.ImagePull(ctx, imageName, image.PullOptions{
+			RegistryAuth: authStr,
+		})
 		if pullErr != nil {
 			// Return the error encountered during image pull
 			return errors.Wrapf(pullErr, "failed to pull image %s", imageName)
@@ -227,4 +264,32 @@ func copyFromContainerToFs(ctx context.Context, cli *client.Client, containerID,
 	}
 
 	return nil
+}
+
+func defaultRegistryAuth(imageName string) (string, error) {
+	hostname := resolveRegistryFromImage(imageName)
+	cfg, err := config.Load(config.Dir())
+	if err != nil {
+		return "", err
+	}
+
+	auth, err := cfg.GetAuthConfig(hostname)
+	if err != nil {
+		return "", err
+	}
+
+	data, err := json.Marshal(auth)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+func resolveRegistryFromImage(image string) string {
+	parts := strings.Split(image, "/")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return ""
 }

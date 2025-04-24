@@ -22,13 +22,16 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/imageutil"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 // goTemplatingBuilder builds "functions" written in go templating by injecting
 // their code into a function-go-templating base image.
 type goTemplatingBuilder struct {
-	baseImage string
-	transport http.RoundTripper
+	baseImage    string
+	transport    http.RoundTripper
+	imageConfigs []projectv1alpha1.ImageConfig
 }
 
 func (b *goTemplatingBuilder) Name() string {
@@ -80,7 +83,11 @@ func (b *goTemplatingBuilder) match(fromFS afero.Fs) (bool, error) {
 }
 
 func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error) {
-	baseRef, err := name.NewTag(b.baseImage)
+	baseImage := b.baseImage
+	if len(b.imageConfigs) > 0 {
+		baseImage = imageutil.RewriteImage(b.baseImage, b.imageConfigs)
+	}
+	baseRef, err := name.NewTag(baseImage)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse go-templating base image tag")
 	}
@@ -129,10 +136,11 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 	return images, eg.Wait()
 }
 
-func newGoTemplatingBuilder() *goTemplatingBuilder {
+func newGoTemplatingBuilder(imageConfigs []projectv1alpha1.ImageConfig) *goTemplatingBuilder {
 	return &goTemplatingBuilder{
 		// TODO(adamwg): Upstream changes and switch to the official function.
-		baseImage: "xpkg.upbound.io/upbound/function-go-templating-base:v0.9.0-13-gd1fa2e3",
-		transport: http.DefaultTransport,
+		transport:    http.DefaultTransport,
+		baseImage:    "xpkg.upbound.io/upbound/function-go-templating-base:v0.9.0-13-gd1fa2e3",
+		imageConfigs: imageConfigs,
 	}
 }

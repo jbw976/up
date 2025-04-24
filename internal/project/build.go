@@ -575,7 +575,7 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 		examples.New(),
 	)
 
-	fnBuilder, err := b.functionIdentifier.Identify(fromFS)
+	fnBuilder, err := b.functionIdentifier.Identify(fromFS, project.Spec.ImageConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find a builder")
 	}
