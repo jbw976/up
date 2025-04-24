@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -124,6 +125,10 @@ func TestRedact(t *testing.T) {
 	err = json.Unmarshal(bs, &roundTrip)
 	assert.NilError(t, err)
 
+	// Ignore RawSpaceKubeconfig; it was set properly if the SpaceKubeconfig
+	// ends up correct.
+	roundTrip.RawSpaceKubeconfig = nil
+
 	assert.DeepEqual(t, roundTrip, Profile{
 		Type:         TypeDisconnected,
 		TokenType:    TokenTypeUser,
@@ -133,7 +138,9 @@ func TestRedact(t *testing.T) {
 		SpaceKubeconfig: &clientcmdapi.Config{
 			CurrentContext: "default",
 			Clusters: map[string]*clientcmdapi.Cluster{
-				"default": {},
+				"default": {
+					Extensions: map[string]runtime.Object{},
+				},
 			},
 			AuthInfos: map[string]*clientcmdapi.AuthInfo{
 				"default": {
@@ -142,13 +149,15 @@ func TestRedact(t *testing.T) {
 					Token:                 "REDACTED",
 					Username:              "my-username",
 					Password:              "REDACTED",
+					Extensions:            map[string]runtime.Object{},
 				},
 			},
 			Contexts: map[string]*clientcmdapi.Context{
 				"default": {
-					AuthInfo:  "default",
-					Cluster:   "default",
-					Namespace: "default",
+					AuthInfo:   "default",
+					Cluster:    "default",
+					Namespace:  "default",
+					Extensions: map[string]runtime.Object{},
 				},
 			},
 		},
