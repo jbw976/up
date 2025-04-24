@@ -8,70 +8,60 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 )
 
-const (
-	defaultVer = "latest"
-)
+const errInvalidPkgName = "invalid package dependency supplied"
 
-var errInvalidPkgName = errors.New("invalid package dependency supplied")
-
-// ValidDep --.
+// ValidDep validates a package dependency. Package dependencies must be
+// fully-qualified image paths (i.e., include the registry), but may omit the
+// version. A semver constraint or digest version may be provided, appended to
+// the repository path with either @ or :.
 func ValidDep(pkg string) (bool, error) {
 	upkg := strings.ReplaceAll(pkg, "@", ":")
-
-	_, err := parsePackageReference(upkg)
-	if err != nil {
-		return false, errors.Errorf("%s: %s", errInvalidPkgName.Error(), err.Error())
-	}
-
-	return true, nil
+	err := parsePackageReference(upkg)
+	return err == nil, errors.Wrap(err, errInvalidPkgName)
 }
 
-func parsePackageReference(pkg string) (bool, error) { //nolint:gocyclo
+func parsePackageReference(pkg string) error {
 	if pkg == "" {
-		return false, errors.Errorf("could not parse reference: empty package name, %s", errInvalidPkgName.Error())
+		return errors.Errorf("empty package name")
 	}
 
-	version := defaultVer
-	var source string
-	parts := strings.Split(pkg, "/")
-	lastPart := parts[len(parts)-1]
+	var version string
+	repository := pkg
+	if strings.Contains(pkg, ":") {
+		// Strip version constraint off to validate the repository.
+		repository, version, _ = strings.Cut(pkg, ":")
+	}
 
-	if strings.ContainsAny(lastPart, "@:") {
-		var delimiter string
-		if at := strings.Index(lastPart, "@"); at != -1 {
-			delimiter = "@"
-		}
-		if colon := strings.LastIndex(lastPart, ":"); colon != -1 {
-			if delimiter == "" || colon > strings.Index(lastPart, delimiter) {
-				delimiter = ":"
-			}
-		}
+	// Validate the repository part.
+	_, err := name.NewRepository(repository, name.StrictValidation)
+	if err != nil {
+		return errors.Wrap(err, "could not parse package repository")
+	}
 
-		source = pkg
-		if prefix, suffix, found := strings.Cut(lastPart, delimiter); found {
-			parts[len(parts)-1] = prefix
-			source = strings.Join(parts, "/")
-			version = suffix
+	// Validate the version constraint.
+
+	if version == "" {
+		// No version provided; we'll find the latest version later.
+		return nil
+	}
+
+	if strings.Contains(version, ":") {
+		// Validate as a digest.
+		if _, err := v1.NewHash(version); err != nil {
+			return errors.Wrap(err, "invalid digest version constraint")
 		}
 	} else {
-		source = pkg
-	}
-
-	_, err := name.ParseReference(source)
-	if err != nil {
-		return false, errors.Errorf("%s: %s", errInvalidPkgName.Error(), err.Error())
-	}
-
-	if version != defaultVer {
+		// Validate as a semver constraint.
 		_, err := semver.NewConstraint(version)
 		if err != nil {
-			return false, errors.Errorf("invalid SemVer constraint %s: %s", version, errInvalidPkgName.Error())
+			return errors.Wrap(err, "invalid SemVer constraint")
 		}
 	}
 
-	return true, nil
+	return nil
 }

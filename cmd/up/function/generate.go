@@ -495,8 +495,8 @@ func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
 }
 
 func (c *generateCmd) addPipelineStep(comp *v1.Composition) error {
-	fnRepo := fmt.Sprintf("%s_%s", c.projectRepository, c.Name)
-	ref, err := name.ParseReference(fnRepo)
+	fnRepoStr := fmt.Sprintf("%s_%s", c.projectRepository, c.Name)
+	fnRepo, err := name.NewRepository(fnRepoStr, name.StrictValidation)
 	if err != nil {
 		return errors.Wrapf(err, "error unable to parse the function repo")
 	}
@@ -504,7 +504,7 @@ func (c *generateCmd) addPipelineStep(comp *v1.Composition) error {
 	step := v1.PipelineStep{
 		Step: c.Name,
 		FunctionRef: v1.FunctionReference{
-			Name: xpkg.ToDNSLabel(ref.Context().RepositoryStr()),
+			Name: xpkg.ToDNSLabel(fnRepo.RepositoryStr()),
 		},
 	}
 

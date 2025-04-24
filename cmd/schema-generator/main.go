@@ -127,7 +127,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // sc
 	// Explicitly pass the default keychain to remote.* calls so we look for Docker credentials.
 	keychain := remote.WithAuthFromKeychain(authn.NewMultiKeychain(authn.DefaultKeychain))
 
-	indexRef, err := name.ParseReference(c.SourceImage)
+	indexRef, err := name.ParseReference(c.SourceImage, name.StrictValidation)
 	if err != nil {
 		return errors.Wrapf(err, "error parsing source image reference")
 	}
@@ -199,7 +199,7 @@ func (c *cli) generateSchema(ctx context.Context) error { //nolint:gocyclo // sc
 	}
 
 	// Parse the target image reference
-	targetRef, err := name.ParseReference(c.TargetImage)
+	targetRef, err := name.ParseReference(c.TargetImage, name.StrictValidation)
 	if err != nil {
 		return errors.Wrapf(err, "error parsing target image reference")
 	}

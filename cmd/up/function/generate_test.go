@@ -177,10 +177,11 @@ func TestGenerateCmd_Run(t *testing.T) {
 
 				if len(comp.Spec.Pipeline) > 0 {
 					step := comp.Spec.Pipeline[0]
-					fnRepo := fmt.Sprintf("%s_%s", c.projectRepository, strings.ToLower(c.Name))
-					ref, _ := name.ParseReference(fnRepo)
+					fnRepoStr := fmt.Sprintf("%s_%s", c.projectRepository, strings.ToLower(c.Name))
+					fnRepo, err := name.NewRepository(fnRepoStr, name.StrictValidation)
+					assert.NilError(t, err)
 					assert.Equal(t, step.Step, c.Name, "expected pipeline step at index 0")
-					assert.Equal(t, step.FunctionRef.Name, xpkg.ToDNSLabel(ref.Context().RepositoryStr()), "unexpected function reference in pipeline step index 0")
+					assert.Equal(t, step.FunctionRef.Name, xpkg.ToDNSLabel(fnRepo.RepositoryStr()), "unexpected function reference in pipeline step index 0")
 				} else {
 					t.Error("expected at least one pipeline step, but found none")
 				}

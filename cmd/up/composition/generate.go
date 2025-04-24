@@ -334,7 +334,7 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 
 	for _, dep := range c.proj.Spec.DependsOn {
 		if dep.Function != nil {
-			functionName, err := name.ParseReference(*dep.Function)
+			functionName, err := name.NewRepository(*dep.Function, name.StrictValidation)
 			if err != nil {
 				return nil, errors.Wrap(err, errInvalidPkgName)
 			}
@@ -402,16 +402,16 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 			}
 		}
 
-		functionName, err := name.ParseReference(dep.DepName)
+		functionName, err := name.NewRepository(dep.DepName, name.StrictValidation)
 		if err != nil {
 			return nil, errors.Wrap(err, errInvalidPkgName)
 		}
 
 		// create a PipelineStep for each function
 		step := v1.PipelineStep{
-			Step: xpkg.ToDNSLabel(functionName.Context().RepositoryStr()),
+			Step: xpkg.ToDNSLabel(functionName.RepositoryStr()),
 			FunctionRef: v1.FunctionReference{
-				Name: xpkg.ToDNSLabel(functionName.Context().RepositoryStr()),
+				Name: xpkg.ToDNSLabel(functionName.RepositoryStr()),
 			},
 		}
 		if rawExtension != nil {

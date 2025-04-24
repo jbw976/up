@@ -122,7 +122,7 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 		opt(os)
 	}
 
-	imgTag, err := name.NewTag(fmt.Sprintf("%s:%s", project.Spec.Repository, os.tag))
+	imgTag, err := name.NewTag(fmt.Sprintf("%s:%s", project.Spec.Repository, os.tag), name.StrictValidation)
 	if err != nil {
 		return imgTag, errors.Wrap(err, "failed to construct image tag")
 	}
@@ -281,7 +281,7 @@ func isUpboundRepository(upCtx *upbound.Context, tag name.Repository) bool {
 }
 
 func sortImages(imgMap ImageTagMap, repo string) (cfgImage v1.Image, fnImages map[name.Repository][]v1.Image, err error) {
-	cfgTag, err := name.NewTag(fmt.Sprintf("%s:%s", repo, ConfigurationTag))
+	cfgTag, err := name.NewTag(fmt.Sprintf("%s:%s", repo, ConfigurationTag), name.StrictValidation)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to construct configuration tag")
 	}

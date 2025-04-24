@@ -33,7 +33,7 @@ func TestLoadFunctions(t *testing.T) {
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
 						{
-							Function: ptr.To("function-1"),
+							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
 						},
 					},
@@ -44,7 +44,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-1:v1.0.0",
+							Package: "registry.example.com/library/function-1:v1.0.0",
 						},
 					},
 				},
@@ -62,11 +62,11 @@ func TestLoadFunctions(t *testing.T) {
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
 						{
-							Function: ptr.To("function-1"),
+							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
 						},
 						{
-							Function: ptr.To("function-2"),
+							Function: ptr.To("registry.example.com/library/function-2"),
 							Version:  ">=v0.0.0",
 						},
 					},
@@ -77,7 +77,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-1:v2.0.0",
+							Package: "registry.example.com/library/function-1:v2.0.0",
 						},
 					},
 				},
@@ -85,7 +85,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-2:v2.0.0",
+							Package: "registry.example.com/library/function-2:v2.0.0",
 						},
 					},
 				},
@@ -104,15 +104,15 @@ func TestLoadFunctions(t *testing.T) {
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
 						{
-							Function: ptr.To("function-1"),
+							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
 						},
 						{
-							Function: ptr.To("function-2"),
+							Function: ptr.To("registry.example.com/library/function-2"),
 							Version:  ">=v0.0.0",
 						},
 						{
-							Provider: ptr.To("provider-1"),
+							Provider: ptr.To("registry.example.com/library/provider-1"),
 							Version:  ">=v0.0.0",
 						},
 					},
@@ -123,7 +123,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-1:v2.0.0",
+							Package: "registry.example.com/library/function-1:v2.0.0",
 						},
 					},
 				},
@@ -131,7 +131,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-2:v2.0.0",
+							Package: "registry.example.com/library/function-2:v2.0.0",
 						},
 					},
 				},
@@ -150,15 +150,15 @@ func TestLoadFunctions(t *testing.T) {
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
 						{
-							Function: ptr.To("function-1"),
+							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
 						},
 						{
-							Function: ptr.To("function-2"),
+							Function: ptr.To("registry.example.com/library/function-2"),
 							Version:  ">=v0.0.0",
 						},
 						{
-							Configuration: ptr.To("cfg-1"),
+							Configuration: ptr.To("registry.example.com/library/cfg-1"),
 							Version:       ">=v0.0.0",
 						},
 					},
@@ -169,7 +169,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-1:v2.0.0",
+							Package: "registry.example.com/library/function-1:v2.0.0",
 						},
 					},
 				},
@@ -177,7 +177,7 @@ func TestLoadFunctions(t *testing.T) {
 					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
-							Package: "function-2:v2.0.0",
+							Package: "registry.example.com/library/function-2:v2.0.0",
 						},
 					},
 				},

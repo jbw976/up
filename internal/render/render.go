@@ -350,7 +350,7 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 		}
 
 		// Parse function name
-		functionName, err := name.ParseReference(*dep.Function)
+		functionRepo, err := name.NewRepository(*dep.Function, name.StrictValidation)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to parse function name reference for %s", *dep.Function)
 		}
@@ -358,7 +358,7 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 		// Create function package manifest
 		f := pkgv1.Function{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: xpkg.ToDNSLabel(functionName.Context().RepositoryStr()),
+				Name: xpkg.ToDNSLabel(functionRepo.RepositoryStr()),
 			},
 			Spec: pkgv1.FunctionSpec{
 				PackageSpec: pkgv1.PackageSpec{
