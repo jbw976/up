@@ -16,7 +16,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -55,6 +57,11 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	projFS := afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
+	prj, err := project.Parse(projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+
 	fs := afero.NewOsFs()
 
 	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
@@ -65,6 +72,7 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	c.c = cache
 
 	r := image.NewResolver(
+		image.WithImageConfig(prj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -102,7 +110,7 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	return nil
 }
 
-func (c *updateCacheCmd) Run(ctx context.Context, p pterm.TextPrinter, pb *pterm.BulletListPrinter) error {
+func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	meta := c.ws.View().Meta()
 	if meta == nil {
 		return errors.New(errMetaFileNotFound)
@@ -113,33 +121,36 @@ func (c *updateCacheCmd) Run(ctx context.Context, p pterm.TextPrinter, pb *pterm
 		return err
 	}
 
-	p.Printfln("Updating %d dependencies...", len(metaDeps))
-
 	resolvedDeps := make([]v1beta1.Dependency, len(metaDeps))
-	for i, d := range metaDeps {
-		ud, _, err := c.m.AddAll(ctx, d)
-		if err != nil {
-			return err
-		}
-		resolvedDeps[i] = ud
+	if err = upterm.WrapWithSuccessSpinner(
+		fmt.Sprintf("Updating %d dependencies...", len(metaDeps)),
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			for i, d := range metaDeps {
+				ud, _, err := c.m.AddAll(ctx, d)
+				if err != nil {
+					return err
+				}
+				resolvedDeps[i] = ud
+			}
+			return nil
+		},
+		printer,
+	); err != nil {
+		return err
 	}
 
 	if len(resolvedDeps) == 0 {
-		p.Printfln("No dependencies specified")
+		pterm.Warning.Printfln("No dependencies specified.")
 		return nil
 	}
-	p.Printfln("Dependencies added to cache:")
-	li := make([]pterm.BulletListItem, len(resolvedDeps))
-	for i, d := range resolvedDeps {
-		li[i] = pterm.BulletListItem{
-			Level:  0,
-			Text:   fmt.Sprintf("%s (%s)", d.Package, d.Constraints),
-			Bullet: "-",
-		}
+
+	pterm.Success.Printfln("Dependencies added to cache:")
+	for _, d := range resolvedDeps {
+		pterm.Success.Printfln("- %s (%s)", d.Package, d.Constraints)
 	}
-	// TODO(hasheddan): bullet list printer incorrectly appends an extra
-	// trailing newline. Update when fixed upstream.
-	return pb.WithItems(li).Render()
+
+	return nil
 }
 
 // cleanCacheCmd updates the cache.

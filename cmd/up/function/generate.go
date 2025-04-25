@@ -106,6 +106,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 	if err != nil {
 		return err
 	}
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -146,6 +148,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -157,6 +160,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err

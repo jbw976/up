@@ -13,6 +13,9 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/upbound"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 const (
@@ -25,7 +28,7 @@ type Identifier interface {
 	// Identify returns a suitable builder for the function whose source lives
 	// in the given filesystem. It returns an error if no such builder is
 	// available.
-	Identify(fromFS afero.Fs) (Builder, error)
+	Identify(fromFS afero.Fs, upCtx *upbound.Context, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error)
 }
 
 type realIdentifier struct{}
@@ -36,13 +39,13 @@ type realIdentifier struct{}
 //nolint:gochecknoglobals // we want to keep this global
 var DefaultIdentifier = realIdentifier{}
 
-func (realIdentifier) Identify(fromFS afero.Fs) (Builder, error) {
+func (realIdentifier) Identify(fromFS afero.Fs, upCtx *upbound.Context, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error) {
 	// builders are the known builder types, in order of precedence.
 	builders := []Builder{
-		newKCLBuilder(),
-		newPythonBuilder(),
-		newGoBuilder(),
-		newGoTemplatingBuilder(),
+		newKCLBuilder(imageConfigs, upCtx),
+		newPythonBuilder(imageConfigs, upCtx),
+		newGoBuilder(imageConfigs, upCtx),
+		newGoTemplatingBuilder(imageConfigs, upCtx),
 	}
 	for _, b := range builders {
 		ok, err := b.match(fromFS)
@@ -65,7 +68,7 @@ type nopIdentifier struct{}
 //nolint:gochecknoglobals // we want to keep this global
 var FakeIdentifier = nopIdentifier{}
 
-func (nopIdentifier) Identify(_ afero.Fs) (Builder, error) {
+func (nopIdentifier) Identify(_ afero.Fs, _ *upbound.Context, _ []projectv1alpha1.ImageConfig) (Builder, error) {
 	return &fakeBuilder{}, nil
 }
 
@@ -77,7 +80,6 @@ type Builder interface {
 	// returning an image for each architecture. This image will *not* include
 	// package metadata; it's just the runtime image for the function.
 	Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error)
-
 	// match returns true if this builder can build the function whose source
 	// lives in the given filesystem.
 	match(fromFS afero.Fs) (bool, error)

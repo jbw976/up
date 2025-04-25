@@ -23,7 +23,10 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/imageutil"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 const (
@@ -34,8 +37,10 @@ const (
 // kclBuilder builds functions written in KCL by injecting their code into a
 // function-kcl base image.
 type kclBuilder struct {
-	baseImage string
-	transport http.RoundTripper
+	baseImage    string
+	transport    http.RoundTripper
+	imageConfigs []projectv1alpha1.ImageConfig
+	upCtx        *upbound.Context
 }
 
 func (b *kclBuilder) Name() string {
@@ -47,7 +52,11 @@ func (b *kclBuilder) match(fromFS afero.Fs) (bool, error) {
 }
 
 func (b *kclBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error) {
-	baseRef, err := name.NewTag(b.baseImage)
+	baseImage := b.baseImage
+	if len(b.imageConfigs) > 0 {
+		baseImage = imageutil.RewriteImage(b.baseImage, b.imageConfigs)
+	}
+	baseRef, err := name.NewTag(baseImage)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse KCL base image tag")
 	}
@@ -56,7 +65,7 @@ func (b *kclBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures [
 	eg, _ := errgroup.WithContext(ctx)
 	for i, arch := range architectures {
 		eg.Go(func() error {
-			baseImg, err := baseImageForArch(baseRef, arch, b.transport)
+			baseImg, err := baseImageForArch(baseRef, arch, b.transport, b.upCtx)
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch KCL base image")
 			}
@@ -108,11 +117,11 @@ func (b *kclBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures [
 // layer, examples layer, and schema layers will be removed if present. Note
 // that layers in the returned image will refer to the remote and be pulled only
 // if they are read by the caller.
-func baseImageForArch(ref name.Reference, arch string, transport http.RoundTripper) (v1.Image, error) {
+func baseImageForArch(ref name.Reference, arch string, transport http.RoundTripper, upCtx *upbound.Context) (v1.Image, error) {
 	img, err := remote.Image(ref, remote.WithPlatform(v1.Platform{
 		OS:           "linux",
 		Architecture: arch,
-	}), remote.WithTransport(transport))
+	}), remote.WithTransport(transport), remote.WithAuthFromKeychain(upCtx.RegistryKeychain()))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to pull image")
 	}
@@ -187,9 +196,11 @@ func setImageEnvvars(image v1.Image, envVars map[string]string) (v1.Image, error
 	return image, nil
 }
 
-func newKCLBuilder() *kclBuilder {
+func newKCLBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *kclBuilder {
 	return &kclBuilder{
-		baseImage: "xpkg.upbound.io/upbound/function-kcl-base:v0.11.2-up.1",
-		transport: http.DefaultTransport,
+		baseImage:    "xpkg.upbound.io/upbound/function-kcl-base:v0.11.2-up.1",
+		transport:    http.DefaultTransport,
+		imageConfigs: imageConfigs,
+		upCtx:        upCtx,
 	}
 }

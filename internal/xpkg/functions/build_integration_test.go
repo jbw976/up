@@ -27,6 +27,8 @@ import (
 	"gotest.tools/v3/assert/cmp"
 
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/upbound"
 
 	_ "embed"
 )
@@ -76,10 +78,17 @@ func TestGoBuild(t *testing.T) {
 	// Set up the function directory.
 	functionFS, functionDir := extractTestdata(t)
 
+	uctx := &upbound.Context{
+		Profile: profile.Profile{
+			TokenType: profile.TokenTypeRobot,
+		},
+	}
+
 	// Build a Go function on top of the base image.
 	b := &goBuilder{
 		baseImage: baseImageIndexRef.String(),
 		transport: regSrv.Client().Transport,
+		upCtx:     uctx,
 	}
 	fnImgs, err := b.Build(context.Background(), functionFS, []string{"amd64"}, functionDir)
 	assert.NilError(t, err)

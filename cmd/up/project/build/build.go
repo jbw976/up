@@ -57,6 +57,8 @@ type Cmd struct {
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
+
+	proj *v1alpha1.Project
 }
 
 // AfterApply parses flags and applies defaults.
@@ -84,6 +86,13 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
+	prj, err := project.Parse(c.projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+	prj.Default()
+	c.proj = prj
+
 	// Output can be anywhere, doesn't have to be in the project directory.
 	c.outputFS = afero.NewOsFs()
 	fs := afero.NewOsFs()
@@ -94,6 +103,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(prj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -114,7 +124,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.m = m
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
+	)
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -133,26 +145,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 
 // Run runs the command.
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // This is fine.
-	var proj *v1alpha1.Project
-	err := upterm.WrapWithSuccessSpinner(
-		"Parsing project metadata",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
-			lproj, err := project.Parse(c.projFS, projFilePath)
-			if err != nil {
-				return errors.Wrap(err, "failed to parse project metadata")
-			}
-			lproj.Default()
-			proj = lproj
-			return nil
-		},
-		printer,
-	)
-	if err != nil {
-		return err
-	}
-
 	basePath := ""
 	if c.Repository != "" {
 		// Update the project (in-memory) to use the new repository. This
@@ -167,7 +159,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 			basePath = afero.FullBaseFsPath(bfs, ".")
 		}
 		c.projFS = filesystem.MemOverlay(c.projFS)
-		if err := project.Move(ctx, proj, c.projFS, ref.String()); err != nil {
+		if err := project.Move(ctx, c.proj, c.projFS, ref.String()); err != nil {
 			return errors.Wrap(err, "failed to update project repository")
 		}
 	}
@@ -179,9 +171,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 	)
 
 	var imgMap project.ImageTagMap
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
-		imgMap, err = b.Build(ctx, proj, c.projFS,
+		imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
 			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),
@@ -193,7 +185,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 		return err
 	}
 
-	outFile := filepath.Join(c.OutputDir, fmt.Sprintf("%s.uppkg", proj.Name))
+	outFile := filepath.Join(c.OutputDir, fmt.Sprintf("%s.uppkg", c.proj.Name))
 	err = c.outputFS.MkdirAll(c.OutputDir, 0o755)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create output directory %q", c.OutputDir)

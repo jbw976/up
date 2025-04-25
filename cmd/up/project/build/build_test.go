@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/yaml"
 
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
@@ -40,7 +39,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 var (
@@ -176,6 +174,9 @@ func TestBuild(t *testing.T) {
 			)
 			assert.NilError(t, err)
 
+			prj, _ := project.Parse(tc.projFS, "upbound.yaml")
+			prj.Default()
+
 			c := &Cmd{
 				ProjectFile:  "upbound.yaml",
 				OutputDir:    "_output",
@@ -188,16 +189,9 @@ func TestBuild(t *testing.T) {
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
 
-				m: mgr,
+				m:    mgr,
+				proj: prj,
 			}
-
-			// Parse the upbound.yaml from the example so we can validate that certain
-			// fields were copied correctly later in the test.
-			var proj v1alpha1.Project
-			y, err := afero.ReadFile(c.projFS, "upbound.yaml")
-			assert.NilError(t, err)
-			err = yaml.Unmarshal(y, &proj)
-			assert.NilError(t, err)
 
 			// Build the package.
 			ep, err := url.Parse("https://donotuse.example.com")
@@ -210,7 +204,7 @@ func TestBuild(t *testing.T) {
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.
-			cfgTag, err := name.NewTag(fmt.Sprintf("%s:%s", proj.Spec.Repository, project.ConfigurationTag))
+			cfgTag, err := name.NewTag(fmt.Sprintf("%s:%s", c.proj.Spec.Repository, project.ConfigurationTag))
 			assert.NilError(t, err)
 			opener := func() (io.ReadCloser, error) {
 				return outFS.Open(tc.outputFile)
@@ -349,13 +343,13 @@ func TestBuild(t *testing.T) {
 				Kind:       xpmetav1.ConfigurationKind,
 			})
 			assert.DeepEqual(t, cfgMeta.ObjectMeta, metav1.ObjectMeta{
-				Name: proj.Name,
+				Name: c.proj.Name,
 				Annotations: map[string]string{
-					"meta.crossplane.io/maintainer":  proj.Spec.Maintainer,
-					"meta.crossplane.io/source":      proj.Spec.Source,
-					"meta.crossplane.io/license":     proj.Spec.License,
-					"meta.crossplane.io/description": proj.Spec.Description,
-					"meta.crossplane.io/readme":      proj.Spec.Readme,
+					"meta.crossplane.io/maintainer":  c.proj.Spec.Maintainer,
+					"meta.crossplane.io/source":      c.proj.Spec.Source,
+					"meta.crossplane.io/license":     c.proj.Spec.License,
+					"meta.crossplane.io/description": c.proj.Spec.Description,
+					"meta.crossplane.io/readme":      c.proj.Spec.Readme,
 				},
 			})
 			// Our project doesn't have a Crossplane constraint, so we should
@@ -365,8 +359,8 @@ func TestBuild(t *testing.T) {
 			})
 			// Validate that the configuration depends on all the project
 			// dependencies and the embedded functions.
-			assert.Assert(t, cmp.Len(cfgMeta.Spec.MetaSpec.DependsOn, len(proj.Spec.DependsOn)+len(fnImages)))
-			for _, dep := range proj.Spec.DependsOn {
+			assert.Assert(t, cmp.Len(cfgMeta.Spec.MetaSpec.DependsOn, len(c.proj.Spec.DependsOn)+len(fnImages)))
+			for _, dep := range c.proj.Spec.DependsOn {
 				assert.Assert(t, cmp.Contains(cfgMeta.Spec.MetaSpec.DependsOn, dep))
 			}
 			for _, dep := range fnDeps {

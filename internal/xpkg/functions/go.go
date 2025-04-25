@@ -16,12 +16,18 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/imageutil"
+	"github.com/upbound/up/internal/upbound"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 // goBuilder builds functions written in Go using ko.
 type goBuilder struct {
-	baseImage string
-	transport http.RoundTripper
+	baseImage    string
+	transport    http.RoundTripper
+	imageConfigs []projectv1alpha1.ImageConfig
+	upCtx        *upbound.Context
 }
 
 func (b *goBuilder) Name() string {
@@ -46,11 +52,15 @@ func (b *goBuilder) Build(ctx context.Context, _ afero.Fs, architectures []strin
 
 	builder, err := build.NewGo(ctx, osBasePath,
 		build.WithBaseImages(func(_ context.Context, _ string) (name.Reference, build.Result, error) {
-			ref, err := name.ParseReference(b.baseImage, name.StrictValidation)
+			baseImage := b.baseImage
+			if len(b.baseImage) > 0 {
+				baseImage = imageutil.RewriteImage(b.baseImage, b.imageConfigs)
+			}
+			ref, err := name.ParseReference(baseImage, name.StrictValidation)
 			if err != nil {
 				return nil, nil, err
 			}
-			img, err := remote.Index(ref, remote.WithTransport(b.transport))
+			img, err := remote.Index(ref, remote.WithTransport(b.transport), remote.WithAuthFromKeychain(b.upCtx.RegistryKeychain()))
 			return ref, img, err
 		}),
 		build.WithPlatforms(platforms...),
@@ -103,9 +113,11 @@ func (b *goBuilder) Build(ctx context.Context, _ afero.Fs, architectures []strin
 	return imgs, nil
 }
 
-func newGoBuilder() *goBuilder {
+func newGoBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *goBuilder {
 	return &goBuilder{
-		baseImage: "xpkg.upbound.io/upbound/provider-base@sha256:d23697e028f65fcc35886fe9e875069c071f637a79d65821830d6bc71c975391",
-		transport: http.DefaultTransport,
+		baseImage:    "xpkg.upbound.io/upbound/provider-base@sha256:d23697e028f65fcc35886fe9e875069c071f637a79d65821830d6bc71c975391",
+		transport:    http.DefaultTransport,
+		imageConfigs: imageConfigs,
+		upCtx:        upCtx,
 	}
 }

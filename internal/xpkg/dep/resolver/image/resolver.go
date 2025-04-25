@@ -17,7 +17,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/xpkg/dep/utils"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 const (
@@ -35,7 +37,8 @@ const (
 
 // Resolver --.
 type Resolver struct {
-	f Fetcher
+	f            Fetcher
+	imageConfigs []projectv1alpha1.ImageConfig
 }
 
 // Fetcher defines how we expect to intract with the Image repository.
@@ -67,44 +70,66 @@ func WithFetcher(f Fetcher) ResolverOption {
 	}
 }
 
+// WithImageConfig sets image rewriting rules for the resolver.
+func WithImageConfig(cfgs []projectv1alpha1.ImageConfig) ResolverOption {
+	return func(r *Resolver) {
+		r.imageConfigs = cfgs
+	}
+}
+
 // ResolveImage resolves the image corresponding to the given v1beta1.Dependency.
-func (r *Resolver) ResolveImage(ctx context.Context, d v1beta1.Dependency) (string, v1.Image, error) {
+func (r *Resolver) ResolveImage(ctx context.Context, dep v1beta1.Dependency) (string, v1.Image, *v1.Descriptor, error) {
+	if len(r.imageConfigs) > 0 {
+		dep.Package = imageutil.RewriteImage(dep.Package, r.imageConfigs)
+	}
+
 	var (
 		cons string
 		err  error
 		path string
 	)
 
-	if utils.IsDigest(&d) {
-		cons, err = r.ResolveDigest(ctx, d)
+	if utils.IsDigest(&dep) {
+		cons, err = r.ResolveDigest(ctx, dep)
 		if err != nil {
-			return "", nil, errors.Errorf("failed to resolve %s@%s: %w", d.Package, d.Constraints, err)
+			return "", nil, nil, errors.Errorf("failed to resolve %s@%s: %w", dep.Package, dep.Constraints, err)
 		}
-		path = fmt.Sprintf("%s@%s", d.Package, cons)
+		path = fmt.Sprintf("%s@%s", dep.Package, cons)
 	} else {
-		cons, err = r.ResolveTag(ctx, d)
+		cons, err = r.ResolveTag(ctx, dep)
 		if err != nil {
-			return "", nil, errors.Errorf("failed to resolve %s:%s: %w", d.Package, d.Constraints, err)
+			return "", nil, nil, errors.Errorf("failed to resolve %s:%s: %w", dep.Package, dep.Constraints, err)
 		}
 		path = FullTag(v1beta1.Dependency{
-			Package:     d.Package,
-			Type:        d.Type,
+			Package:     dep.Package,
+			Type:        dep.Type,
 			Constraints: cons,
 		})
 	}
 
 	remoteImageRef, err := name.ParseReference(path)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	i, err := r.f.Fetch(ctx, remoteImageRef)
-	return cons, i, err
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	// Get the digest for the multi-architecture image index
+	// Otherwise, we'll get OS/Architecture-specific digests, which aren't useful
+	digest, err := r.f.Head(ctx, remoteImageRef)
+	return cons, i, digest, err
 }
 
 // ResolveTag resolves the tag corresponding to the given v1beta1.Dependency.
 // TODO(@tnthornton) add a test that flexes resolving constraint versions to the expected target version.
-func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error) { //nolint:gocyclo
+func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (string, error) { //nolint:gocyclo // resolve tag
+	if len(r.imageConfigs) > 0 {
+		dep.Package = imageutil.RewriteImage(dep.Package, r.imageConfigs)
+	}
+
 	// if the passed in version was blank use the default to pass
 	// constraint checks and grab latest semver
 	if dep.Constraints == "" {
@@ -121,7 +146,7 @@ func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (stri
 		// version is a valid semantic version, check if it's a real tag
 		_, err := r.ResolveDigest(ctx, dep)
 		if err != nil {
-			return "", err
+			return "", errors.Wrapf(err, "failed to fetch digest %s", dep.Package)
 		}
 		return dep.Constraints, nil
 	}
@@ -184,8 +209,12 @@ func (r *Resolver) ResolveTag(ctx context.Context, dep v1beta1.Dependency) (stri
 
 // ResolveDigest performs a head request to the configured registry in order to determine
 // if the provided version corresponds to a real tag and what the digest of that tag is.
-func (r *Resolver) ResolveDigest(ctx context.Context, d v1beta1.Dependency) (string, error) {
-	ref, err := name.ParseReference(d.Identifier(), name.WithDefaultTag(d.Constraints))
+func (r *Resolver) ResolveDigest(ctx context.Context, dep v1beta1.Dependency) (string, error) {
+	if len(r.imageConfigs) > 0 {
+		dep.Package = imageutil.RewriteImage(dep.Package, r.imageConfigs)
+	}
+
+	ref, err := name.ParseReference(dep.Identifier(), name.WithDefaultTag(dep.Constraints))
 	if err != nil {
 		return "", errors.Wrap(err, errInvalidProviderRef)
 	}

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +20,7 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -421,7 +421,7 @@ func (tc *addTestCase) Run(t *testing.T, makePkg func(deps []pkgmetav1.Dependenc
 		ws:      ws,
 		Package: tc.newPackage,
 	}
-	err = cmd.Run(context.Background(), &pterm.DefaultBasicText)
+	err = cmd.Run(context.Background(), upterm.DefaultObjPrinter)
 
 	// Check if we expect an error.
 	if tc.expectError {

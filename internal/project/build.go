@@ -29,6 +29,7 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -139,7 +140,7 @@ type realBuilder struct {
 }
 
 // Build implements the Builder interface.
-func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocognit // this is the builder
+func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocognit // this is the builder
 	os := &buildOptions{}
 	for _, opt := range opts {
 		opt(os)
@@ -311,7 +312,7 @@ func (b *realBuilder) Build(ctx context.Context, project *v1alpha1.Project, proj
 	// generation because functions may depend on the generated schemas.
 	statusStage = "Building functions"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	imgMap, deps, err := b.buildFunctions(ctx, functionsSource, project, os.projectBasePath)
+	imgMap, deps, err := b.buildFunctions(ctx, upCtx, functionsSource, project, os.projectBasePath)
 	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
@@ -435,7 +436,7 @@ func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs,
 // level of the provided filesystem. The resulting images are returned in a map
 // where the keys are their tags, suitable for writing to a file with
 // go-containerregistry's `tarball.MultiWrite`.
-func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) {
+func (b *realBuilder) buildFunctions(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) {
 	var (
 		imgMap = make(map[name.Tag]v1.Image)
 		imgMu  sync.Mutex
@@ -475,7 +476,7 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 			if basePath != "" {
 				fnBasePath = filepath.Join(basePath, project.Spec.Paths.Functions, fnName)
 			}
-			imgs, err := b.buildFunction(ctx, fnFS, project, fnName, fnBasePath)
+			imgs, err := b.buildFunction(ctx, upCtx, fnFS, project, fnName, fnBasePath)
 			if err != nil {
 				return errors.Wrapf(err, "failed to build function %q", fnName)
 			}
@@ -526,7 +527,7 @@ func (b *realBuilder) buildFunctions(ctx context.Context, fromFS afero.Fs, proje
 // buildFunction builds images for a single function whose source resides in the
 // given filesystem. One image will be returned for each architecture specified
 // in the project.
-func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, project *v1alpha1.Project, fnName string, basePath string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
+func (b *realBuilder) buildFunction(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v1alpha1.Project, fnName string, basePath string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
 	fn := &xpmetav1.Function{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: xpmetav1.SchemeGroupVersion.String(),
@@ -575,7 +576,7 @@ func (b *realBuilder) buildFunction(ctx context.Context, fromFS afero.Fs, projec
 		examples.New(),
 	)
 
-	fnBuilder, err := b.functionIdentifier.Identify(fromFS)
+	fnBuilder, err := b.functionIdentifier.Identify(fromFS, upCtx, project.Spec.ImageConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find a builder")
 	}

@@ -31,6 +31,7 @@ type ProjectSpec struct {
 	DependsOn              []pkgmetav1.Dependency           `json:"dependsOn,omitempty"`
 	Paths                  *ProjectPaths                    `json:"paths,omitempty"`
 	Architectures          []string                         `json:"architectures,omitempty"`
+	ImageConfig            []ImageConfig                    `json:"imageConfig,omitempty"`
 }
 
 // ProjectPackageMetadata holds metadata about the project, which will become
@@ -58,4 +59,32 @@ type ProjectPaths struct {
 	// Tests is the directory holding the project's tests. If not
 	// specified, it defaults to `tests/`.
 	Tests string `json:"tests,omitempty"`
+}
+
+// ImageMatch defines a rule for matching image.
+type ImageMatch struct {
+	// Type is the type of match.
+	// +optional
+	// +kubebuilder:validation:Enum=Prefix
+	// +kubebuilder:default=Prefix
+	Type string `json:"type"`
+
+	// Prefix is the prefix that should be matched.
+	Prefix string `json:"prefix"`
+}
+
+// ImageRewrite defines how a matched image should be rewritten.
+type ImageRewrite struct {
+	// Prefix is the prefix to use when rewriting the image.
+	Prefix string `json:"prefix"`
+}
+
+// ImageConfig defines a set of rules for matching and rewriting images.
+type ImageConfig struct {
+	// MatchImages is a list of image matching rules that should be satisfied.
+	// +kubebuilder:validation:XValidation:rule="size(self) > 0",message="matchImages should have at least one element."
+	MatchImages []ImageMatch `json:"matchImages"`
+
+	// RewriteImage defines how a matched image should be rewritten.
+	RewriteImage ImageRewrite `json:"rewriteImage"`
 }
