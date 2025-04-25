@@ -26,6 +26,8 @@ import (
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 
+	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 )
 
@@ -143,10 +145,17 @@ func TestKCLBuild(t *testing.T) {
 	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
 	assert.NilError(t, err)
 
+	uctx := &upbound.Context{
+		Profile: profile.Profile{
+			TokenType: profile.TokenTypeRobot,
+		},
+	}
+
 	// Build a KCL function on top of the base image.
 	b := &kclBuilder{
 		baseImage: baseImageRef.String(),
 		transport: regSrv.Client().Transport,
+		upCtx:     uctx,
 	}
 	fromFS := afero.NewBasePathFs(
 		afero.FromIOFS{FS: kclFunction},
@@ -216,11 +225,18 @@ func TestPythonBuild(t *testing.T) {
 	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
 	assert.NilError(t, err)
 
+	uctx := &upbound.Context{
+		Profile: profile.Profile{
+			TokenType: profile.TokenTypeRobot,
+		},
+	}
+
 	// Build a python function on top of the base image.
 	b := &pythonBuilder{
 		baseImage:   baseImageRef.String(),
 		packagePath: "/venv/fn/lib/python3.11/site-packages/function",
 		transport:   regSrv.Client().Transport,
+		upCtx:       uctx,
 	}
 	fromFS := afero.NewBasePathFs(
 		afero.FromIOFS{FS: pythonFunction},
@@ -295,10 +311,17 @@ func TestGoTemplatingBuild(t *testing.T) {
 	err = remote.Push(baseImageRef, baseImage, remote.WithTransport(regSrv.Client().Transport))
 	assert.NilError(t, err)
 
+	uctx := &upbound.Context{
+		Profile: profile.Profile{
+			TokenType: profile.TokenTypeRobot,
+		},
+	}
+
 	// Build a go-templating function on top of the base image.
 	b := &goTemplatingBuilder{
 		baseImage: baseImageRef.String(),
 		transport: regSrv.Client().Transport,
+		upCtx:     uctx,
 	}
 	fromFS := afero.NewBasePathFs(
 		afero.FromIOFS{FS: goTemplatingFunction},
