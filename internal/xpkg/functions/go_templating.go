@@ -132,7 +132,7 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 func newGoTemplatingBuilder() *goTemplatingBuilder {
 	return &goTemplatingBuilder{
 		// TODO(adamwg): Upstream changes and switch to the official function.
-		baseImage: "xpkg.upbound.io/upbound/function-go-templating-base:v0.0.0-e4feac03a1",
+		baseImage: "xpkg.upbound.io/upbound/function-go-templating-base:v0.9.0-13-gd1fa2e3",
 		transport: http.DefaultTransport,
 	}
 }
