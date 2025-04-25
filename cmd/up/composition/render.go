@@ -256,16 +256,21 @@ func (c *renderCmd) Run(ctx context.Context, log logging.Logger, printer upterm.
 	renderCtx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 
-	return upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
-		output, err := render.Render(renderCtx, log, efns, options)
+	var output string
+	if err = upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
+		output, err = render.Render(renderCtx, log, efns, options)
 		if err != nil {
 			return errors.Wrap(err, "unable to render function")
 		}
-		pterm.Print(output)
 		return nil
 	},
 		printer,
-	)
+	); err != nil {
+		return err
+	}
+
+	pterm.Print(output)
+	return nil
 }
 
 // Helper function to calculate the relative path and handle errors.
