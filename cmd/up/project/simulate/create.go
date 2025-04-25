@@ -107,8 +107,15 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
+	prj, err := project.Parse(c.projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
+	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
@@ -118,6 +125,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 		return err
 	}
 	r := image.NewResolver(
+		image.WithImageConfig(prj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),

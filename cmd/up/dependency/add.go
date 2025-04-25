@@ -132,10 +132,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 }
 
 // Run executes the dep command.
-func (c *addCmd) Run(ctx context.Context, _ pterm.TextPrinter) error {
-	// ToDo(haarchri): rebase
-	pterm.EnableStyling()
-
+func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	_, err := xpkg.ValidDep(c.Package)
 	if err != nil {
 		return err
@@ -154,7 +151,7 @@ func (c *addCmd) Run(ctx context.Context, _ pterm.TextPrinter) error {
 			}
 			return nil
 		},
-		false,
+		printer,
 	); err != nil {
 		return err
 	}
@@ -180,7 +177,7 @@ func (c *addCmd) Run(ctx context.Context, _ pterm.TextPrinter) error {
 				}
 				return nil
 			},
-			false,
+			printer,
 		); err != nil {
 			return err
 		}

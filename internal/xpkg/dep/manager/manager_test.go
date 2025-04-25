@@ -68,7 +68,7 @@ func TestResolveTransitiveDependencies(t *testing.T) {
 			args: args{
 				root: depMeta{
 					dep: v1beta1.Dependency{
-						Package:     "crossplane/provider-aws",
+						Package:     "crossplane/provider-azure",
 						Constraints: "v0.1.0",
 					},
 					meta: &metav1.Provider{
@@ -85,7 +85,7 @@ func TestResolveTransitiveDependencies(t *testing.T) {
 			want: want{
 				entries: []v1beta1.Dependency{
 					{
-						Package:     "crossplane/provider-aws",
+						Package:     "crossplane/provider-azure",
 						Constraints: "v0.1.0",
 					},
 				},

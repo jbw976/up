@@ -19,7 +19,6 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
@@ -86,13 +85,11 @@ type generateCmd struct {
 	m            *manager.Manager
 	ws           *workspace.Workspace
 	schemaRunner schemarunner.SchemaRunner
-
-	quiet config.QuietFlag
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
@@ -175,11 +172,10 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 	if err := ws.Parse(ctx); err != nil {
 		return err
 	}
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
-
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	)
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
-
-	c.quiet = quiet
 
 	return nil
 }

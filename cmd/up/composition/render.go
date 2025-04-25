@@ -168,6 +168,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -188,8 +189,9 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.r = r
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
-
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 

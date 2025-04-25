@@ -33,6 +33,7 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	icrd "github.com/upbound/up/internal/crd"
+	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/xpkg"
@@ -369,7 +370,7 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 			},
 			Spec: pkgv1.FunctionSpec{
 				PackageSpec: pkgv1.PackageSpec{
-					Package: fmt.Sprintf("%s:%s", *dep.Function, version),
+					Package: fmt.Sprintf("%s:%s", imageutil.RewriteImage(*dep.Function, proj.Spec.ImageConfig), version),
 				},
 			},
 		}

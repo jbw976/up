@@ -160,6 +160,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),

@@ -159,7 +159,9 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	)
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.RealSchemaRunner{}
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
@@ -169,6 +171,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 		return err
 	}
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),

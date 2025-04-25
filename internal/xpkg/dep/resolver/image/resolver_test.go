@@ -101,7 +101,10 @@ func TestResolveTag(t *testing.T) {
 				),
 			},
 			want: want{
-				err: errors.Wrap(errors.New("could not parse reference: "), errInvalidProviderRef),
+				err: errors.Wrapf(
+					errors.Wrap(errors.New("could not parse reference: "), errInvalidProviderRef),
+					"failed to fetch digest %s", "",
+				),
 			},
 		},
 		"ErrorFailedToFetchTags": {

@@ -81,7 +81,7 @@ type generateCmd struct {
 	proj     *projectv1alpha1.Project
 	relFile  string
 
-	schemarunner schemarunner.SchemaRunner
+	schemaRunner schemarunner.SchemaRunner
 	m            *manager.Manager
 }
 
@@ -143,6 +143,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -162,8 +163,9 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 
 	c.m = m
 
-	c.schemarunner = schemarunner.RealSchemaRunner{}
-
+	c.schemaRunner = schemarunner.NewRealSchemaRunner(
+		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 	return nil
@@ -229,7 +231,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		eg.Go(func() error {
 			var err error
-			kfs, err := schemagenerator.GenerateSchemaKcl(ctx, c.apisFS, []string{}, c.schemarunner)
+			kfs, err := schemagenerator.GenerateSchemaKcl(ctx, c.apisFS, []string{}, c.schemaRunner)
 			if err != nil {
 				return err
 			}
@@ -242,7 +244,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		eg.Go(func() error {
 			var err error
-			pfs, err := schemagenerator.GenerateSchemaPython(ctx, c.apisFS, []string{}, c.schemarunner)
+			pfs, err := schemagenerator.GenerateSchemaPython(ctx, c.apisFS, []string{}, c.schemaRunner)
 			if err != nil {
 				return err
 			}
@@ -255,7 +257,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		eg.Go(func() error {
 			var err error
-			gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemarunner)
+			gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemaRunner)
 			if err != nil {
 				return err
 			}
@@ -268,7 +270,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		eg.Go(func() error {
 			var err error
-			jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, c.apisFS, []string{}, c.schemarunner)
+			jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, c.apisFS, []string{}, c.schemaRunner)
 			if err != nil {
 				return err
 			}

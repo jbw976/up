@@ -110,10 +110,7 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	return nil
 }
 
-func (c *updateCacheCmd) Run(ctx context.Context, _ pterm.TextPrinter, _ *pterm.BulletListPrinter) error {
-	// ToDo(haarchri): rebase
-	pterm.EnableStyling()
-
+func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	meta := c.ws.View().Meta()
 	if meta == nil {
 		return errors.New(errMetaFileNotFound)
@@ -138,7 +135,7 @@ func (c *updateCacheCmd) Run(ctx context.Context, _ pterm.TextPrinter, _ *pterm.
 			}
 			return nil
 		},
-		false,
+		printer,
 	); err != nil {
 		return err
 	}
