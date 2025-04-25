@@ -8,12 +8,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"runtime"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/spf13/afero"
+	"google.golang.org/grpc/grpclog"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -162,6 +164,11 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		return "", errors.Wrap(err, "cannot load functions from project")
 	}
 	fns = append(fns, embeddedFunctions...)
+
+	// Turn off gRPC log messages.
+	// When a function starts slowly, gRPC logs a warning that it can't handle the first request.
+	// This warning goes away once the function is ready, so it's safe to discard the logs using io.Discard.
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 
 	// Perform rendering
 	out, err := xprender.Render(ctx, log, xprender.Inputs{
