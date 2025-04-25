@@ -97,6 +97,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	if err != nil {
 		return err
 	}
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
 
 	c.testName = fmt.Sprintf("test-%s", c.Name)
 	if c.E2E {

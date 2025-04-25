@@ -106,6 +106,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 	if err != nil {
 		return err
 	}
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/upbound"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -27,7 +28,7 @@ type Identifier interface {
 	// Identify returns a suitable builder for the function whose source lives
 	// in the given filesystem. It returns an error if no such builder is
 	// available.
-	Identify(fromFS afero.Fs, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error)
+	Identify(fromFS afero.Fs, upCtx *upbound.Context, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error)
 }
 
 type realIdentifier struct{}
@@ -38,13 +39,13 @@ type realIdentifier struct{}
 //nolint:gochecknoglobals // we want to keep this global
 var DefaultIdentifier = realIdentifier{}
 
-func (realIdentifier) Identify(fromFS afero.Fs, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error) {
+func (realIdentifier) Identify(fromFS afero.Fs, upCtx *upbound.Context, imageConfigs []projectv1alpha1.ImageConfig) (Builder, error) {
 	// builders are the known builder types, in order of precedence.
 	builders := []Builder{
-		newKCLBuilder(imageConfigs),
-		newPythonBuilder(imageConfigs),
-		newGoBuilder(imageConfigs),
-		newGoTemplatingBuilder(imageConfigs),
+		newKCLBuilder(imageConfigs, upCtx),
+		newPythonBuilder(imageConfigs, upCtx),
+		newGoBuilder(imageConfigs, upCtx),
+		newGoTemplatingBuilder(imageConfigs, upCtx),
 	}
 	for _, b := range builders {
 		ok, err := b.match(fromFS)
@@ -67,7 +68,7 @@ type nopIdentifier struct{}
 //nolint:gochecknoglobals // we want to keep this global
 var FakeIdentifier = nopIdentifier{}
 
-func (nopIdentifier) Identify(_ afero.Fs, _ []projectv1alpha1.ImageConfig) (Builder, error) {
+func (nopIdentifier) Identify(_ afero.Fs, _ *upbound.Context, _ []projectv1alpha1.ImageConfig) (Builder, error) {
 	return &fakeBuilder{}, nil
 }
 

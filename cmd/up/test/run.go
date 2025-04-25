@@ -326,7 +326,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		if err != nil {
 			return errors.Wrap(err, "unable to validate composition tests")
 		}
-		ttotal, tsuccess, terr, err = c.render(ctx, log, tests)
+		ttotal, tsuccess, terr, err = c.render(ctx, upCtx, log, tests)
 		if err != nil {
 			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute composition tests")
@@ -342,7 +342,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	return nil
 }
 
-func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
+func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
 	total, success, errs := 0, 0, 0
 
 	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
@@ -361,7 +361,7 @@ func (c *runCmd) render(ctx context.Context, log logging.Logger, tests []composi
 			EventChannel:       ch,
 		}
 
-		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, upCtx, functionOptions)
 		if err != nil {
 			return err
 		}
@@ -499,7 +499,7 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			var err error
-			imgMap, err = b.Build(ctx, c.proj, c.projFS,
+			imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
 				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),

@@ -99,7 +99,7 @@ func TestIdentify(t *testing.T) {
 				assert.NilError(t, err)
 			}
 
-			builder, err := DefaultIdentifier.Identify(fromFS, nil)
+			builder, err := DefaultIdentifier.Identify(fromFS, nil, nil)
 			if tc.expectError {
 				assert.Error(t, err, errNoSuitableBuilder)
 			} else {

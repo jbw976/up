@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/imageutil"
+	"github.com/upbound/up/internal/upbound"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -32,6 +32,7 @@ type pythonBuilder struct {
 	packagePath  string
 	transport    http.RoundTripper
 	imageConfigs []projectv1alpha1.ImageConfig
+	upCtx        *upbound.Context
 }
 
 func (b *pythonBuilder) Name() string {
@@ -61,7 +62,7 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 			baseImg, err := remote.Image(baseRef, remote.WithPlatform(v1.Platform{
 				OS:           "linux",
 				Architecture: arch,
-			}), remote.WithTransport(b.transport), remote.WithAuthFromKeychain(authn.NewMultiKeychain(authn.DefaultKeychain)))
+			}), remote.WithTransport(b.transport), remote.WithAuthFromKeychain(b.upCtx.RegistryKeychain()))
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch python base image")
 			}
@@ -98,7 +99,7 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 	return images, eg.Wait()
 }
 
-func newPythonBuilder(imageConfigs []projectv1alpha1.ImageConfig) *pythonBuilder {
+func newPythonBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *pythonBuilder {
 	return &pythonBuilder{
 		// TODO(negz): Should this be hardcoded?
 		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.4.0",
@@ -108,5 +109,6 @@ func newPythonBuilder(imageConfigs []projectv1alpha1.ImageConfig) *pythonBuilder
 		packagePath:  "/venv/fn/lib/python3.11/site-packages/function",
 		transport:    http.DefaultTransport,
 		imageConfigs: imageConfigs,
+		upCtx:        upCtx,
 	}
 }

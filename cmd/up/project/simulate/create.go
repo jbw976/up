@@ -267,7 +267,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		if c.Tag == "" {
 			eg.Go(func() error {
 				var err error
-				imgMap, err = b.Build(ctx, c.proj, c.projFS,
+				imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
 					project.BuildWithEventChannel(ch),
 					project.BuildWithImageLabels(common.ImageLabels(c)),
 					project.BuildWithDependencyManager(c.m),

@@ -173,7 +173,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 	var imgMap project.ImageTagMap
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
-		imgMap, err = b.Build(ctx, c.proj, c.projFS,
+		imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
 			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),

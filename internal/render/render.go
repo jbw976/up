@@ -36,6 +36,7 @@ import (
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -301,14 +302,14 @@ func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, 
 }
 
 // BuildEmbeddedFunctionsLocalDaemon build and push to local deamon.
-func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, opts FunctionOptions) ([]pkgv1.Function, error) {
+func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Context, opts FunctionOptions) ([]pkgv1.Function, error) {
 	b := project.NewBuilder(
 		project.BuildWithMaxConcurrency(opts.Concurrency),
 		project.BuildWithFunctionIdentifier(opts.FunctionIdentifier),
 		project.BuildWithSchemaRunner(opts.SchemaRunner),
 	)
 
-	imgMap, err := b.Build(ctx, opts.Project, opts.ProjFS,
+	imgMap, err := b.Build(ctx, upCtx, opts.Project, opts.ProjFS,
 		project.BuildWithEventChannel(opts.EventChannel),
 		project.BuildWithImageLabels(common.ImageLabels(opts)),
 		project.BuildWithDependencyManager(opts.DependecyManager),

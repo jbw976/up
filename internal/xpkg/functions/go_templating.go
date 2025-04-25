@@ -23,6 +23,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/imageutil"
+	"github.com/upbound/up/internal/upbound"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -32,6 +33,7 @@ type goTemplatingBuilder struct {
 	baseImage    string
 	transport    http.RoundTripper
 	imageConfigs []projectv1alpha1.ImageConfig
+	upCtx        *upbound.Context
 }
 
 func (b *goTemplatingBuilder) Name() string {
@@ -96,7 +98,7 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 	eg, _ := errgroup.WithContext(ctx)
 	for i, arch := range architectures {
 		eg.Go(func() error {
-			baseImg, err := baseImageForArch(baseRef, arch, b.transport)
+			baseImg, err := baseImageForArch(baseRef, arch, b.transport, b.upCtx)
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch go-templating base image")
 			}
@@ -136,11 +138,12 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 	return images, eg.Wait()
 }
 
-func newGoTemplatingBuilder(imageConfigs []projectv1alpha1.ImageConfig) *goTemplatingBuilder {
+func newGoTemplatingBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *goTemplatingBuilder {
 	return &goTemplatingBuilder{
 		// TODO(adamwg): Upstream changes and switch to the official function.
 		transport:    http.DefaultTransport,
 		baseImage:    "xpkg.upbound.io/upbound/function-go-templating-base:v0.9.0-13-gd1fa2e3",
 		imageConfigs: imageConfigs,
+		upCtx:        upCtx,
 	}
 }

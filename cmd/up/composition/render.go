@@ -124,6 +124,9 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 		return err
 	}
 
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
+
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
 	if err != nil {
@@ -211,7 +214,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	return nil
 }
 
-func (c *renderCmd) Run(ctx context.Context, log logging.Logger, printer upterm.ObjectPrinter) error {
+func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger, printer upterm.ObjectPrinter) error {
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
@@ -226,7 +229,7 @@ func (c *renderCmd) Run(ctx context.Context, log logging.Logger, printer upterm.
 			EventChannel:       ch,
 		}
 
-		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, functionOptions)
+		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, upCtx, functionOptions)
 		if err != nil {
 			return errors.Wrap(err, "unable to build embedded functions")
 		}
