@@ -8,9 +8,8 @@ import (
 	"encoding/json"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	clientcmdapiv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -120,16 +119,11 @@ func (p *Profile) UnmarshalJSON(bs []byte) error {
 		} else {
 			// Config was written by a newer version of up, which serialized a
 			// versioned config.
-			var versioned clientcmdapiv1.Config
-			if err := yaml.Unmarshal(p.RawSpaceKubeconfig, &versioned); err != nil {
+			kc, err := clientcmd.Load(p.RawSpaceKubeconfig)
+			if err != nil {
 				return err
 			}
-			s := runtime.NewScheme()
-			_ = clientcmdapi.SchemeBuilder.AddToScheme(s)
-			_ = clientcmdapiv1.SchemeBuilder.AddToScheme(s)
-			if err := s.Convert(&versioned, p.SpaceKubeconfig, nil); err != nil {
-				return err
-			}
+			p.SpaceKubeconfig = kc
 		}
 	}
 
@@ -142,17 +136,7 @@ func (p Profile) MarshalJSON() ([]byte, error) {
 	type profile Profile
 
 	if p.SpaceKubeconfig != nil {
-		s := runtime.NewScheme()
-		_ = clientcmdapi.SchemeBuilder.AddToScheme(s)
-		_ = clientcmdapiv1.SchemeBuilder.AddToScheme(s)
-
-		var versioned clientcmdapiv1.Config
-		if err := s.Convert(p.SpaceKubeconfig, &versioned, nil); err != nil {
-			return nil, err
-		}
-		versioned.APIVersion = "v1"
-		versioned.Kind = "Config"
-		bs, err := yaml.Marshal(&versioned)
+		bs, err := clientcmd.Write(*p.SpaceKubeconfig)
 		if err != nil {
 			return nil, err
 		}
