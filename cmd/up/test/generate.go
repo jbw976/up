@@ -140,6 +140,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	r := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
 			image.NewLocalFetcher(
 				image.WithKeychain(upCtx.RegistryKeychain()),
@@ -151,6 +152,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithResolver(r),
+		manager.WithSkipCacheUpdateIfExists(true),
 	)
 	if err != nil {
 		return err
