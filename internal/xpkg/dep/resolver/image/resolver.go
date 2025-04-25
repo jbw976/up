@@ -117,6 +117,8 @@ func (r *Resolver) ResolveImage(ctx context.Context, dep v1beta1.Dependency) (st
 		return "", nil, nil, err
 	}
 
+	// Get the digest for the multi-architecture image index
+	// Otherwise, we'll get OS/Architecture-specific digests, which aren't useful
 	digest, err := r.f.Head(ctx, remoteImageRef)
 	return cons, i, digest, err
 }

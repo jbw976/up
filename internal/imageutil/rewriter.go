@@ -25,8 +25,5 @@ func RewriteImage(image string, configs []projectv1alpha1.ImageConfig) string {
 		}
 	}
 
-	if bestMatchPrefix != "" {
-		return replacementPrefix + strings.TrimPrefix(image, bestMatchPrefix)
-	}
-	return image
+	return replacementPrefix + strings.TrimPrefix(image, bestMatchPrefix)
 }

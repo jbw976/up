@@ -79,7 +79,6 @@ type Builder interface {
 	// returning an image for each architecture. This image will *not* include
 	// package metadata; it's just the runtime image for the function.
 	Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error)
-
 	// match returns true if this builder can build the function whose source
 	// lives in the given filesystem.
 	match(fromFS afero.Fs) (bool, error)

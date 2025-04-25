@@ -82,6 +82,8 @@ type CreateCmd struct {
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
+
+	proj *v1alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.
@@ -111,6 +113,8 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	if err != nil {
 		return errors.New("this is not a project directory")
 	}
+	prj.Default()
+	c.proj = prj
 
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.schemaRunner = schemarunner.NewRealSchemaRunner(
@@ -204,28 +208,9 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 }
 
 // Run is the body of the command.
-func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // long chain of commands
-	var proj *v1alpha1.Project
-	err := upterm.WrapWithSuccessSpinner(
-		"Parsing project metadata",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
-			lproj, err := project.Parse(c.projFS, projFilePath)
-			if err != nil {
-				return errors.Wrap(err, "failed to parse project metadata")
-			}
-			lproj.Default()
-			proj = lproj
-			return nil
-		},
-		printer,
-	)
-	if err != nil {
-		return err
-	}
-
-	c.Repository, err = project.DetermineRepository(upCtx, proj, c.Repository)
+func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
+	var err error
+	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
 	if err != nil {
 		return err
 	}
@@ -237,8 +222,8 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	}
 	c.projFS = filesystem.MemOverlay(c.projFS)
 
-	if c.Repository != proj.Spec.Repository {
-		if err := project.Move(ctx, proj, c.projFS, c.Repository); err != nil {
+	if c.Repository != c.proj.Spec.Repository {
+		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
 			return errors.Wrap(err, "failed to update project repository")
 		}
 	}
@@ -282,7 +267,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		if c.Tag == "" {
 			eg.Go(func() error {
 				var err error
-				imgMap, err = b.Build(ctx, proj, c.projFS,
+				imgMap, err = b.Build(ctx, c.proj, c.projFS,
 					project.BuildWithEventChannel(ch),
 					project.BuildWithImageLabels(common.ImageLabels(c)),
 					project.BuildWithDependencyManager(c.m),
@@ -344,7 +329,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 			}
 
 			var err error
-			tag, err = pusher.Push(ctx, proj, imgMap, opts...)
+			tag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
 			return err
 		})
 		if err != nil {
@@ -366,7 +351,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	}
 
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(readyCtx, simClient, proj.Name, tag, ch)
+		return kube.InstallConfiguration(readyCtx, simClient, c.proj.Name, tag, ch)
 	})
 	if err != nil {
 		return err
