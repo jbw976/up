@@ -20,6 +20,7 @@ env:
   # credentials have been provided before trying to run steps that need them.
   DOCKER_USR: ${{ secrets.DOCKER_USR }}
   AWS_USR: ${{ secrets.AWS_USR }}
+  XPKG_ACCESS_ID: ${{ secrets.XPKG_ACCESS_ID }}
 
 jobs:
   promote-artifacts:
