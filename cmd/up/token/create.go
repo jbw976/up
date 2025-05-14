@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package token contains commands for working with personal user tokens.
 package token
 
 import (
@@ -9,36 +10,36 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/alecthomas/kong"
-	"github.com/google/uuid"
 	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
-	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
-// createCmd creates a robot on Upbound.
+// createCmd creates a personal access token on Upbound for the current user.
 type createCmd struct {
-	RobotName string `arg:"" help:"Name of robot." required:""`
 	TokenName string `arg:"" help:"Name of token." required:""`
 
 	File string `help:"file to write Token JSON, Use '-' to write to standard output." short:"f"`
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *createCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
+	kongCtx.Bind(upCtx)
+
 	return nil
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, upCtx *upbound.Context) error {
+func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm.ObjectPrinter, ac *accounts.Client, tc *tokens.Client, upCtx *upbound.Context) error {
 	tokenFields := []string{
 		"AccessID",
 		"Token",
@@ -49,33 +50,15 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm
 		return err
 	}
 	if a.Account.Type != accounts.AccountOrganization {
-		return errors.New(errUserAccount)
+		return errors.New(errRobot)
 	}
-	rs, err := oc.ListRobots(ctx, a.Organization.ID)
+
+	// get the userID
+	u, err := ac.Get(ctx, upCtx.Profile.ID)
 	if err != nil {
 		return err
 	}
-	if len(rs) == 0 {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
-	}
-	// TODO(hasheddan): because this API does not guarantee name uniqueness, we
-	// must guarantee that exactly one robot exists in the specified account
-	// with the provided name. Logic should be simplified when the API is
-	// updated.
-	var id uuid.UUID
-	found := false
-	for _, r := range rs {
-		if r.Name == c.RobotName {
-			if found {
-				return errors.Errorf(errMultipleRobotFmt, c.RobotName, upCtx.Organization)
-			}
-			id = r.ID
-			found = true
-		}
-	}
-	if !found {
-		return errors.Errorf(errFindRobotFmt, c.RobotName, upCtx.Organization)
-	}
+
 	res, err := tc.Create(ctx, &tokens.TokenCreateParameters{
 		Attributes: tokens.TokenAttributes{
 			Name: c.TokenName,
@@ -83,8 +66,8 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm
 		Relationships: tokens.TokenRelationships{
 			Owner: tokens.TokenOwner{
 				Data: tokens.TokenOwnerData{
-					Type: tokens.TokenOwnerRobot,
-					ID:   id.String(),
+					Type: tokens.TokenOwnerUser,
+					ID:   strconv.FormatUint(uint64(u.Organization.CreatorID), 10),
 				},
 			},
 		},
@@ -108,7 +91,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm
 		return printer.Print(tokenFile, tokenFields, extractTokenFields)
 	}
 
-	p.Printfln("%s/%s/%s created", upCtx.Organization, c.RobotName, c.TokenName)
+	p.Printfln("%s/%s created", upCtx.Profile.ID, c.TokenName)
 	f, err := os.OpenFile(filepath.Clean(c.File), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
