@@ -212,7 +212,35 @@ func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp type
 func createControlPlane(ctx context.Context, cl client.Client, ch async.EventChannel, ctp spacesv1beta1.ControlPlane) error {
 	evText := "Creating development control plane"
 	ch.SendEvent(evText, async.EventStatusStarted)
-	if err := cl.Create(ctx, &ctp); err != nil {
+
+	backoff := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+		Steps:    6,
+	}
+
+	if err := wait.ExponentialBackoff(backoff, func() (bool, error) {
+		// Try to create the resource
+		if err := cl.Create(ctx, &ctp); err != nil {
+			// Check if it exists and is being deleted
+			existing := &spacesv1beta1.ControlPlane{}
+			getErr := cl.Get(ctx, client.ObjectKey{
+				Name:      ctp.Name,
+				Namespace: ctp.Namespace,
+			}, existing)
+
+			if getErr == nil && existing.DeletionTimestamp != nil {
+				// It's being deleted, so retry
+				return false, nil
+			}
+			// Not a retryable error
+			return false, err
+		}
+
+		// Successfully created
+		return true, nil
+	}); err != nil {
 		ch.SendEvent(evText, async.EventStatusFailure)
 		return errors.Wrap(err, "failed to create control plane")
 	}
@@ -221,7 +249,7 @@ func createControlPlane(ctx context.Context, cl client.Client, ch async.EventCha
 		Name:      ctp.Name,
 		Namespace: ctp.Namespace,
 	}
-	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
+	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		err = cl.Get(ctx, nn, &ctp)
 		if err != nil {
 			return false, err
@@ -229,8 +257,7 @@ func createControlPlane(ctx context.Context, cl client.Client, ch async.EventCha
 
 		cond := ctp.Status.GetCondition(commonv1.TypeReady)
 		return cond.Status == corev1.ConditionTrue, nil
-	})
-	if err != nil {
+	}); err != nil {
 		ch.SendEvent(evText, async.EventStatusFailure)
 		return errors.Wrap(err, "waiting for control plane to be ready")
 	}

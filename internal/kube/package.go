@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +46,25 @@ func InstallConfiguration(ctx context.Context, cl client.Client, name string, ta
 
 	stage := "Installing package on development control plane"
 	ch.SendEvent(stage, async.EventStatusStarted)
-	if err := cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli")); err != nil {
+
+	backoff := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+		Steps:    5,
+	}
+
+	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
+		err := cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli"))
+		if err != nil {
+			if isRetryableServerError(err) {
+				return false, nil // Retry
+			}
+			return false, err // Non-retryable
+		}
+		return true, nil
+	})
+	if err != nil {
 		ch.SendEvent(stage, async.EventStatusFailure)
 		return err
 	}
@@ -60,6 +79,24 @@ func InstallConfiguration(ctx context.Context, cl client.Client, name string, ta
 	ch.SendEvent(stage, async.EventStatusSuccess)
 
 	return nil
+}
+
+func isRetryableServerError(err error) bool {
+	if apierrors.IsTimeout(err) ||
+		apierrors.IsInternalError(err) ||
+		apierrors.IsServerTimeout(err) {
+		return true
+	}
+
+	var statusErr *apierrors.StatusError
+	if errors.As(err, &statusErr) {
+		reason := statusErr.ErrStatus.Reason
+		if reason == metav1.StatusReasonServiceUnavailable {
+			return true
+		}
+	}
+
+	return false
 }
 
 func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) error {
