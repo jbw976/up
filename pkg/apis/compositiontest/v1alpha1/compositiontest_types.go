@@ -69,6 +69,11 @@ type CompositionTestSpec struct {
 	// +kubebuilder:validation:Optional
 	ExtraResources []runtime.RawExtension `json:"extraResources,omitempty"`
 
+	// FunctionCredentialsPath specifies a path to a credentials file to be passed to tests.
+	// Optional.
+	// +kubebuilder:validation:Optional
+	FunctionCredentialsPath string `json:"functionCredentialsPath,omitempty"`
+
 	// Context specifies context for the Function Pipeline inline or path.
 	// Optional.
 	// +kubebuilder:validation:Optional

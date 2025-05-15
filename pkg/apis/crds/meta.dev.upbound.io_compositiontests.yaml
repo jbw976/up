@@ -88,6 +88,11 @@ spec:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
+              functionCredentialsPath:
+                description: |-
+                  FunctionCredentialsPath specifies a path to a credentials file to be passed to tests.
+                  Optional.
+                type: string
               timeoutSeconds:
                 default: 30
                 description: |-

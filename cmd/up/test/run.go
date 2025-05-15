@@ -431,6 +431,7 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 			IncludeFunctionResults: true,
 			IncludeContext:         true,
 			ObservedResources:      observedResourcesPath,
+			FunctionCredentials:    test.Spec.FunctionCredentialsPath,
 			ExtraResources:         extraResourcesPath,
 			CompositeResource:      xrPath,
 			Composition:            compositionPath,
