@@ -244,7 +244,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, _, err = ctp.EnsureControlPlane(
+			devCtpClient, _, err = ctp.EnsureDevControlPlane(
 				ctx,
 				upCtx,
 				c.spaceClient,
@@ -252,7 +252,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 				c.ControlPlaneName,
 				ch,
 				ctp.SkipDevCheck(c.Force),
-				ctp.DevControlPlane(),
 			)
 			if err != nil {
 				return err

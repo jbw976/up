@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package ctp handles functions for ctp management
+// Package ctp manages control planes for inner-loop development purposes.
 package ctp
 
 import (
@@ -29,14 +29,14 @@ import (
 )
 
 const (
-	// DevControlPlaneClass is used in project and test commands.
-	DevControlPlaneClass = "small"
-	// DevControlPlaneAnnotation is used in project and test commands.
-	DevControlPlaneAnnotation = "upbound.io/development-control-plane"
+	// devControlPlaneClass is used in project and test commands.
+	devControlPlaneClass = "small"
+	// devControlPlaneAnnotation is used in project and test commands.
+	devControlPlaneAnnotation = "upbound.io/development-control-plane"
 )
 
-// ErrNotDevControlPlane is used in project and test commands.
-var ErrNotDevControlPlane = errors.New("control plane exists but is not a development control plane")
+// errNotDevControlPlane is used in project and test commands.
+var errNotDevControlPlane = errors.New("control plane exists but is not a development control plane")
 
 // EnsureControlPlaneOption defines functional options for configuring control plane behavior.
 type EnsureControlPlaneOption func(*ensureControlPlaneConfig)
@@ -61,16 +61,6 @@ func defaultCrossplaneSpec() spacesv1beta1.CrossplaneSpec {
 	}
 }
 
-// DevControlPlane sets the control plane to be a development environment.
-func DevControlPlane() EnsureControlPlaneOption {
-	return func(cfg *ensureControlPlaneConfig) {
-		cfg.class = DevControlPlaneClass
-		cfg.annotations = map[string]string{
-			DevControlPlaneAnnotation: "true",
-		}
-	}
-}
-
 // SkipDevCheck allows the use of a production control plane.
 func SkipDevCheck(s bool) EnsureControlPlaneOption {
 	return func(cfg *ensureControlPlaneConfig) {
@@ -85,9 +75,15 @@ func WithCrossplaneSpec(crossplane spacesv1beta1.CrossplaneSpec) EnsureControlPl
 	}
 }
 
-// EnsureControlPlane ensures the existence of a control plane.
-func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient client.Client, group, name string, ch async.EventChannel, opts ...EnsureControlPlaneOption) (client.Client, clientcmd.ClientConfig, error) {
-	cfg := &ensureControlPlaneConfig{}
+// EnsureDevControlPlane ensures the existence of a control plane for
+// development.
+func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient client.Client, group, name string, ch async.EventChannel, opts ...EnsureControlPlaneOption) (client.Client, clientcmd.ClientConfig, error) {
+	cfg := &ensureControlPlaneConfig{
+		class: devControlPlaneClass,
+		annotations: map[string]string{
+			devControlPlaneAnnotation: "true",
+		},
+	}
 
 	// Apply functional options
 	for _, opt := range opts {
@@ -107,7 +103,7 @@ func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
 		if !isDevControlPlane(&ctp) && !cfg.allowProd {
-			return nil, nil, ErrNotDevControlPlane
+			return nil, nil, errNotDevControlPlane
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
@@ -153,7 +149,7 @@ func EnsureControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient
 }
 
 func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
-	if ctp.Annotations != nil && ctp.Annotations[DevControlPlaneAnnotation] == "true" {
+	if ctp.Annotations != nil && ctp.Annotations[devControlPlaneAnnotation] == "true" {
 		return true
 	}
 

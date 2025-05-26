@@ -630,7 +630,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	)
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
-		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(
+		devCtpClient, devCtpKubeconfig, err = ctp.EnsureDevControlPlane(
 			ctx,
 			upCtx,
 			c.spaceClient,
@@ -638,7 +638,6 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 			controlplaneName,
 			ch,
 			ctp.SkipDevCheck(c.Force),
-			ctp.DevControlPlane(),
 			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
 		)
 		return err
