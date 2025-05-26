@@ -597,40 +597,15 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 }
 
 func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error {
-	// Handle OS signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
-
-	// Channel to signal function return
-	retChan := make(chan struct{})
-
 	controlplaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
 	}
 
-	go func() {
-		select {
-		case <-sigChan:
-			log.Println("Received termination signal, cleaning up control plane...")
-			if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
-				log.Printf("error during control plane deletion %v", err)
-			}
-			os.Exit(1)
-		case <-retChan:
-			// Function returned normally, no need for cleanup
-			return
-		}
-	}()
-
-	var (
-		devCtpKubeconfig clientcmd.ClientConfig
-		devCtpClient     client.Client
-	)
+	var devCtp ctp.DevControlPlane
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
-		devCtpClient, devCtpKubeconfig, err = ctp.EnsureDevControlPlane(
+		devCtp, err = ctp.EnsureDevControlPlane(
 			ctx,
 			upCtx,
 			c.spaceClient,
@@ -645,27 +620,48 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		return errors.Wrap(err, "failed to create control plane")
 	}
 
+	// Handle OS signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
+
+	// Channel to signal function return
+	retChan := make(chan struct{})
+
+	go func() {
+		select {
+		case <-sigChan:
+			log.Println("Received termination signal, cleaning up control plane...")
+			if err := devCtp.Teardown(ctx, c.Force); err != nil {
+				log.Printf("error during control plane deletion %v", err)
+			}
+			os.Exit(1)
+		case <-retChan:
+			// Function returned normally, clean up quietly.
+			if err := devCtp.Teardown(ctx, c.Force); err != nil {
+				log.Printf("error during control plane deletion %v", err)
+			}
+			return
+		}
+	}()
+
+	defer func() {
+		// Send signal to cleanup goroutine
+		close(retChan)
+	}()
+
 	ctpSchemeBuilders := []*scheme.Builder{
 		v1.SchemeBuilder,
 		xpkgv1beta1.SchemeBuilder,
 	}
 	for _, bld := range ctpSchemeBuilders {
-		if err := bld.AddToScheme(devCtpClient.Scheme()); err != nil {
+		if err := bld.AddToScheme(devCtp.Client().Scheme()); err != nil {
 			return err
 		}
 	}
 
-	defer func() {
-		// Send signal to cleanup goroutine
-		close(retChan)
-
-		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
-			log.Printf("error during control plane deletion %v", err)
-		}
-	}()
-
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, ch)
+		return kube.InstallConfiguration(ctx, devCtp.Client(), proj.Name, generatedTag, ch)
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to install package")
@@ -675,7 +671,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		"Applying Extra Resources",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
-			return kube.ApplyResources(ctx, devCtpClient, test.Spec.ExtraResources)
+			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.ExtraResources)
 		},
 		c.printer,
 	); err != nil {
@@ -706,7 +702,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		manifestPaths = append(manifestPaths, manifestFile)
 	}
 
-	kubeconfigPath, err := writeClientConfig(devCtpKubeconfig, tempDir)
+	kubeconfigPath, err := writeClientConfig(devCtp.Kubeconfig(), tempDir)
 	if err != nil {
 		return errors.Wrap(err, "error getting kubeconfig of controlplane")
 	}

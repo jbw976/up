@@ -236,15 +236,15 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	)
 
 	var (
-		imgMap       project.ImageTagMap
-		devCtpClient client.Client
+		imgMap project.ImageTagMap
+		devCtp ctp.DevControlPlane
 	)
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
 			var err error
-			devCtpClient, _, err = ctp.EnsureDevControlPlane(
+			devCtp, err = ctp.EnsureDevControlPlane(
 				ctx,
 				upCtx,
 				c.spaceClient,
@@ -262,7 +262,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 				xpkgv1beta1.SchemeBuilder,
 			}
 			for _, bld := range ctpSchemeBuilders {
-				if err := bld.AddToScheme(devCtpClient.Scheme()); err != nil {
+				if err := bld.AddToScheme(devCtp.Client().Scheme()); err != nil {
 					return err
 				}
 			}
@@ -327,6 +327,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	}
 
 	return c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(readyCtx, devCtpClient, c.proj.Name, generatedTag, ch)
+		return kube.InstallConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
 	})
 }
