@@ -393,7 +393,12 @@ func getKubeconfigNonInteractive(ctx context.Context, upCtx *upbound.Context, na
 	}
 
 	config, err := a.GetKubeconfig()
-	return config, a.Breadcrumbs(), err
+	if err != nil {
+		return nil, nil, err
+	}
+
+	raw, err := config.RawConfig()
+	return &raw, a.Breadcrumbs(), err
 }
 
 // RunInteractive runs the interactive version of `up ctx`.

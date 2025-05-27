@@ -51,7 +51,13 @@ func TestDisconnectedSpaceGetKubeconfig(t *testing.T) {
 	if diff := cmp.Diff(nil, err); diff != "" {
 		t.Fatalf("GetKubeconfig(...): -want err, +got err:\n%s", diff)
 	}
-	if diff := cmp.Diff(wantConf, got); diff != "" {
+
+	raw, err := got.RawConfig()
+	if diff := cmp.Diff(nil, err); diff != "" {
+		t.Fatalf("RawConfig(...): -want err, +got err:\n%s", diff)
+	}
+
+	if diff := cmp.Diff(wantConf, &raw); diff != "" {
 		t.Errorf("GetKubeconfig(...): -want conf, +got conf:\n%s", diff)
 	}
 }
@@ -88,7 +94,13 @@ func TestCloudSpaceGetKubeconfig(t *testing.T) {
 	if diff := cmp.Diff(nil, err); diff != "" {
 		t.Fatalf("GetKubeconfig(...): -want err, +got err:\n%s", diff)
 	}
-	if diff := cmp.Diff(wantConf, got); diff != "" {
+
+	raw, err := got.RawConfig()
+	if diff := cmp.Diff(nil, err); diff != "" {
+		t.Fatalf("RawConfig(...): -want err, +got err:\n%s", diff)
+	}
+
+	if diff := cmp.Diff(wantConf, &raw); diff != "" {
 		t.Errorf("GetKubeconfig(...): -want conf, +got conf:\n%s", diff)
 	}
 }
@@ -128,7 +140,13 @@ func TestGroupGetKubeconfig(t *testing.T) {
 	if diff := cmp.Diff(nil, err); diff != "" {
 		t.Fatalf("GetKubeconfig(...): -want err, +got err:\n%s", diff)
 	}
-	if diff := cmp.Diff(wantConf, got); diff != "" {
+
+	raw, err := got.RawConfig()
+	if diff := cmp.Diff(nil, err); diff != "" {
+		t.Fatalf("RawConfig(...): -want err, +got err:\n%s", diff)
+	}
+
+	if diff := cmp.Diff(wantConf, &raw); diff != "" {
 		t.Errorf("GetKubeconfig(...): -want conf, +got conf:\n%s", diff)
 	}
 }
@@ -171,7 +189,13 @@ func TestControlPlaneGetKubeconfig(t *testing.T) {
 	if diff := cmp.Diff(nil, err); diff != "" {
 		t.Fatalf("GetKubeconfig(...): -want err, +got err:\n%s", diff)
 	}
-	if diff := cmp.Diff(wantConf, got); diff != "" {
+
+	raw, err := got.RawConfig()
+	if diff := cmp.Diff(nil, err); diff != "" {
+		t.Fatalf("RawConfig(...): -want err, +got err:\n%s", diff)
+	}
+
+	if diff := cmp.Diff(wantConf, &raw); diff != "" {
 		t.Errorf("GetKubeconfig(...): -want conf, +got conf:\n%s", diff)
 	}
 }
