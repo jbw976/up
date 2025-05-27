@@ -570,7 +570,7 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 }
 
 func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error {
-	controlplaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
+	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
 	}
@@ -581,10 +581,9 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		devCtp, err = ctp.EnsureDevControlPlane(
 			ctx,
 			upCtx,
-			c.spaceClient,
-			c.ControlPlaneGroup,
-			controlplaneName,
-			ch,
+			ctp.WithEventChannel(ch),
+			ctp.WithSpacesGroup(c.ControlPlaneGroup),
+			ctp.WithSpacesControlPlaneName(controlPlaneName),
 			ctp.SkipDevCheck(c.Force),
 			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
 		)

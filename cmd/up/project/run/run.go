@@ -222,10 +222,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			devCtp, err = ctp.EnsureDevControlPlane(
 				ctx,
 				upCtx,
-				c.spaceClient,
-				c.ControlPlaneGroup,
-				c.ControlPlaneName,
-				ch,
+				ctp.WithEventChannel(ch),
+				ctp.WithSpacesGroup(c.ControlPlaneGroup),
+				ctp.WithSpacesControlPlaneName(c.ControlPlaneName),
 				ctp.SkipDevCheck(c.Force),
 			)
 			if err != nil {

@@ -22,9 +22,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/kube"
+	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -38,10 +37,21 @@ const (
 // errNotDevControlPlane is used in project and test commands.
 var errNotDevControlPlane = errors.New("control plane exists but is not a development control plane")
 
-// EnsureControlPlaneOption defines functional options for configuring control plane behavior.
-type EnsureControlPlaneOption func(*ensureControlPlaneConfig)
+// EnsureDevControlPlaneOption defines functional options for configuring control plane behavior.
+type EnsureDevControlPlaneOption func(*ensureDevControlPlaneConfig)
 
-type ensureControlPlaneConfig struct {
+// ensureDevControlPlaneConfig sets configuration options for creating dev control
+// planes.
+type ensureDevControlPlaneConfig struct {
+	spacesConfig spacesConfig
+	eventChan    async.EventChannel
+}
+
+// spacesConfig holds spaces-specific configuration options for creating dev
+// control planes.
+type spacesConfig struct {
+	group       string
+	name        string
 	allowProd   bool
 	class       string
 	annotations map[string]string
@@ -49,8 +59,8 @@ type ensureControlPlaneConfig struct {
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
-func defaultCrossplaneSpec() spacesv1beta1.CrossplaneSpec {
-	return spacesv1beta1.CrossplaneSpec{
+func defaultCrossplaneSpec() *spacesv1beta1.CrossplaneSpec {
+	return &spacesv1beta1.CrossplaneSpec{
 		AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
 			// TODO(adamwg): For now, dev MCPs always use the rapid
 			// channel because they require Crossplane features that are
@@ -61,17 +71,40 @@ func defaultCrossplaneSpec() spacesv1beta1.CrossplaneSpec {
 	}
 }
 
+// WithEventChannel specifies an event channel for progress events.
+func WithEventChannel(ch async.EventChannel) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.eventChan = ch
+	}
+}
+
 // SkipDevCheck allows the use of a production control plane.
-func SkipDevCheck(s bool) EnsureControlPlaneOption {
-	return func(cfg *ensureControlPlaneConfig) {
-		cfg.allowProd = s
+func SkipDevCheck(s bool) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.spacesConfig.allowProd = s
 	}
 }
 
 // WithCrossplaneSpec sets a specific Crossplane configuration.
-func WithCrossplaneSpec(crossplane spacesv1beta1.CrossplaneSpec) EnsureControlPlaneOption {
-	return func(cfg *ensureControlPlaneConfig) {
-		cfg.crossplane = &crossplane
+func WithCrossplaneSpec(crossplane spacesv1beta1.CrossplaneSpec) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.spacesConfig.crossplane = &crossplane
+	}
+}
+
+// WithSpacesGroup sets the name of the spaces group in which to create the
+// control plane.
+func WithSpacesGroup(g string) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.spacesConfig.group = g
+	}
+}
+
+// WithSpacesControlPlaneName sets the name of the spaces control plane to
+// create.
+func WithSpacesControlPlaneName(n string) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.spacesConfig.name = n
 	}
 }
 
@@ -136,11 +169,14 @@ func (s *spacesDevControlPlane) Teardown(ctx context.Context, force bool) error 
 
 // EnsureDevControlPlane ensures the existence of a control plane for
 // development.
-func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, spaceClient client.Client, group, name string, ch async.EventChannel, opts ...EnsureControlPlaneOption) (DevControlPlane, error) {
-	cfg := &ensureControlPlaneConfig{
-		class: devControlPlaneClass,
-		annotations: map[string]string{
-			devControlPlaneAnnotation: "true",
+func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...EnsureDevControlPlaneOption) (DevControlPlane, error) {
+	cfg := &ensureDevControlPlaneConfig{
+		spacesConfig: spacesConfig{
+			class: devControlPlaneClass,
+			annotations: map[string]string{
+				devControlPlaneAnnotation: "true",
+			},
+			crossplane: defaultCrossplaneSpec(),
 		},
 	}
 
@@ -149,26 +185,34 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, spaceCli
 		opt(cfg)
 	}
 
-	if cfg.crossplane == nil {
-		defaultSpec := defaultCrossplaneSpec()
-		cfg.crossplane = &defaultSpec
-	}
-
-	nn := types.NamespacedName{Name: name, Namespace: group}
+	nn := types.NamespacedName{Name: cfg.spacesConfig.name, Namespace: cfg.spacesConfig.group}
 	var ctp spacesv1beta1.ControlPlane
 
-	err := spaceClient.Get(ctx, nn, &ctp)
+	kubeconfig, err := intctx.GetSpacesKubeconfig(ctx, upCtx)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get kubeconfig for current spaces context")
+	}
+	restConfig, err := kubeconfig.ClientConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get rest config for spaces client")
+	}
+	spaceClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot construct spaces client")
+	}
+
+	err = spaceClient.Get(ctx, nn, &ctp)
 	switch {
 	case err == nil:
 		// Make sure it's a dev control plane and not being deleted.
-		if !isDevControlPlane(&ctp) && !cfg.allowProd {
+		if !isDevControlPlane(&ctp) && !cfg.spacesConfig.allowProd {
 			return nil, errNotDevControlPlane
 		}
 		if ctp.DeletionTimestamp != nil {
 			return nil, errors.New("control plane exists but is being deleted - retry after it finishes deleting")
 		}
 		// Ensure the Crossplane spec fully matches what the caller specified
-		if !matchesCrossplaneSpec(ctp.Spec.Crossplane, *cfg.crossplane) {
+		if !matchesCrossplaneSpec(ctp.Spec.Crossplane, *cfg.spacesConfig.crossplane) {
 			return nil, errors.Errorf(
 				"existing control plane has a different Crossplane spec than expected",
 			)
@@ -178,17 +222,17 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, spaceCli
 		// Create a control plane.
 		ctp = spacesv1beta1.ControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        name,
-				Namespace:   group,
-				Annotations: cfg.annotations,
+				Name:        cfg.spacesConfig.name,
+				Namespace:   cfg.spacesConfig.group,
+				Annotations: cfg.spacesConfig.annotations,
 			},
 			Spec: spacesv1beta1.ControlPlaneSpec{
-				Class:      cfg.class,
-				Crossplane: *cfg.crossplane,
+				Class:      cfg.spacesConfig.class,
+				Crossplane: *cfg.spacesConfig.crossplane,
 			},
 		}
 
-		if err := createControlPlane(ctx, spaceClient, ch, ctp); err != nil {
+		if err := createControlPlane(ctx, spaceClient, cfg.eventChan, ctp); err != nil {
 			return nil, err
 		}
 
@@ -207,8 +251,8 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, spaceCli
 	// Create and return the spacesDevControlPlane
 	return &spacesDevControlPlane{
 		spaceClient: spaceClient,
-		group:       group,
-		name:        name,
+		group:       cfg.spacesConfig.group,
+		name:        cfg.spacesConfig.name,
 		client:      ctpClient,
 		kubeconfig:  sClient,
 	}, nil
@@ -228,29 +272,9 @@ func isDevControlPlane(ctp *spacesv1beta1.ControlPlane) bool {
 // TODO(adamwg): Mostly copied from simulations; this should be factored out
 // into our kube package.
 func getControlPlaneClient(ctx context.Context, upCtx *upbound.Context, ctp types.NamespacedName) (client.Client, clientcmd.ClientConfig, error) {
-	po := clientcmd.NewDefaultPathOptions()
-	var err error
-
-	conf, err := po.GetStartingConfig()
+	space, _, err := intctx.GetCurrentGroup(ctx, upCtx)
 	if err != nil {
 		return nil, nil, err
-	}
-	state, err := ctxcmd.DeriveState(ctx, upCtx, conf, kube.GetIngressHost)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var ok bool
-	var space ctxcmd.Space
-
-	if space, ok = state.(ctxcmd.Space); !ok {
-		if group, ok := state.(*ctxcmd.Group); ok {
-			space = group.Space
-		} else if ctp, ok := state.(*ctxcmd.ControlPlane); ok {
-			space = ctp.Group.Space
-		} else {
-			return nil, nil, errors.New("current kubeconfig is not pointed at a space cluster")
-		}
 	}
 
 	spaceClient, err := space.BuildKubeconfig(ctp)
