@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -47,7 +46,6 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
-	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
@@ -78,6 +76,7 @@ type runCmd struct {
 	ControlPlaneGroup      string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix string   `help:"Prefex of the control plane name to use. It will be created if not found."`
 	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
+	Local                  bool     `help:"Use a local dev control plane, even if Spaces is available."`
 	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
@@ -98,7 +97,6 @@ type runCmd struct {
 	concurrency        uint
 	proj               *v1alpha1.Project
 
-	spaceClient  client.Client
 	printer      upterm.ObjectPrinter
 	asyncWrapper async.WrapperFunc
 }
@@ -190,27 +188,6 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	c.r = r
 
 	if c.E2E {
-		spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
-		if err != nil {
-			return errors.Wrap(err, "cannot get spaces kubeconfig")
-		}
-		spaceClientREST, err := spaceClientConfig.ClientConfig()
-		if err != nil {
-			return errors.Wrap(err, "failed to get REST config for space client")
-		}
-		c.spaceClient, err = client.New(spaceClientREST, client.Options{})
-		if err != nil {
-			return err
-		}
-
-		if c.ControlPlaneGroup == "" {
-			ns, _, err := spaceClientConfig.Namespace()
-			if err != nil {
-				return err
-			}
-			c.ControlPlaneGroup = ns
-		}
-
 		// set the default prefix
 		if c.ControlPlaneNamePrefix == "" {
 			c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
@@ -577,16 +554,23 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 
 	var devCtp ctp.DevControlPlane
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
-		var err error
-		devCtp, err = ctp.EnsureDevControlPlane(
-			ctx,
-			upCtx,
+		opts := []ctp.EnsureDevControlPlaneOption{
 			ctp.WithEventChannel(ch),
 			ctp.WithSpacesGroup(c.ControlPlaneGroup),
-			ctp.WithSpacesControlPlaneName(controlPlaneName),
+			ctp.WithControlPlaneName(controlPlaneName),
 			ctp.SkipDevCheck(c.Force),
-			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
-		)
+			ctp.ForceLocal(c.Local),
+		}
+
+		if test.Spec.Crossplane != nil {
+			opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
+			if test.Spec.Crossplane.Version != nil {
+				opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
+			}
+		}
+
+		var err error
+		devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to create control plane")

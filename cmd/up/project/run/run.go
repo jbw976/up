@@ -14,9 +14,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
+	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -27,7 +27,6 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctp"
-	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
@@ -56,13 +55,15 @@ type Flags struct {
 type Cmd struct {
 	Flags
 
-	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
-	ControlPlaneName  string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force             bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
-	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
-	Public            bool          `help:"Create new repositories with public visibility."`
-	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
-	GlobalFlags       upbound.Flags `embed:""`
+	ControlPlaneGroup  string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
+	ControlPlaneName   string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
+	Force              bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
+	Local              bool          `help:"Use a local dev control plane, even if Spaces is available."`
+	NoUpdateKubeconfig bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
+	CacheDir           string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
+	Public             bool          `help:"Create new repositories with public visibility."`
+	Timeout            time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
+	GlobalFlags        upbound.Flags `embed:""`
 
 	projFS             afero.Fs
 	modelsFS           afero.Fs
@@ -72,8 +73,6 @@ type Cmd struct {
 	m                  *manager.Manager
 	keychain           authn.Keychain
 	concurrency        uint
-
-	spaceClient client.Client
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -143,29 +142,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	}
 	c.m = m
 
-	// Get the client for parent space, even if pointed at a group or a control
-	// plane
-	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
-	if err != nil {
-		return errors.Wrap(err, "cannot get spaces kubeconfig")
-	}
-	spaceClientREST, err := spaceClientConfig.ClientConfig()
-	if err != nil {
-		return errors.Wrap(err, "failed to get REST config for space client")
-	}
-	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
-	if err != nil {
-		return err
-	}
-
-	if c.ControlPlaneGroup == "" {
-		ns, _, err := spaceClientConfig.Namespace()
-		if err != nil {
-			return err
-		}
-		c.ControlPlaneGroup = ns
-	}
-
 	c.quiet = printer.Quiet
 	switch {
 	case bool(printer.Quiet):
@@ -224,8 +200,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 				upCtx,
 				ctp.WithEventChannel(ch),
 				ctp.WithSpacesGroup(c.ControlPlaneGroup),
-				ctp.WithSpacesControlPlaneName(c.ControlPlaneName),
+				ctp.WithControlPlaneName(c.ControlPlaneName),
 				ctp.SkipDevCheck(c.Force),
+				ctp.ForceLocal(c.Local),
 			)
 			if err != nil {
 				return err
@@ -300,7 +277,26 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		readyCtx = timeoutCtx
 	}
 
-	return c.asyncWrapper(func(ch async.EventChannel) error {
+	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		return kube.InstallConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
-	})
+	}); err != nil {
+		return err
+	}
+
+	pterm.Println(devCtp.Info())
+
+	if !c.NoUpdateKubeconfig {
+		ctpKubeconfig, err := devCtp.Kubeconfig().RawConfig()
+		if err != nil {
+			return err
+		}
+
+		w := kube.NewFileWriter(upCtx, c.GlobalFlags.Kube.Kubeconfig, ctpKubeconfig.CurrentContext)
+		if err := w.Write(&ctpKubeconfig); err != nil {
+			return err
+		}
+		pterm.Printfln("Kubeconfig updated. Current context is %q.", ctpKubeconfig.CurrentContext)
+	}
+
+	return nil
 }
