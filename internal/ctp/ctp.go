@@ -596,3 +596,58 @@ func matchesCrossplaneSpec(existing, desired spacesv1beta1.CrossplaneSpec) bool 
 
 	return cmp.Equal(existing, desired)
 }
+
+// KubeconfigDevControlPlane is a dev control plane based on the user's current
+// kubeconfig context. It's not really a dev control plane at all, but we want
+// to give users this option and it's helpful to use the same abstraction.
+type KubeconfigDevControlPlane struct {
+	context string
+
+	kubeconfig clientcmd.ClientConfig
+	client     client.Client
+}
+
+// Info returns human-readable information about the dev control plane.
+func (l *KubeconfigDevControlPlane) Info() string {
+	return fmt.Sprintf("Using existing kubeconfig context %q.", l.context)
+}
+
+// Client returns a controller-runtime client for the control plane.
+func (l *KubeconfigDevControlPlane) Client() client.Client {
+	return l.client
+}
+
+// Kubeconfig returns a kubeconfig for the control plane.
+func (l *KubeconfigDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
+	return l.kubeconfig
+}
+
+// Teardown does nothing for kubeconfig control planes.
+func (l *KubeconfigDevControlPlane) Teardown(_ context.Context, _ bool) error {
+	return nil
+}
+
+// NewKubeconfigDevControlPlane returns an initialized
+// KubeconfigDevControlPlane.
+func NewKubeconfigDevControlPlane(upCtx *upbound.Context) (*KubeconfigDevControlPlane, error) {
+	ctxName, err := upCtx.GetCurrentContextName()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get current kubeconfig context name")
+	}
+
+	restConfig, err := upCtx.GetKubeconfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot get kubeconfig")
+	}
+
+	cl, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot construct control plane client")
+	}
+
+	return &KubeconfigDevControlPlane{
+		context:    ctxName,
+		kubeconfig: upCtx.Kubecfg,
+		client:     cl,
+	}, nil
+}

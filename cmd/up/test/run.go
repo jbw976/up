@@ -68,16 +68,17 @@ import (
 // runCmd is the `up test run` command.
 type runCmd struct {
 	Patterns               []string `arg:""                                                                                                                                     help:"The path to the test manifests"`
-	ProjectFile            string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                   short:"f"`
+	ProjectFile            string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                  short:"f"`
 	Repository             string   `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache           bool     `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir          string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                 type:"path"`
-	MaxConcurrency         uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                  help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir          string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                type:"path"`
+	MaxConcurrency         uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                 help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup      string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix string   `help:"Prefex of the control plane name to use. It will be created if not found."`
-	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
+	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane." name:"skip-control-plane-check"`
 	Local                  bool     `help:"Use a local dev control plane, even if Spaces is available."`
-	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
+	UseCurrentContext      bool     `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
+	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                          help:"Directory used for caching dependencies."               type:"path"`
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
@@ -228,8 +229,14 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger) error {
 	upterm.DefaultObjPrinter.Pretty = true
 
+	if c.UseCurrentContext && !c.Force {
+		if err := c.confirmUseCurrentContext(upCtx); err != nil {
+			return err
+		}
+	}
+
 	var err error
-	var parsedTests []interface{}
+	var parsedTests []any
 	if err = upterm.WrapWithSuccessSpinner(
 		"Parsing tests",
 		upterm.CheckmarkSuccessSpinner,
@@ -287,6 +294,27 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	// Return an error if there were failed tests
 	if terr > 0 {
 		return err
+	}
+
+	return nil
+}
+
+const useCurrentContextConfirmFmt = `Running e2e tests on an existing control plane can be destructive.
+Are you sure you want to use kubeconfig context %q?`
+
+func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
+	ctxName, err := upCtx.GetCurrentContextName()
+	if err != nil {
+		return err
+	}
+
+	confirm := pterm.DefaultInteractiveConfirm
+	proceed, err := confirm.Show(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName))
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return errors.New("operation canceled")
 	}
 
 	return nil
@@ -546,7 +574,7 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 	return cleanup, nil
 }
 
-func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error {
+func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
@@ -554,23 +582,27 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 
 	var devCtp ctp.DevControlPlane
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
-		opts := []ctp.EnsureDevControlPlaneOption{
-			ctp.WithEventChannel(ch),
-			ctp.WithSpacesGroup(c.ControlPlaneGroup),
-			ctp.WithControlPlaneName(controlPlaneName),
-			ctp.SkipDevCheck(c.Force),
-			ctp.ForceLocal(c.Local),
-		}
-
-		if test.Spec.Crossplane != nil {
-			opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
-			if test.Spec.Crossplane.Version != nil {
-				opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
-			}
-		}
-
 		var err error
-		devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)
+		if c.UseCurrentContext {
+			devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
+		} else {
+			opts := []ctp.EnsureDevControlPlaneOption{
+				ctp.WithEventChannel(ch),
+				ctp.WithSpacesGroup(c.ControlPlaneGroup),
+				ctp.WithControlPlaneName(controlPlaneName),
+				ctp.SkipDevCheck(c.Force),
+				ctp.ForceLocal(c.Local),
+			}
+
+			if test.Spec.Crossplane != nil {
+				opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
+				if test.Spec.Crossplane.Version != nil {
+					opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
+				}
+			}
+
+			devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)
+		}
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to create control plane")

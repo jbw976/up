@@ -6,6 +6,7 @@ package run
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -57,9 +58,10 @@ type Cmd struct {
 
 	ControlPlaneGroup  string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName   string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force              bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation."                      name:"skip-control-plane-check"`
+	Force              bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
 	Local              bool          `help:"Use a local dev control plane, even if Spaces is available."`
 	NoUpdateKubeconfig bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
+	UseCurrentContext  bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
 	CacheDir           string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public             bool          `help:"Create new repositories with public visibility."`
 	Timeout            time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
@@ -156,7 +158,13 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+	if c.UseCurrentContext && !c.Force {
+		if err := c.confirmUseCurrentContext(upCtx); err != nil {
+			return err
+		}
+	}
+
 	var err error
 	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
 	if err != nil {
@@ -195,15 +203,19 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 		eg.Go(func() error {
 			var err error
-			devCtp, err = ctp.EnsureDevControlPlane(
-				ctx,
-				upCtx,
-				ctp.WithEventChannel(ch),
-				ctp.WithSpacesGroup(c.ControlPlaneGroup),
-				ctp.WithControlPlaneName(c.ControlPlaneName),
-				ctp.SkipDevCheck(c.Force),
-				ctp.ForceLocal(c.Local),
-			)
+			if c.UseCurrentContext {
+				devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
+			} else {
+				devCtp, err = ctp.EnsureDevControlPlane(
+					ctx,
+					upCtx,
+					ctp.WithEventChannel(ch),
+					ctp.WithSpacesGroup(c.ControlPlaneGroup),
+					ctp.WithControlPlaneName(c.ControlPlaneName),
+					ctp.SkipDevCheck(c.Force),
+					ctp.ForceLocal(c.Local),
+				)
+			}
 			if err != nil {
 				return err
 			}
@@ -285,7 +297,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 	pterm.Println(devCtp.Info())
 
-	if !c.NoUpdateKubeconfig {
+	if !c.UseCurrentContext && !c.NoUpdateKubeconfig {
 		ctpKubeconfig, err := devCtp.Kubeconfig().RawConfig()
 		if err != nil {
 			return err
@@ -296,6 +308,27 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 			return err
 		}
 		pterm.Printfln("Kubeconfig updated. Current context is %q.", ctpKubeconfig.CurrentContext)
+	}
+
+	return nil
+}
+
+const useCurrentContextConfirmFmt = `Running a project on an existing control plane can be destructive.
+Are you sure you want to use kubeconfig context %q?`
+
+func (c *Cmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
+	ctxName, err := upCtx.GetCurrentContextName()
+	if err != nil {
+		return err
+	}
+
+	confirm := pterm.DefaultInteractiveConfirm
+	proceed, err := confirm.Show(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName))
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return errors.New("operation canceled")
 	}
 
 	return nil
