@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -111,7 +112,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 		// (a bunch of yaml files, this should be fine).
 		im.fs = &afero.Afero{Fs: afero.NewMemMapFs()}
 
-		if err := im.unarchive(ctx, *im.fs); err != nil {
+		if err := im.readArchive(ctx, *im.fs); err != nil {
 			s.Fail(unarchiveMsg + stepFailed)
 			return errors.Wrap(err, "cannot unarchive export archive")
 		}
@@ -256,7 +257,7 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	if im.fs == nil {
 		im.fs = &afero.Afero{Fs: afero.NewMemMapFs()}
 
-		if err := im.unarchive(ctx, *im.fs); err != nil {
+		if err := im.readArchive(ctx, *im.fs); err != nil {
 			return []error{errors.Wrap(err, "Cannot unarchive export archive")}
 		}
 	}
@@ -283,6 +284,80 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	}
 
 	return errs
+}
+
+func (im *ControlPlaneStateImporter) readArchive(ctx context.Context, fs afero.Afero) error {
+	fi, err := os.Stat(im.options.InputArchive)
+	if err != nil {
+		errors.Wrapf(err, "cannot determine archive file type %q", im.options.InputArchive)
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+		return im.copyDir(ctx, *im.fs)
+	case mode.IsRegular():
+		return im.unarchive(ctx, *im.fs)
+	default:
+		return errors.Wrapf(err, "cannot open archive %q", im.options.InputArchive)
+	}
+}
+
+func (im *ControlPlaneStateImporter) copyDir(ctx context.Context, fs afero.Afero) error {
+	src := im.options.InputArchive
+
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		// exit if context is done
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if err != nil {
+			return err
+		}
+
+		if strings.HasPrefix(filepath.Base(path), ".") {
+			// Skip any dot files
+			if info.IsDir() {
+				return filepath.SkipDir
+			} else {
+				return nil
+			}
+		}
+
+		// Remove leading path from the archive directory
+		// mydir/export.yaml -> export.yaml
+		dst := strings.TrimPrefix(strings.TrimPrefix(path, src), "/")
+
+		// If we have a directory, make that subdirectory, then continue
+		// the walk.
+		if info.IsDir() {
+			if err := fs.MkdirAll(dst, 0700); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		// If we have a file, copy the contents.
+		srcF, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcF.Close()
+
+		dstF, err := fs.Create(dst)
+		if err != nil {
+			return err
+		}
+		defer dstF.Close()
+
+		if _, err := io.Copy(dstF, srcF); err != nil {
+			return err
+		}
+
+		return fs.Chmod(dst, info.Mode())
+	}
+
+	return filepath.Walk(src, walkFn)
 }
 
 func (im *ControlPlaneStateImporter) unarchive(ctx context.Context, fs afero.Afero) error {
