@@ -9,11 +9,19 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"slices"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	docker "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/apis/config/defaults"
+	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	kind "sigs.k8s.io/kind/pkg/cluster"
 
 	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
@@ -34,10 +43,14 @@ import (
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/uxp"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/ctp/certs"
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/xpkg"
+	"github.com/upbound/up/internal/yaml"
 )
 
 const (
@@ -160,6 +173,12 @@ type DevControlPlane interface {
 	Teardown(ctx context.Context, force bool) error
 }
 
+// SideloadingControlPlane can sideload packages.
+type SideloadingControlPlane interface {
+	// Sideload sideloads packages.
+	Sideload(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error
+}
+
 // spacesDevControlPlane is a development control plane that runs in a Spaces
 // cluster.
 type spacesDevControlPlane struct {
@@ -218,9 +237,12 @@ func (s *spacesDevControlPlane) Teardown(ctx context.Context, force bool) error 
 }
 
 type localDevControlPlane struct {
-	name       string
-	kubeconfig clientcmd.ClientConfig
-	client     client.Client
+	name                string
+	kubeconfig          clientcmd.ClientConfig
+	client              client.Client
+	registryDir         string
+	registryContainerID string
+	registryHostname    string
 }
 
 // Info returns human-readable information about the dev control plane.
@@ -239,11 +261,111 @@ func (l *localDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
 }
 
 // Teardown tears down the control plane, deleting any resources it may use.
-func (l *localDevControlPlane) Teardown(_ context.Context, _ bool) error {
+func (l *localDevControlPlane) Teardown(ctx context.Context, _ bool) error {
 	provider := kind.NewProvider()
 
 	if err := provider.Delete(l.name, ""); err != nil {
 		return errors.Wrap(err, "failed to delete the local control plane")
+	}
+
+	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
+	if err != nil {
+		return errors.Wrap(err, "failed to create docker client")
+	}
+
+	if err := cli.ContainerStop(ctx, l.registryContainerID, container.StopOptions{}); err != nil {
+		return errors.Wrap(err, "failed to stop registry container")
+	}
+	if err := cli.ContainerRemove(ctx, l.registryContainerID, container.RemoveOptions{Force: true}); err != nil {
+		return errors.Wrap(err, "failed to remove registry container")
+	}
+
+	_ = os.RemoveAll(l.registryDir)
+
+	return nil
+}
+
+// Sideload sideloads packages into a control plane.
+func (l *localDevControlPlane) Sideload(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error {
+	cfgImage, fnImages, err := project.SortImages(imgMap, tag.Repository.Name())
+	if err != nil {
+		return err
+	}
+
+	for repo, images := range fnImages {
+		p := filepath.Join(l.registryDir, repo.RepositoryStr())
+		if err := os.MkdirAll(p, 0o750); err != nil {
+			return err
+		}
+
+		idx, _, err := xpkg.BuildIndex(images...)
+		if err != nil {
+			return err
+		}
+
+		l, err := layout.Write(p, empty.Index)
+		if err != nil {
+			return err
+		}
+
+		if err := l.AppendIndex(idx, layout.WithAnnotations(map[string]string{
+			"org.opencontainers.image.ref.name": tag.TagStr(),
+		})); err != nil {
+			return err
+		}
+	}
+
+	p := filepath.Join(l.registryDir, tag.RepositoryStr())
+	if err := os.MkdirAll(p, 0o750); err != nil {
+		return err
+	}
+
+	lpath, err := layout.Write(p, empty.Index)
+	if err != nil {
+		return err
+	}
+
+	if err := lpath.AppendImage(cfgImage, layout.WithAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": tag.TagStr(),
+	})); err != nil {
+		return err
+	}
+
+	// Make everything in the layout is world-readable, since processes in
+	// containers may run unprivileged and the registry container needs to read
+	// everything in the layout.
+	if err := filepath.WalkDir(l.registryDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			return os.Chmod(path, 0o755) //nolint:gosec // Container needs to read the dir.
+		}
+
+		return os.Chmod(path, 0o644) //nolint:gosec // Container needs to read the file.
+	}); err != nil {
+		return errors.Wrap(err, "failed to adjust permissions on sideloaded images")
+	}
+
+	rewrite := path.Join(l.registryHostname, tag.RepositoryStr())
+	imgcfg := &pkgv1beta1.ImageConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "local-registry",
+		},
+		Spec: pkgv1beta1.ImageConfigSpec{
+			MatchImages: []pkgv1beta1.ImageMatch{{
+				Type:   pkgv1beta1.Prefix,
+				Prefix: tag.Repository.Name(),
+			}},
+			RewriteImage: &pkgv1beta1.ImageRewrite{
+				Prefix: rewrite,
+			},
+		},
+	}
+
+	if err := l.client.Create(ctx, imgcfg); err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "failed to create image config")
 	}
 
 	return nil
@@ -312,7 +434,38 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, errors.Wrap(err, "cannot construct control plane client")
 	}
 
-	if err := ensureUXP(ctx, restConfig, cl, cfg.localConfig.crossplaneVersion); err != nil {
+	// Create the crossplane namespace before we create a bunch of stuff in it.
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: crossplaneNamespace,
+		},
+	}
+	if err := cl.Create(ctx, ns); err != nil && !kerrors.IsAlreadyExists(err) {
+		return nil, errors.Wrap(err, "failed to create crossplane-system namespace")
+	}
+
+	// Generate a CA and certificate for the local registry.
+	regName := cfg.name + "-registry"
+	certSecret, ca, err := ensureLocalRegistryCertificate(ctx, cl, regName)
+	if err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "cannot generate certificate for registry")
+	}
+
+	// Create a directory to store sideloaded images and spin up a registry
+	// container that uses it. This will let us get images into the dev CTP
+	// without pushing to a registry.
+	registryDir := filepath.Join(os.TempDir(), "up-local-registry", cfg.name)
+	if err := os.MkdirAll(registryDir, 0o755); err != nil { //nolint:gosec // Container needs to read the dir.
+		return nil, err
+	}
+	cid, err := ensureLocalRegistry(ctx, cl, cfg.name+"-registry", registryDir, certSecret)
+	if err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+
+	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -324,9 +477,12 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 
 	cfg.eventChan.SendEvent(evText, async.EventStatusSuccess)
 	return &localDevControlPlane{
-		name:       cfg.name,
-		kubeconfig: kubeconfig,
-		client:     cl,
+		name:                cfg.name,
+		kubeconfig:          kubeconfig,
+		client:              cl,
+		registryDir:         registryDir,
+		registryContainerID: cid,
+		registryHostname:    cfg.name + "-registry:5000",
 	}, nil
 }
 
@@ -352,8 +508,23 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 			return nil, errors.Wrap(err, "failed to get kubeconfig for kind cluster")
 		}
 	} else {
+		cfg := &v1alpha4.Cluster{
+			TypeMeta: v1alpha4.TypeMeta{
+				APIVersion: "kind.x-k8s.io/v1alpha4",
+				Kind:       "Cluster",
+			},
+			ContainerdConfigPatches: []string{
+				"[plugins.\"io.containerd.grpc.v1.cri\".registry]\nconfig_path = \"/etc/containerd/certs.d\"\n",
+			},
+		}
+		cfgBytes, err := yaml.Marshal(cfg)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal kind config")
+		}
+
 		if err := provider.Create(
 			name,
+			kind.CreateWithRawConfig(cfgBytes),
 			// TODO(adamwg): Do we want to customize our base image? Or set a
 			// specific version depending on the Crossplane version?
 			kind.CreateWithNodeImage(defaults.Image),
@@ -382,7 +553,7 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 	return kubeconfig, nil
 }
 
-func ensureUXP(ctx context.Context, restConfig *rest.Config, cl client.Client, version string) error {
+func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"universal-crossplane",
@@ -404,19 +575,14 @@ func ensureUXP(ctx context.Context, restConfig *rest.Config, cl client.Client, v
 		return nil
 	}
 
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: crossplaneNamespace,
-		},
-	}
-	if err := cl.Create(ctx, ns); err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrap(err, "failed to create crossplane-system namespace")
-	}
-
 	values := map[string]any{
 		"args": []string{
 			"--enable-dependency-version-upgrades",
 			"--enable-function-response-cache",
+		},
+		"registryCaBundleConfig": map[string]string{
+			"name": caConfigMap,
+			"key":  certs.SecretKeyCACert,
 		},
 	}
 	if err = mgr.Install(version, values); err != nil {

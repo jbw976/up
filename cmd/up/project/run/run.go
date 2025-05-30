@@ -78,6 +78,7 @@ type Cmd struct {
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
+	printer      upterm.ObjectPrinter
 
 	proj *v1alpha1.Project
 }
@@ -132,6 +133,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	}
 	c.m = m
 
+	c.printer = printer
 	c.quiet = printer.Quiet
 	switch {
 	case bool(printer.Quiet):
@@ -146,7 +148,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer pterm.TextPrinter) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	if c.UseCurrentContext && !c.Force {
 		if err := c.confirmUseCurrentContext(upCtx); err != nil {
 			return err
@@ -247,17 +249,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer pterm.Tex
 		}
 	}
 
-	var generatedTag name.Tag
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		opts := []project.PushOption{
-			project.PushWithEventChannel(ch),
-			project.PushWithCreatePublicRepositories(c.Public),
-		}
-
-		var err error
-		generatedTag, err = c.pusher.Push(ctx, c.proj, imgMap, opts...)
-		return err
-	})
+	generatedTag, err := c.pushOrLoadPackages(ctx, imgMap, devCtp)
 	if err != nil {
 		return err
 	}
@@ -275,7 +267,9 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer pterm.Tex
 		return err
 	}
 
-	printer.Println(devCtp.Info())
+	if !c.printer.Quiet {
+		pterm.Println(devCtp.Info())
+	}
 
 	if !c.UseCurrentContext && !c.NoUpdateKubeconfig {
 		ctpKubeconfig, err := devCtp.Kubeconfig().RawConfig()
@@ -312,4 +306,34 @@ func (c *Cmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 	}
 
 	return nil
+}
+
+func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane) (name.Tag, error) {
+	if sl, ok := devCtp.(ctp.SideloadingControlPlane); ok {
+		tagStr := fmt.Sprintf("%s:v0.0.0-%d", c.proj.Spec.Repository, time.Now().Unix())
+		tag, err := name.NewTag(tagStr, name.StrictValidation)
+		if err != nil {
+			return tag, errors.Wrap(err, "failed to construct image tag")
+		}
+
+		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", upterm.CheckmarkSuccessSpinner, func() error {
+			return sl.Sideload(ctx, imgMap, tag)
+		}, c.printer)
+
+		return tag, err
+	}
+
+	var generatedTag name.Tag
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		opts := []project.PushOption{
+			project.PushWithEventChannel(ch),
+			project.PushWithCreatePublicRepositories(c.Public),
+		}
+
+		var err error
+		generatedTag, err = c.pusher.Push(ctx, c.proj, imgMap, opts...)
+		return err
+	})
+
+	return generatedTag, err
 }
