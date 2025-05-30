@@ -289,7 +289,7 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 func (im *ControlPlaneStateImporter) readArchive(ctx context.Context, fs afero.Afero) error {
 	fi, err := os.Stat(im.options.InputArchive)
 	if err != nil {
-		errors.Wrapf(err, "cannot determine archive file type %q", im.options.InputArchive)
+		return errors.Wrapf(err, "cannot determine archive file type %q", im.options.InputArchive)
 	}
 	switch mode := fi.Mode(); {
 	case mode.IsDir():
