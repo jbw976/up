@@ -297,7 +297,7 @@ func (im *ControlPlaneStateImporter) readArchive(ctx context.Context, fs afero.A
 	case mode.IsRegular():
 		return im.unarchive(ctx, *im.fs)
 	default:
-		return errors.Wrapf(err, "cannot open archive %q", im.options.InputArchive)
+		return fmt.Errorf("not a file or directory %q", im.options.InputArchive)
 	}
 }
 
