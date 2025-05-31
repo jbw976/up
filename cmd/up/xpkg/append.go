@@ -109,12 +109,23 @@ func (c *appendCmd) Run(p pterm.TextPrinter) error {
 	}
 
 	p.Printfln("Appending package extensions for image: %s", c.indexRef.String())
-	// Ensure we are working with an image index, for now.
-	// We do not currently support converting a single manifest into an index, which could create unintentional side effects.
+	// Try to read as an image index first
 	index, err := remote.Index(c.indexRef, c.keychain)
 	if err != nil {
-		return errors.Wrap(err, errReadIndex)
+		// If it fails, try to read as a single image and convert to index
+		var singleImage v1.Image
+		singleImage, err = remote.Image(c.indexRef, c.keychain)
+		if err != nil {
+			return errors.Wrap(err, errReadIndex)
+		}
+		index, err = c.appender.ConvertImageToIndex(singleImage)
+		if err != nil {
+			return errors.Wrap(err, "error converting single image to index")
+		}
+
+		p.Printfln("Converted single-architecture image to index format")
 	}
+
 	// Construct a new image index with the extensions manifest appended.
 	// Passing a different extensions directory overwrites the previous manifest if one exists.
 	newIndex, err := c.appender.Append(index, extManifest, xpkg.WithAuth(c.keychain))
