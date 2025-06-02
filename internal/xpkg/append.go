@@ -105,7 +105,6 @@ func (a *Appender) ConvertImageToIndex(img v1.Image) (v1.ImageIndex, error) {
 
 	desc := v1.Descriptor{
 		MediaType: manifest.MediaType,
-		Size:      0,
 		Digest:    digest,
 	}
 

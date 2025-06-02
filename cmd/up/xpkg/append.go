@@ -113,17 +113,22 @@ func (c *appendCmd) Run(p pterm.TextPrinter) error {
 	index, err := remote.Index(c.indexRef, c.keychain)
 	if err != nil {
 		// If it fails, try to read as a single image and convert to index
-		var singleImage v1.Image
-		singleImage, err = remote.Image(c.indexRef, c.keychain)
-		if err != nil {
+		// ggcr will fallback to ErrSchema1 in this case - we'll bail otherwise
+		if errors.Is(err, remote.ErrSchema1) {
+			p.Printfln("Single-architecture image detected; converting to image index")
+			var singleImage v1.Image
+			singleImage, err = remote.Image(c.indexRef, c.keychain)
+			if err != nil {
+				return errors.Wrap(err, errReadIndex)
+			}
+			index, err = c.appender.ConvertImageToIndex(singleImage)
+			if err != nil {
+				return errors.Wrap(err, "error converting single image to index")
+			}
+			p.Printfln("Converted single-architecture image to index format")
+		} else {
 			return errors.Wrap(err, errReadIndex)
 		}
-		index, err = c.appender.ConvertImageToIndex(singleImage)
-		if err != nil {
-			return errors.Wrap(err, "error converting single image to index")
-		}
-
-		p.Printfln("Converted single-architecture image to index format")
 	}
 
 	// Construct a new image index with the extensions manifest appended.
