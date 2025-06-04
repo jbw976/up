@@ -175,6 +175,13 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 		}
 
 		for _, item := range items {
+			switch item.(type) {
+			case map[string]interface{}, map[interface{}]interface{}, struct{}:
+				// Continue to marshal
+			default:
+				continue
+			}
+
 			itemBytes, err := yaml.Marshal(item)
 			if err != nil {
 				continue
