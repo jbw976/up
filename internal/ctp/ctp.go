@@ -6,6 +6,8 @@ package ctp
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -19,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/cmd/create"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kind/pkg/apis/config/defaults"
@@ -26,6 +29,7 @@ import (
 
 	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/uxp"
@@ -40,6 +44,8 @@ const (
 	devControlPlaneClass = "small"
 	// devControlPlaneAnnotation is used in project and test commands.
 	devControlPlaneAnnotation = "upbound.io/development-control-plane"
+	// crossplaneNamespace is the namespace into which we install Crossplane.
+	crossplaneNamespace = "crossplane-system"
 )
 
 // errNotDevControlPlane is used in project and test commands.
@@ -272,11 +278,11 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 		return ctp, errors.Wrap(err, "cannot create dev control plane in Spaces")
 	}
 
-	ctp, err := ensureLocalDevControlPlane(ctx, cfg)
+	ctp, err := ensureLocalDevControlPlane(ctx, upCtx, cfg)
 	return ctp, errors.Wrap(err, "cannot create local dev control plane")
 }
 
-func ensureLocalDevControlPlane(ctx context.Context, cfg *ensureDevControlPlaneConfig) (*localDevControlPlane, error) {
+func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig) (*localDevControlPlane, error) {
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
 
@@ -306,6 +312,11 @@ func ensureLocalDevControlPlane(ctx context.Context, cfg *ensureDevControlPlaneC
 	}
 
 	if err := ensureUXP(ctx, restConfig, cl, cfg.localConfig.crossplaneVersion); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+
+	if err := ensureUpboundPullSecret(ctx, upCtx, cl); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -371,13 +382,11 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 }
 
 func ensureUXP(ctx context.Context, restConfig *rest.Config, cl client.Client, version string) error {
-	const namespace = "crossplane-system"
-
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"universal-crossplane",
 		repo,
-		helm.WithNamespace(namespace),
+		helm.WithNamespace(crossplaneNamespace),
 		helm.Wait(),
 	)
 	if err != nil {
@@ -396,7 +405,7 @@ func ensureUXP(ctx context.Context, restConfig *rest.Config, cl client.Client, v
 
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
+			Name: crossplaneNamespace,
 		},
 	}
 	if err := cl.Create(ctx, ns); err != nil && !kerrors.IsAlreadyExists(err) {
@@ -411,6 +420,71 @@ func ensureUXP(ctx context.Context, restConfig *rest.Config, cl client.Client, v
 	}
 	if err = mgr.Install(version, values); err != nil {
 		return errors.Wrap(err, "failed to install crossplane")
+	}
+
+	return nil
+}
+
+func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl client.Client) error {
+	// If the user is not logged in we can't create a pull secret for them.
+	if upCtx.Organization == "" {
+		return nil
+	}
+
+	const secretName = "up-pull-secret"
+	authStr := base64.StdEncoding.EncodeToString([]byte("_token:" + upCtx.Profile.Session))
+	auth := &create.DockerConfigJSON{
+		Auths: map[string]create.DockerConfigEntry{
+			upCtx.RegistryEndpoint.Host: {
+				Username: "_token",
+				Password: upCtx.Profile.Session,
+				Auth:     authStr,
+			},
+		},
+	}
+	authJSON, err := json.Marshal(auth)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal docker auth config")
+	}
+
+	xpkgSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: crossplaneNamespace,
+		},
+		Type: corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: authJSON,
+		},
+	}
+	if err := cl.Create(ctx, xpkgSecret); err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "failed to create xpkg pull secret")
+	}
+
+	imgcfg := &pkgv1beta1.ImageConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "upbound",
+		},
+		Spec: pkgv1beta1.ImageConfigSpec{
+			MatchImages: []pkgv1beta1.ImageMatch{{
+				Type:   pkgv1beta1.Prefix,
+				Prefix: upCtx.RegistryEndpoint.Host,
+			}},
+			Registry: &pkgv1beta1.RegistryConfig{
+				Authentication: &pkgv1beta1.RegistryAuthentication{
+					PullSecretRef: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			},
+		},
+	}
+
+	if err := pkgv1beta1.AddToScheme(cl.Scheme()); err != nil {
+		return err
+	}
+	if err := cl.Create(ctx, imgcfg); err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "failed to create image config")
 	}
 
 	return nil
