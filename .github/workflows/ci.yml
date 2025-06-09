@@ -586,6 +586,14 @@ jobs:
           cd e2e-test
           up project push --tag=${VERSION}
 
+      - name: up project run
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project run --local --timeout=30m
+          kubectl get configuration e2e-test
+
   e2e-example-project-aws:
     runs-on: ubuntu-24.04
     needs: publish-artifacts
