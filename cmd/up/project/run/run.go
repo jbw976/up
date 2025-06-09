@@ -18,6 +18,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -75,6 +76,11 @@ type Cmd struct {
 	m                  *manager.Manager
 	keychain           authn.Keychain
 	concurrency        uint
+	pusher             project.Pusher
+
+	// Allow these functions to be injected for testing purposes.
+	ensureDevControlPlane func(context.Context, *upbound.Context, ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error)
+	installConfiguration  func(context.Context, client.Client, string, name.Tag, async.EventChannel) error
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -118,6 +124,14 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
+	c.pusher = project.NewPusher(
+		project.PushWithUpboundContext(upCtx),
+		project.PushWithTransport(c.transport),
+		project.PushWithAuthKeychain(c.keychain),
+		project.PushWithMaxConcurrency(c.concurrency),
+	)
+	c.ensureDevControlPlane = ctp.EnsureDevControlPlane
+	c.installConfiguration = kube.InstallConfiguration
 
 	fs := afero.NewOsFs()
 	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
@@ -158,7 +172,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer pterm.TextPrinter) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	if c.UseCurrentContext && !c.Force {
 		if err := c.confirmUseCurrentContext(upCtx); err != nil {
 			return err
@@ -206,7 +220,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			if c.UseCurrentContext {
 				devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
 			} else {
-				devCtp, err = ctp.EnsureDevControlPlane(
+				devCtp, err = c.ensureDevControlPlane(
 					ctx,
 					upCtx,
 					ctp.WithEventChannel(ch),
@@ -260,13 +274,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		}
 	}
 
-	pusher := project.NewPusher(
-		project.PushWithUpboundContext(upCtx),
-		project.PushWithTransport(c.transport),
-		project.PushWithAuthKeychain(c.keychain),
-		project.PushWithMaxConcurrency(c.concurrency),
-	)
-
 	var generatedTag name.Tag
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
@@ -275,7 +282,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		}
 
 		var err error
-		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
+		generatedTag, err = c.pusher.Push(ctx, c.proj, imgMap, opts...)
 		return err
 	})
 	if err != nil {
@@ -290,12 +297,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	}
 
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
+		return c.installConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
 	}); err != nil {
 		return err
 	}
 
-	pterm.Println(devCtp.Info())
+	printer.Println(devCtp.Info())
 
 	if !c.UseCurrentContext && !c.NoUpdateKubeconfig {
 		ctpKubeconfig, err := devCtp.Kubeconfig().RawConfig()

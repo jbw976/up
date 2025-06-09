@@ -1,0 +1,14 @@
+
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: Project
+metadata:
+  name: configuration-getting-started
+spec:
+  repository: xpkg.upbound.io/acmeco/configuration-getting-started
+  dependsOn:
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-nop
+      version: ">=v0.2.1"
+    - function: xpkg.upbound.io/crossplane-contrib/function-kcl
+      version: "v0.8.0"
+    - function: xpkg.upbound.io/crossplane-contrib/function-auto-ready
+      version: ">=v0.2.1"
