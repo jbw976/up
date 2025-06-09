@@ -14,7 +14,6 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.23'
   GOLANGCI_VERSION: 'v1.64.8'
   DOCKER_BUILDX_VERSION: 'v0.17.1'
   REGISTRY_ORGS: xpkg.upbound.io/upbound
@@ -25,9 +24,6 @@ env:
   DOCKER_USR: ${{ secrets.DOCKER_USR }}
   AWS_USR: ${{ secrets.AWS_USR }}
   XPKG_ACCESS_ID: ${{ secrets.XPKG_ACCESS_ID }}
-  # NOTE(epk) this identifier is used to easily bust a pre-existing go
-  # mod/build cache. To do so simply increment this number.
-  GO_CACHE_BUSTER: 0
 
 jobs:
   detect-noop:
@@ -72,12 +68,30 @@ jobs:
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
 
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
+          cache: false
 
-      - name: Vendor Dependencies
-        run: make vendor vendor.check
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
+      - name: Restore Go cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
 
       # We could run 'make lint' to ensure our desired Go version, but we prefer
       # this action because it leaves 'annotations' (i.e. it comments on PRs to
@@ -106,12 +120,30 @@ jobs:
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
 
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
 
-      - name: Vendor Dependencies
-        run: make vendor vendor.check
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
+      - name: Restore Go cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
 
       - name: Check Diff
         run: make check-diff
@@ -136,23 +168,34 @@ jobs:
         run: git fetch --prune --unshallow
 
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
+          cache: false
 
-      - name: Vendor Dependencies
-        run: make vendor vendor.check
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
+      - name: Restore Go cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
 
       - name: Run Unit Tests
         run: |
           GO_TAGS="integration" make -j2 test
-
-      - name: Publish Unit Test Coverage
-        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5
-        with:
-          flags: unittests
-          file: _output/tests/linux_amd64/coverage.txt
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   publish-artifacts:
     runs-on: ubuntu-24.04
@@ -191,12 +234,31 @@ jobs:
         run: git fetch --prune --unshallow
 
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
+          cache: false
 
-      - name: Vendor Dependencies
-        run: make vendor vendor.check
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
+      - name: Restore Go cache
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
 
       - name: Build Artifacts
         run: make -j2 build.all
@@ -205,6 +267,15 @@ jobs:
           # builds by default. Specifying --load does so.
           BUILD_ARGS: "--load"
           RELEASE_TARGET: "release"
+
+      - name: Save Go cache
+        uses: actions/cache/save@v4
+        if: steps.restore-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
 
       - name: Publish Artifacts to GitHub
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
