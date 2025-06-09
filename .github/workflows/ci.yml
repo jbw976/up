@@ -248,6 +248,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
+        id: restore-cache
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -269,6 +270,7 @@ jobs:
 
       - name: Save Go cache
         uses: actions/cache/save@v4
+        if: steps.restore-cache.outputs.cache-hit != 'true'
         with:
           path: |
             ~/go/pkg/mod
