@@ -78,6 +78,9 @@ jobs:
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         uses: actions/cache/restore@v4
         with:
@@ -127,6 +130,9 @@ jobs:
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         uses: actions/cache/restore@v4
         with:
@@ -172,6 +178,9 @@ jobs:
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         uses: actions/cache/restore@v4
         with:
@@ -187,14 +196,6 @@ jobs:
       - name: Run Unit Tests
         run: |
           GO_TAGS="integration" make -j2 test
-
-      - name: Save Go cache
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
 
       - name: Publish Unit Test Coverage
         uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5
@@ -250,6 +251,9 @@ jobs:
         shell: bash
         run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      # NOTE: We restore the cache in all jobs that use Go, but save the cache
+      # only from publish-artifacts. This is because publish-artifacts is the
+      # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         uses: actions/cache/restore@v4
         with:
