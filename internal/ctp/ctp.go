@@ -36,6 +36,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -431,12 +432,27 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 		return nil
 	}
 
+	var username string
+	switch upCtx.Profile.TokenType {
+	case profile.TokenTypeUser:
+		username = "_token"
+
+	case profile.TokenTypeRobot:
+		username = upCtx.Profile.ID
+
+	case profile.TokenTypePAT:
+		// Marketplace accepts only robot tokens and user session tokens, not
+		// PATs, so we can't provision a pull secret if the user is
+		// authenticated with a PAT.
+		return nil
+	}
+
 	const secretName = "up-pull-secret"
-	authStr := base64.StdEncoding.EncodeToString([]byte("_token:" + upCtx.Profile.Session))
+	authStr := base64.StdEncoding.EncodeToString([]byte(username + ":" + upCtx.Profile.Session))
 	auth := &create.DockerConfigJSON{
 		Auths: map[string]create.DockerConfigEntry{
 			upCtx.RegistryEndpoint.Host: {
-				Username: "_token",
+				Username: username,
 				Password: upCtx.Profile.Session,
 				Auth:     authStr,
 			},
