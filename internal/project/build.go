@@ -31,13 +31,9 @@ import (
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/mutators"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
-	"github.com/upbound/up/internal/xpkg/parser/schema"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
-	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -137,7 +133,7 @@ type realBuilder struct {
 }
 
 // Build implements the Builder interface.
-func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocognit // this is the builder
+func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) {
 	os := &buildOptions{}
 	for _, opt := range opts {
 		opt(os)
@@ -188,122 +184,17 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		apiExcludes = []string{}
 	}
 
-	// In parallel:
-	// * Collect APIs (composites).
-	// * Generate schemas for APIs.
-	eg, egCtx := errgroup.WithContext(ctx)
-
 	// Collect APIs (composites).
-	var packageFS afero.Fs
-	eg.Go(func() error {
-		pfs, err := collectComposites(apisSource, apiExcludes)
-		packageFS = pfs
-		return err
-	})
-
-	var (
-		mut   []xpkg.Mutator
-		mutMu sync.Mutex
-	)
-	statusStage = "Generating language schemas"
+	statusStage = "Collecting composites"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	// Generate KCL Schemas
-	eg.Go(func() error {
-		kfs, err := schemagenerator.GenerateSchemaKcl(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if kfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(kfs, "", xpkg.StreamFileMode), xpkg.SchemaKclAnnotation))
-			mutMu.Unlock()
-
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("kcl", kfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate Python Schemas
-	eg.Go(func() error {
-		pfs, err := schemagenerator.GenerateSchemaPython(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if pfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(pfs, "", xpkg.StreamFileMode), xpkg.SchemaPythonAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("python", pfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate Go Schemas
-	eg.Go(func() error {
-		gofs, err := schemagenerator.GenerateSchemaGo(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if gofs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(gofs, "", xpkg.StreamFileMode), xpkg.SchemaGoAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("go", gofs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate JSON Schemas for go-templating
-	eg.Go(func() error {
-		jsonfs, err := schemagenerator.GenerateSchemaJSON(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if jsonfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(jsonfs, "", xpkg.StreamFileMode), xpkg.SchemaJSONAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("json", jsonfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate meta apis Schemas
-	eg.Go(func() error {
-		if os.depManager != nil {
-			if err := apis.GenerateSchema(ctx, os.depManager, b.schemaRunner); err != nil {
-				return errors.Wrap(err, "unable to generate meta api schemas")
-			}
-		}
-		return nil
-	})
-
-	err := eg.Wait()
+	packageFS, err := collectComposites(apisSource, apiExcludes)
 	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
 	}
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
+
+	// TODO(adamwg): Reintroduce schema generation once it's been reworked.
 
 	// Find and build embedded functions. This has to come after schema
 	// generation because functions may depend on the generated schemas.
@@ -353,7 +244,6 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
-		mut...,
 	)
 
 	img, _, err := builder.Build(ctx)

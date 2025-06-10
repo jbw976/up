@@ -105,7 +105,6 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	)
 
 	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithResolver(r),
 		manager.WithSkipCacheUpdateIfExists(true),

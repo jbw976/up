@@ -47,19 +47,6 @@ const (
 	// ExamplesAnnotation is the annotation value used for the examples.yaml
 	// layer.
 	ExamplesAnnotation string = "upbound"
-	// SchemaKclAnnotation is the annotation value used for the kcl schema
-	// layer.
-	SchemaKclAnnotation string = "schema.kcl"
-	// SchemaKclModFile is the name of the kcl mod file in a Crossplane package image
-	// that contains the kcl mod.
-	SchemaKclModFile string = "models/kcl.mod"
-	// SchemaPythonAnnotation is the annotation value used for the python schema
-	// layer.
-	SchemaPythonAnnotation string = "schema.python"
-	// SchemaGoAnnotation is the annotation value used for the go schema layer.
-	SchemaGoAnnotation string = "schema.go"
-	// SchemaJSONAnnotation is the annotation value used for the json schema layer.
-	SchemaJSONAnnotation string = "schema.json"
 	// HelmChartAnnotation is the annotation value used for the helm chart layer.
 	HelmChartAnnotation = "helm"
 )

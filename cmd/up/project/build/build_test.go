@@ -73,10 +73,8 @@ func TestBuild(t *testing.T) {
 			// 8 APIs = 8 XRDs + 8 compositions.
 			expectedObjectCount: 16,
 			expectedAnnotatedLayers: map[string]bool{
-				xpkg.SchemaKclAnnotation:    true,
-				xpkg.SchemaPythonAnnotation: true,
-				xpkg.PackageAnnotation:      true,
-				xpkg.ExamplesAnnotation:     true,
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: true,
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -138,10 +136,8 @@ func TestBuild(t *testing.T) {
 			// 3 APIs = 3 XRDs + 3 compositions.
 			expectedObjectCount: 6,
 			expectedAnnotatedLayers: map[string]bool{
-				xpkg.SchemaKclAnnotation:    true,
-				xpkg.SchemaPythonAnnotation: true,
-				xpkg.PackageAnnotation:      true,
-				xpkg.ExamplesAnnotation:     false, // no-examples expected
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: false, // no-examples expected
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -237,10 +233,8 @@ func TestBuild(t *testing.T) {
 					assert.NilError(t, err)
 
 					foundLayers := map[string]bool{
-						xpkg.SchemaKclAnnotation:    false,
-						xpkg.SchemaPythonAnnotation: false,
-						xpkg.PackageAnnotation:      false,
-						xpkg.ExamplesAnnotation:     false,
+						xpkg.PackageAnnotation:  false,
+						xpkg.ExamplesAnnotation: false,
 					}
 
 					// Iterate over manifest layers to find annotations

@@ -76,7 +76,6 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	)
 
 	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cch),
 		manager.WithResolver(r),
 	)

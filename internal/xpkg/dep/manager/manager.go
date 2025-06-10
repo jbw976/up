@@ -7,7 +7,6 @@ package manager
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,14 +16,12 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
-	"github.com/upbound/up/internal/filesystem"
 	ixpkg "github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	xpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
@@ -50,7 +47,6 @@ type Manager struct {
 	watchInterval *time.Duration
 
 	acc                     []*xpkg.ParsedPackage
-	cacheModels             *afero.Fs
 	skipCacheUpdateIfExists bool
 }
 
@@ -132,13 +128,6 @@ type Option func(*Manager)
 func WithCache(c Cache) Option {
 	return func(m *Manager) {
 		m.c = c
-	}
-}
-
-// WithCacheModels sets the base path for cacheModels in the Manager.
-func WithCacheModels(fs afero.Fs) Option {
-	return func(m *Manager) {
-		m.cacheModels = &fs
 	}
 }
 
@@ -248,75 +237,12 @@ func (m *Manager) AddAll(ctx context.Context, d v1beta1.Dependency) (v1beta1.Dep
 		return ud, m.acc, err
 	}
 
-	// add all models to models locations
-	if m.cacheModels != nil {
-		for _, pp := range m.acc {
-			for language, schemaFS := range pp.Schema {
-				if err := m.AddModels(language, schemaFS); err != nil {
-					return ud, m.acc, err
-				}
-			}
-		}
-	}
-
 	t := e.Type()
 	ud.Type = &t
 	ud.Package = d.Package
 	ud.Constraints = e.Version()
 
 	return ud, m.acc, nil
-}
-
-// AddModels adds models for a given language to the manager's cache.
-func (m *Manager) AddModels(language string, fromFS afero.Fs) error {
-	if m.cacheModels == nil {
-		return nil
-	}
-
-	// Create a new BasePathFs rooted at the new language folder
-	langFs := afero.NewBasePathFs(*m.cacheModels, language)
-
-	// Copy files from schemaFS to the language folder in cacheModels
-	if err := filesystem.CopyFilesBetweenFs(fromFS, langFs); err != nil {
-		return err
-	}
-
-	// Carry out any language-specific work for the models.
-	return m.processModelsForLanguage(language, langFs)
-}
-
-// processModelsForLanguage does any language-specific work after adding models
-// to the manager's model cache.
-func (m *Manager) processModelsForLanguage(language string, langFs afero.Fs) error {
-	switch language {
-	case "json":
-		// For JSON, create and write the index schema, an anyOf of all the
-		// specific schemas we've collected from any source.
-		schemas, err := afero.Glob(langFs, "models/*.schema.json")
-		if err != nil {
-			return err
-		}
-
-		metaFile := filepath.Join("models", "index.schema.json")
-		var metaSchema jsonschema.Schema
-		for _, schema := range schemas {
-			if schema == metaFile {
-				continue
-			}
-			metaSchema.AnyOf = append(metaSchema.AnyOf, &jsonschema.Schema{
-				Ref: filepath.Base(schema),
-			})
-		}
-		bs, err := json.Marshal(metaSchema)
-		if err != nil {
-			return err
-		}
-
-		return afero.WriteFile(langFs, metaFile, bs, 0o644)
-
-	default:
-		return nil
-	}
 }
 
 func (m *Manager) retrieveAllDeps(ctx context.Context, p *xpkg.ParsedPackage) error {

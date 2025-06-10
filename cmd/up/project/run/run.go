@@ -148,7 +148,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	)
 
 	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
 		manager.WithCache(cache),
 		manager.WithSkipCacheUpdateIfExists(true),
 		manager.WithResolver(r),
