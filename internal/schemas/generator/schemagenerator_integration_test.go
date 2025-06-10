@@ -4,7 +4,7 @@
 //go:build integration
 // +build integration
 
-package schemagenerator
+package generator
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 
 	_ "embed"
 )
@@ -35,7 +35,7 @@ func TestSchemas(t *testing.T) {
 	// Define the arguments for the test case
 	type args struct {
 		fs  withFsFn
-		gen func(context.Context, afero.Fs, []string, schemarunner.SchemaRunner) (afero.Fs, error)
+		gen func(context.Context, afero.Fs, []string, runner.SchemaRunner) (afero.Fs, error)
 	}
 
 	// Define the expected output (want)
@@ -108,7 +108,7 @@ func TestSchemas(t *testing.T) {
 			// Initialize the in-memory file system from the test case
 			fromFS := tc.args.fs()
 
-			schemaFS, err := tc.args.gen(context.Background(), fromFS, nil, schemarunner.NewRealSchemaRunner())
+			schemaFS, err := tc.args.gen(context.Background(), fromFS, nil, runner.NewRealSchemaRunner())
 			assert.NilError(t, err)
 
 			for _, file := range tc.want.requiredFiles {

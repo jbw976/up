@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package schemagenerator
+package generator
 
 import (
 	"context"

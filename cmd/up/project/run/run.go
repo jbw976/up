@@ -33,13 +33,13 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -71,7 +71,7 @@ type Cmd struct {
 	projFS             afero.Fs
 	modelsFS           afero.Fs
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
+	schemaRunner       runner.SchemaRunner
 	transport          http.RoundTripper
 	m                  *manager.Manager
 	keychain           authn.Keychain
@@ -119,8 +119,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.proj = prj
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
+	c.schemaRunner = runner.NewRealSchemaRunner(
+		runner.WithImageConfig(prj.Spec.ImageConfig),
 	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()

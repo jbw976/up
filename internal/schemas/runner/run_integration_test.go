@@ -4,7 +4,7 @@
 //go:build integration
 // +build integration
 
-package schemarunner
+package runner
 
 import (
 	"context"

@@ -1,8 +1,8 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package schemarunner contains functions for handling containers for schema generation
-package schemarunner
+// Package runner contains functions for handling containers for schema generation
+package runner
 
 import (
 	"archive/tar"
@@ -34,7 +34,7 @@ type SchemaRunner interface {
 	Generate(ctx context.Context, fs afero.Fs, folder string, basePath string, imageName string, args []string, options ...Option) error
 }
 
-// RealSchemaRunner implements the SchemaRunner interface and calls schemarunner.Generate.
+// RealSchemaRunner implements the SchemaRunner interface and calls runner.Generate.
 type RealSchemaRunner struct {
 	imageConfigs []projectv1alpha1.ImageConfig
 }

@@ -17,11 +17,11 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 )
 
 var (
@@ -143,7 +143,7 @@ func (w *TestWriter) Write(b []byte) (int, error) {
 
 type MockSchemaRunner struct{}
 
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...schemarunner.Option) error {
+func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...runner.Option) error {
 	// Simulate generation for KCL schema files
 	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any
 		// Create the main KCL schema file

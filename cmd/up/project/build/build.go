@@ -24,13 +24,13 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -50,7 +50,7 @@ type Cmd struct {
 	projFS   afero.Fs
 
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
+	schemaRunner       runner.SchemaRunner
 	concurrency        uint
 
 	m *manager.Manager
@@ -123,8 +123,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.m = m
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
+	c.schemaRunner = runner.NewRealSchemaRunner(
+		runner.WithImageConfig(prj.Spec.ImageConfig),
 	)
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48

@@ -36,11 +36,11 @@ import (
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -79,7 +79,7 @@ type FunctionOptions struct {
 	BuildCacheDir      string
 	ImageResolver      manager.ImageResolver
 	FunctionIdentifier functions.Identifier
-	SchemaRunner       schemarunner.SchemaRunner
+	SchemaRunner       runner.SchemaRunner
 	DependecyManager   *manager.Manager
 	EventChannel       async.EventChannel
 }

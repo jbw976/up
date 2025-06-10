@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package schemagenerator
+package generator
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/crd"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 )
 
 // goModContents is the contents of the go.mod we write for our generated models
@@ -63,7 +63,7 @@ var _ *time.Time = nil
 `
 
 // GenerateSchemaGo generates Go schemas for the CRDs in the given filesystem.
-func GenerateSchemaGo(_ context.Context, fromFS afero.Fs, exclude []string, _ schemarunner.SchemaRunner) (afero.Fs, error) {
+func GenerateSchemaGo(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
 	if err != nil {
 		return nil, err

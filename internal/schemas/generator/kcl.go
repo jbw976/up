@@ -1,8 +1,9 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package schemagenerator generates schemas for languages
-package schemagenerator
+// Package generator generates language-specific schemas for Crossplane and
+// Kubernetes resources.
+package generator
 
 import (
 	"context"
@@ -22,7 +23,7 @@ import (
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 )
 
 // GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
+func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"

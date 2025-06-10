@@ -24,11 +24,11 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -79,7 +79,7 @@ type generateCmd struct {
 	proj     *projectv1alpha1.Project
 	relFile  string
 
-	schemaRunner schemarunner.SchemaRunner
+	schemaRunner runner.SchemaRunner
 	m            *manager.Manager
 }
 
@@ -162,8 +162,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 
 	c.m = m
 
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	c.schemaRunner = runner.NewRealSchemaRunner(
+		runner.WithImageConfig(proj.Spec.ImageConfig),
 	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))

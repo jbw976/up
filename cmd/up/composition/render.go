@@ -21,13 +21,13 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -94,7 +94,7 @@ type renderCmd struct {
 	proj   *projectv1alpha1.Project
 
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
+	schemaRunner       runner.SchemaRunner
 	concurrency        uint
 
 	compositionRel         string
@@ -192,8 +192,8 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.r = r
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	c.schemaRunner = runner.NewRealSchemaRunner(
+		runner.WithImageConfig(proj.Spec.ImageConfig),
 	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))

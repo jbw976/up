@@ -51,6 +51,7 @@ import (
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -58,7 +59,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
@@ -90,7 +90,7 @@ type runCmd struct {
 	testFS             afero.Fs
 	modelsFS           afero.Fs
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
+	schemaRunner       runner.SchemaRunner
 	transport          http.RoundTripper
 	m                  *manager.Manager
 	r                  manager.ImageResolver
@@ -156,8 +156,8 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	)
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
+	c.schemaRunner = runner.NewRealSchemaRunner(
+		runner.WithImageConfig(proj.Spec.ImageConfig),
 	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()

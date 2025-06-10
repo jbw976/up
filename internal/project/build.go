@@ -27,13 +27,13 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -68,7 +68,7 @@ func BuildWithFunctionIdentifier(i functions.Identifier) BuilderOption {
 
 // BuildWithSchemaRunner sets the runner that will be used to run containers
 // used for schema generation.
-func BuildWithSchemaRunner(r schemarunner.SchemaRunner) BuilderOption {
+func BuildWithSchemaRunner(r runner.SchemaRunner) BuilderOption {
 	return func(b *realBuilder) {
 		b.schemaRunner = r
 	}
@@ -128,7 +128,7 @@ func BuildWithProjectBasePath(path string) BuildOption {
 
 type realBuilder struct {
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
+	schemaRunner       runner.SchemaRunner
 	maxConcurrency     uint
 }
 
@@ -584,7 +584,7 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 func NewBuilder(opts ...BuilderOption) Builder {
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
-		schemaRunner:       schemarunner.RealSchemaRunner{},
+		schemaRunner:       runner.RealSchemaRunner{},
 		maxConcurrency:     8,
 	}
 

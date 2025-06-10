@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package schemagenerator
+package generator
 
 import (
 	"context"
@@ -15,13 +15,13 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 )
 
 // GenerateSchemaJSON generates jsonschemas for the CRDs in the given
 // filesystem. These can be used by editors when writing YAML, for example as
 // part of Go templates.
-func GenerateSchemaJSON(_ context.Context, fromFS afero.Fs, exclude []string, _ schemarunner.SchemaRunner) (afero.Fs, error) {
+func GenerateSchemaJSON(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
 	if err != nil {
 		return nil, err

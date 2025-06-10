@@ -30,6 +30,7 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
@@ -38,7 +39,6 @@ import (
 	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 )
 
 var (
@@ -374,7 +374,7 @@ func TestBuild(t *testing.T) {
 
 type MockSchemaRunner struct{}
 
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...schemarunner.Option) error {
+func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...runner.Option) error {
 	// Simulate generation for KCL schema files
 	// Simulate generation for KCL schema files
 	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any

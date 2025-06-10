@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package schemagenerator
+package generator
 
 import (
 	"bufio"
@@ -22,7 +22,7 @@ import (
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 )
 
 // GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator schemarunner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
+func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
