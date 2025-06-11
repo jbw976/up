@@ -18,10 +18,16 @@ import (
 	"github.com/upbound/up/internal/schemas/runner"
 )
 
-// GenerateSchemaJSON generates jsonschemas for the CRDs in the given
-// filesystem. These can be used by editors when writing YAML, for example as
-// part of Go templates.
-func GenerateSchemaJSON(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
+type jsonGenerator struct{}
+
+func (jsonGenerator) Language() string {
+	return "json"
+}
+
+// Generate generates jsonschemas for the CRDs in the given filesystem. These
+// can be used by editors when writing YAML, for example as part of Go
+// templates.
+func (jsonGenerator) Generate(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
 	if err != nil {
 		return nil, err

@@ -62,8 +62,14 @@ import (
 var _ *time.Time = nil
 `
 
-// GenerateSchemaGo generates Go schemas for the CRDs in the given filesystem.
-func GenerateSchemaGo(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
+type goGenerator struct{}
+
+func (goGenerator) Language() string {
+	return "go"
+}
+
+// Generate generates Go schemas for the CRDs in the given filesystem.
+func (goGenerator) Generate(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
 	if err != nil {
 		return nil, err

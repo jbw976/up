@@ -33,8 +33,14 @@ const (
 	kclImage                = "xpkg.upbound.io/upbound/kcl:v0.10.6"
 )
 
-// GenerateSchemaKcl generates KCL schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaKcl(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
+type kclGenerator struct{}
+
+func (kclGenerator) Language() string {
+	return "kcl"
+}
+
+// Generate generates KCL schema files from the XRDs and CRDs fromFS.
+func (kclGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"

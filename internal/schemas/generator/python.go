@@ -32,8 +32,14 @@ const (
 	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.26.1"
 )
 
-// GenerateSchemaPython generates Python schema files from the XRDs and CRDs fromFS.
-func GenerateSchemaPython(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
+type pythonGenerator struct{}
+
+func (pythonGenerator) Language() string {
+	return "python"
+}
+
+// Generate generates Python schema files from the XRDs and CRDs fromFS.
+func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"

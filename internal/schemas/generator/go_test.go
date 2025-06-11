@@ -21,7 +21,7 @@ var testdataFS embed.FS
 
 func TestGenerateGo(t *testing.T) {
 	inputFS := afero.NewBasePathFs(afero.FromIOFS{FS: testdataFS}, "testdata")
-	schemaFS, err := GenerateSchemaGo(context.Background(), inputFS, nil, nil)
+	schemaFS, err := goGenerator{}.Generate(context.Background(), inputFS, nil, nil)
 	assert.NilError(t, err)
 
 	expectedFiles := []string{

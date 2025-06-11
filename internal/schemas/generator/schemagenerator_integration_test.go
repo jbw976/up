@@ -35,7 +35,7 @@ func TestSchemas(t *testing.T) {
 	// Define the arguments for the test case
 	type args struct {
 		fs  withFsFn
-		gen func(context.Context, afero.Fs, []string, runner.SchemaRunner) (afero.Fs, error)
+		gen Interface
 	}
 
 	// Define the expected output (want)
@@ -62,7 +62,7 @@ func TestSchemas(t *testing.T) {
 					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
-				gen: GenerateSchemaKcl,
+				gen: kclGenerator{},
 			},
 			want: want{
 				err: nil,
@@ -87,7 +87,7 @@ func TestSchemas(t *testing.T) {
 					_ = afero.WriteFile(fs, "ws/apis/definition.yaml", testSchemaXrd, os.ModePerm)
 					return fs
 				},
-				gen: GenerateSchemaPython,
+				gen: pythonGenerator{},
 			},
 			want: want{
 				err: nil,
@@ -108,7 +108,7 @@ func TestSchemas(t *testing.T) {
 			// Initialize the in-memory file system from the test case
 			fromFS := tc.args.fs()
 
-			schemaFS, err := tc.args.gen(context.Background(), fromFS, nil, runner.NewRealSchemaRunner())
+			schemaFS, err := tc.args.gen.Generate(context.Background(), fromFS, nil, runner.NewRealSchemaRunner())
 			assert.NilError(t, err)
 
 			for _, file := range tc.want.requiredFiles {
