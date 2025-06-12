@@ -82,7 +82,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -134,7 +134,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -182,7 +182,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -249,7 +249,7 @@ jobs:
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         id: restore-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -269,7 +269,7 @@ jobs:
           RELEASE_TARGET: "release"
 
       - name: Save Go cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         if: steps.restore-cache.outputs.cache-hit != 'true'
         with:
           path: |
