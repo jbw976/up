@@ -1,0 +1,12 @@
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: Project
+metadata:
+  name: unit-test-example
+spec:
+  dependsOn: []
+  description: A template for unit testing project examples
+  license: Apache-2.0
+  maintainer: Upbound User <user@example.com>
+  readme: ""
+  repository: xpkg.upbound.io/upbound/unit-test-example
+  source: github.com/upbound/unit-test-example

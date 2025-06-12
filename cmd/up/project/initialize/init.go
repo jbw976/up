@@ -1,0 +1,309 @@
+// Copyright 2025 Upbound Inc.
+// All rights reserved
+
+// Package initialize provides commands for initializing new development projects.
+package initialize
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/alecthomas/kong"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/pterm/pterm"
+	"github.com/spf13/afero"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/cmd/up/project/initialize/wizard"
+	"github.com/upbound/up/cmd/up/project/initialize/wizard/examples"
+	"github.com/upbound/up/cmd/up/runner"
+	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/git"
+	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+)
+
+// Cmd represents the command for initializing a new project. It handles the creation
+// of new projects from templates, examples, or scratch.
+type Cmd struct {
+	Name      string `arg:""                                                                                        help:"The name of the new project to initialize."`
+	Directory string `help:"The directory to initialize. It must be empty. It will be created if it doesn't exist." type:"path"`
+
+	Scratch      bool              `aliases:"empty"                                  default:"false"                                           help:"Create a new project from scratch."`
+	Example      string            `default:""                                       help:"The example to use to initialize the new project."  short:"e"`
+	Values       map[string]string `help:"Values to use for templating the project."`
+	StateFile    string            `default:".up_wizard_state.json"                  help:"Path to wizard state file."`
+	Language     string            `default:""                                       help:"The language to use to initialize the new project." short:"l"`
+	TestLanguage string            `default:""                                       help:"The language to use for tests in the new project."`
+
+	Method   string `default:"https"                                                                                                                                                                  enum:"ssh,https" help:"Specify the method to access the repository: 'https' or 'ssh'."`
+	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
+	Username string `help:"Optional. Specify a username for authentication. Used when the method is 'https' and an SSH key is not provided, or with an SSH key when the method is 'ssh'."`
+	Password string `help:"Optional. Specify a password for authentication. Used with the username when the method is 'https', or with an SSH key that requires a password when the method is 'ssh'."`
+
+	Flags upbound.Flags `embed:""`
+
+	gitAuthProvider git.AuthProvider
+	gitCloner       git.Cloner
+	projFS          afero.Fs
+	projFile        string
+
+	projDirPath string
+	paths       *v1alpha1.ProjectPaths
+	statePath   string
+	runner      runner.CommandRunner
+}
+
+// Help returns the help text for the initialize command, including examples and
+// supported template options.
+func (c *Cmd) Help() string {
+	tpl := `
+This command initializes a new project. By default, it will start a wizard to help you create a new project. You can specify which example to use with the --example flag along with a --language flag. The following --language flags are supported:
+
+%s
+
+Examples:
+
+  # Initialize a new project using a specific example:
+  up project init --example="project-example-aws" --language="go" my-new-project
+
+  # Initialize a new project using a specific example and use a different language for tests:
+  up project init --example="project-example-aws" --language="go" --test-language="python" my-new-project
+
+  # Initialize a new project using a public example repository at a specific ref:
+  up project init --example="https://github.com/upbound/project-example-aws@main" --language="kcl" my-new-project
+
+  # Initialize a new project from a example using Git token authentication:
+  up project init --example="https://github.com/example/project-example-private.git" --language="kcl" --method=https --username="<username>" --password="<token>" my-new-project
+
+  # Initialize a new project from a example using SSH authentication:
+  up project init --example="git@github.com:upbound/project-example-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa my-new-project
+
+  # Initialize a new project from a private example using SSH authentication with an SSH key password:
+  up project init --example="git@github.com:upbound/project-example-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
+`
+
+	languages := strings.Builder{}
+	for _, lang := range wizard.SupportedLanguages {
+		isTestLanguage := slices.Contains(wizard.SupportedTestLanguages, lang)
+		if isTestLanguage {
+			languages.WriteString(fmt.Sprintf(" - %s (supported for tests)\n", lang))
+		} else {
+			languages.WriteString(fmt.Sprintf(" - %s\n", lang))
+		}
+	}
+
+	return fmt.Sprintf(tpl, languages.String())
+}
+
+// AfterApply performs validation and setup after the command flags have been parsed.
+// It configures authentication, validates inputs, and sets up the project filesystem.
+func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) error {
+	switch c.Method {
+	case "ssh":
+		if len(c.SSHKey) == 0 {
+			return errors.New("SSH key must be specified when using SSH method")
+		}
+		c.gitAuthProvider = &git.SSHAuthProvider{
+			Username:       c.Username,
+			PrivateKeyPath: c.SSHKey,
+			Passphrase:     c.Password, // Assuming password is used as passphrase
+		}
+
+	case "https":
+		if len(c.SSHKey) > 0 {
+			return errors.New("cannot specify SSH key when using HTTPS method")
+		}
+		c.gitAuthProvider = &git.HTTPSAuthProvider{
+			Username: c.Username,
+			Password: c.Password,
+		}
+	}
+
+	if c.Scratch {
+		if c.Example != "" {
+			return errors.New("cannot specify both scratch and example")
+		}
+
+		c.Example = string(wizard.ExampleProjectBlank)
+		c.Language = string(wizard.FunctionLanguageKCL)
+		c.TestLanguage = string(wizard.FunctionLanguageKCL)
+	} else if c.Example != "" && c.Language == "" {
+		return errors.New("language must be specified when using an example")
+	}
+
+	// Validate and set test language
+	if c.Language != "" && c.TestLanguage == "" {
+		// If no test language specified, use the main language if it's supported for tests
+		if !slices.Contains(wizard.SupportedTestLanguages, c.Language) {
+			return errors.New("the --language you specified is not supported for tests. Please supply a supported language for tests using the --test-language flag. Supported languages for tests are: " + strings.Join(wizard.SupportedTestLanguages, ", "))
+		}
+		c.TestLanguage = c.Language
+	} else if c.TestLanguage != "" && !slices.Contains(wizard.SupportedTestLanguages, c.TestLanguage) {
+		// Validate explicitly provided test language
+		return errors.New("the --test-language you specified is not supported. Supported languages for tests are: " + strings.Join(wizard.SupportedTestLanguages, ", "))
+	}
+
+	c.gitCloner = &git.DefaultCloner{}
+
+	if c.Directory == "" {
+		c.Directory = c.Name
+	}
+
+	c.projFile = "upbound.yaml"
+	projFilePath, err := filepath.Abs(filepath.Join(c.Directory, c.projFile))
+	if err != nil {
+		return err
+	}
+
+	c.projDirPath = filepath.Dir(projFilePath)
+	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), c.projDirPath)
+
+	defaults := &v1alpha1.Project{}
+	defaults.Default()
+	c.paths = defaults.Spec.Paths
+
+	c.statePath = filepath.Join(c.projDirPath, ".up", c.StateFile)
+	c.runner = cmdRunner
+
+	upCtx, err := upbound.NewFromFlags(c.Flags)
+	if err != nil {
+		return err
+	}
+	upCtx.SetupLogging()
+	kongCtx.Bind(upCtx)
+
+	return nil
+}
+
+// Run executes the project initialization process, handling template cloning,
+// example selection, and project file generation.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error {
+	var wiz *wizardResult
+
+	if !c.Scratch && c.Example == "" {
+		var err error
+		wiz, err = c.runWizard()
+		if err != nil {
+			return err
+		}
+
+		c.Scratch = wiz.state.Example == string(wizard.ExampleProjectBlank)
+		c.Example = wiz.state.Example
+		c.Language = string(wiz.state.FuncLang)
+		c.TestLanguage = string(wiz.state.TestLang)
+	}
+
+	pterm.Info.Printfln("Initializing project from template %q...", c.Example)
+	ref, err := c.initializeExampleProject(p)
+	if err != nil {
+		return err
+	}
+	repoURL := examples.ResolveTemplateURL(c.Example).URL
+
+	// if we got here from the wizard, we need to generate the resources
+	if wiz != nil {
+		err = wiz.wizard.GenerateResources(wiz.state)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := c.moveProject(upCtx); err != nil {
+		return err
+	}
+
+	pterm.Success.Printfln("Successfully initialized project %q in directory %q from %s (%s)",
+		c.Name, filesystem.FullPath(c.projFS, ""), repoURL, ref.Name().Short())
+
+	// if we got here from the wizard, we need to print the next steps
+	if wiz != nil {
+		wiz.wizard.PrintNextSteps(wiz.state)
+	}
+
+	return nil
+}
+
+type wizardResult struct {
+	wizard *wizard.Wizard
+	state  wizard.State
+}
+
+func (c *Cmd) runWizard() (*wizardResult, error) {
+	w := &wizard.Wizard{
+		StatePath:   c.statePath,
+		Runner:      c.runner,
+		Paths:       c.paths,
+		ProjectFile: filepath.Join(c.Directory, c.projFile),
+		ProjectFS:   c.projFS,
+	}
+
+	result := &wizardResult{
+		wizard: w,
+	}
+
+	var err error
+	result.state, err = w.Run()
+
+	return result, err
+}
+
+func (c *Cmd) initializeExampleProject(p pterm.TextPrinter) (*plumbing.Reference, error) {
+	// Resolve template URL
+	templateURL := examples.ResolveTemplateURL(c.Example)
+
+	// Check if target directory is suitable
+	if err := c.checkTargetDirectory(c.Directory); err != nil {
+		return nil, err
+	}
+
+	// Clone and transform the template
+	p.Printfln("Initializing project from template %s for %s...", c.Example, c.Language)
+
+	cloner := examples.NewCloner(templateURL, c.Directory, c.Language, c.TestLanguage, c.Values, c.gitCloner, c.gitAuthProvider, p, c.Flags.Debug > 0)
+	return cloner.CloneAndTransform()
+}
+
+func (c *Cmd) checkTargetDirectory(dir string) error {
+	if _, err := os.Stat(dir); err == nil {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return errors.Wrap(err, "failed to read directory")
+		}
+		// Filter out the .up directory from the entries
+		var nonUpEntries []os.DirEntry
+		for _, entry := range entries {
+			if entry.Name() != ".up" {
+				nonUpEntries = append(nonUpEntries, entry)
+			}
+		}
+		if len(nonUpEntries) > 0 {
+			return errors.New("directory is not empty")
+		}
+	}
+	return nil
+}
+
+func (c *Cmd) moveProject(upCtx *upbound.Context) error {
+	var newRepo string
+	if upCtx != nil && upCtx.Organization != "" {
+		newRepo = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)
+	} else {
+		newRepo = fmt.Sprintf("%s/<organization>/%s", upCtx.RegistryEndpoint.Hostname(), c.Name)
+	}
+
+	if err := project.Update(c.projFS, c.projFile, func(proj *v1alpha1.Project) {
+		proj.ObjectMeta.Name = c.Name
+		proj.Spec.Repository = newRepo
+	}); err != nil {
+		return errors.Wrap(err, "failed to update project repository")
+	}
+
+	return nil
+}

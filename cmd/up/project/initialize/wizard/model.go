@@ -1,0 +1,301 @@
+// Copyright 2025 Upbound Inc.
+// All rights reserved
+
+package wizard
+
+import (
+	"encoding/json"
+	"os"
+
+	"github.com/pterm/pterm"
+)
+
+// FunctionLanguage represents the programming language used for function implementation.
+type FunctionLanguage string
+
+const (
+	// FunctionLanguageKCL represents the KCL programming language.
+	FunctionLanguageKCL FunctionLanguage = "kcl"
+	// FunctionLanguageGo represents the Go programming language.
+	FunctionLanguageGo FunctionLanguage = "go"
+	// FunctionLanguageGoTemplating represents Go template-based functions.
+	FunctionLanguageGoTemplating FunctionLanguage = "go-templating"
+	// FunctionLanguagePython represents the Python programming language.
+	FunctionLanguagePython FunctionLanguage = "python"
+)
+
+// SupportedLanguages contains all supported programming languages for functions.
+var SupportedLanguages = []string{ //nolint:gochecknoglobals // this is a constant
+	string(FunctionLanguageKCL),
+	string(FunctionLanguageGo),
+	string(FunctionLanguageGoTemplating),
+	string(FunctionLanguagePython),
+}
+
+// SupportedLanguagesMap maps the user-friendly language name to the
+// FunctionLanguage, used for the wizard.
+var SupportedLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknoglobals // this is a constant
+	"KCL":          FunctionLanguageKCL,
+	"Go":           FunctionLanguageGo,
+	"Go Templates": FunctionLanguageGoTemplating,
+	"Python":       FunctionLanguagePython,
+}
+
+// SupportedTestLanguages contains languages supported for test implementation.
+var SupportedTestLanguages = []string{ //nolint:gochecknoglobals // this is a constant
+	string(FunctionLanguageKCL),
+	string(FunctionLanguagePython),
+}
+
+// SupportedTestLanguagesMap maps the user-friendly language name to the
+// FunctionLanguage, used for the wizard.
+var SupportedTestLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknoglobals // this is a constant
+	"KCL":    FunctionLanguageKCL,
+	"Python": FunctionLanguagePython,
+}
+
+// ExampleProjectBlank is the URL of the blank project template.
+const ExampleProjectBlank = "https://github.com/upbound/project-example-scratch"
+
+// availableExamples maps example names to their repository URLs.
+var availableExamples = map[string]string{ //nolint:gochecknoglobals // this is a constant
+	"AWS Bucket":         "https://github.com/upbound/project-example-aws",
+	"Start from scratch": ExampleProjectBlank,
+}
+
+const (
+	// StepContinue indicates the wizard should continue to the next step.
+	StepContinue = iota
+	// StepUseExample indicates the wizard is asking about using an example.
+	StepUseExample
+	// StepChooseExampleLanguage indicates the wizard is asking for example language.
+	StepChooseExampleLanguage
+	// StepChooseExampleTestLanguage indicates the wizard is asking for example test language.
+	StepChooseExampleTestLanguage
+	// StepUseXR indicates the wizard is asking about creating an XR or a Claim.
+	StepUseXR
+	// StepKind indicates the wizard is asking for the kind of the resource.
+	StepKind
+	// StepAPIGroup indicates the wizard is asking for API group.
+	StepAPIGroup
+	// StepAPIVersion indicates the wizard is asking for API version.
+	StepAPIVersion
+	// StepGenerateXRD indicates the wizard is asking about XRD generation.
+	StepGenerateXRD
+	// StepGenerateComp indicates the wizard is asking about composition generation.
+	StepGenerateComp
+	// StepGenerateFunction indicates the wizard is asking about function generation.
+	StepGenerateFunction
+	// StepFuncLang indicates the wizard is asking for function language.
+	StepFuncLang
+	// StepGenerateTest indicates the wizard is asking about test generation.
+	StepGenerateTest
+	// StepTestLang indicates the wizard is asking for test language.
+	StepTestLang
+	// StepFinished indicates the wizard has completed all steps.
+	StepFinished
+)
+
+// State stores the progress and inputs of the wizard.
+type State struct {
+	Step              int              `json:"step"`
+	Example           string           `json:"example"`
+	ExampleLanguage   FunctionLanguage `json:"exampleLanguage"`
+	UseXR             bool             `json:"useXr"`
+	Kind              string           `json:"kind"`
+	APIGroup          string           `json:"apiGroup"`
+	APIVersion        string           `json:"apiVersion"`
+	MetadataName      string           `json:"metadataName"`
+	MetadataNamespace string           `json:"metadataNamespace"`
+	GenerateXRD       bool             `json:"generateXrd"`
+	GenerateComp      bool             `json:"generateComp"`
+	GenerateFunction  bool             `json:"generateFunction"`
+	FuncLang          FunctionLanguage `json:"funcLang"`
+	GenerateTest      bool             `json:"generateTest"`
+	TestLang          FunctionLanguage `json:"testLang"`
+}
+
+// defaultState returns a new State with default values.
+func defaultState() State {
+	return State{
+		Step:              StepContinue,
+		UseXR:             false,
+		Kind:              "Example",
+		APIGroup:          "example.upbound.io",
+		APIVersion:        "v1alpha1",
+		MetadataName:      "example",
+		MetadataNamespace: "default",
+		FuncLang:          FunctionLanguageKCL,
+		GenerateXRD:       false,
+		GenerateComp:      false,
+		GenerateFunction:  false,
+		GenerateTest:      false,
+		TestLang:          FunctionLanguageKCL,
+	}
+}
+
+// SaveState saves the wizard state to disk.
+func SaveState(state State, statePath string) error {
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, data, 0o600)
+}
+
+// LoadState loads the wizard state from disk.
+func LoadState(statePath string) (State, error) {
+	var state State
+	data, err := os.ReadFile(statePath) //nolint:gosec // this is a wizard state file
+	if err != nil {
+		return state, err
+	}
+	err = json.Unmarshal(data, &state)
+	return state, err
+}
+
+// deleteState removes the saved wizard state file.
+func deleteState(statePath string) {
+	_ = os.Remove(statePath)
+}
+
+// askUser is the main function that runs the wizard. It handles the user's
+// input and updates the state accordingly.
+func askUser(state *State, statePath string) error { //nolint:gocognit // this is a state machine
+	for state.Step < StepFinished {
+		navigated := false
+
+		var err error
+		switch state.Step {
+		case StepUseExample:
+			options := []string{}
+			for name := range availableExamples {
+				options = append(options, name)
+			}
+			choice, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Would you like to use an existing example?")
+			if err != nil {
+				return err
+			}
+			example := availableExamples[choice]
+			state.Example = example
+			if example == ExampleProjectBlank {
+				state.Step = StepUseXR
+				navigated = true
+			}
+		case StepChooseExampleLanguage:
+			options := []string{}
+			for name := range SupportedLanguagesMap {
+				options = append(options, name)
+			}
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select language used for composition functions")
+			if err != nil {
+				return err
+			}
+			state.ExampleLanguage = SupportedLanguagesMap[result]
+		case StepChooseExampleTestLanguage:
+			options := []string{}
+			for name := range SupportedTestLanguagesMap {
+				options = append(options, name)
+			}
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select language used for tests")
+			if err != nil {
+				return err
+			}
+			state.TestLang = SupportedTestLanguagesMap[result]
+			state.Step = StepFinished
+			navigated = true
+		case StepUseXR:
+			result, err := pterm.DefaultInteractiveSelect.WithOptions([]string{"Claim", "XR"}).Show("Which type of resource do you want to create?")
+			if err != nil {
+				return err
+			}
+			state.UseXR = result == "XR"
+			if state.UseXR {
+				state.Kind = "XExample"
+			}
+		case StepKind:
+			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.Kind).Show("Kind of the resource")
+			if err != nil {
+				return err
+			}
+			state.Kind = val
+		case StepAPIGroup:
+			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.APIGroup).Show("API Group")
+			if err != nil {
+				return err
+			}
+			state.APIGroup = val
+		case StepAPIVersion:
+			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.APIVersion).Show("API Version")
+			if err != nil {
+				return err
+			}
+			state.APIVersion = val
+		case StepGenerateXRD:
+			state.GenerateXRD, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate XRD?")
+			if err != nil {
+				return err
+			}
+			if !state.GenerateXRD {
+				state.Step = StepGenerateTest
+				navigated = true
+			}
+		case StepGenerateComp:
+			state.GenerateComp, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate Composition?")
+			if err != nil {
+				return err
+			}
+			if !state.GenerateComp {
+				state.Step = StepGenerateTest
+				navigated = true
+			}
+		case StepGenerateFunction:
+			state.GenerateFunction, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate Function?")
+			if err != nil {
+				return err
+			}
+			if !state.GenerateFunction {
+				state.Step = StepGenerateTest
+				navigated = true
+			}
+		case StepFuncLang:
+			options := []string{}
+			for name := range SupportedLanguagesMap {
+				options = append(options, name)
+			}
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select composition function language")
+			if err != nil {
+				return err
+			}
+			state.FuncLang = SupportedLanguagesMap[result]
+		case StepGenerateTest:
+			state.GenerateTest, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate test?")
+			if err != nil {
+				return err
+			}
+			if !state.GenerateTest {
+				state.Step = StepFinished
+				navigated = true
+			}
+		case StepTestLang:
+			options := []string{}
+			for name := range SupportedTestLanguagesMap {
+				options = append(options, name)
+			}
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select test language")
+			if err != nil {
+				return err
+			}
+			state.TestLang = SupportedTestLanguagesMap[result]
+		}
+
+		if !navigated {
+			state.Step++
+		}
+
+		if err := SaveState(*state, statePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}

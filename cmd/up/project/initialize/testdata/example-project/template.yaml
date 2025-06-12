@@ -1,0 +1,35 @@
+name: unit-test-example
+description: "A template for unit testing project examples"
+version: 0.1.0
+
+languages:
+- go
+- python
+- rust
+
+# Directory and file renaming patterns
+rename:
+  directories:
+    # Remove language suffix from directories
+    - pattern: "*-go"
+      replacement: "*"
+      languages: ["go"]
+    - pattern: "*-python"
+      replacement: "*"
+      languages: ["python"]
+    - pattern: "*-rust"
+      replacement: "*"
+      languages: ["rust"]
+
+files:
+  # Template files that need variable substitution
+  "README.md":
+    template: true
+    required: true
+  "upbound.yaml":
+    template: true
+    required: true
+
+values:
+  DefaultValue: "default-value" # Won't be overridden by user-provided value
+  OverriddenValue: "bad-value" # Will be overridden by user-provided value

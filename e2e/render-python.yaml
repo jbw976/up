@@ -2,7 +2,7 @@
 apiVersion: platform.example.com/v1alpha1
 kind: XStorageBucket
 metadata:
-  name: example-python
+  name: example
 status:
   conditions:
   - lastTransitionTime: "2024-01-01T00:00:00Z"
@@ -16,15 +16,15 @@ kind: Bucket
 metadata:
   annotations:
     crossplane.io/composition-resource-name: bucket
-  generateName: example-python-
+  generateName: example-
   labels:
-    crossplane.io/composite: example-python
+    crossplane.io/composite: example
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-python
+    name: example
     uid: ""
 spec:
   forProvider:

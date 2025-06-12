@@ -18,4 +18,4 @@ spec:
   readme: |
     This is where you can add a readme for your project.
   repository: xpkg.upbound.io/upbound/e2e-test
-  source: github.com/upbound/project-template
+  source: github.com/upbound/project-example-scratch
