@@ -53,7 +53,7 @@ func (c *completeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPri
 
 	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
 	if err != nil {
-		return errors.Wrap(err, "cannot get spaces kubeconfig")
+		return errors.Wrap(err, "cannot get kubeconfig for space")
 	}
 	spaceClientREST, err := spaceClientConfig.ClientConfig()
 	if err != nil {
