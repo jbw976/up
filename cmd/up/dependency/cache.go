@@ -6,7 +6,6 @@ package dependency
 import (
 	"context"
 	"fmt"
-	"io"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -22,19 +21,15 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
-)
-
-const (
-	errMetaFileNotFound = "metadata file (crossplane.yaml or upbound.yaml) not found in current directory or is malformed"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 // updateCacheCmd updates the cache.
 type updateCacheCmd struct {
-	c        *cache.Local
 	m        *manager.Manager
-	ws       *workspace.Workspace
 	modelsFS afero.Fs
+	projFS   afero.Fs
+	proj     *v1alpha1.Project
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
@@ -54,22 +49,22 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	}
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
-	projFS := afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
+	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
+	c.modelsFS = afero.NewBasePathFs(c.projFS, ".up")
 
-	prj, err := project.Parse(projFS, c.ProjectFile)
+	prj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
 		return errors.New("this is not a project directory")
 	}
+	prj.Default()
+	c.proj = prj
 
 	fs := afero.NewOsFs()
 
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
+	cch, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
 	if err != nil {
 		return err
 	}
-
-	c.c = cache
 
 	r := image.NewResolver(
 		image.WithImageConfig(prj.Spec.ImageConfig),
@@ -82,7 +77,7 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 
 	m, err := manager.New(
 		manager.WithCacheModels(c.modelsFS),
-		manager.WithCache(cache),
+		manager.WithCache(cch),
 		manager.WithResolver(r),
 	)
 	if err != nil {
@@ -91,43 +86,24 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 
 	c.m = m
 
-	ws, err := workspace.New("/",
-		workspace.WithFS(projFS),
-		// The user doesn't care about workspace warnings.
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
-
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 	return nil
 }
 
 func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
-	meta := c.ws.View().Meta()
-	if meta == nil {
-		return errors.New(errMetaFileNotFound)
-	}
-
-	metaDeps, err := meta.DependsOn()
-	if err != nil {
-		return err
-	}
+	metaDeps := c.proj.Spec.DependsOn
 
 	resolvedDeps := make([]v1beta1.Dependency, len(metaDeps))
-	if err = upterm.WrapWithSuccessSpinner(
+	if err := upterm.WrapWithSuccessSpinner(
 		fmt.Sprintf("Updating %d dependencies...", len(metaDeps)),
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			for i, d := range metaDeps {
-				ud, _, err := c.m.AddAll(ctx, d)
+				converted, ok := manager.ConvertToV1beta1(d)
+				if !ok {
+					return errors.New("failed to convert dependency")
+				}
+				ud, _, err := c.m.AddAll(ctx, converted)
 				if err != nil {
 					return err
 				}

@@ -7,7 +7,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -28,8 +27,8 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/pkg/apis"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *generateCmd) Help() string {
@@ -81,9 +80,9 @@ type generateCmd struct {
 	projFS   afero.Fs
 	fsPath   string
 	testName string
+	proj     *v1alpha1.Project
 
 	m            *manager.Manager
-	ws           *workspace.Workspace
 	schemaRunner schemarunner.SchemaRunner
 }
 
@@ -113,7 +112,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
+	c.modelsFS = afero.NewBasePathFs(c.projFS, ".up")
 
 	// The location of the co position defines the root of the function.
 	proj, err := project.Parse(c.projFS, c.ProjectFile)
@@ -121,6 +120,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 	proj.Default()
+	c.proj = proj
 
 	// The tests path is relative to the project directory; prepend it with
 	// `/` to make it an absolute path within the project FS.
@@ -162,20 +162,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 
 	c.m = m
 
-	ws, err := workspace.New("/",
-		workspace.WithFS(c.projFS),
-		// The user doesn't care about workspace warnings during test generate.
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
 	c.schemaRunner = schemarunner.NewRealSchemaRunner(
 		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
 	)
@@ -216,11 +202,15 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
-		deps, _ := c.ws.View().Meta().DependsOn()
+		deps := c.proj.Spec.DependsOn
 
 		// Check all dependencies in the cache.
 		for _, dep := range deps {
-			_, _, err := c.m.AddAll(ctx, dep)
+			converted, ok := manager.ConvertToV1beta1(dep)
+			if !ok {
+				return errors.New("failed to convert dependency")
+			}
+			_, _, err := c.m.AddAll(ctx, converted)
 			if err != nil {
 				return errors.Wrapf(err, "failed to check dependencies for %v", dep)
 			}

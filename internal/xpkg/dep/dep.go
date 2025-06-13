@@ -11,6 +11,8 @@ import (
 	"golang.org/x/text/language"
 	"k8s.io/utils/ptr"
 
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -57,6 +59,34 @@ func New(pkg string) v1beta1.Dependency {
 	return v1beta1.Dependency{
 		Package:     source,
 		Constraints: version,
+	}
+}
+
+// ToMetaDependency returns a metadata dependency for the given dependency.
+func ToMetaDependency(d v1beta1.Dependency) pkgmetav1.Dependency {
+	if d.Type != nil {
+		switch *d.Type {
+		case v1beta1.ConfigurationPackageType:
+			d.APIVersion = ptr.To(pkgv1.ConfigurationGroupVersionKind.GroupVersion().String())
+			d.Kind = &pkgv1.ConfigurationKind
+
+		case v1beta1.ProviderPackageType:
+			d.APIVersion = ptr.To(pkgv1.ProviderGroupVersionKind.GroupVersion().String())
+			d.Kind = &pkgv1.ProviderKind
+
+		case v1beta1.FunctionPackageType:
+			d.APIVersion = ptr.To(pkgv1.FunctionGroupVersionKind.GroupVersion().String())
+			d.Kind = &pkgv1.FunctionKind
+		}
+
+		d.Type = nil
+	}
+
+	return pkgmetav1.Dependency{
+		APIVersion: d.APIVersion,
+		Kind:       d.Kind,
+		Package:    &d.Package,
+		Version:    d.Constraints,
 	}
 }
 

@@ -5,7 +5,6 @@ package dependency
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -23,7 +22,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *addCmd) Help() string {
@@ -51,8 +50,9 @@ Examples:
 // addCmd manages crossplane dependencies.
 type addCmd struct {
 	m        *manager.Manager
-	ws       *workspace.Workspace
 	modelsFS afero.Fs
+	projFS   afero.Fs
+	proj     *v1alpha1.Project
 
 	Package     string `arg:""                 help:"Package to be added."`
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
@@ -76,17 +76,21 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	}
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
-	projFS := afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
+	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
+	c.modelsFS = afero.NewBasePathFs(c.projFS, ".up")
 
-	prj, err := project.Parse(projFS, c.ProjectFile)
+	prj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
 		return errors.New("this is not a project directory")
 	}
+	c.proj = prj
+	// We don't want to call Default() here since we would end up writing out
+	// defaults to the project file. Just make sure spec is non-nil.
+	if c.proj.Spec == nil {
+		c.proj.Spec = &v1alpha1.ProjectSpec{}
+	}
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
+	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(afero.NewOsFs()))
 	if err != nil {
 		return err
 	}
@@ -111,21 +115,6 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	}
 
 	c.m = m
-
-	ws, err := workspace.New("/",
-		workspace.WithFS(projFS),
-		// The user doesn't care about workspace warnings.
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -157,32 +146,36 @@ func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 		return err
 	}
 	pterm.Success.Printfln("%s:%s added to cache", ud.Package, ud.Constraints)
-	meta := c.ws.View().Meta()
 
-	if meta != nil {
-		if err = upterm.WrapWithSuccessSpinner(
-			"Updating project dependencies...",
-			upterm.CheckmarkSuccessSpinner,
-			func() error {
-				// Metadata file exists in the workspace, upsert the new dependency
-				// use the user-specified constraints if provided; otherwise, use latest
-				if d.Constraints != "" {
-					ud.Constraints = d.Constraints
-				}
-				if err := meta.Upsert(ud); err != nil {
-					return err
-				}
+	if err := upterm.WrapWithSuccessSpinner(
+		"Updating project dependencies...",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			metaDep := dep.ToMetaDependency(ud)
+			// Copy the originally specified constraints to the dep if present,
+			// since ud will have the resolved version.
+			//
+			// TODO(adamwg): We should reconsider this. It would be better
+			// practice to pin versions in the project file by default.
+			if d.Constraints != "" {
+				metaDep.Version = d.Constraints
+			}
 
-				if err := c.ws.Write(meta); err != nil {
-					return err
-				}
-				return nil
-			},
-			printer,
-		); err != nil {
-			return err
-		}
+			if err := project.UpsertDependency(c.proj, metaDep); err != nil {
+				return errors.Wrap(err, "failed to add dependency")
+			}
+			if err := project.Update(c.projFS, c.ProjectFile, func(p *v1alpha1.Project) {
+				p.Spec.DependsOn = c.proj.Spec.DependsOn
+			}); err != nil {
+				return errors.Wrap(err, "failed to update project dependencies")
+			}
+			return nil
+		},
+		printer,
+	); err != nil {
+		return err
 	}
+
 	pterm.Success.Printfln("%s:%s added to project dependency", ud.Package, ud.Constraints)
 	return nil
 }

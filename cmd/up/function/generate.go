@@ -36,7 +36,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -90,8 +89,7 @@ type generateCmd struct {
 	fsPath            string
 	proj              *v1alpha1.Project
 
-	m  *manager.Manager
-	ws *workspace.Workspace
+	m *manager.Manager
 
 	quiet config.QuietFlag
 }
@@ -168,21 +166,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 
 	c.m = m
 
-	ws, err := workspace.New("/",
-		workspace.WithFS(c.projFS),
-		// The user doesn't care about workspace warnings during function generate.
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
-
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
 	c.quiet = quiet
@@ -228,11 +211,15 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
-		deps, _ := c.ws.View().Meta().DependsOn()
+		deps := c.proj.Spec.DependsOn
 
 		// Check all dependencies in the cache
 		for _, dep := range deps {
-			_, _, err := c.m.AddAll(ctx, dep)
+			converted, ok := manager.ConvertToV1beta1(dep)
+			if !ok {
+				return errors.New("failed to convert dependency")
+			}
+			_, _, err := c.m.AddAll(ctx, converted)
 			if err != nil {
 				return errors.Wrapf(err, "failed to check dependencies for %v", dep)
 			}
