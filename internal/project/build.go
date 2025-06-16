@@ -6,7 +6,6 @@ package project
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +37,6 @@ import (
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
 	"github.com/upbound/up/internal/xpkg/schemagenerator"
 	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -59,7 +56,7 @@ type Builder interface {
 	// containing images that were built from the project. The returned map will
 	// always include one image with the ConfigurationTag, which is the
 	// configuration package built from the APIs found in the project.
-	Build(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error)
+	Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error)
 }
 
 // BuilderOption configures a builder.
@@ -150,7 +147,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// building.
 	statusStage := "Checking dependencies"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := b.checkDependencies(ctx, projectFS, os.depManager); err != nil {
+	if err := b.checkDependencies(ctx, project, os.depManager); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
 	}
@@ -382,54 +379,34 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	return imgMap, nil
 }
 
-func (b *realBuilder) checkDependencies(ctx context.Context, projectFS afero.Fs, m *manager.Manager) error {
-	ws, err := workspace.New("/",
-		workspace.WithFS(projectFS),
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to create workspace")
-	}
-	if err := ws.Parse(ctx); err != nil {
-		return errors.Wrap(err, "failed to parse workspace")
-	}
-	deps, err := ws.View().Meta().DependsOn()
-	if err != nil {
-		return errors.Wrap(err, "failed to get dependencies")
+func (b *realBuilder) checkDependencies(ctx context.Context, project *v1alpha1.Project, m *manager.Manager) error {
+	deps := project.Spec.DependsOn
+	converted := make([]v1beta1.Dependency, len(deps))
+	for i, dep := range deps {
+		c, ok := manager.ConvertToV1beta1(dep)
+		if !ok {
+			return errors.New("failed to convert dependency")
+		}
+		converted[i] = c
 	}
 
 	sem := make(chan struct{}, b.maxConcurrency)
-	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		cerr error
-	)
+	eg, egCtx := errgroup.WithContext(ctx)
 
-	for _, dep := range deps {
-		wg.Add(1)
-
-		// Capture `dep` as an argument to the goroutine to avoid scoping issues
-		go func(dep v1beta1.Dependency) {
-			defer wg.Done()
-
+	for _, dep := range converted {
+		eg.Go(func() error {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
 			// Check dependency
-			if _, _, err := m.AddAll(ctx, dep); err != nil {
-				mu.Lock()
-				if cerr == nil { // Record only the first error
-					cerr = errors.Wrapf(err, "failed to check dependency %q", dep.Package)
-				}
-				mu.Unlock()
+			if _, _, err := m.AddAll(egCtx, dep); err != nil {
+				return errors.Wrapf(err, "failed to check dependency %q", dep.Package)
 			}
-		}(dep) // Pass `dep` explicitly as a parameter to avoid loop variable issues
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	return cerr
+	return eg.Wait()
 }
 
 // buildFunctions builds the embedded functions found in directories at the top
@@ -714,7 +691,7 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 }
 
 // NewBuilder returns a new project builder.
-func NewBuilder(opts ...BuilderOption) *realBuilder { //nolint:revive // works as intended
+func NewBuilder(opts ...BuilderOption) Builder {
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
 		schemaRunner:       schemarunner.RealSchemaRunner{},

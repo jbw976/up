@@ -27,7 +27,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
 )
 
 var (
@@ -106,11 +105,6 @@ func TestGenerateCmd_Run(t *testing.T) {
 			err = filesystem.CopyFilesBetweenFs(srcFS, projFS)
 			assert.NilError(t, err)
 
-			ws, err := workspace.New("/", workspace.WithFS(outFS), workspace.WithPermissiveParser())
-			assert.NilError(t, err)
-			err = ws.Parse(context.Background())
-			assert.NilError(t, err)
-
 			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
 			assert.NilError(t, err)
 
@@ -126,14 +120,6 @@ func TestGenerateCmd_Run(t *testing.T) {
 				manager.WithCache(cch),
 				manager.WithResolver(r),
 			)
-			assert.NilError(t, err)
-
-			ws, err = workspace.New("/",
-				workspace.WithFS(projFS), // Use the copied projFS here
-				workspace.WithPermissiveParser(),
-			)
-			assert.NilError(t, err)
-			err = ws.Parse(context.Background())
 			assert.NilError(t, err)
 
 			proj, err := project.Parse(projFS, "upbound.yaml")
@@ -156,10 +142,11 @@ func TestGenerateCmd_Run(t *testing.T) {
 				Name:              tc.name,
 				projectRepository: "xpkg.upbound.io/awg/getting-started",
 				m:                 mgr,
-				ws:                ws,
 			}
 
-			err = c.Run(context.Background(), upterm.DefaultObjPrinter)
+			printer := upterm.DefaultObjPrinter
+			printer.Quiet = true
+			err = c.Run(context.Background(), printer)
 
 			if tc.err == nil {
 				assert.NilError(t, err)

@@ -24,7 +24,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
 )
 
 var (
@@ -249,24 +248,15 @@ func TestNewComposition(t *testing.T) {
 			proj, err := project.Parse(projFS, "/upbound.yaml")
 			assert.NilError(t, err)
 
-			// Construct a workspace from the test filesystem.
-			ws, err := workspace.New("/",
-				workspace.WithFS(projFS),
-				workspace.WithPermissiveParser(),
-			)
-			assert.NilError(t, err)
-			err = ws.Parse(context.Background())
-			assert.NilError(t, err)
-
 			generateCmd := generateCmd{
-				Name:     tc.name,
-				Plural:   tc.plural,
-				Resource: "/test.yaml",
-				m:        mgr,
-				ws:       ws,
-				proj:     proj,
-				projFS:   projFS,
-				apisFS:   projFS,
+				Name:        tc.name,
+				Plural:      tc.plural,
+				Resource:    "/test.yaml",
+				ProjectFile: "/upbound.yaml",
+				m:           mgr,
+				proj:        proj,
+				projFS:      projFS,
+				apisFS:      projFS,
 			}
 
 			// Call newComposition and check results

@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 
@@ -23,8 +22,10 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	apiextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
@@ -35,7 +36,6 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	mxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/workspace"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -115,8 +115,7 @@ type generateCmd struct {
 	apisFS afero.Fs
 	proj   *projectv1alpha1.Project
 
-	m  *manager.Manager
-	ws *workspace.Workspace
+	m *manager.Manager
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -178,21 +177,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	c.m = m
-
-	ws, err := workspace.New("/",
-		workspace.WithFS(c.projFS),
-		// The user doesn't care about workspace warnings during composition generate.
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
-		workspace.WithPermissiveParser(),
-	)
-	if err != nil {
-		return err
-	}
-	c.ws = ws
-
-	if err := ws.Parse(ctx); err != nil {
-		return err
-	}
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -282,7 +266,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 }
 
 // newComposition to create a new Composition.
-func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, string, error) { //nolint:gocyclo // construct the composition
+func (c *generateCmd) newComposition(ctx context.Context) (*apiextv1.Composition, string, error) { //nolint:gocyclo // construct the composition
 	group, version, kind, plural, matchLabels, err := c.processResource()
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to load resource")
@@ -301,20 +285,20 @@ func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, stri
 		return nil, "", errors.Wrap(err, "failed create pipelines from project")
 	}
 
-	composition := &v1.Composition{
+	composition := &apiextv1.Composition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.CompositionGroupVersionKind.GroupVersion().String(),
-			Kind:       v1.CompositionGroupVersionKind.Kind,
+			APIVersion: apiextv1.CompositionGroupVersionKind.GroupVersion().String(),
+			Kind:       apiextv1.CompositionGroupVersionKind.Kind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: v1.CompositionSpec{
-			CompositeTypeRef: v1.TypeReference{
+		Spec: apiextv1.CompositionSpec{
+			CompositeTypeRef: apiextv1.TypeReference{
 				APIVersion: fmt.Sprintf("%s/%s", group, version),
 				Kind:       kind,
 			},
-			Mode:     ptr.To(v1.CompositionModePipeline),
+			Mode:     ptr.To(apiextv1.CompositionModePipeline),
 			Pipeline: pipelineSteps,
 		},
 	}
@@ -326,40 +310,43 @@ func (c *generateCmd) newComposition(ctx context.Context) (*v1.Composition, stri
 	return composition, plural, nil
 }
 
-func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.PipelineStep, error) { //nolint:gocognit // ToDo(haarchri): refactor this
+func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]apiextv1.PipelineStep, error) { //nolint:gocognit // ToDo(haarchri): refactor this
 	maxSteps := len(c.proj.Spec.DependsOn)
-	pipelineSteps := make([]v1.PipelineStep, 0, maxSteps)
+	pipelineSteps := make([]apiextv1.PipelineStep, 0, maxSteps)
 	foundAutoReadyFunction := false
 
 	var deps []*mxpkg.ParsedPackage
 	var err error
 
 	for _, dep := range c.proj.Spec.DependsOn {
-		if dep.Function != nil {
-			functionName, err := name.NewRepository(*dep.Function, name.StrictValidation)
+		ref, ok := functionFromDep(dep)
+		if !ok {
+			continue
+		}
+
+		functionName, err := name.NewRepository(ref, name.StrictValidation)
+		if err != nil {
+			return nil, errors.Wrap(err, errInvalidPkgName)
+		}
+
+		// Check if auto-ready-function is available in deps
+		if functionName.String() == functionAutoReadyXpkg {
+			foundAutoReadyFunction = true
+		}
+
+		// Convert the dependency to v1beta1.Dependency
+		convertedDep, ok := manager.ConvertToV1beta1(dep)
+		if !ok {
+			return nil, errors.Errorf("failed to convert dependency in %s", functionName)
+		}
+
+		// Try to resolve the function
+		_, deps, err = c.m.Resolve(ctx, convertedDep)
+		if err != nil {
+			// If resolving fails, try to add function
+			_, deps, err = c.m.AddAll(ctx, convertedDep)
 			if err != nil {
-				return nil, errors.Wrap(err, errInvalidPkgName)
-			}
-
-			// Check if auto-ready-function is available in deps
-			if functionName.String() == functionAutoReadyXpkg {
-				foundAutoReadyFunction = true
-			}
-
-			// Convert the dependency to v1beta1.Dependency
-			convertedDep, ok := manager.ConvertToV1beta1(dep)
-			if !ok {
-				return nil, errors.Errorf("failed to convert dependency in %s", functionName)
-			}
-
-			// Try to resolve the function
-			_, deps, err = c.m.Resolve(ctx, convertedDep)
-			if err != nil {
-				// If resolving fails, try to add function
-				_, deps, err = c.m.AddAll(ctx, convertedDep)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to add dependencies in %s", functionName)
-				}
+				return nil, errors.Wrapf(err, "failed to add dependencies in %s", functionName)
 			}
 		}
 	}
@@ -367,24 +354,20 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 	if !foundAutoReadyFunction {
 		d := dep.New(functionAutoReadyXpkg)
 
-		var ud v1beta1.Dependency
+		var ud pkgv1beta1.Dependency
 		ud, deps, err = c.m.AddAll(ctx, d)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to add auto-ready dependency")
 		}
 
-		meta := c.ws.View().Meta()
-		if meta != nil {
-			if d.Constraints != "" {
-				ud.Constraints = d.Constraints
-			}
-			if err := meta.Upsert(ud); err != nil {
-				return nil, errors.Wrap(err, "failed to add auto-ready dependency")
-			}
-
-			if err := c.ws.Write(meta); err != nil {
-				return nil, errors.Wrap(err, "failed to write auto-ready dependency to project")
-			}
+		metaDep := dep.ToMetaDependency(ud)
+		if err := project.UpsertDependency(c.proj, metaDep); err != nil {
+			return nil, errors.Wrap(err, "failed to add function-auto-ready dependency")
+		}
+		if err := project.Update(c.projFS, c.ProjectFile, func(p *projectv1alpha1.Project) {
+			p.Spec.DependsOn = c.proj.Spec.DependsOn
+		}); err != nil {
+			return nil, errors.Wrap(err, "failed to update project dependencies")
 		}
 	}
 
@@ -410,9 +393,9 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 		}
 
 		// create a PipelineStep for each function
-		step := v1.PipelineStep{
+		step := apiextv1.PipelineStep{
 			Step: xpkg.ToDNSLabel(functionName.RepositoryStr()),
-			FunctionRef: v1.FunctionReference{
+			FunctionRef: apiextv1.FunctionReference{
 				Name: xpkg.ToDNSLabel(functionName.RepositoryStr()),
 			},
 		}
@@ -430,10 +413,22 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]v1.Pipel
 	return reorderPipelineSteps(pipelineSteps), nil
 }
 
+func functionFromDep(dep pkgmetav1.Dependency) (string, bool) {
+	if dep.Function != nil {
+		return *dep.Function, true
+	}
+
+	if ptr.Deref(dep.APIVersion, "") == pkgv1.FunctionGroupVersionKind.GroupVersion().String() && ptr.Deref(dep.Kind, "") == pkgv1.FunctionKind {
+		return ptr.Deref(dep.Package, ""), true
+	}
+
+	return "", false
+}
+
 // reorderPipelineSteps ensures the step with functionref.name == "crossplane-contrib-function-auto-ready" is the last one.
-func reorderPipelineSteps(pipelineSteps []v1.PipelineStep) []v1.PipelineStep {
-	var reorderedSteps []v1.PipelineStep
-	var autoReadyStep *v1.PipelineStep
+func reorderPipelineSteps(pipelineSteps []apiextv1.PipelineStep) []apiextv1.PipelineStep {
+	var reorderedSteps []apiextv1.PipelineStep
+	var autoReadyStep *apiextv1.PipelineStep
 
 	// Iterate through the steps and separate the "crossplane-contrib-function-auto-ready" step
 	for _, step := range pipelineSteps {
@@ -511,7 +506,7 @@ func (c *generateCmd) processResource() (string, string, string, string, map[str
 	// Check if obj is a CompositeResourceDefinition by examining its "kind"
 	if unstructuredObj.GetKind() == "CompositeResourceDefinition" {
 		// Convert unstructured to CompositeResourceDefinition
-		var xrd v1.CompositeResourceDefinition
+		var xrd apiextv1.CompositeResourceDefinition
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, &xrd); err != nil {
 			return "", "", "", "", nil, errors.Wrap(err, "failed to convert unstructured object to CompositeResourceDefinition")
 		}

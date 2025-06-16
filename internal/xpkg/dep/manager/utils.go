@@ -19,6 +19,11 @@ func ConvertToV1beta1(in metav1.Dependency) (v1beta1.Dependency, bool) {
 	}
 
 	switch {
+	case in.APIVersion != nil && in.Kind != nil && in.Package != nil:
+		betaD.APIVersion = in.APIVersion
+		betaD.Kind = in.Kind
+		betaD.Package = *in.Package
+
 	case in.Provider != nil:
 		betaD.Package = *in.Provider
 		betaD.Type = ptr.To(v1beta1.ProviderPackageType)
