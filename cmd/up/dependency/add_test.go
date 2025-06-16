@@ -6,6 +6,7 @@ package dependency
 import (
 	"context"
 	"embed"
+	"net/url"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -18,9 +19,10 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -340,20 +342,19 @@ func (tc *addTestCase) Run(t *testing.T) {
 	err = afero.WriteFile(fs, "upbound.yaml", bs, 0o644)
 	assert.NilError(t, err)
 
-	cch, err := cache.NewLocal("/cache", cache.WithFS(fs))
-	assert.NilError(t, err)
-
 	testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
+	cchFS := afero.NewBasePathFs(fs, "/cache")
 
-	r := image.NewResolver(
-		image.WithFetcher(
-			&image.FSFetcher{FS: testPkgFS},
-		),
-	)
-
-	mgr, err := manager.New(
-		manager.WithCache(cch),
-		manager.WithResolver(r),
+	ep, err := url.Parse("https://donotuse.example.com")
+	assert.NilError(t, err)
+	upCtx := &upbound.Context{
+		Domain:           &url.URL{},
+		RegistryEndpoint: ep,
+	}
+	mgr, err := project.NewDependencyManager(upCtx, inputProj, fs,
+		project.WithCacheFS(cchFS),
+		project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+		project.WithSchemaGenerators(nil),
 	)
 	assert.NilError(t, err)
 
@@ -386,6 +387,8 @@ func (tc *addTestCase) Run(t *testing.T) {
 	assert.DeepEqual(t, tc.expectedDeps, updatedProj.Spec.DependsOn)
 
 	// Verify that the dep was added to the cache.
+	cch, err := cache.NewLocal("/", cache.WithFS(cchFS))
+	assert.NilError(t, err)
 	cchPkg, err := cch.Get(pkgv1beta1.Dependency{
 		Package:     tc.imageTag.RegistryStr() + "/" + tc.imageTag.RepositoryStr(),
 		Type:        &tc.packageType,

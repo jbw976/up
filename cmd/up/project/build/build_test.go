@@ -29,13 +29,12 @@ import (
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -152,36 +151,38 @@ func TestBuild(t *testing.T) {
 			outFS := afero.NewMemMapFs()
 			mockRunner := MockSchemaRunner{}
 
-			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
-			assert.NilError(t, err)
-
 			// Create mock fetcher that holds the images
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
 
-			r := image.NewResolver(
-				image.WithFetcher(
-					&image.FSFetcher{FS: testPkgFS},
-				),
-			)
+			// Create an in-memory overlay so the builder can write to the
+			// project FS (e.g., as part of schema generation).
+			projFS := filesystem.MemOverlay(tc.projFS)
+			prj, err := project.Parse(projFS, "upbound.yaml")
+			assert.NilError(t, err)
+			prj.Default()
 
-			mgr, err := manager.New(
-				manager.WithCache(cch),
-				manager.WithResolver(r),
+			cchFS := afero.NewBasePathFs(outFS, "/cache")
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			mgr, err := project.NewDependencyManager(upCtx, prj, projFS,
+				project.WithCacheFS(cchFS),
+				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+				project.WithSchemaRunner(mockRunner),
 			)
 			assert.NilError(t, err)
-
-			prj, _ := project.Parse(tc.projFS, "upbound.yaml")
-			prj.Default()
 
 			c := &Cmd{
 				ProjectFile:  "upbound.yaml",
 				OutputDir:    "_output",
 				NoBuildCache: true,
 
-				projFS:             tc.projFS,
+				projFS:             projFS,
 				outputFS:           outFS,
 				functionIdentifier: functions.FakeIdentifier,
-				schemaRunner:       mockRunner,
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
 
@@ -190,12 +191,6 @@ func TestBuild(t *testing.T) {
 			}
 
 			// Build the package.
-			ep, err := url.Parse("https://donotuse.example.com")
-			assert.NilError(t, err)
-			upCtx := &upbound.Context{
-				Domain:           &url.URL{},
-				RegistryEndpoint: ep,
-			}
 			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 

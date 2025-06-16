@@ -21,12 +21,8 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -82,8 +78,7 @@ type generateCmd struct {
 	testName string
 	proj     *v1alpha1.Project
 
-	m            *manager.Manager
-	schemaRunner runner.SchemaRunner
+	m *project.DependencyManager
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -134,26 +129,9 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		c.projFS, c.fsPath,
 	)
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -161,16 +139,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 
 	c.m = m
 
-	c.schemaRunner = runner.NewRealSchemaRunner(
-		runner.WithImageConfig(proj.Spec.ImageConfig),
-	)
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
 	return nil
 }
 
 // Run executes the test generation command.
-func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // generate multiple languages
+func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	var (
 		err            error
 		testSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
@@ -201,27 +176,14 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
-		deps := c.proj.Spec.DependsOn
-
-		// Check all dependencies in the cache.
-		for _, dep := range deps {
-			converted, ok := manager.ConvertToV1beta1(dep)
-			if !ok {
-				return errors.New("failed to convert dependency")
-			}
-			_, _, err := c.m.AddAll(ctx, converted)
-			if err != nil {
-				return errors.Wrapf(err, "failed to check dependencies for %v", dep)
-			}
-		}
-		return nil
+		return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 	}, printer)
 	if err != nil {
 		return err
 	}
 
 	// * Generate schemas for meta apis.
-	if err = apis.GenerateSchema(ctx, c.m, c.schemaRunner); err != nil {
+	if err = apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
 		return errors.Wrap(err, "unable to generate meta apis schemas")
 	}
 

@@ -37,13 +37,9 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -69,11 +65,9 @@ type CreateCmd struct {
 	GlobalFlags       upbound.Flags `embed:""`
 
 	projFS             afero.Fs
-	modelsFS           afero.Fs
 	functionIdentifier functions.Identifier
-	schemaRunner       runner.SchemaRunner
 	transport          http.RoundTripper
-	m                  *manager.Manager
+	m                  *project.DependencyManager
 	keychain           authn.Keychain
 	concurrency        uint
 
@@ -106,7 +100,6 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	// Construct a virtual filesystem that contains only the project. We'll do
 	// all our operations inside this virtual FS.
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
 	prj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
@@ -116,30 +109,12 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.proj = prj
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = runner.NewRealSchemaRunner(
-		runner.WithImageConfig(prj.Spec.ImageConfig),
-	)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
-	fs := afero.NewOsFs()
-	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-	r := image.NewResolver(
-		image.WithImageConfig(prj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithSkipCacheUpdateIfExists(true),
-		manager.WithResolver(r),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -218,7 +193,6 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	b := project.NewBuilder(
 		project.BuildWithMaxConcurrency(c.concurrency),
 		project.BuildWithFunctionIdentifier(c.functionIdentifier),
-		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
 
 	var imgMap project.ImageTagMap

@@ -55,7 +55,6 @@ import (
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -88,11 +87,10 @@ type runCmd struct {
 
 	projFS             afero.Fs
 	testFS             afero.Fs
-	modelsFS           afero.Fs
 	functionIdentifier functions.Identifier
 	schemaRunner       runner.SchemaRunner
 	transport          http.RoundTripper
-	m                  *manager.Manager
+	m                  *project.DependencyManager
 	r                  manager.ImageResolver
 	keychain           authn.Keychain
 	concurrency        uint
@@ -140,7 +138,6 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	// Construct a virtual filesystem that contains only the project. We'll do
 	// all our operations inside this virtual FS.
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
 	// parse the project
 	proj, err := project.Parse(c.projFS, c.ProjectFile)
@@ -162,11 +159,6 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
-	fs := afero.NewOsFs()
-	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
-	if err != nil {
-		return err
-	}
 	r := image.NewResolver(
 		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
@@ -176,10 +168,9 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 		),
 	)
 
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithSkipCacheUpdateIfExists(true),
-		manager.WithResolver(r),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -322,19 +313,18 @@ func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
 	total, success, errs := 0, 0, 0
 
-	tempProjFS := afero.NewCopyOnWriteFs(c.projFS, afero.NewMemMapFs())
-
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
-			Project:            c.proj,
-			ProjFS:             tempProjFS,
+			Project: c.proj,
+			// Use the original projFS here so schema generation knows the real
+			// path.
+			ProjFS:             c.projFS,
 			Concurrency:        c.concurrency,
 			NoBuildCache:       c.NoBuildCache,
 			BuildCacheDir:      c.BuildCacheDir,
-			DependecyManager:   c.m,
+			DependencyManager:  c.m,
 			FunctionIdentifier: c.functionIdentifier,
-			SchemaRunner:       c.schemaRunner,
 			EventChannel:       ch,
 		}
 
@@ -350,18 +340,21 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 		return 0, 0, 0, err
 	}
 
+	// Create an overlay filesystem so we can write resources to temporary files
+	// that will be used during render only.
+	overlayFS := filesystem.MemOverlay(c.projFS)
 	var finalErr error
 	for _, test := range tests {
 		total++
 
-		observedResourcesPath, err := writeToFile(tempProjFS, test.Spec.ObservedResources, "observed")
+		observedResourcesPath, err := writeToFile(overlayFS, test.Spec.ObservedResources, "observed")
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 
-		extraResourcesPath, err := writeToFile(tempProjFS, test.Spec.ExtraResources, "extraresources")
+		extraResourcesPath, err := writeToFile(overlayFS, test.Spec.ExtraResources, "extraresources")
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
@@ -370,7 +363,7 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 
 		xrPath := test.Spec.XRPath
 		if len(test.Spec.XR.Raw) > 0 {
-			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XR}, "xr")
+			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XR}, "xr")
 			if err != nil {
 				errs++
 				finalErr = errors.Join(finalErr, err)
@@ -381,7 +374,7 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 
 		compositionPath := test.Spec.CompositionPath
 		if len(test.Spec.Composition.Raw) > 0 {
-			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
+			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
 			if err != nil {
 				errs++
 				finalErr = errors.Join(finalErr, err)
@@ -392,7 +385,7 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 
 		xrdPath := test.Spec.XRDPath
 		if len(test.Spec.XRD.Raw) > 0 {
-			path, err := writeToFile(tempProjFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
+			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
 			if err != nil {
 				errs++
 				finalErr = errors.Join(finalErr, err)
@@ -403,7 +396,7 @@ func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging
 
 		options := render.Options{
 			Project:                c.proj,
-			ProjFS:                 tempProjFS,
+			ProjFS:                 overlayFS,
 			IncludeFullXR:          true,
 			IncludeFunctionResults: true,
 			IncludeContext:         true,
@@ -468,7 +461,6 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 	b := project.NewBuilder(
 		project.BuildWithMaxConcurrency(c.concurrency),
 		project.BuildWithFunctionIdentifier(c.functionIdentifier),
-		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
 
 	var imgMap project.ImageTagMap

@@ -7,7 +7,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"os"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,10 +22,9 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )
 
@@ -35,9 +34,6 @@ var (
 
 	//go:embed testdata/packages/*
 	packagesFS embed.FS
-
-	//go:embed testdata/project-embedded-functions/.up/**
-	modelsFS embed.FS
 )
 
 // TestGenerateCmd_Run tests the Run method of the generateCmd struct.
@@ -94,37 +90,36 @@ func TestGenerateCmd_Run(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
 
-			outFS := afero.NewMemMapFs()
-			tempProjDir, err := afero.TempDir(afero.NewOsFs(), os.TempDir(), "projFS")
-			assert.NilError(t, err)
-			defer os.RemoveAll(tempProjDir)
-
+			// Our symlinking implementation requires that the underlying
+			// filesystem for the projFS is a real OS filesystem, so we can't
+			// use an in-memory filesystem like we do in other tests.
+			tempProjDir := t.TempDir()
 			projFS := afero.NewBasePathFs(afero.NewOsFs(), tempProjDir)
 			srcFS := afero.NewBasePathFs(afero.FromIOFS{FS: projectEmbeddedFunctions}, "testdata/project-embedded-functions")
-
-			err = filesystem.CopyFilesBetweenFs(srcFS, projFS)
+			err := filesystem.CopyFilesBetweenFs(srcFS, projFS)
 			assert.NilError(t, err)
+			testModelsFS := afero.NewBasePathFs(projFS, ".up")
 
-			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
-			assert.NilError(t, err)
-
+			outFS := afero.NewMemMapFs()
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
-			testModelsFS := afero.NewBasePathFs(afero.FromIOFS{FS: modelsFS}, "testdata/project-embedded-functions/.up")
-			r := image.NewResolver(
-				image.WithFetcher(
-					&image.FSFetcher{FS: testPkgFS},
-				),
-			)
-
-			mgr, err := manager.New(
-				manager.WithCache(cch),
-				manager.WithResolver(r),
-			)
-			assert.NilError(t, err)
 
 			proj, err := project.Parse(projFS, "upbound.yaml")
 			assert.NilError(t, err)
 			proj.Default()
+
+			cchFS := afero.NewBasePathFs(outFS, "/cache")
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			mgr, err := project.NewDependencyManager(upCtx, proj, projFS,
+				project.WithCacheFS(cchFS),
+				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+				project.WithSchemaGenerators(nil),
+			)
+			assert.NilError(t, err)
 
 			// Use BasePathFs for functionFS, scoped to the temp directories
 			functionFS := afero.NewBasePathFs(projFS, filepath.Join("/functions", tc.name))
@@ -135,7 +130,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				projFS:            projFS,
 				proj:              proj,
 				modelsFS:          testModelsFS,
-				fsPath:            filepath.Join(tempProjDir, "functions", tc.name),
+				fsPath:            filepath.Join("/functions", tc.name),
 				functionFS:        functionFS,
 				Language:          tc.language,
 				CompositionPath:   tc.compositionPath,

@@ -21,10 +21,8 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -94,7 +92,6 @@ type renderCmd struct {
 	proj   *projectv1alpha1.Project
 
 	functionIdentifier functions.Identifier
-	schemaRunner       runner.SchemaRunner
 	concurrency        uint
 
 	compositionRel         string
@@ -104,7 +101,7 @@ type renderCmd struct {
 	functionCredentialsRel string
 	xrdRel                 string
 
-	m *manager.Manager
+	m *project.DependencyManager
 	r manager.ImageResolver
 
 	quiet        config.QuietFlag
@@ -145,8 +142,6 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 
 	c.proj = proj
 
-	fs := afero.NewOsFs()
-
 	pathMappings := []struct {
 		pathField string
 		relField  *string
@@ -165,11 +160,6 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 		}
 	}
 
-	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
 	r := image.NewResolver(
 		image.WithImageConfig(proj.Spec.ImageConfig),
 		image.WithFetcher(
@@ -179,10 +169,9 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 		),
 	)
 
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -192,9 +181,6 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.r = r
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = runner.NewRealSchemaRunner(
-		runner.WithImageConfig(proj.Spec.ImageConfig),
-	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
@@ -223,9 +209,8 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 			Concurrency:        c.concurrency,
 			NoBuildCache:       c.NoBuildCache,
 			BuildCacheDir:      c.BuildCacheDir,
-			DependecyManager:   c.m,
+			DependencyManager:  c.m,
 			FunctionIdentifier: c.functionIdentifier,
-			SchemaRunner:       c.schemaRunner,
 			EventChannel:       ch,
 		}
 

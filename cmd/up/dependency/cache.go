@@ -13,23 +13,19 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 // updateCacheCmd updates the cache.
 type updateCacheCmd struct {
-	m        *manager.Manager
-	modelsFS afero.Fs
-	projFS   afero.Fs
-	proj     *v1alpha1.Project
+	m      *project.DependencyManager
+	projFS afero.Fs
+	proj   *v1alpha1.Project
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
@@ -50,7 +46,6 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(c.projFS, ".up")
 
 	prj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
@@ -59,25 +54,9 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	prj.Default()
 	c.proj = prj
 
-	fs := afero.NewOsFs()
-
-	cch, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(prj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCache(cch),
-		manager.WithResolver(r),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -90,39 +69,24 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 }
 
 func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
-	metaDeps := c.proj.Spec.DependsOn
-
-	resolvedDeps := make([]v1beta1.Dependency, len(metaDeps))
 	if err := upterm.WrapWithSuccessSpinner(
-		fmt.Sprintf("Updating %d dependencies...", len(metaDeps)),
+		fmt.Sprintf("Updating %d dependencies...", len(c.proj.Spec.DependsOn)),
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
-			for i, d := range metaDeps {
-				converted, ok := manager.ConvertToV1beta1(d)
-				if !ok {
-					return errors.New("failed to convert dependency")
-				}
-				ud, _, err := c.m.AddAll(ctx, converted)
-				if err != nil {
-					return err
-				}
-				resolvedDeps[i] = ud
-			}
-			return nil
+			return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		},
 		printer,
 	); err != nil {
 		return err
 	}
 
-	if len(resolvedDeps) == 0 {
-		pterm.Warning.Printfln("No dependencies specified.")
-		return nil
-	}
-
-	pterm.Success.Printfln("Dependencies added to cache:")
-	for _, d := range resolvedDeps {
-		pterm.Success.Printfln("- %s (%s)", d.Package, d.Constraints)
+	pterm.Success.Printfln("Dependencies updated:")
+	for _, d := range c.proj.Spec.DependsOn {
+		pkg, err := c.m.GetParsedPackage(ctx, d)
+		if err != nil {
+			return err
+		}
+		pterm.Success.Printfln("- %s (%s)", pkg.Name(), pkg.Version())
 	}
 
 	return nil

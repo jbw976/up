@@ -24,11 +24,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -73,14 +69,10 @@ type generateCmd struct {
 
 	Flags upbound.Flags `embed:""`
 
-	projFS   afero.Fs
-	apisFS   afero.Fs
-	modelsFS afero.Fs
-	proj     *projectv1alpha1.Project
-	relFile  string
-
-	schemaRunner runner.SchemaRunner
-	m            *manager.Manager
+	projFS  afero.Fs
+	apisFS  afero.Fs
+	proj    *projectv1alpha1.Project
+	relFile string
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -103,7 +95,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// The location of the co position defines the root of the xrd.
@@ -135,36 +126,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		c.relFile = relPath
 	}
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
-	)
-	if err != nil {
-		return err
-	}
-
-	c.m = m
-
-	c.schemaRunner = runner.NewRealSchemaRunner(
-		runner.WithImageConfig(proj.Spec.ImageConfig),
-	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 	return nil

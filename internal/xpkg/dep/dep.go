@@ -64,6 +64,15 @@ func New(pkg string) v1beta1.Dependency {
 
 // ToMetaDependency returns a metadata dependency for the given dependency.
 func ToMetaDependency(d v1beta1.Dependency) pkgmetav1.Dependency {
+	if d.APIVersion != nil && d.Kind != nil {
+		return pkgmetav1.Dependency{
+			APIVersion: d.APIVersion,
+			Kind:       d.Kind,
+			Package:    &d.Package,
+			Version:    d.Constraints,
+		}
+	}
+
 	if d.Type != nil {
 		switch *d.Type {
 		case v1beta1.ConfigurationPackageType:

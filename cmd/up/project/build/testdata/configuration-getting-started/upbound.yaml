@@ -6,9 +6,15 @@ metadata:
 spec:
   repository: xpkg.upbound.io/acmeco/configuration-getting-started
   dependsOn:
-    - provider: xpkg.upbound.io/crossplane-contrib/provider-nop
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      package: xpkg.upbound.io/crossplane-contrib/provider-nop
       version: ">=v0.2.1"
-    - function: xpkg.upbound.io/crossplane-contrib/function-kcl
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Function
+      package: xpkg.upbound.io/crossplane-contrib/function-kcl
       version: "v0.8.0"
-    - function: xpkg.upbound.io/crossplane-contrib/function-auto-ready
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Function
+      package: xpkg.upbound.io/crossplane-contrib/function-auto-ready
       version: ">=v0.2.1"

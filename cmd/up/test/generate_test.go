@@ -6,7 +6,7 @@ package test
 import (
 	"context"
 	"embed"
-	"os"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,10 +17,8 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )
 
@@ -30,9 +28,6 @@ var (
 
 	//go:embed testdata/packages/*
 	packagesFS embed.FS
-
-	//go:embed testdata/project-embedded-functions/.up/**
-	modelsFS embed.FS
 )
 
 func TestGenerateCmd_Run(t *testing.T) {
@@ -61,55 +56,52 @@ func TestGenerateCmd_Run(t *testing.T) {
 	for testName, tc := range tcs {
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			mockRunner := MockSchemaRunner{}
 
-			outFS := afero.NewMemMapFs()
-			tempProjDir, err := afero.TempDir(afero.NewOsFs(), os.TempDir(), "projFS")
-			assert.NilError(t, err)
-			defer os.RemoveAll(tempProjDir)
-
+			// Our symlinking implementation requires that the underlying
+			// filesystem for the projFS is a real OS filesystem, so we can't
+			// use an in-memory filesystem like we do in other tests.
+			tempProjDir := t.TempDir()
 			projFS := afero.NewBasePathFs(afero.NewOsFs(), tempProjDir)
 			srcFS := afero.NewBasePathFs(afero.FromIOFS{FS: projectEmbeddedFunctions}, "testdata/project-embedded-functions")
-
-			err = filesystem.CopyFilesBetweenFs(srcFS, projFS)
+			err := filesystem.CopyFilesBetweenFs(srcFS, projFS)
 			assert.NilError(t, err)
+			testModelsFS := afero.NewBasePathFs(projFS, ".up")
 
-			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
-			assert.NilError(t, err)
-
+			outFS := afero.NewMemMapFs()
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
-			testModelsFS := afero.NewBasePathFs(afero.FromIOFS{FS: modelsFS}, "testdata/project-embedded-functions/.up")
-			r := image.NewResolver(
-				image.WithFetcher(
-					&image.FSFetcher{FS: testPkgFS},
-				),
-			)
-
-			mgr, err := manager.New(
-				manager.WithCache(cch),
-				manager.WithResolver(r),
-			)
-			assert.NilError(t, err)
 
 			proj, err := project.Parse(projFS, "upbound.yaml")
 			assert.NilError(t, err)
 			proj.Default()
+
+			cchFS := afero.NewBasePathFs(outFS, "/cache")
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			mgr, err := project.NewDependencyManager(upCtx, proj, projFS,
+				project.WithCacheFS(cchFS),
+				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+				project.WithSchemaGenerators(nil),
+			)
+			assert.NilError(t, err)
 
 			// Use BasePathFs for testFS, scoped to the temp directories
 			testFS := afero.NewBasePathFs(projFS, filepath.Join("/tests", tc.name))
 
 			// Setup the generateCmd with mock dependencies
 			c := &generateCmd{
-				ProjectFile:  "upbound.yaml",
-				projFS:       projFS,
-				testFS:       testFS,
-				modelsFS:     testModelsFS,
-				Language:     tc.language,
-				Name:         tc.name,
-				testName:     tc.name,
-				m:            mgr,
-				schemaRunner: mockRunner,
-				proj:         proj,
+				ProjectFile: "upbound.yaml",
+				projFS:      projFS,
+				testFS:      testFS,
+				modelsFS:    testModelsFS,
+				Language:    tc.language,
+				Name:        tc.name,
+				testName:    tc.name,
+				m:           mgr,
+				proj:        proj,
 			}
 
 			err = c.Run(context.Background(), upterm.DefaultObjPrinter)
@@ -139,27 +131,4 @@ func (w *TestWriter) Write(b []byte) (int, error) {
 	out := strings.TrimRight(string(b), "\n")
 	w.t.Log(out)
 	return len(b), nil
-}
-
-type MockSchemaRunner struct{}
-
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...runner.Option) error {
-	// Simulate generation for KCL schema files
-	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any
-		// Create the main KCL schema file
-		kclOutputPath := "models/io/upbound/dev/meta/v1alpha1/compositiontest.k"
-		_ = fs.MkdirAll("models/io/upbound/dev/meta/v1alpha1/", os.ModePerm)
-		if err := afero.WriteFile(fs, kclOutputPath, []byte("mock KCL content"), os.ModePerm); err != nil {
-			return err
-		}
-
-		// Create the additional k8s folder and a file inside
-		k8sOutputPath := "models/k8s/sample_k8s_resource.k"
-		_ = fs.MkdirAll("models/k8s/", os.ModePerm)
-		return afero.WriteFile(fs, k8sOutputPath, []byte("mock K8s content"), os.ModePerm)
-	}
-	// Simulate generation for Python schema files
-	outputPath := "models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/v1.py"
-	_ = fs.MkdirAll("models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/", os.ModePerm)
-	return afero.WriteFile(fs, outputPath, []byte("mock Python content"), os.ModePerm)
 }

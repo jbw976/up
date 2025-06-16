@@ -20,12 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
 	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
 	"github.com/crossplane/crossplane/xcrd"
@@ -36,7 +38,6 @@ import (
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -79,8 +80,7 @@ type FunctionOptions struct {
 	BuildCacheDir      string
 	ImageResolver      manager.ImageResolver
 	FunctionIdentifier functions.Identifier
-	SchemaRunner       runner.SchemaRunner
-	DependecyManager   *manager.Manager
+	DependencyManager  *project.DependencyManager
 	EventChannel       async.EventChannel
 }
 
@@ -306,13 +306,12 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Conte
 	b := project.NewBuilder(
 		project.BuildWithMaxConcurrency(opts.Concurrency),
 		project.BuildWithFunctionIdentifier(opts.FunctionIdentifier),
-		project.BuildWithSchemaRunner(opts.SchemaRunner),
 	)
 
 	imgMap, err := b.Build(ctx, upCtx, opts.Project, opts.ProjFS,
 		project.BuildWithEventChannel(opts.EventChannel),
 		project.BuildWithImageLabels(common.ImageLabels(opts)),
-		project.BuildWithDependencyManager(opts.DependecyManager),
+		project.BuildWithDependencyManager(opts.DependencyManager),
 	)
 	if err != nil {
 		return nil, err
@@ -342,26 +341,30 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 	functions := make([]pkgv1.Function, 0, len(proj.Spec.DependsOn))
 
 	for _, dep := range proj.Spec.DependsOn {
-		if dep.Function == nil {
+		dep, err := project.NormalizeDependency(dep)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid dependency")
+		}
+		if !isFunction(dep) {
 			continue
 		}
 
 		// Convert function dependency
 		convertedDep, ok := manager.ConvertToV1beta1(dep)
 		if !ok {
-			return nil, errors.Errorf("failed to convert dependency in %s", *dep.Function)
+			return nil, errors.Errorf("failed to convert dependency in %s", *dep.Package)
 		}
 
 		// Resolve tag for function
 		version, err := r.ResolveTag(ctx, convertedDep)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve tag for function %s", *dep.Function)
+			return nil, errors.Wrapf(err, "failed to resolve tag for function %s", *dep.Package)
 		}
 
 		// Parse function name
-		functionRepo, err := name.NewRepository(*dep.Function, name.StrictValidation)
+		functionRepo, err := name.NewRepository(*dep.Package, name.StrictValidation)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse function name reference for %s", *dep.Function)
+			return nil, errors.Wrapf(err, "failed to parse function name reference for %s", *dep.Package)
 		}
 
 		// Create function package manifest
@@ -371,7 +374,7 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 			},
 			Spec: pkgv1.FunctionSpec{
 				PackageSpec: pkgv1.PackageSpec{
-					Package: fmt.Sprintf("%s:%s", imageutil.RewriteImage(*dep.Function, proj.Spec.ImageConfig), version),
+					Package: fmt.Sprintf("%s:%s", imageutil.RewriteImage(*dep.Package, proj.Spec.ImageConfig), version),
 				},
 			},
 		}
@@ -379,4 +382,9 @@ func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager
 	}
 
 	return functions, nil
+}
+
+func isFunction(dep pkgmetav1.Dependency) bool {
+	return ptr.Deref(dep.APIVersion, "") == pkgv1.FunctionGroupVersionKind.GroupVersion().String() &&
+		ptr.Deref(dep.Kind, "") == pkgv1.FunctionKind
 }

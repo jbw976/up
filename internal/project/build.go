@@ -24,13 +24,10 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
@@ -66,14 +63,6 @@ func BuildWithFunctionIdentifier(i functions.Identifier) BuilderOption {
 	}
 }
 
-// BuildWithSchemaRunner sets the runner that will be used to run containers
-// used for schema generation.
-func BuildWithSchemaRunner(r runner.SchemaRunner) BuilderOption {
-	return func(b *realBuilder) {
-		b.schemaRunner = r
-	}
-}
-
 // BuildWithMaxConcurrency sets the maximum concurrency for building embedded
 // functions.
 func BuildWithMaxConcurrency(n uint) BuilderOption {
@@ -88,7 +77,7 @@ type BuildOption func(o *buildOptions)
 type buildOptions struct {
 	eventChan       async.EventChannel
 	imageLabels     map[string]string
-	depManager      *manager.Manager
+	depManager      *DependencyManager
 	projectBasePath string
 }
 
@@ -111,7 +100,7 @@ func BuildWithImageLabels(labels map[string]string) BuildOption {
 
 // BuildWithDependencyManager provides a dependency manager to use for
 // dependency resolution during build.
-func BuildWithDependencyManager(m *manager.Manager) BuildOption {
+func BuildWithDependencyManager(m *DependencyManager) BuildOption {
 	return func(o *buildOptions) {
 		o.depManager = m
 	}
@@ -128,7 +117,6 @@ func BuildWithProjectBasePath(path string) BuildOption {
 
 type realBuilder struct {
 	functionIdentifier functions.Identifier
-	schemaRunner       runner.SchemaRunner
 	maxConcurrency     uint
 }
 
@@ -143,7 +131,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// building.
 	statusStage := "Checking dependencies"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := b.checkDependencies(ctx, project, os.depManager); err != nil {
+	if err := os.depManager.AddAll(ctx, project.Spec.DependsOn...); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
 	}
@@ -267,36 +255,6 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	imgMap[imgTag] = img
 
 	return imgMap, nil
-}
-
-func (b *realBuilder) checkDependencies(ctx context.Context, project *v1alpha1.Project, m *manager.Manager) error {
-	deps := project.Spec.DependsOn
-	converted := make([]v1beta1.Dependency, len(deps))
-	for i, dep := range deps {
-		c, ok := manager.ConvertToV1beta1(dep)
-		if !ok {
-			return errors.New("failed to convert dependency")
-		}
-		converted[i] = c
-	}
-
-	sem := make(chan struct{}, b.maxConcurrency)
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	for _, dep := range converted {
-		eg.Go(func() error {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			// Check dependency
-			if _, _, err := m.AddAll(egCtx, dep); err != nil {
-				return errors.Wrapf(err, "failed to check dependency %q", dep.Package)
-			}
-			return nil
-		})
-	}
-
-	return eg.Wait()
 }
 
 // buildFunctions builds the embedded functions found in directories at the top
@@ -584,7 +542,6 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 func NewBuilder(opts ...BuilderOption) Builder {
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
-		schemaRunner:       runner.RealSchemaRunner{},
 		maxConcurrency:     8,
 	}
 
