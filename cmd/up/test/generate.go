@@ -183,7 +183,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	// * Generate schemas for meta apis.
-	if err = apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
+	if err := apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
 		return errors.Wrap(err, "unable to generate meta apis schemas")
 	}
 

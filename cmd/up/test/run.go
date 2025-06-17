@@ -59,6 +59,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/yaml"
+	"github.com/upbound/up/pkg/apis"
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
@@ -231,6 +232,10 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		"Parsing tests",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
+			if err := apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
+				return errors.Wrap(err, "unable to generate meta apis schemas")
+			}
+
 			testBuilder := test.NewBuilder(
 				test.BuildWithSchemaRunner(c.schemaRunner),
 			)
