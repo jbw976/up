@@ -24,6 +24,9 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/generator"
+	"github.com/upbound/up/internal/schemas/manager"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
@@ -73,6 +76,8 @@ type generateCmd struct {
 	apisFS  afero.Fs
 	proj    *projectv1alpha1.Project
 	relFile string
+
+	sm *manager.Manager
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -110,6 +115,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		c.projFS, proj.Spec.Paths.APIs,
 	)
 
+	c.sm = manager.New(afero.NewBasePathFs(c.projFS, ".up"), generator.AllLanguages(), runner.NewRealSchemaRunner())
+
 	c.relFile = c.File
 	if filepath.IsAbs(c.File) {
 		// Convert the absolute path to a relative path within projFS
@@ -131,7 +138,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *generateCmd) Run(_ context.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
@@ -185,7 +192,9 @@ func (c *generateCmd) Run(_ context.Context, p pterm.TextPrinter) error {
 			return errors.Wrap(err, "failed to write CompositeResourceDefinition (XRD) to file")
 		}
 
-		// TODO(adamwg): Reintroduce schema generation once it's been reworked.
+		if err := c.sm.Add(ctx, manager.NewFSSource(c.apisFS), nil); err != nil {
+			return errors.Wrap(err, "failed to generate language schemas")
+		}
 
 		p.Printfln("Successfully created CompositeResourceDefinition (XRD) and saved to %s", filesystem.FullPath(c.apisFS, filePath))
 
