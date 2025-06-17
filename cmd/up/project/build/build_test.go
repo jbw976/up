@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -31,6 +30,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/generator"
 	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -149,7 +149,6 @@ func TestBuild(t *testing.T) {
 			t.Parallel()
 
 			outFS := afero.NewMemMapFs()
-			mockRunner := MockSchemaRunner{}
 
 			// Create mock fetcher that holds the images
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
@@ -171,7 +170,7 @@ func TestBuild(t *testing.T) {
 			mgr, err := project.NewDependencyManager(upCtx, prj, projFS,
 				project.WithCacheFS(cchFS),
 				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
-				project.WithSchemaRunner(mockRunner),
+				project.WithSchemaGenerators([]generator.Interface{mockGenerator{}}),
 			)
 			assert.NilError(t, err)
 
@@ -362,28 +361,14 @@ func TestBuild(t *testing.T) {
 	}
 }
 
-type MockSchemaRunner struct{}
+type mockGenerator struct{}
 
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...runner.Option) error {
-	// Simulate generation for KCL schema files
-	// Simulate generation for KCL schema files
-	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any
-		// Create the main KCL schema file
-		kclOutputPath := "models/v1alpha1/platform_acme_co_v1alpha1_subnetwork.k"
-		_ = fs.MkdirAll("models/v1alpha1/", os.ModePerm)
-		if err := afero.WriteFile(fs, kclOutputPath, []byte("mock KCL content"), os.ModePerm); err != nil {
-			return err
-		}
+func (g mockGenerator) Language() string {
+	return "mock"
+}
 
-		// Create the additional k8s folder and a file inside
-		k8sOutputPath := "models/k8s/sample_k8s_resource.k"
-		_ = fs.MkdirAll("models/k8s/", os.ModePerm)
-		return afero.WriteFile(fs, k8sOutputPath, []byte("mock K8s content"), os.ModePerm)
-	}
-	// Simulate generation for Python schema files
-	outputPath := "models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/v1.py"
-	_ = fs.MkdirAll("models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/", os.ModePerm)
-	return afero.WriteFile(fs, outputPath, []byte("mock Python content"), os.ModePerm)
+func (g mockGenerator) Generate(_ context.Context, fs afero.Fs, _ []string, _ runner.SchemaRunner) (afero.Fs, error) {
+	return fs, nil
 }
 
 type TestWriter struct {

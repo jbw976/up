@@ -26,6 +26,7 @@ import (
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -182,7 +183,14 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	}
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 
-	// TODO(adamwg): Reintroduce schema generation once it's been reworked.
+	// Generate schemas for our APIs.
+	statusStage = "Generating language schemas"
+	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
+	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource), nil); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "failed to generate language schemas")
+	}
+	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 
 	// Find and build embedded functions. This has to come after schema
 	// generation because functions may depend on the generated schemas.
