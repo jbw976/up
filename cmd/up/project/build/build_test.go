@@ -362,12 +362,7 @@ func TestBuild(t *testing.T) {
 			}
 
 			objs := pkg.Objects()
-			// TODO(adamwg): Right now we generate CRDs during parsing and
-			// inject them into the package, which doubles the object
-			// count. This assertion will need to change when we refactor the
-			// dependency manager to generate the CRDs after, rather than
-			// during, package loading.
-			assert.Assert(t, cmp.Len(objs, 2*tc.expectedObjectCount))
+			assert.Assert(t, cmp.Len(objs, tc.expectedObjectCount))
 		})
 	}
 }

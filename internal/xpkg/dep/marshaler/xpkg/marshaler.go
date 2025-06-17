@@ -14,7 +14,6 @@ import (
 	cv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
@@ -24,7 +23,6 @@ import (
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	xpmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	"github.com/crossplane/crossplane/xcrd"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
@@ -134,11 +132,6 @@ func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:g
 	}
 
 	pkg = applyImageMeta(i.Meta, pkg)
-
-	if pkg, err = convertXRD2CRD(pkg); err != nil {
-		return nil, errors.Wrap(err, errConvertXRDs)
-	}
-
 	return finalizePkg(pkg)
 }
 
@@ -248,37 +241,6 @@ func applyImageMeta(m xpkg.ImageMeta, pkg *ParsedPackage) *ParsedPackage {
 	pkg.Ver = m.Version
 
 	return pkg
-}
-
-func convertXRD2CRD(pkg *ParsedPackage) (*ParsedPackage, error) {
-	crdGVK := apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-
-	for _, obj := range pkg.Objects() {
-		if obj.GetObjectKind().GroupVersionKind().Kind == "CompositeResourceDefinition" {
-			xrd, ok := obj.(*v1.CompositeResourceDefinition)
-			if !ok {
-				continue
-			}
-
-			crd, err := xcrd.ForCompositeResource(xrd)
-			if err != nil {
-				return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q", xrd.GetName())
-			}
-			crd.SetGroupVersionKind(crdGVK)
-			pkg.Objs = append(pkg.Objs, crd)
-
-			if xrd.Spec.ClaimNames != nil {
-				claimCrd, err := xcrd.ForCompositeResourceClaim(xrd)
-				if err != nil {
-					return nil, errors.Wrapf(err, "cannot derive claim CRD from XRD %q", xrd.GetName())
-				}
-				claimCrd.SetGroupVersionKind(crdGVK)
-				pkg.Objs = append(pkg.Objs, claimCrd)
-			}
-		}
-	}
-
-	return pkg, nil
 }
 
 func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) {
