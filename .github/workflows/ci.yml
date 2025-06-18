@@ -295,50 +295,6 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Linux AMD64 schema-generator
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./_output/bin/linux_amd64/schema-generator
-          asset_name: schema-generator-linux-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Linux ARM64 schema-generator
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./_output/bin/linux_arm64/schema-generator
-          asset_name: schema-generator-linux-arm64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Darwin AMD64 schema-generator
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./_output/bin/darwin_amd64/schema-generator
-          asset_name: schema-generator-darwin-amd64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Darwin ARM64 schema-generator
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./_output/bin/darwin_arm64/schema-generator
-          asset_name: schema-generator-darwin-arm64
-          asset_content_type: application/octet-stream
-
       - name: Upload Linux AMD64 up
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
