@@ -586,6 +586,18 @@ jobs:
           cd e2e-test
           up project push --tag=${VERSION}
 
+      - name: up project run
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project run --local --timeout=30m
+          # The run command waits for packages to be healthy; make sure that's
+          # working properly by waiting a very short interval for health.
+          kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
+          kubectl wait pkg --all --for=condition=Healthy --timeout 5s
+          kubectl wait pkgrev --all --for=condition=Healthy --timeout 5s
+
   e2e-example-project-aws:
     runs-on: ubuntu-24.04
     needs: publish-artifacts

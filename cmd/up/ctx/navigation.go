@@ -88,7 +88,7 @@ func (b Breadcrumbs) styledString() string {
 // Accepting is a model state that provides a method to accept a navigation node.
 type Accepting interface {
 	NavigationState
-	GetKubeconfig() (*clientcmdapi.Config, error)
+	GetKubeconfig() (clientcmd.ClientConfig, error)
 }
 
 // Back is a model state that provides a method to go back to the parent navigation node.

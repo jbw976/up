@@ -15,8 +15,7 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
-	ctxcmd "github.com/upbound/up/cmd/up/ctx"
-	"github.com/upbound/up/internal/ctx"
+	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -41,42 +40,9 @@ func (c *deleteCmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx.SetupLogging()
 	kongCtx.Bind(upCtx)
 
-	spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
+	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
 	if err != nil {
-		return err
-	}
-
-	var ok bool
-	var space ctxcmd.Space
-
-	if space, ok = spaceCtx.(ctxcmd.Space); !ok {
-		if group, ok := spaceCtx.(*ctxcmd.Group); ok {
-			space = group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = group.Name
-			}
-		} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
-			space = ctp.Group.Space
-			if c.ControlPlaneGroup == "" {
-				c.ControlPlaneGroup = ctp.Group.Name
-			}
-		} else {
-			return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
-		}
-	}
-
-	// fallback to the default "default" group
-	if c.ControlPlaneGroup == "" {
-		c.ControlPlaneGroup = "default"
-	}
-
-	// Get the client for parent space, even if pointed at a group or a control
-	// plane
-	spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
-		Namespace: c.ControlPlaneGroup,
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to build space client")
+		return errors.Wrap(err, "cannot get spaces kubeconfig")
 	}
 	spaceClientREST, err := spaceClientConfig.ClientConfig()
 	if err != nil {
@@ -85,6 +51,14 @@ func (c *deleteCmd) AfterApply(kongCtx *kong.Context) error {
 	c.spaceClient, err = client.New(spaceClientREST, client.Options{})
 	if err != nil {
 		return err
+	}
+
+	if c.ControlPlaneGroup == "" {
+		ns, _, err := spaceClientConfig.Namespace()
+		if err != nil {
+			return err
+		}
+		c.ControlPlaneGroup = ns
 	}
 
 	return nil

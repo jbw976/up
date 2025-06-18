@@ -7,61 +7,30 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // GetKubeconfig upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the space.
-func (s *CloudSpace) GetKubeconfig() (*clientcmdapi.Config, error) {
-	return getSpaceKubeconfig(s)
+func (s *CloudSpace) GetKubeconfig() (clientcmd.ClientConfig, error) {
+	return s.BuildKubeconfig(types.NamespacedName{})
 }
 
 // GetKubeconfig upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the space.
-func (s *DisconnectedSpace) GetKubeconfig() (*clientcmdapi.Config, error) {
-	return getSpaceKubeconfig(s)
-}
-
-func getSpaceKubeconfig(s Space) (*clientcmdapi.Config, error) {
-	config, err := s.BuildKubeconfig(types.NamespacedName{})
-	if err != nil {
-		return nil, err
-	}
-	raw, err := config.RawConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return &raw, nil
+func (s *DisconnectedSpace) GetKubeconfig() (clientcmd.ClientConfig, error) {
+	return s.BuildKubeconfig(types.NamespacedName{})
 }
 
 // GetKubeconfig upserts the "upbound" kubeconfig context and cluster to the chosen
 // kubeconfig, pointing to the group.
-func (g *Group) GetKubeconfig() (*clientcmdapi.Config, error) {
-	config, err := g.Space.BuildKubeconfig(types.NamespacedName{Namespace: g.Name})
-	if err != nil {
-		return nil, err
-	}
-	raw, err := config.RawConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return &raw, nil
+func (g *Group) GetKubeconfig() (clientcmd.ClientConfig, error) {
+	return g.Space.BuildKubeconfig(types.NamespacedName{Namespace: g.Name})
 }
 
 // GetKubeconfig upserts a controlplane context and cluster to the chosen kubeconfig.
-func (ctp *ControlPlane) GetKubeconfig() (*clientcmdapi.Config, error) {
-	config, err := ctp.Group.Space.BuildKubeconfig(ctp.NamespacedName())
-	if err != nil {
-		return nil, err
-	}
-	raw, err := config.RawConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	return &raw, nil
+func (ctp *ControlPlane) GetKubeconfig() (clientcmd.ClientConfig, error) {
+	return ctp.Group.Space.BuildKubeconfig(ctp.NamespacedName())
 }
 
 func acceptState(s Accepting, navCtx *navContext) (msg string, err error) {
@@ -70,7 +39,12 @@ func acceptState(s Accepting, navCtx *navContext) (msg string, err error) {
 		return "", err
 	}
 
-	if err := navCtx.contextWriter.Write(config); err != nil {
+	raw, err := config.RawConfig()
+	if err != nil {
+		return "", err
+	}
+
+	if err := navCtx.contextWriter.Write(&raw); err != nil {
 		return "", err
 	}
 

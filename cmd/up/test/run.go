@@ -32,11 +32,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -45,11 +43,9 @@ import (
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	uptest "github.com/crossplane/uptest/pkg"
 
-	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
-	"github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
@@ -72,15 +68,17 @@ import (
 // runCmd is the `up test run` command.
 type runCmd struct {
 	Patterns               []string `arg:""                                                                                                                                     help:"The path to the test manifests"`
-	ProjectFile            string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                   short:"f"`
+	ProjectFile            string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                  short:"f"`
 	Repository             string   `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache           bool     `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir          string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                 type:"path"`
-	MaxConcurrency         uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                  help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir          string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                type:"path"`
+	MaxConcurrency         uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                 help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup      string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix string   `help:"Prefex of the control plane name to use. It will be created if not found."`
-	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a control plane without the development control plane annotation." name:"skip-control-plane-check"`
-	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                           help:"Directory used for caching dependencies."               type:"path"`
+	Force                  bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane." name:"skip-control-plane-check"`
+	Local                  bool     `help:"Use a local dev control plane, even if Spaces is available."`
+	UseCurrentContext      bool     `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
+	CacheDir               string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                          help:"Directory used for caching dependencies."               type:"path"`
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
@@ -100,7 +98,6 @@ type runCmd struct {
 	concurrency        uint
 	proj               *v1alpha1.Project
 
-	spaceClient  client.Client
 	printer      upterm.ObjectPrinter
 	asyncWrapper async.WrapperFunc
 }
@@ -122,7 +119,7 @@ Examples:
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint: gocognit // we have multiple tests
+func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -192,55 +189,9 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	c.r = r
 
 	if c.E2E {
-		spaceCtx, err := ctx.GetCurrentSpaceNavigation(context.Background(), upCtx)
-		if err != nil {
-			return err
-		}
-
-		var ok bool
-		var space ctxcmd.Space
-
-		if space, ok = spaceCtx.(ctxcmd.Space); !ok {
-			if group, ok := spaceCtx.(*ctxcmd.Group); ok {
-				space = group.Space
-				if c.ControlPlaneGroup == "" {
-					c.ControlPlaneGroup = group.Name
-				}
-			} else if ctp, ok := spaceCtx.(*ctxcmd.ControlPlane); ok {
-				space = ctp.Group.Space
-				if c.ControlPlaneGroup == "" {
-					c.ControlPlaneGroup = ctp.Group.Name
-				}
-			} else {
-				return errors.New("current kubeconfig is not pointed at an Upbound Cloud Space; use `up ctx` to select a Space")
-			}
-		}
-
-		// fallback to the default "default" group
-		if c.ControlPlaneGroup == "" {
-			c.ControlPlaneGroup = "default"
-		}
-
 		// set the default prefix
 		if c.ControlPlaneNamePrefix == "" {
 			c.ControlPlaneNamePrefix = fmt.Sprintf("%s-%s", proj.Name, "uptest")
-		}
-
-		// Get the client for parent space, even if pointed at a group or a control
-		// plane
-		spaceClientConfig, err := space.BuildKubeconfig(types.NamespacedName{
-			Namespace: c.ControlPlaneGroup,
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to build space client")
-		}
-		spaceClientREST, err := spaceClientConfig.ClientConfig()
-		if err != nil {
-			return errors.Wrap(err, "failed to get REST config for space client")
-		}
-		c.spaceClient, err = client.New(spaceClientREST, client.Options{})
-		if err != nil {
-			return err
 		}
 
 		tools := map[string]*string{
@@ -278,8 +229,14 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger) error {
 	upterm.DefaultObjPrinter.Pretty = true
 
+	if c.UseCurrentContext && !c.Force {
+		if err := c.confirmUseCurrentContext(upCtx); err != nil {
+			return err
+		}
+	}
+
 	var err error
-	var parsedTests []interface{}
+	var parsedTests []any
 	if err = upterm.WrapWithSuccessSpinner(
 		"Parsing tests",
 		upterm.CheckmarkSuccessSpinner,
@@ -337,6 +294,27 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	// Return an error if there were failed tests
 	if terr > 0 {
 		return err
+	}
+
+	return nil
+}
+
+const useCurrentContextConfirmFmt = `Running e2e tests on an existing control plane can be destructive.
+Are you sure you want to use kubeconfig context %q?`
+
+func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
+	ctxName, err := upCtx.GetCurrentContextName()
+	if err != nil {
+		return err
+	}
+
+	confirm := pterm.DefaultInteractiveConfirm
+	proceed, err := confirm.Show(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName))
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return errors.New("operation canceled")
 	}
 
 	return nil
@@ -596,7 +574,40 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 	return cleanup, nil
 }
 
-func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error {
+func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
+	if err != nil {
+		return errors.Wrap(err, "failed to create control plane")
+	}
+
+	var devCtp ctp.DevControlPlane
+	if err := c.asyncWrapper(func(ch async.EventChannel) error {
+		var err error
+		if c.UseCurrentContext {
+			devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
+		} else {
+			opts := []ctp.EnsureDevControlPlaneOption{
+				ctp.WithEventChannel(ch),
+				ctp.WithSpacesGroup(c.ControlPlaneGroup),
+				ctp.WithControlPlaneName(controlPlaneName),
+				ctp.SkipDevCheck(c.Force),
+				ctp.ForceLocal(c.Local),
+			}
+
+			if test.Spec.Crossplane != nil {
+				opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
+				if test.Spec.Crossplane.Version != nil {
+					opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
+				}
+			}
+
+			devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)
+		}
+		return err
+	}); err != nil {
+		return errors.Wrap(err, "failed to create control plane")
+	}
+
 	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -605,68 +616,40 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	// Channel to signal function return
 	retChan := make(chan struct{})
 
-	controlplaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
-	if err != nil {
-		return errors.Wrap(err, "failed to create control plane")
-	}
-
 	go func() {
 		select {
 		case <-sigChan:
 			log.Println("Received termination signal, cleaning up control plane...")
-			if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
+			if err := devCtp.Teardown(ctx, c.Force); err != nil {
 				log.Printf("error during control plane deletion %v", err)
 			}
 			os.Exit(1)
 		case <-retChan:
-			// Function returned normally, no need for cleanup
+			// Function returned normally, clean up quietly.
+			if err := devCtp.Teardown(ctx, c.Force); err != nil {
+				log.Printf("error during control plane deletion %v", err)
+			}
 			return
 		}
 	}()
 
-	var (
-		devCtpKubeconfig clientcmd.ClientConfig
-		devCtpClient     client.Client
-	)
-	if err := c.asyncWrapper(func(ch async.EventChannel) error {
-		var err error
-		devCtpClient, devCtpKubeconfig, err = ctp.EnsureControlPlane(
-			ctx,
-			upCtx,
-			c.spaceClient,
-			c.ControlPlaneGroup,
-			controlplaneName,
-			ch,
-			ctp.SkipDevCheck(c.Force),
-			ctp.DevControlPlane(),
-			ctp.WithCrossplaneSpec(*test.Spec.Crossplane),
-		)
-		return err
-	}); err != nil {
-		return errors.Wrap(err, "failed to create control plane")
-	}
+	defer func() {
+		// Send signal to cleanup goroutine
+		close(retChan)
+	}()
 
 	ctpSchemeBuilders := []*scheme.Builder{
 		v1.SchemeBuilder,
 		xpkgv1beta1.SchemeBuilder,
 	}
 	for _, bld := range ctpSchemeBuilders {
-		if err := bld.AddToScheme(devCtpClient.Scheme()); err != nil {
+		if err := bld.AddToScheme(devCtp.Client().Scheme()); err != nil {
 			return err
 		}
 	}
 
-	defer func() {
-		// Send signal to cleanup goroutine
-		close(retChan)
-
-		if err := ctp.DeleteControlPlane(ctx, c.spaceClient, c.ControlPlaneGroup, controlplaneName, c.Force); err != nil {
-			log.Printf("error during control plane deletion %v", err)
-		}
-	}()
-
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(ctx, devCtpClient, proj.Name, generatedTag, ch)
+		return kube.InstallConfiguration(ctx, devCtp.Client(), proj.Name, generatedTag, ch)
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to install package")
@@ -676,7 +659,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		"Applying Extra Resources",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
-			return kube.ApplyResources(ctx, devCtpClient, test.Spec.ExtraResources)
+			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.ExtraResources)
 		},
 		c.printer,
 	); err != nil {
@@ -707,7 +690,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		manifestPaths = append(manifestPaths, manifestFile)
 	}
 
-	kubeconfigPath, err := writeClientConfig(devCtpKubeconfig, tempDir)
+	kubeconfigPath, err := writeClientConfig(devCtp.Kubeconfig(), tempDir)
 	if err != nil {
 		return errors.Wrap(err, "error getting kubeconfig of controlplane")
 	}
