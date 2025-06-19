@@ -1,6 +1,8 @@
 module github.com/upbound/up
 
-go 1.23.7
+go 1.23.8
+
+toolchain go1.24.3
 
 require (
 	cloud.google.com/go/storage v1.51.0
@@ -10,12 +12,12 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/chroma v0.10.0
-	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong v1.4.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
-	github.com/crossplane/crossplane v1.19.2-0.20250403080209-6c24c9dc7c8a
-	github.com/crossplane/crossplane-runtime v1.19.0
+	github.com/crossplane/crossplane v1.20.0
+	github.com/crossplane/crossplane-runtime v1.20.0
 	github.com/crossplane/crossplane/controller/apiextensions v0.15.0-rc.0
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.4.0
@@ -64,7 +66,7 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
 	k8s.io/kubectl v0.32.3
-	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
+	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/kind v0.29.0
@@ -276,7 +278,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
+	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
@@ -353,10 +355,10 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.20.4 // indirect
+	github.com/prometheus/client_golang v1.21.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.63.0
 	github.com/prometheus/procfs v0.15.1 // indirect
