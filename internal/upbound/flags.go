@@ -16,6 +16,8 @@ type Flags struct {
 	Account      string `env:"UP_ACCOUNT" help:"Deprecated. Use organization instead." json:"account,omitempty"                                                                   short:"a"`
 	Organization string `alias:"org"      env:"UP_ORGANIZATION"                        help:"Organization used to execute command. Overrides the current profile's organization." json:"organization,omitempty"`
 
+	CABundle string `env:"UP_CA_BUNDLE" help:"Path to CA bundle file to prepend to existing CAs" name:"ca-bundle"`
+
 	// Insecure
 	InsecureSkipTLSVerify bool `env:"UP_INSECURE_SKIP_TLS_VERIFY" help:"[INSECURE] Skip verifying TLS certificates."                                                                          json:"insecureSkipTLSVerify,omitempty"`
 	Debug                 int  `env:"UP_DEBUG"                    help:"[INSECURE] Run with debug logging. Repeat to increase verbosity. Output might contain confidential data like tokens." json:"debug,omitempty"                 name:"debug" short:"d" type:"counter"`
