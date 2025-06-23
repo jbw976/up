@@ -69,8 +69,8 @@ func (goGenerator) Language() string {
 }
 
 // Generate generates Go schemas for the CRDs in the given filesystem.
-func (goGenerator) Generate(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
-	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
+func (goGenerator) Generate(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	openAPIs, err := goCollectOpenAPIs(fromFS)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ type goOpenAPI struct {
 	spec    *spec3.OpenAPI
 }
 
-func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) { //nolint:gocognit // Hard to split this up, and it's not too long to read.
+func goCollectOpenAPIs(fromFS afero.Fs) ([]goOpenAPI, error) { //nolint:gocognit // Hard to split this up, and it's not too long to read.
 	crdFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
 
@@ -162,22 +162,6 @@ func goCollectOpenAPIs(fromFS afero.Fs, exclude []string) ([]goOpenAPI, error) {
 	return openAPIs, afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-
-		// Skip excluded files
-		if !info.IsDir() {
-			for _, excl := range exclude {
-				if info.Name() == excl {
-					return nil // Skip this file
-				}
-			}
-		}
-
-		// Skip excluded paths
-		for _, excl := range exclude {
-			if strings.HasPrefix(path, excl) {
-				return filepath.SkipDir
-			}
 		}
 
 		if info.IsDir() {

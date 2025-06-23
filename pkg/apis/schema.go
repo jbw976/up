@@ -24,7 +24,7 @@ var crdsFS embed.FS
 
 // GenerateSchema will generate meta apis schemas.
 func GenerateSchema(ctx context.Context, m *manager.Manager) error {
-	return m.Add(ctx, &metaAPIsSource{fs: crdsFS}, nil)
+	return m.Add(ctx, &metaAPIsSource{fs: crdsFS})
 }
 
 type metaAPIsSource struct {

@@ -54,7 +54,7 @@ func (m *DependencyManager) Add(ctx context.Context, d pkgmetav1.Dependency) err
 	for _, pkg := range pkgs {
 		eg.Go(func() error {
 			s := smanager.NewXpkgSource(pkg)
-			if err := m.schemas.Add(egCtx, s, nil); err != nil {
+			if err := m.schemas.Add(egCtx, s); err != nil {
 				return errors.Wrapf(err, "failed to generate schemas for %q", pkg.Name())
 			}
 			return nil

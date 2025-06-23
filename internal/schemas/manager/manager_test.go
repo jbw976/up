@@ -106,7 +106,7 @@ func TestManager_Add(t *testing.T) {
 				assert.NilError(t, err)
 			}
 
-			err := m.Add(context.Background(), tc.src, nil)
+			err := m.Add(context.Background(), tc.src)
 			if tc.expectErr {
 				assert.Assert(t, err != nil)
 				return
@@ -150,7 +150,7 @@ func (g *mockGenerator) Language() string {
 	return "mock"
 }
 
-func (g *mockGenerator) Generate(_ context.Context, _ afero.Fs, _ []string, _ runner.SchemaRunner) (afero.Fs, error) {
+func (g *mockGenerator) Generate(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	fs := afero.NewMemMapFs()
 	for path, contents := range g.files {
 		if err := afero.WriteFile(fs, path, []byte(contents), 0o600); err != nil {

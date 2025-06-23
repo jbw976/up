@@ -14,7 +14,7 @@ import (
 // Interface generates schemas for a specific language.
 type Interface interface {
 	Language() string
-	Generate(ctx context.Context, fs afero.Fs, exclude []string, runner runner.SchemaRunner) (afero.Fs, error)
+	Generate(ctx context.Context, fs afero.Fs, runner runner.SchemaRunner) (afero.Fs, error)
 }
 
 // AllLanguages returns generators for all supported languages.

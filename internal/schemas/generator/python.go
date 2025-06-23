@@ -39,7 +39,7 @@ func (pythonGenerator) Language() string {
 }
 
 // Generate generates Python schema files from the XRDs and CRDs fromFS.
-func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
+func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -54,22 +54,6 @@ func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []
 	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-
-		// Skip excluded files
-		if !info.IsDir() {
-			for _, excl := range exclude {
-				if info.Name() == excl {
-					return nil // Skip this file
-				}
-			}
-		}
-
-		// Skip excluded paths
-		for _, excl := range exclude {
-			if strings.HasPrefix(path, excl) {
-				return filepath.SkipDir
-			}
 		}
 
 		if info.IsDir() {

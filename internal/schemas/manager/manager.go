@@ -35,7 +35,7 @@ type Manager struct {
 
 // Add ensures schemas for resources in the given source are present in the
 // managed directory.
-func (m *Manager) Add(ctx context.Context, source Source, exclude []string) error {
+func (m *Manager) Add(ctx context.Context, source Source) error {
 	version, err := source.Version()
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func (m *Manager) Add(ctx context.Context, source Source, exclude []string) erro
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, gen := range m.generators {
 		eg.Go(func() error {
-			schemaFS, err := gen.Generate(egCtx, fromFS, exclude, m.runner)
+			schemaFS, err := gen.Generate(egCtx, fromFS, m.runner)
 			if err != nil {
 				return err
 			}

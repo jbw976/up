@@ -40,7 +40,7 @@ func (kclGenerator) Language() string {
 }
 
 // Generate generates KCL schema files from the XRDs and CRDs fromFS.
-func (kclGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []string, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
+func (kclGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -55,22 +55,6 @@ func (kclGenerator) Generate(ctx context.Context, fromFS afero.Fs, exclude []str
 	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-
-		// Skip excluded files
-		if !info.IsDir() {
-			for _, excl := range exclude {
-				if info.Name() == excl {
-					return nil // Skip this file
-				}
-			}
-		}
-
-		// Skip excluded paths
-		for _, excl := range exclude {
-			if strings.HasPrefix(path, excl) {
-				return filepath.SkipDir
-			}
 		}
 
 		if info.IsDir() {

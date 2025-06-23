@@ -192,7 +192,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 			return errors.Wrap(err, "failed to write CompositeResourceDefinition (XRD) to file")
 		}
 
-		if err := c.sm.Add(ctx, manager.NewFSSource(c.apisFS), nil); err != nil {
+		if err := c.sm.Add(ctx, manager.NewFSSource(c.apisFS)); err != nil {
 			return errors.Wrap(err, "failed to generate language schemas")
 		}
 

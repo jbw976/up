@@ -367,7 +367,7 @@ func (g mockGenerator) Language() string {
 	return "mock"
 }
 
-func (g mockGenerator) Generate(_ context.Context, fs afero.Fs, _ []string, _ runner.SchemaRunner) (afero.Fs, error) {
+func (g mockGenerator) Generate(_ context.Context, fs afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	return fs, nil
 }
 

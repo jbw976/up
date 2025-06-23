@@ -15,7 +15,7 @@ import (
 
 func TestGenerateJSON(t *testing.T) {
 	inputFS := afero.NewBasePathFs(afero.FromIOFS{FS: testdataFS}, "testdata")
-	schemaFS, err := jsonGenerator{}.Generate(context.Background(), inputFS, nil, nil)
+	schemaFS, err := jsonGenerator{}.Generate(context.Background(), inputFS, nil)
 	assert.NilError(t, err)
 
 	expectedFiles := []string{

@@ -27,8 +27,8 @@ func (jsonGenerator) Language() string {
 // Generate generates jsonschemas for the CRDs in the given filesystem. These
 // can be used by editors when writing YAML, for example as part of Go
 // templates.
-func (jsonGenerator) Generate(_ context.Context, fromFS afero.Fs, exclude []string, _ runner.SchemaRunner) (afero.Fs, error) {
-	openAPIs, err := goCollectOpenAPIs(fromFS, exclude)
+func (jsonGenerator) Generate(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	openAPIs, err := goCollectOpenAPIs(fromFS)
 	if err != nil {
 		return nil, err
 	}

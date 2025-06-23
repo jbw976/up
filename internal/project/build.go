@@ -186,7 +186,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// Generate schemas for our APIs.
 	statusStage = "Generating language schemas"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource), nil); err != nil {
+	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource)); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, errors.Wrap(err, "failed to generate language schemas")
 	}

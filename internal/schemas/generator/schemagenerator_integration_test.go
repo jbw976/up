@@ -108,7 +108,7 @@ func TestSchemas(t *testing.T) {
 			// Initialize the in-memory file system from the test case
 			fromFS := tc.args.fs()
 
-			schemaFS, err := tc.args.gen.Generate(context.Background(), fromFS, nil, runner.NewRealSchemaRunner())
+			schemaFS, err := tc.args.gen.Generate(context.Background(), fromFS, runner.NewRealSchemaRunner())
 			assert.NilError(t, err)
 
 			for _, file := range tc.want.requiredFiles {
