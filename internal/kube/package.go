@@ -160,13 +160,31 @@ func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock
 
 func lookupLockPackage(pkgs []xpkgv1beta1.LockPackage, source, version string) (xpkgv1beta1.LockPackage, bool) {
 	for _, pkg := range pkgs {
-		if pkg.Source == source {
+		if sourcesEqual(pkg.Source, source) {
 			if version == "" || pkg.Version == version {
 				return pkg, true
 			}
 		}
 	}
 	return xpkgv1beta1.LockPackage{}, false
+}
+
+// sourcesEqual compares two package sources and returns true if they are equal,
+// taking into account the silly special-casing that rewrites docker.io to
+// index.docker.io and any other unexpected behavior that applies to image
+// references. It will always return false if either a or b is an invalid OCI
+// repository.
+func sourcesEqual(a, b string) bool {
+	ra, err := name.NewRepository(a, name.StrictValidation)
+	if err != nil {
+		return false
+	}
+	rb, err := name.NewRepository(b, name.StrictValidation)
+	if err != nil {
+		return false
+	}
+
+	return ra.String() == rb.String()
 }
 
 func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.LockPackage) (bool, error) {
