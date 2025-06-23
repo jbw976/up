@@ -29,7 +29,7 @@ const (
 	pythonModelsFolder         = "models"
 	pythonAdoptModelsStructure = "sorted"
 	pythonGeneratedFolder      = "models/workdir"
-	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.26.1"
+	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.31.2"
 )
 
 type pythonGenerator struct{}
