@@ -1,12 +1,11 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package spaces contains functions for ingress CA data handling
 package spaces
 
 import (
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,58 +23,35 @@ import (
 // through the connect API, fails.
 var ErrSpaceConnection = errors.New("failed to connect to space through the API client")
 
+// SpaceIngress represents an ingress configuration for a space with host and CA data.
 type SpaceIngress struct {
 	Host   string
 	CAData []byte
 }
 
+// IngressReader provides an interface for reading ingress configurations for spaces.
 type IngressReader interface {
-	Get(ctx context.Context, space v1alpha1.Space) (ingress *SpaceIngress, err error)
+	Get(ctx context.Context, space v1alpha1.Space) (*SpaceIngress, error)
 }
 
-var _ IngressReader = &ingressCache{}
+var (
+	_ IngressReader = &configMapReader{}
+	_ IngressReader = &mergingReader{}
+	_ IngressReader = &IngressCache{}
+)
 
-type ingressCache struct {
-	mu sync.RWMutex
-
-	// ingresses contains a map of a space's namespaced name to its
-	// corresponding ingress configuration
-	ingresses map[types.NamespacedName]SpaceIngress
-
+// configMapReader reads ingress configuration from the space's ingress-public ConfigMap.
+type configMapReader struct {
 	bearer string
 }
 
-func NewCachedReader(bearer string) *ingressCache {
-	return &ingressCache{
-		ingresses: make(map[types.NamespacedName]SpaceIngress),
-		bearer:    bearer,
-	}
+// NewConfigMapReader creates a new IngressReader that fetches ingress data
+// from the space's ingress-public ConfigMap using the provided bearer token.
+func NewConfigMapReader(bearer string) IngressReader {
+	return &configMapReader{bearer: bearer}
 }
 
-func (c *ingressCache) cacheGet(space v1alpha1.Space) (SpaceIngress, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	nsn := types.NamespacedName{Name: space.Name, Namespace: space.Namespace}
-	ingress, found := c.ingresses[nsn]
-	return ingress, found
-}
-
-func (c *ingressCache) cachePut(space v1alpha1.Space, ingress SpaceIngress) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	nsn := types.NamespacedName{Name: space.Name, Namespace: space.Namespace}
-	c.ingresses[nsn] = ingress
-}
-
-func (c *ingressCache) Get(ctx context.Context, space v1alpha1.Space) (ingress *SpaceIngress, err error) {
-	// cache hit
-	if i, ok := c.cacheGet(space); ok {
-		return &i, nil
-	}
-
-	ingress = &SpaceIngress{}
+func (c *configMapReader) Get(ctx context.Context, space v1alpha1.Space) (*SpaceIngress, error) {
 	if space.Status.APIURL == "" {
 		return nil, errors.New("API URL not defined on space")
 	}
@@ -97,32 +73,89 @@ func (c *ingressCache) Get(ctx context.Context, space v1alpha1.Space) (ingress *
 		return nil, ErrSpaceConnection
 	}
 
-	var ok bool
-	if ingress.Host, ok = ingressPublic.Data["ingress-host"]; !ok {
-		return nil, errors.Wrap(err, `"ingress-host" not found in public ingress configmap`)
+	host, ok := ingressPublic.Data["ingress-host"]
+	if !ok {
+		return nil, errors.New(`"ingress-host" not found in public ingress configmap`)
 	}
-	if caString, ok := ingressPublic.Data["ingress-ca"]; !ok {
-		return nil, errors.Wrap(err, `"ingress-ca" not found in public ingress configmap`)
-	} else if err = ensureCertificateAuthorityData(caString); err != nil {
+	caString, ok := ingressPublic.Data["ingress-ca"]
+	if !ok {
+		return nil, errors.New(`"ingress-ca" not found in public ingress configmap`)
+	}
+	if err := ensureCertificateAuthorityData(caString); err != nil {
 		return nil, err
-	} else {
-		ingress.CAData = []byte(caString)
 	}
 
-	c.cachePut(space, *ingress)
-
-	return ingress, err
+	return &SpaceIngress{
+		Host:   host,
+		CAData: []byte(caString),
+	}, nil
 }
 
-func ensureCertificateAuthorityData(tlsCert string) error {
-	block, _ := pem.Decode([]byte(tlsCert))
-	if block == nil || block.Type != "CERTIFICATE" {
-		return errors.New("CA string does not contain PEM certificate data")
+// mergingReader wraps another IngressReader and merges a custom CA bundle.
+type mergingReader struct {
+	wrap           IngressReader
+	customCABundle string
+}
+
+// NewMergingReader creates a new IngressReader that wraps another reader and
+// merges a custom CA bundle with the space's CA data.
+func NewMergingReader(wrap IngressReader, customCABundle string) IngressReader {
+	return &mergingReader{wrap: wrap, customCABundle: customCABundle}
+}
+
+func (m *mergingReader) Get(ctx context.Context, space v1alpha1.Space) (*SpaceIngress, error) {
+	base, err := m.wrap.Get(ctx, space)
+	if err != nil {
+		return nil, err
 	}
 
-	_, err := x509.ParseCertificate(block.Bytes)
+	merged, err := mergeCACertificates(m.customCABundle, base.CAData)
 	if err != nil {
-		return errors.Wrap(err, "CA cannot be parsed to x509 certificate")
+		return nil, errors.Wrapf(err, "failed to merge CA certificates for space %s", space.GetName())
 	}
-	return nil
+
+	return &SpaceIngress{
+		Host:   base.Host,
+		CAData: merged,
+	}, nil
+}
+
+// IngressCache caches ingress results from a wrapped IngressReader.
+type IngressCache struct {
+	wrap      IngressReader
+	mu        sync.RWMutex
+	ingresses map[types.NamespacedName]SpaceIngress
+}
+
+// NewCachedReader creates a new cached IngressReader that wraps another reader.
+// The returned reader caches ingress results to avoid repeated lookups.
+func NewCachedReader(wrap IngressReader) *IngressCache {
+	return &IngressCache{
+		wrap:      wrap,
+		ingresses: make(map[types.NamespacedName]SpaceIngress),
+	}
+}
+
+// Get retrieves the ingress configuration for the given space, using the cache if available.
+// If the ingress is not cached, it delegates to the wrapped IngressReader and stores the result.
+func (c *IngressCache) Get(ctx context.Context, space v1alpha1.Space) (*SpaceIngress, error) {
+	nsn := types.NamespacedName{Name: space.Name, Namespace: space.Namespace}
+
+	c.mu.RLock()
+	if ingress, ok := c.ingresses[nsn]; ok {
+		c.mu.RUnlock()
+		return &ingress, nil
+	}
+	c.mu.RUnlock()
+
+	ingress, err := c.wrap.Get(ctx, space)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.ingresses[nsn] = *ingress
+	c.mu.Unlock()
+
+	return ingress, nil
 }

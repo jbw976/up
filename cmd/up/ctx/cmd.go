@@ -115,8 +115,16 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 		return err
 	}
 
+	baseReader := spaces.NewConfigMapReader(upCtx.Profile.Session)
+
+	if c.Flags.CABundle != "" {
+		baseReader = spaces.NewMergingReader(baseReader, c.Flags.CABundle)
+	}
+
+	cachedReader := spaces.NewCachedReader(baseReader)
+
 	navCtx := &navContext{
-		ingressReader: spaces.NewCachedReader(upCtx.Profile.Session),
+		ingressReader: cachedReader,
 		contextWriter: c.kubeContextWriter(upCtx),
 	}
 
@@ -306,8 +314,11 @@ func GetKubeconfigForPath(ctx context.Context, upCtx *upbound.Context, path stri
 		return nil, err
 	}
 
+	baseReader := spaces.NewConfigMapReader(upCtx.Profile.Session)
+	cachedReader := spaces.NewCachedReader(baseReader)
+
 	navCtx := &navContext{
-		ingressReader: spaces.NewCachedReader(upCtx.Profile.Session),
+		ingressReader: cachedReader,
 		// This shouldn't be used in the call below, but if it does get used we
 		// don't want anything to be written (the caller can write the
 		// kubeconfig if desired).
