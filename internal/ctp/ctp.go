@@ -598,7 +598,7 @@ func ensureSpacesDevControlPlane(ctx context.Context, upCtx *upbound.Context, cf
 	// Create and return the spacesDevControlPlane
 	return &spacesDevControlPlane{
 		spaceClient: spaceClient,
-		group:       cfg.spacesConfig.group,
+		group:       group,
 		name:        cfg.name,
 		client:      ctpClient,
 		kubeconfig:  ctpKubeconfig,

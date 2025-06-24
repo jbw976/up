@@ -648,6 +648,17 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		}
 	}
 
+	if err := upterm.WrapWithSuccessSpinner(
+		"Applying Init Resources",
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.InitResources)
+		},
+		c.printer,
+	); err != nil {
+		return errors.Wrap(err, "failed to apply init resources")
+	}
+
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		return kube.InstallConfiguration(ctx, devCtp.Client(), proj.Name, generatedTag, ch)
 	})

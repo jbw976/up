@@ -225,12 +225,36 @@ func ApplyResources(ctx context.Context, cl client.Client, resources []runtime.R
 		if err := wait.ExponentialBackoff(backoff, func() (bool, error) {
 			err := cl.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli"))
 			if err != nil {
-				return false, nil //nolint:nilerr // Retry the operation
+				// Check if this is a permanent error that shouldn't be retried
+				if isPermanentError(err) {
+					// Return the error to stop retrying
+					return false, err
+				}
+				// For transient errors, return nil to continue retrying
+				return false, nil
 			}
 			return true, nil // Success, stop retrying
 		}); err != nil {
-			return errors.Wrap(err, "failed to apply resource after retries")
+			return errors.Wrapf(err, "failed to apply resource %s/%s",
+				obj.GetKind(), obj.GetName())
 		}
 	}
 	return nil
+}
+
+// isPermanentError determines if an error should not be retried.
+func isPermanentError(err error) bool {
+	// Check for specific error types that indicate permanent failures
+	if apierrors.IsBadRequest(err) ||
+		apierrors.IsInvalid(err) ||
+		apierrors.IsMethodNotSupported(err) ||
+		apierrors.IsNotAcceptable(err) ||
+		apierrors.IsUnsupportedMediaType(err) ||
+		apierrors.IsUnauthorized(err) ||
+		apierrors.IsForbidden(err) ||
+		apierrors.IsRequestEntityTooLargeError(err) {
+		return true
+	}
+
+	return false
 }
