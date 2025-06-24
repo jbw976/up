@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
@@ -18,7 +17,7 @@ import (
 // JSONPackageParser defines the API contract for working with a
 // PackageParser.
 type JSONPackageParser interface {
-	Parse(context.Context, io.ReadCloser) (*ndjson.Package, error)
+	Parse(ctx context.Context, r io.ReadCloser) (*ndjson.Package, error)
 }
 
 // ParsedPackage represents an xpkg that has been parsed from a v1.Image.
@@ -40,8 +39,7 @@ type ParsedPackage struct {
 	// The SHA corresponding to the package.
 	SHA string
 	// The resolved version, e.g. v0.20.0
-	Ver    string
-	Schema map[string]afero.Fs // Optional schema field, can be nil
+	Ver string
 }
 
 // Digest returns the package's digest derived from the package image.
@@ -85,9 +83,4 @@ func (p *ParsedPackage) Registry() string {
 // e.g. v0.20.0.
 func (p *ParsedPackage) Version() string {
 	return p.Ver
-}
-
-// Schemas returns the package's schemas derived from the package image.
-func (p *ParsedPackage) Schemas() map[string]afero.Fs {
-	return p.Schema
 }

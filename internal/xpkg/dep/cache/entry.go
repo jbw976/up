@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package cache implements an xpkg dependency cache.
 package cache
 
 import (
@@ -18,7 +19,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
-	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg"
 	rxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 )
@@ -105,11 +105,6 @@ func (e *entry) flush() (*flushstats, error) {
 	}
 	stats.combine(objstats)
 
-	err = e.writeSchemas(e.pkg.Schema)
-	if err != nil {
-		return stats, err
-	}
-
 	// writing empty digest file
 	_, err = e.fs.Create(filepath.Join(e.location(), e.pkg.Digest()))
 	if err != nil {
@@ -149,7 +144,7 @@ func (e *entry) writeMeta(o runtime.Object) (*flushstats, error) {
 	if err != nil {
 		return stats, errors.Wrap(err, errFailedToCreateMeta)
 	}
-	defer cf.Close() //nolint:errcheck
+	defer func() { _ = cf.Close() }()
 
 	b, err := yaml.Marshal(o)
 	if err != nil {
@@ -183,7 +178,7 @@ func (e *entry) createPackageJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer pf.Close() //nolint:errcheck
+	defer func() { _ = pf.Close() }()
 
 	return writeToFile(data, pf)
 }
@@ -193,7 +188,7 @@ func (e *entry) appendToPackageJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer pf.Close() //nolint:errcheck
+	defer func() { _ = pf.Close() }()
 
 	return writeToFile(data, pf)
 }
@@ -206,7 +201,7 @@ func writeToFile(data []byte, f afero.File) error {
 }
 
 // writeObjects writes out the CRDs and XRDs that came from the package.yaml.
-func (e *entry) writeObjects(objs []runtime.Object) (*flushstats, error) { //nolint:gocyclo
+func (e *entry) writeObjects(objs []runtime.Object) (*flushstats, error) {
 	stats := &flushstats{}
 
 	for _, o := range objs {
@@ -320,15 +315,4 @@ func (s *flushstats) combine(src *flushstats) {
 	s.crds += src.crds
 	s.metas += src.metas
 	s.xrds += src.xrds
-}
-
-func (e *entry) writeSchemas(schemaFS map[string]afero.Fs) error {
-	for language, fs := range schemaFS {
-		targetFS := afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(e.location(), fmt.Sprintf("schema.%s", language)))
-		if err := filesystem.CopyFilesBetweenFs(fs, targetFS); err != nil {
-			return errors.Wrapf(err, "failed to write %s schema to disk", language)
-		}
-	}
-
-	return nil
 }

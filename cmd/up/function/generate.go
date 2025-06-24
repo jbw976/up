@@ -33,9 +33,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -89,7 +86,7 @@ type generateCmd struct {
 	fsPath            string
 	proj              *v1alpha1.Project
 
-	m *manager.Manager
+	m *project.DependencyManager
 
 	quiet config.QuietFlag
 }
@@ -138,27 +135,9 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 		c.projFS, c.fsPath,
 	)
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -175,7 +154,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) 
 func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // TODO: refactor
 	var (
 		err                error
-		functionSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
+		functionSpecificFs afero.Fs
 	)
 
 	if errs := validation.IsDNS1035Label(c.Name); len(errs) > 0 {
@@ -211,20 +190,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
-		deps := c.proj.Spec.DependsOn
-
-		// Check all dependencies in the cache
-		for _, dep := range deps {
-			converted, ok := manager.ConvertToV1beta1(dep)
-			if !ok {
-				return errors.New("failed to convert dependency")
-			}
-			_, _, err := c.m.AddAll(ctx, converted)
-			if err != nil {
-				return errors.Wrapf(err, "failed to check dependencies for %v", dep)
-			}
-		}
-		return nil
+		return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 	}, printer)
 	if err != nil {
 		return err

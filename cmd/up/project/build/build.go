@@ -26,11 +26,7 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	xcache "github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -45,15 +41,13 @@ type Cmd struct {
 	CacheDir       string        `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                      help:"Directory used for caching dependencies."      type:"path"`
 	Flags          upbound.Flags `embed:""`
 
-	modelsFS afero.Fs
 	outputFS afero.Fs
 	projFS   afero.Fs
 
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
 	concurrency        uint
 
-	m *manager.Manager
+	m *project.DependencyManager
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
@@ -84,7 +78,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	// Construct a virtual filesystem that contains only the project. We'll do
 	// all our operations inside this virtual FS.
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 
 	prj, err := project.Parse(c.projFS, c.ProjectFile)
 	if err != nil {
@@ -95,27 +88,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 
 	// Output can be anywhere, doesn't have to be in the project directory.
 	c.outputFS = afero.NewOsFs()
-	fs := afero.NewOsFs()
 
-	cache, err := xcache.NewLocal(c.CacheDir, xcache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(prj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
-		manager.WithCache(cache),
-		manager.WithSkipCacheUpdateIfExists(true),
-		manager.WithResolver(r),
+	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
 		return err
@@ -124,9 +100,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	c.m = m
 
 	c.functionIdentifier = functions.DefaultIdentifier
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(prj.Spec.ImageConfig),
-	)
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -167,7 +140,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 	b := project.NewBuilder(
 		project.BuildWithMaxConcurrency(c.concurrency),
 		project.BuildWithFunctionIdentifier(c.functionIdentifier),
-		project.BuildWithSchemaRunner(c.schemaRunner),
 	)
 
 	var imgMap project.ImageTagMap

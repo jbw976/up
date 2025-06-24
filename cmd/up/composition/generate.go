@@ -25,17 +25,11 @@ import (
 	apiextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	mxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -115,7 +109,7 @@ type generateCmd struct {
 	apisFS afero.Fs
 	proj   *projectv1alpha1.Project
 
-	m *manager.Manager
+	depManager *project.DependencyManager
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -151,32 +145,13 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		c.projFS, proj.Spec.Paths.APIs,
 	)
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
+	dm, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)),
 	)
 	if err != nil {
 		return err
 	}
-
-	c.m = m
+	c.depManager = dm
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -310,119 +285,117 @@ func (c *generateCmd) newComposition(ctx context.Context) (*apiextv1.Composition
 	return composition, plural, nil
 }
 
-func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]apiextv1.PipelineStep, error) { //nolint:gocognit // ToDo(haarchri): refactor this
+func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]apiextv1.PipelineStep, error) {
 	maxSteps := len(c.proj.Spec.DependsOn)
 	pipelineSteps := make([]apiextv1.PipelineStep, 0, maxSteps)
-	foundAutoReadyFunction := false
 
-	var deps []*mxpkg.ParsedPackage
-	var err error
-
+	// Find all the function dependencies of the project. We don't care about
+	// other kinds of dependencies for the purpsoes of pipeline generation.
+	fnDeps := make([]pkgmetav1.Dependency, 0, len(c.proj.Spec.DependsOn))
 	for _, dep := range c.proj.Spec.DependsOn {
-		ref, ok := functionFromDep(dep)
-		if !ok {
+		dep, err := project.NormalizeDependency(dep)
+		if err != nil {
+			return nil, err
+		}
+
+		if !isFunction(dep) {
 			continue
 		}
 
-		functionName, err := name.NewRepository(ref, name.StrictValidation)
-		if err != nil {
-			return nil, errors.Wrap(err, errInvalidPkgName)
-		}
-
-		// Check if auto-ready-function is available in deps
-		if functionName.String() == functionAutoReadyXpkg {
-			foundAutoReadyFunction = true
-		}
-
-		// Convert the dependency to v1beta1.Dependency
-		convertedDep, ok := manager.ConvertToV1beta1(dep)
-		if !ok {
-			return nil, errors.Errorf("failed to convert dependency in %s", functionName)
-		}
-
-		// Try to resolve the function
-		_, deps, err = c.m.Resolve(ctx, convertedDep)
-		if err != nil {
-			// If resolving fails, try to add function
-			_, deps, err = c.m.AddAll(ctx, convertedDep)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to add dependencies in %s", functionName)
-			}
-		}
+		fnDeps = append(fnDeps, dep)
 	}
 
-	if !foundAutoReadyFunction {
-		d := dep.New(functionAutoReadyXpkg)
-
-		var ud pkgv1beta1.Dependency
-		ud, deps, err = c.m.AddAll(ctx, d)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to add auto-ready dependency")
-		}
-
-		metaDep := dep.ToMetaDependency(ud)
-		if err := project.UpsertDependency(c.proj, metaDep); err != nil {
-			return nil, errors.Wrap(err, "failed to add function-auto-ready dependency")
-		}
-		if err := project.Update(c.projFS, c.ProjectFile, func(p *projectv1alpha1.Project) {
-			p.Spec.DependsOn = c.proj.Spec.DependsOn
-		}); err != nil {
-			return nil, errors.Wrap(err, "failed to update project dependencies")
-		}
+	// Make sure we depend on function-auto-ready since we include it in all
+	// pipelines.
+	fnDeps, err := c.ensureFunctionAutoReady(ctx, fnDeps)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, dep := range deps {
-		var rawExtension *runtime.RawExtension
-		if len(dep.Objs) > 0 {
-			kind := dep.Objs[0].GetObjectKind().GroupVersionKind()
-			if kind.Kind == "CustomResourceDefinition" && kind.GroupVersion().String() == "apiextensions.k8s.io/v1" {
-				if crd, ok := dep.Objs[0].(*apiextensionsv1.CustomResourceDefinition); ok {
-					rawExtension, err = c.setRawExtension(*crd)
-					if err != nil {
-						return nil, errors.Wrap(err, "failed to generate rawExtension for input")
-					}
-				} else {
-					return nil, errors.New("failed to use to CustomResourceDefinition")
-				}
-			}
-		}
+	// Add functions to the dependency manager so we can get their input types.
+	if err := c.depManager.AddAll(ctx, fnDeps...); err != nil {
+		return nil, err
+	}
 
-		functionName, err := name.NewRepository(dep.DepName, name.StrictValidation)
+	for _, dep := range fnDeps {
+		step, err := c.createPipelineStep(ctx, dep)
 		if err != nil {
-			return nil, errors.Wrap(err, errInvalidPkgName)
-		}
-
-		// create a PipelineStep for each function
-		step := apiextv1.PipelineStep{
-			Step: xpkg.ToDNSLabel(functionName.RepositoryStr()),
-			FunctionRef: apiextv1.FunctionReference{
-				Name: xpkg.ToDNSLabel(functionName.RepositoryStr()),
-			},
-		}
-		if rawExtension != nil {
-			step.Input = rawExtension
+			return nil, errors.Wrapf(err, "failed to create pipeline step for function %s", ptr.Deref(dep.Package, ""))
 		}
 
 		pipelineSteps = append(pipelineSteps, step)
 	}
 
 	if len(pipelineSteps) == 0 {
-		return nil, errors.New("no function found")
+		return nil, errors.New("no functions found")
 	}
 
 	return reorderPipelineSteps(pipelineSteps), nil
 }
 
-func functionFromDep(dep pkgmetav1.Dependency) (string, bool) {
-	if dep.Function != nil {
-		return *dep.Function, true
+func (c *generateCmd) ensureFunctionAutoReady(ctx context.Context, fnDeps []pkgmetav1.Dependency) ([]pkgmetav1.Dependency, error) {
+	for _, dep := range fnDeps {
+		if ptr.Deref(dep.Package, "") == functionAutoReadyXpkg {
+			return fnDeps, nil
+		}
 	}
 
-	if ptr.Deref(dep.APIVersion, "") == pkgv1.FunctionGroupVersionKind.GroupVersion().String() && ptr.Deref(dep.Kind, "") == pkgv1.FunctionKind {
-		return ptr.Deref(dep.Package, ""), true
+	d := pkgmetav1.Dependency{
+		APIVersion: ptr.To(pkgv1.FunctionGroupVersionKind.GroupVersion().String()),
+		Kind:       &pkgv1.FunctionKind,
+		Package:    ptr.To(functionAutoReadyXpkg),
+		Version:    ">=v0.0.0",
+	}
+	if err := c.depManager.Add(ctx, d); err != nil {
+		return nil, errors.Wrap(err, "failed to add function-auto-ready dependency")
+	}
+	fnDeps = append(fnDeps, d)
+
+	return fnDeps, nil
+}
+
+func (c *generateCmd) createPipelineStep(ctx context.Context, dep pkgmetav1.Dependency) (apiextv1.PipelineStep, error) {
+	pkg, err := c.depManager.GetParsedPackage(ctx, dep)
+	if err != nil {
+		return apiextv1.PipelineStep{}, errors.Wrap(err, "failed to get package from dependency manager")
 	}
 
-	return "", false
+	var rawExtension *runtime.RawExtension
+	if len(pkg.Objs) > 0 {
+		kind := pkg.Objs[0].GetObjectKind().GroupVersionKind()
+		if kind.Kind == "CustomResourceDefinition" && kind.GroupVersion().String() == "apiextensions.k8s.io/v1" {
+			if crd, ok := pkg.Objs[0].(*apiextensionsv1.CustomResourceDefinition); ok {
+				rawExtension, err = c.setRawExtension(*crd)
+				if err != nil {
+					return apiextv1.PipelineStep{}, errors.Wrap(err, "failed to generate rawExtension for input")
+				}
+			} else {
+				return apiextv1.PipelineStep{}, errors.New("failed to use to CustomResourceDefinition")
+			}
+		}
+	}
+
+	functionName, err := name.NewRepository(pkg.DepName, name.StrictValidation)
+	if err != nil {
+		return apiextv1.PipelineStep{}, errors.Wrap(err, errInvalidPkgName)
+	}
+
+	step := apiextv1.PipelineStep{
+		Step: xpkg.ToDNSLabel(functionName.RepositoryStr()),
+		FunctionRef: apiextv1.FunctionReference{
+			Name: xpkg.ToDNSLabel(functionName.RepositoryStr()),
+		},
+	}
+	if rawExtension != nil {
+		step.Input = rawExtension
+	}
+
+	return step, nil
+}
+
+func isFunction(dep pkgmetav1.Dependency) bool {
+	return ptr.Deref(dep.APIVersion, "") == pkgv1.FunctionGroupVersionKind.GroupVersion().String() &&
+		ptr.Deref(dep.Kind, "") == pkgv1.FunctionKind
 }
 
 // reorderPipelineSteps ensures the step with functionref.name == "crossplane-contrib-function-auto-ready" is the last one.

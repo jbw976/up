@@ -5,16 +5,16 @@ package apis
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"fmt"
+	"io"
+	"io/fs"
+	"path/filepath"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-
-	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/schemagenerator"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/manager"
 )
 
 // Embed the CRDs folder into the binary.
@@ -23,68 +23,56 @@ import (
 var crdsFS embed.FS
 
 // GenerateSchema will generate meta apis schemas.
-func GenerateSchema(ctx context.Context, m *manager.Manager, sr schemarunner.SchemaRunner) error {
-	schemaFS, err := filesystem.EmbedCopyOnWriteFs(crdsFS)
-	if err != nil {
-		return err
-	}
-	eg, ctx := errgroup.WithContext(ctx)
+func GenerateSchema(ctx context.Context, m *manager.Manager) error {
+	return m.Add(ctx, &metaAPIsSource{fs: crdsFS})
+}
 
-	eg.Go(func() error {
-		var err error
-		kfs, err := schemagenerator.GenerateSchemaKcl(ctx, schemaFS, []string{}, sr)
+type metaAPIsSource struct {
+	fs embed.FS
+}
+
+func (f *metaAPIsSource) ID() string {
+	return "up://apis"
+}
+
+func (f *metaAPIsSource) Version() (string, error) {
+	// Calculate a hash of all the yaml files in the filesystem. This isn't
+	// super efficient, but is almost certainly faster than generating schemas
+	// for the files.
+	h := sha256.New()
+
+	if err := fs.WalkDir(f.fs, "crds", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
-		if err := m.AddModels("kcl", kfs); err != nil {
-			return err
+		if d.IsDir() {
+			return nil
 		}
-		return err
-	})
+		// Ignore files without yaml extensions.
+		ext := filepath.Ext(path)
+		if ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
 
-	eg.Go(func() error {
-		var err error
-		pfs, err := schemagenerator.GenerateSchemaPython(ctx, schemaFS, []string{}, sr)
+		f, err := f.fs.Open(path)
 		if err != nil {
 			return err
 		}
+		defer func() { _ = f.Close() }()
 
-		if err := m.AddModels("python", pfs); err != nil {
-			return err
-		}
-		return err
-	})
-
-	eg.Go(func() error {
-		var err error
-		gofs, err := schemagenerator.GenerateSchemaGo(ctx, schemaFS, []string{}, sr)
-		if err != nil {
+		if _, err := io.Copy(h, f); err != nil {
 			return err
 		}
 
-		if err := m.AddModels("go", gofs); err != nil {
-			return err
-		}
-		return err
-	})
-
-	eg.Go(func() error {
-		var err error
-		jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, schemaFS, []string{}, sr)
-		if err != nil {
-			return err
-		}
-
-		if err := m.AddModels("json", jsonfs); err != nil {
-			return err
-		}
-		return err
-	})
-
-	if err := eg.Wait(); err != nil {
-		return errors.Wrap(err, "unable to generate meta schemas")
+		return nil
+	}); err != nil {
+		return "", err
 	}
 
-	return nil
+	sum := h.Sum(nil)
+	return fmt.Sprintf("%x", sum), nil
+}
+
+func (f *metaAPIsSource) Resources() (afero.Fs, error) {
+	return afero.NewBasePathFs(afero.FromIOFS{FS: f.fs}, "crds"), nil
 }

@@ -169,8 +169,6 @@ func isNonBaseLayer(desc v1.Descriptor) bool {
 	nonBaseLayerAnns := []string{
 		xpkg.PackageAnnotation,
 		xpkg.ExamplesAnnotation,
-		xpkg.SchemaKclAnnotation,
-		xpkg.SchemaPythonAnnotation,
 	}
 
 	ann := desc.Annotations[xpkg.AnnotationKey]

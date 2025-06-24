@@ -14,7 +14,6 @@ import (
 	"github.com/gobuffalo/flect"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-	"golang.org/x/sync/errgroup"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,12 +24,10 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/generator"
+	"github.com/upbound/up/internal/schemas/manager"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/internal/xpkg/schemagenerator"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -75,14 +72,12 @@ type generateCmd struct {
 
 	Flags upbound.Flags `embed:""`
 
-	projFS   afero.Fs
-	apisFS   afero.Fs
-	modelsFS afero.Fs
-	proj     *projectv1alpha1.Project
-	relFile  string
+	projFS  afero.Fs
+	apisFS  afero.Fs
+	proj    *projectv1alpha1.Project
+	relFile string
 
-	schemaRunner schemarunner.SchemaRunner
-	m            *manager.Manager
+	sm *manager.Manager
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -105,7 +100,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	// The location of the project file defines the root of the project.
 	projDirPath := filepath.Dir(projFilePath)
-	c.modelsFS = afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(projDirPath, ".up"))
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// The location of the co position defines the root of the xrd.
@@ -120,6 +114,8 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.apisFS = afero.NewBasePathFs(
 		c.projFS, proj.Spec.Paths.APIs,
 	)
+
+	c.sm = manager.New(afero.NewBasePathFs(c.projFS, ".up"), generator.AllLanguages(), runner.NewRealSchemaRunner())
 
 	c.relFile = c.File
 	if filepath.IsAbs(c.File) {
@@ -137,43 +133,12 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 		c.relFile = relPath
 	}
 
-	fs := afero.NewOsFs()
-
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(fs))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
-	)
-	if err != nil {
-		return err
-	}
-
-	c.m = m
-
-	c.schemaRunner = schemarunner.NewRealSchemaRunner(
-		schemarunner.WithImageConfig(proj.Spec.ImageConfig),
-	)
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocognit // TODO: Refactor
+func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
@@ -227,64 +192,8 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 			return errors.Wrap(err, "failed to write CompositeResourceDefinition (XRD) to file")
 		}
 
-		// In parallel:
-		// * Generate schemas for XRDs
-		eg, ctx := errgroup.WithContext(ctx)
-
-		eg.Go(func() error {
-			var err error
-			kfs, err := schemagenerator.GenerateSchemaKcl(ctx, c.apisFS, []string{}, c.schemaRunner)
-			if err != nil {
-				return err
-			}
-
-			if err := c.m.AddModels("kcl", kfs); err != nil {
-				return err
-			}
-			return err
-		})
-
-		eg.Go(func() error {
-			var err error
-			pfs, err := schemagenerator.GenerateSchemaPython(ctx, c.apisFS, []string{}, c.schemaRunner)
-			if err != nil {
-				return err
-			}
-
-			if err := c.m.AddModels("python", pfs); err != nil {
-				return err
-			}
-			return err
-		})
-
-		eg.Go(func() error {
-			var err error
-			gofs, err := schemagenerator.GenerateSchemaGo(ctx, c.apisFS, []string{}, c.schemaRunner)
-			if err != nil {
-				return err
-			}
-
-			if err := c.m.AddModels("go", gofs); err != nil {
-				return err
-			}
-			return err
-		})
-
-		eg.Go(func() error {
-			var err error
-			jsonfs, err := schemagenerator.GenerateSchemaJSON(ctx, c.apisFS, []string{}, c.schemaRunner)
-			if err != nil {
-				return err
-			}
-
-			if err := c.m.AddModels("json", jsonfs); err != nil {
-				return err
-			}
-			return err
-		})
-
-		if err := eg.Wait(); err != nil {
-			return err
+		if err := c.sm.Add(ctx, manager.NewFSSource(c.apisFS)); err != nil {
+			return errors.Wrap(err, "failed to generate language schemas")
 		}
 
 		p.Printfln("Successfully created CompositeResourceDefinition (XRD) and saved to %s", filesystem.FullPath(c.apisFS, filePath))

@@ -12,7 +12,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/internal/xpkg/schemarunner"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/yaml"
 	compositionTest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
@@ -20,14 +20,14 @@ import (
 
 // Runner defines an interface for running a specific test type.
 type Runner interface {
-	Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error
+	Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner runner.SchemaRunner) error
 }
 
 // KCLRunner implements the TestType interface for KCL tests.
 type KCLRunner struct{}
 
 // Run kcl tests manifest generation.
-func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
+func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner runner.SchemaRunner) error {
 	err := schemaRunner.Generate(
 		ctx,
 		fs,
@@ -46,7 +46,7 @@ func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schem
 type PythonRunner struct{}
 
 // Run python tests manifest generation.
-func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner schemarunner.SchemaRunner) error {
+func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schemaRunner runner.SchemaRunner) error {
 	err := schemaRunner.Generate(
 		ctx,
 		fs,
@@ -54,9 +54,9 @@ func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, sc
 		basePath,
 		"xpkg.upbound.io/upbound/uptest-pyrunner:v0.3.0",
 		[]string{"/venv/test/bin/uptestpyrunner"},
-		schemarunner.WithWorkDirectory("/"),
-		schemarunner.WithCopyToPath("/venv/test/lib/python3.11/site-packages/uptestpyrunner"),
-		schemarunner.WithCopyFromPath("/test.yaml"),
+		runner.WithWorkDirectory("/"),
+		runner.WithCopyToPath("/venv/test/lib/python3.11/site-packages/uptestpyrunner"),
+		runner.WithCopyFromPath("/test.yaml"),
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to execute Python manifest generation")
@@ -94,12 +94,12 @@ type BuildOption func(o *buildOptions)
 
 // buildOptions holds configuration options for the build process.
 type buildOptions struct {
-	schemaRunner   schemarunner.SchemaRunner
+	schemaRunner   runner.SchemaRunner
 	testIdentifier Identifier
 }
 
 // BuildWithSchemaRunner sets the schema runner.
-func BuildWithSchemaRunner(r schemarunner.SchemaRunner) BuildOption {
+func BuildWithSchemaRunner(r runner.SchemaRunner) BuildOption {
 	return func(o *buildOptions) {
 		o.schemaRunner = r
 	}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -29,16 +28,16 @@ import (
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/schemas/generator"
+	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	xpkgmarshaler "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
 )
 
 var (
@@ -73,10 +72,8 @@ func TestBuild(t *testing.T) {
 			// 8 APIs = 8 XRDs + 8 compositions.
 			expectedObjectCount: 16,
 			expectedAnnotatedLayers: map[string]bool{
-				xpkg.SchemaKclAnnotation:    true,
-				xpkg.SchemaPythonAnnotation: true,
-				xpkg.PackageAnnotation:      true,
-				xpkg.ExamplesAnnotation:     true,
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: true,
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -138,10 +135,8 @@ func TestBuild(t *testing.T) {
 			// 3 APIs = 3 XRDs + 3 compositions.
 			expectedObjectCount: 6,
 			expectedAnnotatedLayers: map[string]bool{
-				xpkg.SchemaKclAnnotation:    true,
-				xpkg.SchemaPythonAnnotation: true,
-				xpkg.PackageAnnotation:      true,
-				xpkg.ExamplesAnnotation:     false, // no-examples expected
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: false, // no-examples expected
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -154,38 +149,39 @@ func TestBuild(t *testing.T) {
 			t.Parallel()
 
 			outFS := afero.NewMemMapFs()
-			mockRunner := MockSchemaRunner{}
-
-			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
-			assert.NilError(t, err)
 
 			// Create mock fetcher that holds the images
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
 
-			r := image.NewResolver(
-				image.WithFetcher(
-					&image.FSFetcher{FS: testPkgFS},
-				),
-			)
+			// Create an in-memory overlay so the builder can write to the
+			// project FS (e.g., as part of schema generation).
+			projFS := filesystem.MemOverlay(tc.projFS)
+			prj, err := project.Parse(projFS, "upbound.yaml")
+			assert.NilError(t, err)
+			prj.Default()
 
-			mgr, err := manager.New(
-				manager.WithCache(cch),
-				manager.WithResolver(r),
+			cchFS := afero.NewBasePathFs(outFS, "/cache")
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			mgr, err := project.NewDependencyManager(upCtx, prj, projFS,
+				project.WithCacheFS(cchFS),
+				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+				project.WithSchemaGenerators([]generator.Interface{mockGenerator{}}),
 			)
 			assert.NilError(t, err)
-
-			prj, _ := project.Parse(tc.projFS, "upbound.yaml")
-			prj.Default()
 
 			c := &Cmd{
 				ProjectFile:  "upbound.yaml",
 				OutputDir:    "_output",
 				NoBuildCache: true,
 
-				projFS:             tc.projFS,
+				projFS:             projFS,
 				outputFS:           outFS,
 				functionIdentifier: functions.FakeIdentifier,
-				schemaRunner:       mockRunner,
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
 
@@ -194,12 +190,6 @@ func TestBuild(t *testing.T) {
 			}
 
 			// Build the package.
-			ep, err := url.Parse("https://donotuse.example.com")
-			assert.NilError(t, err)
-			upCtx := &upbound.Context{
-				Domain:           &url.URL{},
-				RegistryEndpoint: ep,
-			}
 			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 
@@ -237,10 +227,8 @@ func TestBuild(t *testing.T) {
 					assert.NilError(t, err)
 
 					foundLayers := map[string]bool{
-						xpkg.SchemaKclAnnotation:    false,
-						xpkg.SchemaPythonAnnotation: false,
-						xpkg.PackageAnnotation:      false,
-						xpkg.ExamplesAnnotation:     false,
+						xpkg.PackageAnnotation:  false,
+						xpkg.ExamplesAnnotation: false,
 					}
 
 					// Iterate over manifest layers to find annotations
@@ -368,38 +356,19 @@ func TestBuild(t *testing.T) {
 			}
 
 			objs := pkg.Objects()
-			// TODO(adamwg): Right now we generate CRDs during parsing and
-			// inject them into the package, which doubles the object
-			// count. This assertion will need to change when we refactor the
-			// dependency manager to generate the CRDs after, rather than
-			// during, package loading.
-			assert.Assert(t, cmp.Len(objs, 2*tc.expectedObjectCount))
+			assert.Assert(t, cmp.Len(objs, tc.expectedObjectCount))
 		})
 	}
 }
 
-type MockSchemaRunner struct{}
+type mockGenerator struct{}
 
-func (m MockSchemaRunner) Generate(_ context.Context, fs afero.Fs, _ string, _ string, imageName string, _ []string, _ ...schemarunner.Option) error {
-	// Simulate generation for KCL schema files
-	// Simulate generation for KCL schema files
-	if strings.Contains(imageName, "kcl") { // Check for KCL-specific marker, if any
-		// Create the main KCL schema file
-		kclOutputPath := "models/v1alpha1/platform_acme_co_v1alpha1_subnetwork.k"
-		_ = fs.MkdirAll("models/v1alpha1/", os.ModePerm)
-		if err := afero.WriteFile(fs, kclOutputPath, []byte("mock KCL content"), os.ModePerm); err != nil {
-			return err
-		}
+func (g mockGenerator) Language() string {
+	return "mock"
+}
 
-		// Create the additional k8s folder and a file inside
-		k8sOutputPath := "models/k8s/sample_k8s_resource.k"
-		_ = fs.MkdirAll("models/k8s/", os.ModePerm)
-		return afero.WriteFile(fs, k8sOutputPath, []byte("mock K8s content"), os.ModePerm)
-	}
-	// Simulate generation for Python schema files
-	outputPath := "models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/v1.py"
-	_ = fs.MkdirAll("models/workdir/platform_acme_co_v1alpha1_subnetwork/io/k8s/apimachinery/pkg/apis/meta/", os.ModePerm)
-	return afero.WriteFile(fs, outputPath, []byte("mock Python content"), os.ModePerm)
+func (g mockGenerator) Generate(_ context.Context, fs afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return fs, nil
 }
 
 type TestWriter struct {

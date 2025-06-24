@@ -10,18 +10,14 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
-	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -49,7 +45,7 @@ Examples:
 
 // addCmd manages crossplane dependencies.
 type addCmd struct {
-	m        *manager.Manager
+	m        *project.DependencyManager
 	modelsFS afero.Fs
 	projFS   afero.Fs
 	proj     *v1alpha1.Project
@@ -90,25 +86,8 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 		c.proj.Spec = &v1alpha1.ProjectSpec{}
 	}
 
-	cache, err := cache.NewLocal(c.CacheDir, cache.WithFS(afero.NewOsFs()))
-	if err != nil {
-		return err
-	}
-
-	r := image.NewResolver(
-		image.WithImageConfig(prj.Spec.ImageConfig),
-		image.WithFetcher(
-			image.NewLocalFetcher(
-				image.WithKeychain(upCtx.RegistryKeychain()),
-			),
-		),
-	)
-
-	m, err := manager.New(
-		manager.WithCacheModels(c.modelsFS),
-		manager.WithCache(cache),
-		manager.WithResolver(r),
-		manager.WithSkipCacheUpdateIfExists(true),
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+		project.WithCacheFS(afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)),
 	)
 	if err != nil {
 		return err
@@ -123,59 +102,20 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // Run executes the dep command.
 func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
-	_, err := xpkg.ValidDep(c.Package)
-	if err != nil {
-		return err
-	}
-
-	d := dep.New(c.Package)
-
-	var ud v1beta1.Dependency
-	if err = upterm.WrapWithSuccessSpinner(
-		"Updating cache dependencies...",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			ud, _, err = c.m.AddAll(ctx, d)
-			if err != nil {
-				return errors.Wrapf(err, "in %s", c.Package)
-			}
-			return nil
-		},
-		printer,
-	); err != nil {
-		return err
-	}
-	pterm.Success.Printfln("%s:%s added to cache", ud.Package, ud.Constraints)
-
+	var d pkgmetav1.Dependency
 	if err := upterm.WrapWithSuccessSpinner(
-		"Updating project dependencies...",
+		"Adding dependency...",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
-			metaDep := dep.ToMetaDependency(ud)
-			// Copy the originally specified constraints to the dep if present,
-			// since ud will have the resolved version.
-			//
-			// TODO(adamwg): We should reconsider this. It would be better
-			// practice to pin versions in the project file by default.
-			if d.Constraints != "" {
-				metaDep.Version = d.Constraints
-			}
-
-			if err := project.UpsertDependency(c.proj, metaDep); err != nil {
-				return errors.Wrap(err, "failed to add dependency")
-			}
-			if err := project.Update(c.projFS, c.ProjectFile, func(p *v1alpha1.Project) {
-				p.Spec.DependsOn = c.proj.Spec.DependsOn
-			}); err != nil {
-				return errors.Wrap(err, "failed to update project dependencies")
-			}
-			return nil
+			var err error
+			d, err = c.m.AddByRef(ctx, c.Package)
+			return err
 		},
 		printer,
 	); err != nil {
 		return err
 	}
+	pterm.Success.Printfln("%s:%s added", ptr.Deref(d.Package, ""), d.Version)
 
-	pterm.Success.Printfln("%s:%s added to project dependency", ud.Package, ud.Constraints)
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+	"net/url"
 	"path/filepath"
 	"testing"
 
@@ -21,8 +22,7 @@ import (
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )
 
@@ -46,7 +46,6 @@ var (
 func TestNewComposition(t *testing.T) {
 	type want struct {
 		composition *v1.Composition
-		err         string
 	}
 
 	cases := map[string]struct {
@@ -119,7 +118,6 @@ func TestNewComposition(t *testing.T) {
 						},
 					},
 				},
-				err: "",
 			},
 		},
 		"CompositionWithoutLabels": {
@@ -150,7 +148,6 @@ func TestNewComposition(t *testing.T) {
 						},
 					},
 				},
-				err: "",
 			},
 		},
 		"CompositionWithCustomPlural": {
@@ -182,7 +179,6 @@ func TestNewComposition(t *testing.T) {
 						},
 					},
 				},
-				err: "",
 			},
 		},
 		"CompositionFromXRD": {
@@ -213,7 +209,6 @@ func TestNewComposition(t *testing.T) {
 						},
 					},
 				},
-				err: "",
 			},
 		},
 	}
@@ -222,30 +217,30 @@ func TestNewComposition(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			outFS := afero.NewMemMapFs()
 			// Set up a mock cache directory in Afero
-			cch, err := cache.NewLocal("/cache", cache.WithFS(outFS))
-			assert.NilError(t, err)
-
-			// Create mock fetcher that holds the images
-			r := image.NewResolver(
-				image.WithFetcher(
-					&image.FSFetcher{FS: tc.packages},
-				),
-			)
-
-			// Initialize the dependency manager
-			mgr, err := manager.New(
-				manager.WithCache(cch),
-				manager.WithResolver(r),
-			)
-			assert.NilError(t, err)
+			cchFS := afero.NewBasePathFs(outFS, "/cache")
 
 			// Embed test data into projectFS
 			projFS := afero.NewMemMapFs()
-			err = embedToAferoFS(tc.embeddedFS, projFS, "testdata", "/")
+			err := embedToAferoFS(tc.embeddedFS, projFS, "testdata", "/")
 			assert.NilError(t, err)
 
 			// Parse project config
 			proj, err := project.Parse(projFS, "/upbound.yaml")
+			assert.NilError(t, err)
+			proj.Default()
+
+			ep, err := url.Parse("https://donotuse.example.com")
+			assert.NilError(t, err)
+			upCtx := &upbound.Context{
+				Domain:           &url.URL{},
+				RegistryEndpoint: ep,
+			}
+			dm, err := project.NewDependencyManager(upCtx, proj, projFS,
+				project.WithFetcher(&image.FSFetcher{FS: tc.packages}),
+				project.WithSchemaGenerators(nil),
+				project.WithCacheFS(cchFS),
+				project.WithProjectFile("/upbound.yaml"),
+			)
 			assert.NilError(t, err)
 
 			generateCmd := generateCmd{
@@ -253,25 +248,19 @@ func TestNewComposition(t *testing.T) {
 				Plural:      tc.plural,
 				Resource:    "/test.yaml",
 				ProjectFile: "/upbound.yaml",
-				m:           mgr,
 				proj:        proj,
 				projFS:      projFS,
 				apisFS:      projFS,
+				depManager:  dm,
 			}
 
 			// Call newComposition and check results
 			got, _, err := generateCmd.newComposition(context.Background())
+			assert.NilError(t, err)
 
 			// Compare the result with the expected composition
 			if diff := cmp.Diff(got, tc.want.composition, cmpopts.IgnoreUnexported(v1.Composition{})); diff != "" {
 				t.Errorf("NewComposition() composition: -got, +want:\n%s", diff)
-			}
-
-			// Check for errors if there's an expected error or actual error occurred
-			if err != nil || tc.want.err != "" {
-				if diff := cmp.Diff(err.Error(), tc.want.err, cmpopts.EquateErrors()); diff != "" {
-					t.Errorf("NewComposition() error: -got, +want:\n%s", diff)
-				}
 			}
 		})
 	}

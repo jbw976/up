@@ -9,9 +9,11 @@ spec:
   license: Apache-2.0
   repository: xpkg.upbound.io/awg/getting-started
   dependsOn:
-    - provider: xpkg.upbound.io/crossplane-contrib/provider-nop
-      # renovate: datasource=github-releases depName=crossplane-contrib/provider-nop
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      package: xpkg.upbound.io/crossplane-contrib/provider-nop
       version: "v0.2.1"
-    - function: xpkg.upbound.io/crossplane-contrib/function-auto-ready
-      # renovate: datasource=github-releases depName=crossplane-contrib/function-auto-ready
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Function
+      package: xpkg.upbound.io/crossplane-contrib/function-auto-ready
       version: "v0.2.1"

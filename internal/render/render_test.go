@@ -28,7 +28,7 @@ func TestLoadFunctions(t *testing.T) {
 	}
 
 	tests := map[string]testCase{
-		"SuccessfullOneFunction": {
+		"SuccessfulOneFunction": {
 			proj: &projectv1alpha1.Project{
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
@@ -57,7 +57,7 @@ func TestLoadFunctions(t *testing.T) {
 				),
 			),
 		},
-		"SuccessfullMultipleFunctions": {
+		"SuccessfulMultipleFunctions": {
 			proj: &projectv1alpha1.Project{
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
@@ -99,7 +99,7 @@ func TestLoadFunctions(t *testing.T) {
 				),
 			),
 		},
-		"SuccessfullMultipleFunctionsAndProvider": {
+		"SuccessfulMultipleFunctionsAndProvider": {
 			proj: &projectv1alpha1.Project{
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
@@ -145,7 +145,7 @@ func TestLoadFunctions(t *testing.T) {
 				),
 			),
 		},
-		"SuccessfullMultipleFunctionsAndConfiguration": {
+		"SuccessfulMultipleFunctionsAndConfiguration": {
 			proj: &projectv1alpha1.Project{
 				Spec: &projectv1alpha1.ProjectSpec{
 					DependsOn: []metav1.Dependency{
@@ -160,6 +160,58 @@ func TestLoadFunctions(t *testing.T) {
 						{
 							Configuration: ptr.To("registry.example.com/library/cfg-1"),
 							Version:       ">=v0.0.0",
+						},
+					},
+				},
+			},
+			expectedFunctions: []pkgv1.Function{
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					Spec: pkgv1.FunctionSpec{
+						PackageSpec: pkgv1.PackageSpec{
+							Package: "registry.example.com/library/function-1:v2.0.0",
+						},
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
+					Spec: pkgv1.FunctionSpec{
+						PackageSpec: pkgv1.PackageSpec{
+							Package: "registry.example.com/library/function-2:v2.0.0",
+						},
+					},
+				},
+			},
+			fetcher: image.NewMockFetcher(
+				image.WithTags(
+					[]string{
+						"v1.0.0",
+						"v2.0.0",
+					},
+				),
+			),
+		},
+		"SuccessfulNewStyleDependencies": {
+			proj: &projectv1alpha1.Project{
+				Spec: &projectv1alpha1.ProjectSpec{
+					DependsOn: []metav1.Dependency{
+						{
+							APIVersion: ptr.To("pkg.crossplane.io/v1"),
+							Kind:       ptr.To("Function"),
+							Package:    ptr.To("registry.example.com/library/function-1"),
+							Version:    ">=v0.0.0",
+						},
+						{
+							APIVersion: ptr.To("pkg.crossplane.io/v1"),
+							Kind:       ptr.To("Function"),
+							Package:    ptr.To("registry.example.com/library/function-2"),
+							Version:    ">=v0.0.0",
+						},
+						{
+							APIVersion: ptr.To("pkg.crossplane.io/v1"),
+							Kind:       ptr.To("Configuration"),
+							Package:    ptr.To("registry.example.com/library/cfg-1"),
+							Version:    ">=v0.0.0",
 						},
 					},
 				},

@@ -24,20 +24,14 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/internal/xpkg/mutators"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
-	"github.com/upbound/up/internal/xpkg/parser/schema"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
-	"github.com/upbound/up/internal/xpkg/schemagenerator"
-	"github.com/upbound/up/internal/xpkg/schemarunner"
-	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
@@ -70,14 +64,6 @@ func BuildWithFunctionIdentifier(i functions.Identifier) BuilderOption {
 	}
 }
 
-// BuildWithSchemaRunner sets the runner that will be used to run containers
-// used for schema generation.
-func BuildWithSchemaRunner(r schemarunner.SchemaRunner) BuilderOption {
-	return func(b *realBuilder) {
-		b.schemaRunner = r
-	}
-}
-
 // BuildWithMaxConcurrency sets the maximum concurrency for building embedded
 // functions.
 func BuildWithMaxConcurrency(n uint) BuilderOption {
@@ -92,7 +78,7 @@ type BuildOption func(o *buildOptions)
 type buildOptions struct {
 	eventChan       async.EventChannel
 	imageLabels     map[string]string
-	depManager      *manager.Manager
+	depManager      *DependencyManager
 	projectBasePath string
 }
 
@@ -115,7 +101,7 @@ func BuildWithImageLabels(labels map[string]string) BuildOption {
 
 // BuildWithDependencyManager provides a dependency manager to use for
 // dependency resolution during build.
-func BuildWithDependencyManager(m *manager.Manager) BuildOption {
+func BuildWithDependencyManager(m *DependencyManager) BuildOption {
 	return func(o *buildOptions) {
 		o.depManager = m
 	}
@@ -132,12 +118,11 @@ func BuildWithProjectBasePath(path string) BuildOption {
 
 type realBuilder struct {
 	functionIdentifier functions.Identifier
-	schemaRunner       schemarunner.SchemaRunner
 	maxConcurrency     uint
 }
 
 // Build implements the Builder interface.
-func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) { //nolint:gocognit // this is the builder
+func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) {
 	os := &buildOptions{}
 	for _, opt := range opts {
 		opt(os)
@@ -147,7 +132,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// building.
 	statusStage := "Checking dependencies"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := b.checkDependencies(ctx, project, os.depManager); err != nil {
+	if err := os.depManager.AddAll(ctx, project.Spec.DependsOn...); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
 	}
@@ -188,120 +173,22 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		apiExcludes = []string{}
 	}
 
-	// In parallel:
-	// * Collect APIs (composites).
-	// * Generate schemas for APIs.
-	eg, egCtx := errgroup.WithContext(ctx)
-
 	// Collect APIs (composites).
-	var packageFS afero.Fs
-	eg.Go(func() error {
-		pfs, err := collectComposites(apisSource, apiExcludes)
-		packageFS = pfs
-		return err
-	})
-
-	var (
-		mut   []xpkg.Mutator
-		mutMu sync.Mutex
-	)
-	statusStage = "Generating language schemas"
+	statusStage = "Collecting composites"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	// Generate KCL Schemas
-	eg.Go(func() error {
-		kfs, err := schemagenerator.GenerateSchemaKcl(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if kfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(kfs, "", xpkg.StreamFileMode), xpkg.SchemaKclAnnotation))
-			mutMu.Unlock()
-
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("kcl", kfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate Python Schemas
-	eg.Go(func() error {
-		pfs, err := schemagenerator.GenerateSchemaPython(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if pfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(pfs, "", xpkg.StreamFileMode), xpkg.SchemaPythonAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("python", pfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate Go Schemas
-	eg.Go(func() error {
-		gofs, err := schemagenerator.GenerateSchemaGo(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if gofs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(gofs, "", xpkg.StreamFileMode), xpkg.SchemaGoAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("go", gofs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate JSON Schemas for go-templating
-	eg.Go(func() error {
-		jsonfs, err := schemagenerator.GenerateSchemaJSON(egCtx, apisSource, apiExcludes, b.schemaRunner)
-		if err != nil {
-			return err
-		}
-
-		if jsonfs != nil {
-			mutMu.Lock()
-			mut = append(mut, mutators.NewSchemaMutator(schema.New(jsonfs, "", xpkg.StreamFileMode), xpkg.SchemaJSONAnnotation))
-			mutMu.Unlock()
-			if os.depManager != nil {
-				if err := os.depManager.AddModels("json", jsonfs); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-
-	// Generate meta apis Schemas
-	eg.Go(func() error {
-		if os.depManager != nil {
-			if err := apis.GenerateSchema(ctx, os.depManager, b.schemaRunner); err != nil {
-				return errors.Wrap(err, "unable to generate meta api schemas")
-			}
-		}
-		return nil
-	})
-
-	err := eg.Wait()
+	packageFS, err := collectComposites(apisSource, apiExcludes)
 	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
+	}
+	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
+
+	// Generate schemas for our APIs.
+	statusStage = "Generating language schemas"
+	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
+	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource)); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "failed to generate language schemas")
 	}
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 
@@ -353,7 +240,6 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		nil, // Helm backend is not used here (or not supported yet).
 		pp,
 		examples.New(),
-		mut...,
 	)
 
 	img, _, err := builder.Build(ctx)
@@ -377,36 +263,6 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	imgMap[imgTag] = img
 
 	return imgMap, nil
-}
-
-func (b *realBuilder) checkDependencies(ctx context.Context, project *v1alpha1.Project, m *manager.Manager) error {
-	deps := project.Spec.DependsOn
-	converted := make([]v1beta1.Dependency, len(deps))
-	for i, dep := range deps {
-		c, ok := manager.ConvertToV1beta1(dep)
-		if !ok {
-			return errors.New("failed to convert dependency")
-		}
-		converted[i] = c
-	}
-
-	sem := make(chan struct{}, b.maxConcurrency)
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	for _, dep := range converted {
-		eg.Go(func() error {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			// Check dependency
-			if _, _, err := m.AddAll(egCtx, dep); err != nil {
-				return errors.Wrapf(err, "failed to check dependency %q", dep.Package)
-			}
-			return nil
-		})
-	}
-
-	return eg.Wait()
 }
 
 // buildFunctions builds the embedded functions found in directories at the top
@@ -694,7 +550,6 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 func NewBuilder(opts ...BuilderOption) Builder {
 	b := &realBuilder{
 		functionIdentifier: functions.DefaultIdentifier,
-		schemaRunner:       schemarunner.RealSchemaRunner{},
 		maxConcurrency:     8,
 	}
 
