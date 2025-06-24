@@ -1,8 +1,6 @@
 module github.com/upbound/up
 
-go 1.23.8
-
-toolchain go1.24.3
+go 1.24.4
 
 require (
 	cloud.google.com/go/storage v1.51.0
