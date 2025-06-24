@@ -52,7 +52,7 @@ func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, sc
 		fs,
 		".",
 		basePath,
-		"xpkg.upbound.io/upbound/uptest-pyrunner:v0.2.0",
+		"xpkg.upbound.io/upbound/uptest-pyrunner:v0.3.0",
 		[]string{"/venv/test/bin/uptestpyrunner"},
 		schemarunner.WithWorkDirectory("/"),
 		schemarunner.WithCopyToPath("/venv/test/lib/python3.11/site-packages/uptestpyrunner"),
