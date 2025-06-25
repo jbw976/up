@@ -215,7 +215,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		}
 	}
 
-	if err := c.moveProject(upCtx); err != nil {
+	if err := c.updateProject(ctx, upCtx); err != nil {
 		return err
 	}
 
@@ -290,7 +290,7 @@ func (c *Cmd) checkTargetDirectory(dir string) error {
 	return nil
 }
 
-func (c *Cmd) moveProject(upCtx *upbound.Context) error {
+func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 	var newRepo string
 	if upCtx != nil && upCtx.Organization != "" {
 		newRepo = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)
@@ -300,8 +300,17 @@ func (c *Cmd) moveProject(upCtx *upbound.Context) error {
 
 	if err := project.Update(c.projFS, c.projFile, func(proj *v1alpha1.Project) {
 		proj.ObjectMeta.Name = c.Name
-		proj.Spec.Repository = newRepo
 	}); err != nil {
+		return errors.Wrap(err, "failed to update project metadata")
+	}
+
+	proj, err := project.Parse(c.projFS, c.projFile)
+	if err != nil {
+		return err
+	}
+	proj.Default()
+
+	if err := project.Move(ctx, proj, c.projFS, newRepo); err != nil {
 		return errors.Wrap(err, "failed to update project repository")
 	}
 
