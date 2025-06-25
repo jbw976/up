@@ -111,7 +111,7 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 		// (a bunch of yaml files, this should be fine).
 		im.fs = &afero.Afero{Fs: afero.NewMemMapFs()}
 
-		if err := im.unarchive(ctx, *im.fs); err != nil {
+		if err := im.readArchive(ctx); err != nil {
 			s.Fail(unarchiveMsg + stepFailed)
 			return errors.Wrap(err, "cannot unarchive export archive")
 		}
@@ -119,7 +119,6 @@ func (im *ControlPlaneStateImporter) Import(ctx context.Context) error { // noli
 
 	s.Success(unarchiveMsg + "Done! 👀")
 	//////////////////////////////////////////
-
 	// Pausing resource importer will import all resources.
 	// It will import all Claims, Composites and Managed resource with the `crossplane.io/paused` annotation set to `true`.
 	r := NewPausingResourceImporter(NewFileSystemReader(*im.fs), NewUnstructuredResourceApplier(im.dynamicClient, im.resourceMapper))
@@ -256,7 +255,7 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	if im.fs == nil {
 		im.fs = &afero.Afero{Fs: afero.NewMemMapFs()}
 
-		if err := im.unarchive(ctx, *im.fs); err != nil {
+		if err := im.readArchive(ctx); err != nil {
 			return []error{errors.Wrap(err, "Cannot unarchive export archive")}
 		}
 	}
@@ -283,6 +282,22 @@ func (im *ControlPlaneStateImporter) PreflightChecks(ctx context.Context) []erro
 	}
 
 	return errs
+}
+
+func (im *ControlPlaneStateImporter) readArchive(ctx context.Context) error {
+	fi, err := os.Stat(im.options.InputArchive)
+	if err != nil {
+		return errors.Wrapf(err, "cannot determine archive file type %q", im.options.InputArchive)
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+		im.fs = &afero.Afero{Fs: afero.NewBasePathFs(afero.NewOsFs(), im.options.InputArchive)}
+		return nil
+	case mode.IsRegular():
+		return im.unarchive(ctx, *im.fs)
+	default:
+		return fmt.Errorf("not a file or directory %q", im.options.InputArchive)
+	}
 }
 
 func (im *ControlPlaneStateImporter) unarchive(ctx context.Context, fs afero.Afero) error {
