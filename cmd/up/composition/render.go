@@ -134,7 +134,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrint
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// parse the project and apply defaults.
-	proj, err := project.Parse(c.projFS, c.ProjectFile)
+	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}

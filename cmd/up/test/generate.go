@@ -110,7 +110,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.modelsFS = afero.NewBasePathFs(c.projFS, ".up")
 
 	// The location of the co position defines the root of the function.
-	proj, err := project.Parse(c.projFS, c.ProjectFile)
+	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}

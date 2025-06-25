@@ -103,7 +103,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// The location of the co position defines the root of the xrd.
-	proj, err := project.Parse(c.projFS, c.ProjectFile)
+	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}

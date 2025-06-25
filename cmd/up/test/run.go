@@ -141,7 +141,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// parse the project
-	proj, err := project.Parse(c.projFS, c.ProjectFile)
+	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}

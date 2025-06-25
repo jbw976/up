@@ -28,6 +28,7 @@ import (
 	"github.com/upbound/up/cmd/up/query"
 	"github.com/upbound/up/cmd/up/repository"
 	"github.com/upbound/up/cmd/up/robot"
+	"github.com/upbound/up/cmd/up/runner"
 	"github.com/upbound/up/cmd/up/space"
 	"github.com/upbound/up/cmd/up/team"
 	"github.com/upbound/up/cmd/up/test"
@@ -78,6 +79,7 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong req
 	ctx.Bind(printer)
 	ctx.BindTo(&printer, (*upterm.Printer)(nil))
 	ctx.Bind(c.Quiet)
+	ctx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
 	return nil
 }
 
@@ -89,6 +91,25 @@ func (c *cli) BeforeReset(ctx *kong.Context, p *kong.Path) error {
 		return feature.HideMaturity(p, feature.Stable)
 	}
 	return nil
+}
+
+// RootCommandRunner is a struct that implements the CommandRunner interface,
+// used by subcommands to run other `up` commands programmatically.
+type RootCommandRunner struct{}
+
+var _ runner.CommandRunner = &RootCommandRunner{}
+
+// RunCommand runs the `up` command with the given arguments.
+func (r *RootCommandRunner) RunCommand(args []string) error {
+	parser, err := kong.New(&cli{})
+	if err != nil {
+		return err
+	}
+	ctx, err := parser.Parse(args)
+	if err != nil {
+		return err
+	}
+	return ctx.Run()
 }
 
 type cli struct {

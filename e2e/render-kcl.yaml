@@ -2,12 +2,11 @@
 apiVersion: platform.example.com/v1alpha1
 kind: XStorageBucket
 metadata:
-  name: example-kcl
+  name: example
 status:
   conditions:
   - lastTransitionTime: "2024-01-01T00:00:00Z"
-    message: 'Unready resources: example-kcl-acl, example-kcl-boc, example-kcl-bucket,
-      and 3 more'
+    message: 'Unready resources: example-acl, example-boc, example-bucket, and 3 more'
     reason: Creating
     status: "False"
     type: Ready
@@ -16,24 +15,24 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketACL
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-acl
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-acl
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-acl
+    crossplane.io/composite: example
+  name: example-acl
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
   forProvider:
     acl: public-read
     bucketRef:
-      name: example-kcl-bucket
+      name: example-bucket
     region: us-west-1
   managementPolicies:
   - '*'
@@ -42,23 +41,23 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketOwnershipControls
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-boc
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-boc
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-boc
+    crossplane.io/composite: example
+  name: example-boc
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
   forProvider:
     bucketRef:
-      name: example-kcl-bucket
+      name: example-bucket
     region: us-west-1
     rule:
     - objectOwnership: BucketOwnerPreferred
@@ -69,17 +68,17 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: Bucket
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-bucket
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-bucket
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-bucket
+    crossplane.io/composite: example
+  name: example-bucket
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
@@ -92,23 +91,23 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketServerSideEncryptionConfiguration
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-encryption
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-encryption
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-encryption
+    crossplane.io/composite: example
+  name: example-encryption
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
   forProvider:
     bucketRef:
-      name: example-kcl-bucket
+      name: example-bucket
     region: us-west-1
     rule:
     - applyServerSideEncryptionByDefault:
@@ -121,17 +120,17 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketPublicAccessBlock
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-pab
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-pab
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-pab
+    crossplane.io/composite: example
+  name: example-pab
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
@@ -139,7 +138,7 @@ spec:
     blockPublicAcls: false
     blockPublicPolicy: false
     bucketRef:
-      name: example-kcl-bucket
+      name: example-bucket
     ignorePublicAcls: false
     region: us-west-1
     restrictPublicBuckets: false
@@ -150,23 +149,23 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: BucketVersioning
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-kcl-versioning
-  generateName: example-kcl-
+    crossplane.io/composition-resource-name: example-versioning
+  generateName: example-
   labels:
-    crossplane.io/composite: example-kcl
-  name: example-kcl-versioning
+    crossplane.io/composite: example
+  name: example-versioning
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
     controller: true
     kind: XStorageBucket
-    name: example-kcl
+    name: example
     uid: ""
 spec:
   deletionPolicy: Delete
   forProvider:
     bucketRef:
-      name: example-kcl-bucket
+      name: example-bucket
     region: us-west-1
     versioningConfiguration:
     - status: Enabled
