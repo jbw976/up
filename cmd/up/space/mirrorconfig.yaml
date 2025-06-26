@@ -50,7 +50,7 @@ oci:
         compatibleChartVersion: ">=1.8.x"
       - image: "xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.10.4-up.1"
         compatibleChartVersion: ">=1.9.0"
-      - image: "xpkg.upbound.io/spaces-artifacts/external-secrets-chart:v0.16.2-up.1"
+      - image: "xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.16.2-up.1"
         compatibleChartVersion: ">=1.13.0"
       - image: "xpkg.upbound.io/spaces-artifacts/external-secrets:v0.9.11-3.g8e279dea"
         compatibleChartVersion: "<1.8.0"

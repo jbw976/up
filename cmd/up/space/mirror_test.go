@@ -57,7 +57,7 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/envoy:v1.26-latest testdata/output/envoy-v1.26-latest.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/etcd:3.5.15-0 testdata/output/etcd-3.5.15-0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.10.4-up.1 testdata/output/external-secrets-chart-0.10.4-up.1.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets-chart:v0.16.2-up.1 testdata/output/external-secrets-chart-v0.16.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.16.2-up.1 testdata/output/external-secrets-chart-0.16.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets:v0.16.2-up.1 testdata/output/external-secrets-v0.16.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets:v0.10.4-up.1 testdata/output/external-secrets-v0.10.4-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets:v0.9.20-up.1 testdata/output/external-secrets-v0.9.20-up.1.tgz",
