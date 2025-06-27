@@ -98,39 +98,46 @@ const (
 
 // State stores the progress and inputs of the wizard.
 type State struct {
-	Step              int              `json:"step"`
-	Example           string           `json:"example"`
-	ExampleLanguage   FunctionLanguage `json:"exampleLanguage"`
-	UseXR             bool             `json:"useXr"`
-	Kind              string           `json:"kind"`
-	APIGroup          string           `json:"apiGroup"`
-	APIVersion        string           `json:"apiVersion"`
-	MetadataName      string           `json:"metadataName"`
-	MetadataNamespace string           `json:"metadataNamespace"`
-	GenerateXRD       bool             `json:"generateXrd"`
-	GenerateComp      bool             `json:"generateComp"`
-	GenerateFunction  bool             `json:"generateFunction"`
-	FuncLang          FunctionLanguage `json:"funcLang"`
-	GenerateTest      bool             `json:"generateTest"`
-	TestLang          FunctionLanguage `json:"testLang"`
+	Step    int    `json:"step"`
+	Example string `json:"example"`
+	UseXR   bool   `json:"useXr"`
+
+	Kind       string `json:"kind"`
+	APIGroup   string `json:"apiGroup"`
+	APIVersion string `json:"apiVersion"`
+
+	MetadataName      string `json:"metadataName"`
+	MetadataNamespace string `json:"metadataNamespace"`
+
+	GenerateXRD      bool `json:"generateXrd"`
+	GenerateComp     bool `json:"generateComp"`
+	GenerateFunction bool `json:"generateFunction"`
+	GenerateTest     bool `json:"generateTest"`
+
+	FuncLang FunctionLanguage `json:"funcLang"`
+	TestLang FunctionLanguage `json:"testLang"`
 }
 
 // defaultState returns a new State with default values.
 func defaultState() State {
 	return State{
-		Step:              StepContinue,
-		UseXR:             false,
-		Kind:              "Example",
-		APIGroup:          "example.upbound.io",
-		APIVersion:        "v1alpha1",
+		Step:  StepContinue,
+		UseXR: false,
+
+		Kind:       "Example",
+		APIGroup:   "example.upbound.io",
+		APIVersion: "v1alpha1",
+
 		MetadataName:      "example",
 		MetadataNamespace: "default",
-		FuncLang:          FunctionLanguageKCL,
-		GenerateXRD:       false,
-		GenerateComp:      false,
-		GenerateFunction:  false,
-		GenerateTest:      false,
-		TestLang:          FunctionLanguageKCL,
+
+		GenerateXRD:      false,
+		GenerateComp:     false,
+		GenerateFunction: false,
+		GenerateTest:     false,
+
+		FuncLang: FunctionLanguageKCL,
+		TestLang: FunctionLanguageKCL,
 	}
 }
 
@@ -191,7 +198,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 			if err != nil {
 				return err
 			}
-			state.ExampleLanguage = SupportedLanguagesMap[result]
+			state.FuncLang = SupportedLanguagesMap[result]
 		case StepChooseExampleTestLanguage:
 			options := []string{}
 			for name := range SupportedTestLanguagesMap {
