@@ -13,14 +13,16 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-	"github.com/upbound/up/internal/git"
 	"gopkg.in/yaml.v3"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
+	"github.com/upbound/up/internal/git"
 )
 
 // templateConfig defines the structure of template metadata
@@ -543,22 +545,28 @@ func ResolveTemplateURL(templateName string) TemplateURL {
 		ref = parts[1]
 	}
 
-	// If it's already a full URL, return as-is
-	if strings.HasPrefix(repo, "http") {
-		return TemplateURL{URL: repo, Ref: ref}
-	}
+	switch {
+	case strings.HasPrefix(repo, ".") || strings.HasPrefix(repo, "/"):
+		// Local git repo - return a file URL.
+		path, _ := filepath.Abs(repo)
+		return TemplateURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
 
-	// If it contains a slash, treat as github.com/org/repo
-	if strings.Contains(repo, "/") {
+	case strings.HasPrefix(repo, "http"):
+		// Already a full URL, return as-is.
+		return TemplateURL{URL: repo, Ref: ref}
+
+	case strings.Contains(repo, "/"):
+		// Partially-qualified: assume github.com/org/repo.
 		return TemplateURL{
 			URL: fmt.Sprintf("https://github.com/%s.git", repo),
 			Ref: ref,
 		}
-	}
 
-	// Default to upbound organization
-	return TemplateURL{
-		URL: fmt.Sprintf("https://github.com/upbound/%s.git", repo),
-		Ref: ref,
+	default:
+		// Default to upbound organization.
+		return TemplateURL{
+			URL: fmt.Sprintf("https://github.com/upbound/%s.git", repo),
+			Ref: ref,
+		}
 	}
 }
