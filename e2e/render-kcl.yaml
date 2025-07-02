@@ -15,11 +15,10 @@ apiVersion: s3.aws.upbound.io/v1beta1
 kind: Bucket
 metadata:
   annotations:
-    crossplane.io/composition-resource-name: example-bucket
+    crossplane.io/composition-resource-name: bucket
   generateName: example-
   labels:
     crossplane.io/composite: example
-  name: example-bucket
   ownerReferences:
   - apiVersion: platform.example.com/v1alpha1
     blockOwnerDeletion: true
@@ -28,8 +27,5 @@ metadata:
     name: example
     uid: ""
 spec:
-  deletionPolicy: Delete
   forProvider:
     region: us-west-1
-  managementPolicies:
-  - '*'
