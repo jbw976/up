@@ -27,5 +27,8 @@ metadata:
     name: example
     uid: ""
 spec:
+  deletionPolicy: Delete
   forProvider:
     region: us-west-1
+  managementPolicies:
+  - '*'
