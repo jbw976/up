@@ -99,10 +99,27 @@ func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:g
 	}
 
 	var packageLayerDigest cv1.Hash
+	schemas := make(map[string]afero.Fs)
 
 	for _, l := range manifest.Layers {
 		if val, ok := l.Annotations[xpkg.AnnotationKey]; ok && val == xpkg.PackageAnnotation {
 			packageLayerDigest = l.Digest
+		}
+
+		// Dynamically detect schema annotations (e.g., schema.python, schema.kcl, etc.)
+		for _, annotationValue := range l.Annotations {
+			if strings.HasPrefix(annotationValue, "schema.") {
+				lang := strings.TrimPrefix(annotationValue, "schema.")
+				// Copy the files into an in-memory FS. Ideally we'd use the
+				// tarfs here, but afero.Walk doesn't work on tarfs if the
+				// underlying tarball doesn't have explicit directory entries,
+				// and we can't guarantee that our tarballs have those.
+				mfs := afero.NewMemMapFs()
+				if err := extractLayerToFs(i, l.Digest, mfs); err != nil {
+					return nil, err
+				}
+				schemas[lang] = mfs
+			}
 		}
 	}
 
@@ -132,7 +149,53 @@ func (r *Marshaler) FromImage(i xpkg.Image) (*ParsedPackage, error) { //nolint:g
 	}
 
 	pkg = applyImageMeta(i.Meta, pkg)
+	pkg.Schema = schemas
+
 	return finalizePkg(pkg)
+}
+
+func extractLayerToFs(i xpkg.Image, layerDigest cv1.Hash, fs afero.Fs) error {
+	targetLayer, err := i.Image.LayerByDigest(layerDigest)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get layer %s", layerDigest)
+	}
+
+	reader, err := targetLayer.Uncompressed()
+	if err != nil {
+		return errors.Wrap(err, "failed to extract target layer")
+	}
+
+	tarReader := tar.NewReader(reader)
+
+	// Iterate over the files in the tarball and write them to the Afero filesystem
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return errors.Wrap(err, "failed to read tar header")
+		}
+
+		// Construct the full output path for the file in the Afero filesystem
+		outputPath := header.Name
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directories in the Afero filesystem
+			if err := fs.MkdirAll(outputPath, 0o755); err != nil {
+				return errors.Wrapf(err, "failed to create directory %s", outputPath)
+			}
+		case tar.TypeReg:
+			// Limit the number of bytes copied from the tarReader to prevent decompression bombs
+			lr := io.LimitReader(tarReader, maxFileSize)
+			if err := afero.WriteReader(fs, outputPath, lr); err != nil {
+				return errors.Wrapf(err, "failed to write file %s", outputPath)
+			}
+		}
+	}
+
+	return nil
 }
 
 // FromDir takes an afero.Fs and a path to a directory and returns a
@@ -153,6 +216,12 @@ func (r *Marshaler) FromDir(fs afero.Fs, path string) (*ParsedPackage, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	schemas, err := r.loadSchemasFromDir(fs, path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load schema directories")
+	}
+	pkg.Schema = schemas
 
 	return finalizePkg(pkg)
 }
@@ -293,4 +362,24 @@ func convertToV1beta1(in xpmetav1.Dependency) v1beta1.Dependency {
 	}
 
 	return betaD
+}
+
+func (r *Marshaler) loadSchemasFromDir(fs afero.Fs, path string) (map[string]afero.Fs, error) {
+	schemas := make(map[string]afero.Fs)
+
+	// Read the contents of the directory
+	dirEntries, err := afero.ReadDir(fs, path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read directory")
+	}
+
+	// Iterate through the directory contents to find schema.* folders
+	for _, entry := range dirEntries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "schema.") {
+			lang := strings.TrimPrefix(entry.Name(), "schema.")
+			schemas[lang] = afero.NewBasePathFs(fs, filepath.Join(path, entry.Name()))
+		}
+	}
+
+	return schemas, nil
 }

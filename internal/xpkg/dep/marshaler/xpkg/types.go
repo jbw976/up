@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
@@ -40,6 +41,9 @@ type ParsedPackage struct {
 	SHA string
 	// The resolved version, e.g. v0.20.0
 	Ver string
+	// Schema contains any language schemas packaged in the image. It may be
+	// empty or nil if the package does not contain schemas.
+	Schema map[string]afero.Fs
 }
 
 // Digest returns the package's digest derived from the package image.
@@ -83,4 +87,9 @@ func (p *ParsedPackage) Registry() string {
 // e.g. v0.20.0.
 func (p *ParsedPackage) Version() string {
 	return p.Ver
+}
+
+// Schemas returns the package's schemas derived from the package image.
+func (p *ParsedPackage) Schemas() map[string]afero.Fs {
+	return p.Schema
 }
