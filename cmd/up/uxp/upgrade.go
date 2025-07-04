@@ -27,7 +27,7 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 	}
 	ins, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
-		repo,
+		*repo,
 		helm.WithNamespace(insCtx.Namespace),
 		helm.WithChart(c.Bundle),
 		helm.WithAlternateChart(alternateChartName),

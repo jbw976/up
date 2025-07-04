@@ -25,7 +25,7 @@ import (
 	"github.com/upbound/up/internal/version"
 )
 
-var mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts") //nolint:gochecknoglobals // Would make this a const if we could.
+var mcpRepoURL = *urlMustParse("xpkg.upbound.io/spaces-artifacts") //nolint:gochecknoglobals // Would make this a const if we could.
 
 const (
 	connectorName = "mcp-connector"
@@ -47,7 +47,6 @@ func (c *installCmd) AfterApply() error {
 	mgr, err := helm.NewManager(kubeconfig,
 		connectorName,
 		mcpRepoURL,
-		helm.IsOCI(),
 		helm.WithNamespace(c.InstallationNamespace),
 		helm.Wait(),
 	)

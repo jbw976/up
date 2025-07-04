@@ -173,7 +173,6 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter
 		c.Registry.Repository,
 		helm.WithNamespace(ns),
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
-		helm.IsOCI(),
 		helm.WithChart(c.Bundle),
 		helm.Wait(),
 	)

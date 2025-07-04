@@ -102,7 +102,6 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrin
 		c.Registry.Repository,
 		helm.WithNamespace(ns),
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
-		helm.IsOCI(),
 		helm.WithChart(c.Bundle),
 		helm.RollbackOnError(c.Rollback),
 		helm.Wait())

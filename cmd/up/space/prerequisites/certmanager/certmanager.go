@@ -51,7 +51,7 @@ type CertManager struct {
 func New(config *rest.Config) (*CertManager, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		certMgrURL,
+		*certMgrURL,
 		helm.WithNamespace(chartName),
 	)
 	if err != nil {

@@ -54,7 +54,7 @@ type CNPGOperator struct {
 func New(config *rest.Config) (*CNPGOperator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		cnpgURL,
+		*cnpgURL,
 		helm.WithNamespace(chartNamespace),
 	)
 	if err != nil {

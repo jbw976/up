@@ -48,7 +48,7 @@ type UXP struct {
 func New(config *rest.Config) (*UXP, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		uxp.RepoURL,
+		*uxp.RepoURL,
 		// The default namespace is upbound-system, but we set it in order to
 		// be explicit.
 		helm.WithNamespace(ns),

@@ -15,8 +15,8 @@ import (
 )
 
 type registryFlags struct {
-	Repository *url.URL `default:"xpkg.upbound.io/spaces-artifacts" env:"UPBOUND_REGISTRY"          help:"Set registry for where to pull OCI artifacts from. This is an OCI registry reference, i.e. a URL without the scheme or protocol prefix." hidden:"" name:"registry-repository"`
-	Endpoint   *url.URL `default:"https://xpkg.upbound.io"          env:"UPBOUND_REGISTRY_ENDPOINT" help:"Set registry endpoint, including scheme, for authentication."                                                                            hidden:"" name:"registry-endpoint"`
+	Repository url.URL `default:"xpkg.upbound.io/spaces-artifacts" env:"UPBOUND_REGISTRY"          help:"Set registry for where to pull OCI artifacts from. This is an OCI registry reference, i.e. a URL without the scheme or protocol prefix." hidden:"" name:"registry-repository"`
+	Endpoint   url.URL `default:"https://xpkg.upbound.io"          env:"UPBOUND_REGISTRY_ENDPOINT" help:"Set registry endpoint, including scheme, for authentication."                                                                            hidden:"" name:"registry-endpoint"`
 }
 
 type authorizedRegistryFlags struct {

@@ -33,7 +33,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	}
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
-		repo,
+		*repo,
 		helm.WithNamespace(insCtx.Namespace),
 		helm.WithChart(c.Bundle),
 		helm.WithAlternateChart(alternateChartName))
