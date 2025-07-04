@@ -123,6 +123,7 @@ func TestRun(t *testing.T) {
 			mgr, err := project.NewDependencyManager(upCtx, prj, projFS,
 				project.WithCacheFS(afero.NewMemMapFs()),
 				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
+				project.WithSchemaGenerators(nil),
 			)
 			assert.NilError(t, err)
 
