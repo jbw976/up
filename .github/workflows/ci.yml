@@ -649,7 +649,7 @@ jobs:
 
     strategy:
       matrix:
-        language: [go, kcl, python]
+        language: [go, go-templating, kcl, python]
         test-language: [kcl, python]
 
     steps:
