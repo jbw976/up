@@ -278,23 +278,17 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 
 // validateVersions checks whether the upgrade/downgrade is allowed based on version changes.
 func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
-	var warning string
-
-	// Use switch to centralize message selection logic
 	switch {
 	case c.downgrade:
-		warning = warnDowngrade
+		return warnAndConfirm(warnDowngrade)
 	case to.Major > from.Major:
-		warning = warnMajorUpgrade
+		return warnAndConfirm(warnMajorUpgrade)
 	case to.Minor > from.Minor+1:
-		warning = warnMinorVersionSkip
+		return warnAndConfirm(warnMinorVersionSkip)
 	default:
 		// No warning means the validation passed
 		return nil
 	}
-
-	// If there's a warning, prompt for confirmation
-	return warnAndConfirm(warning)
 }
 
 // warnAndConfirm displays a warning and prompts for confirmation.

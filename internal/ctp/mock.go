@@ -6,8 +6,11 @@ package ctp
 import (
 	"context"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/upbound/up/internal/project"
 )
 
 // MockDevControlPlane implements the DevControlPlane interface for testing.
@@ -42,4 +45,16 @@ func (m *MockDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
 // Teardown is a no-op implementation for the mock control plane.
 func (m *MockDevControlPlane) Teardown(_ context.Context, _ bool) error {
 	return nil
+}
+
+// MockSideloadingDevControlPlane implements the SideloadingDevControlPlane
+// interface for testing. The Sideload method calls the SideloadFn callback.
+type MockSideloadingDevControlPlane struct {
+	MockDevControlPlane
+	SideloadFn func(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error
+}
+
+// Sideload calls the SideloadFn callback.
+func (m *MockSideloadingDevControlPlane) Sideload(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error {
+	return m.SideloadFn(ctx, imgMap, tag)
 }

@@ -127,7 +127,7 @@ func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap
 		return imgTag, errors.Wrap(err, "failed to construct image tag")
 	}
 
-	cfgImage, fnImages, err := sortImages(imgMap, project.Spec.Repository)
+	cfgImage, fnImages, err := SortImages(imgMap, project.Spec.Repository)
 	if err != nil {
 		return imgTag, err
 	}
@@ -280,7 +280,11 @@ func isUpboundRepository(upCtx *upbound.Context, tag name.Repository) bool {
 	return strings.HasPrefix(tag.RegistryStr(), upCtx.RegistryEndpoint.Hostname())
 }
 
-func sortImages(imgMap ImageTagMap, repo string) (cfgImage v1.Image, fnImages map[name.Repository][]v1.Image, err error) {
+// SortImages analyzes an image map produced by the project builder and picks
+// out the configuration and function images from it. The function images are
+// grouped together by function, so that multi-arch indexes can be produced
+// based on the returned map.
+func SortImages(imgMap ImageTagMap, repo string) (cfgImage v1.Image, fnImages map[name.Repository][]v1.Image, err error) {
 	cfgTag, err := name.NewTag(fmt.Sprintf("%s:%s", repo, ConfigurationTag), name.StrictValidation)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to construct configuration tag")

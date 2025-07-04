@@ -6,6 +6,7 @@ package kube
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -47,14 +48,7 @@ func InstallConfiguration(ctx context.Context, cl client.Client, name string, ta
 	stage := "Installing package on development control plane"
 	ch.SendEvent(stage, async.EventStatusStarted)
 
-	backoff := wait.Backoff{
-		Duration: 500 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-		Steps:    5,
-	}
-
-	err := wait.ExponentialBackoff(backoff, func() (bool, error) {
+	err := retryWithBackoff(ctx, 2*time.Second, func(ctx context.Context) (bool, error) {
 		err := cl.Patch(ctx, cfg, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli"))
 		if err != nil {
 			if isRetryableServerError(err) {
@@ -105,14 +99,7 @@ func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) e
 	}
 	var lock xpkgv1beta1.Lock
 
-	backoff := wait.Backoff{
-		Duration: 500 * time.Millisecond, // Initial delay
-		Factor:   2.0,                    // Multiplier for each retry
-		Jitter:   0.1,                    // Randomize delay slightly
-		Steps:    10,                     // Maximum number of retries
-	}
-
-	return wait.ExponentialBackoff(backoff, func() (bool, error) {
+	return retryWithBackoff(ctx, 5*time.Second, func(ctx context.Context) (bool, error) {
 		if err := cl.Get(ctx, nn, &lock); err != nil {
 			return false, nil //nolint:nilerr // Retry the operation
 		}
@@ -232,15 +219,8 @@ func ApplyResources(ctx context.Context, cl client.Client, resources []runtime.R
 			return errors.Wrap(err, "failed to unmarshal resource")
 		}
 
-		backoff := wait.Backoff{
-			Duration: 5 * time.Second, // Initial delay
-			Factor:   2.0,             // Multiplier for each retry
-			Jitter:   0.1,             // Randomize delay slightly
-			Steps:    20,              // Maximum number of retries
-		}
-
 		// RBAC is async, hence wrap in a retry loop
-		if err := wait.ExponentialBackoff(backoff, func() (bool, error) {
+		if err := retryWithBackoff(ctx, 2*time.Second, func(ctx context.Context) (bool, error) {
 			err := cl.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("up-cli"))
 			if err != nil {
 				// Check if this is a permanent error that shouldn't be retried
@@ -275,4 +255,41 @@ func isPermanentError(err error) bool {
 	}
 
 	return false
+}
+
+// retryWithBackoff retries calls to fn with exponential backoff and jitter
+// until fn returns true or the context is cancelled. maxWait is the maximum
+// duration between calls.
+//
+// We use this instead of wait.ExponentialBackoffWithContext because we don't
+// want to return early if the max wait is hit before the context is cancelled.
+func retryWithBackoff(ctx context.Context, maxWait time.Duration, fn func(ctx context.Context) (bool, error)) error {
+	backoff := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+		Cap:      maxWait,
+
+		// We use Cap to control the max wait, rather than Steps, but need to
+		// make sure Steps doesn't go to zero before Cap is reached.
+		Steps: math.MaxInt32,
+	}
+
+	for {
+		done, err := fn(ctx)
+		if err != nil {
+			return err
+		}
+		if done {
+			return nil
+		}
+
+		sleep := backoff.Step()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(sleep):
+			// next loop!
+		}
+	}
 }

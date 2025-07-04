@@ -498,33 +498,12 @@ func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2e
 		}
 	}
 
-	pusher := project.NewPusher(
-		project.PushWithUpboundContext(upCtx),
-		project.PushWithTransport(c.transport),
-		project.PushWithAuthKeychain(c.keychain),
-		project.PushWithMaxConcurrency(c.concurrency),
-	)
-
-	var generatedTag name.Tag
-	if err = c.asyncWrapper(func(ch async.EventChannel) error {
-		opts := []project.PushOption{
-			project.PushWithEventChannel(ch),
-			project.PushWithCreatePublicRepositories(c.Public),
-		}
-
-		var err error
-		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
-		return err
-	}); err != nil {
-		return 0, 0, 0, err
-	}
-
 	total, success, errs := 0, 0, 0
 	var finalErr error
 
 	for _, test := range tests {
 		total++
-		err = c.executeTest(ctx, upCtx, c.proj, test, generatedTag)
+		err = c.executeTest(ctx, upCtx, c.proj, imgMap, test)
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
@@ -571,7 +550,7 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 	return cleanup, nil
 }
 
-func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, test e2etest.E2ETest, generatedTag name.Tag) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
@@ -603,6 +582,11 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to create control plane")
+	}
+
+	generatedTag, err := c.pushOrLoadPackages(ctx, upCtx, imgMap, devCtp)
+	if err != nil {
+		return err
 	}
 
 	// Handle OS signals
@@ -736,6 +720,43 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	}
 
 	return nil
+}
+
+func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane) (name.Tag, error) {
+	if sl, ok := devCtp.(ctp.SideloadingControlPlane); ok {
+		tagStr := fmt.Sprintf("%s:v0.0.0-%d", c.proj.Spec.Repository, time.Now().Unix())
+		tag, err := name.NewTag(tagStr, name.StrictValidation)
+		if err != nil {
+			return tag, errors.Wrap(err, "failed to construct image tag")
+		}
+
+		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", upterm.CheckmarkSuccessSpinner, func() error {
+			return sl.Sideload(ctx, imgMap, tag)
+		}, c.printer)
+
+		return tag, err
+	}
+
+	var generatedTag name.Tag
+	err := c.asyncWrapper(func(ch async.EventChannel) error {
+		pusher := project.NewPusher(
+			project.PushWithUpboundContext(upCtx),
+			project.PushWithTransport(c.transport),
+			project.PushWithAuthKeychain(c.keychain),
+			project.PushWithMaxConcurrency(c.concurrency),
+		)
+
+		opts := []project.PushOption{
+			project.PushWithEventChannel(ch),
+			project.PushWithCreatePublicRepositories(c.Public),
+		}
+
+		var err error
+		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
+		return err
+	})
+
+	return generatedTag, err
 }
 
 func displayTestResults(ttotal, tsuccess, terr int) {
