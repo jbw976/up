@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package uxp installs the UXP helm chart.
 package uxp
 
 import (
@@ -21,7 +22,7 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
-var (
+const (
 	chartName = "universal-crossplane"
 	ns        = "upbound-system"
 	// Chart version to be installed. universal-crossplane does not include a

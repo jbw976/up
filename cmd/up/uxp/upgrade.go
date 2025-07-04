@@ -39,7 +39,7 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 	c.mgr = ins
 	base := map[string]any{}
 	if c.File != nil {
-		defer c.File.Close() //nolint:errcheck,gosec
+		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)
@@ -70,7 +70,7 @@ type upgradeCmd struct {
 }
 
 // Run executes the upgrade command.
-func (c *upgradeCmd) Run(p pterm.TextPrinter, insCtx *install.Context) error {
+func (c *upgradeCmd) Run(p pterm.TextPrinter) error {
 	params, err := c.parser.Parse()
 	if err != nil {
 		return errors.Wrap(err, errParseUpgradeParameters)
