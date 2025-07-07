@@ -60,6 +60,9 @@ const (
 	devControlPlaneAnnotation = "upbound.io/development-control-plane"
 	// crossplaneNamespace is the namespace into which we install Crossplane.
 	crossplaneNamespace = "crossplane-system"
+	// pullSecretName is the name of the xpkg pull secret we create in the
+	// crossplane namespace.
+	pullSecretName = "up-pull-secret"
 )
 
 // errNotDevControlPlane is used in project and test commands.
@@ -468,12 +471,17 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
+	if err := ensureUpboundPullSecret(ctx, upCtx, cl); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+
 	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
 
-	if err := ensureUpboundPullSecret(ctx, upCtx, cl); err != nil {
+	if err := ensureUpboundImageConfig(ctx, upCtx, cl); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -559,7 +567,7 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
-		"universal-crossplane",
+		"crossplane",
 		*repo,
 		helm.WithNamespace(crossplaneNamespace),
 		helm.Wait(),
@@ -586,6 +594,11 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 		"registryCaBundleConfig": map[string]string{
 			"name": caConfigMap,
 			"key":  certs.SecretKeyCACert,
+		},
+		"upbound": map[string]any{
+			"manager": map[string]any{
+				"imagePullSecrets": []string{"up-pull-secret"},
+			},
 		},
 	}
 	if err = mgr.Install(version, values); err != nil {
@@ -616,7 +629,6 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 		return nil
 	}
 
-	const secretName = "up-pull-secret"
 	authStr := base64.StdEncoding.EncodeToString([]byte(username + ":" + upCtx.Profile.Session))
 	auth := &create.DockerConfigJSON{
 		Auths: map[string]create.DockerConfigEntry{
@@ -634,7 +646,7 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 
 	xpkgSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
+			Name:      pullSecretName,
 			Namespace: crossplaneNamespace,
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
@@ -646,6 +658,10 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 		return errors.Wrap(err, "failed to create xpkg pull secret")
 	}
 
+	return nil
+}
+
+func ensureUpboundImageConfig(ctx context.Context, upCtx *upbound.Context, cl client.Client) error {
 	imgcfg := &pkgv1beta1.ImageConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "upbound",
@@ -658,7 +674,7 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 			Registry: &pkgv1beta1.RegistryConfig{
 				Authentication: &pkgv1beta1.RegistryAuthentication{
 					PullSecretRef: corev1.LocalObjectReference{
-						Name: secretName,
+						Name: pullSecretName,
 					},
 				},
 			},

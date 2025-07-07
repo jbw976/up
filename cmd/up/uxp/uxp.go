@@ -20,8 +20,11 @@ const (
 
 var (
 	// RepoURL is the URL of the stable helm chart repository.
+	//
+	// TODO(adamwg): Change this to the public repo once UXPv2 is released.
+	//
 	//nolint:gochecknoglobals // Would make this a const if possible.
-	RepoURL, _ = url.Parse("https://charts.upbound.io/stable")
+	RepoURL, _ = url.Parse("oci://xpkg.upbound.io/upbound-dev")
 	//nolint:gochecknoglobals // Would make this a const if possible.
 	uxpUnstableRepoURL, _ = url.Parse("https://charts.upbound.io/main")
 )
