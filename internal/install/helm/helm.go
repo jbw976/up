@@ -21,6 +21,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/client-go/rest"
+	"oras.land/oras-go/pkg/auth/docker"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
@@ -273,7 +274,11 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, modifier
 	}
 
 	// Pull Client
-	rc, err := registry.NewClient()
+	rauth, err := docker.NewClientWithDockerFallback()
+	if err != nil {
+		return nil, err
+	}
+	rc, err := registry.NewClient(registry.ClientOptAuthorizer(rauth))
 	if err != nil {
 		return nil, err
 	}
