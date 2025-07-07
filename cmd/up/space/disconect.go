@@ -88,7 +88,6 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 
 	with := []helm.InstallerModifierFn{
 		helm.WithNamespace(agentNs),
-		helm.IsOCI(),
 	}
 
 	mgr, err := helm.NewManager(kubeconfig,

@@ -55,7 +55,6 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 
 	with := []helm.InstallerModifierFn{
 		helm.WithNamespace(ns),
-		helm.IsOCI(),
 	}
 	if c.Orphan {
 		with = append(with, helm.WithNoHooks())

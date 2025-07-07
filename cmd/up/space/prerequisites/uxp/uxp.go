@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package uxp installs the UXP helm chart.
 package uxp
 
 import (
@@ -21,7 +22,7 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
-var (
+const (
 	chartName = "universal-crossplane"
 	ns        = "upbound-system"
 	// Chart version to be installed. universal-crossplane does not include a
@@ -48,7 +49,7 @@ type UXP struct {
 func New(config *rest.Config) (*UXP, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		uxp.RepoURL,
+		*uxp.RepoURL,
 		// The default namespace is upbound-system, but we set it in order to
 		// be explicit.
 		helm.WithNamespace(ns),

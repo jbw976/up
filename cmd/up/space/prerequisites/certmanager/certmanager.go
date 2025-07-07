@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package certmanager installs the cert-manager helm chart.
 package certmanager
 
 import (
@@ -21,22 +22,26 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
-var (
-	chartName     = "cert-manager"
-	certMgrURL, _ = url.Parse("https://charts.jetstack.io")
-
+const (
+	chartName = "cert-manager"
 	// Chart version to be installed.
 	version = "v1.11.0"
-	// Ensure CRDs are installed for the chart.
-	values = map[string]any{
-		"installCRDs": "true",
-	}
 
 	certificatesCRD = "certificates.cert-manager.io"
 
 	errFmtCreateHelmManager = "failed to create helm manager for %s"
 	errFmtCreateK8sClient   = "failed to create kubernetes client for helm chart %s"
 	errFmtCreateNamespace   = "failed to create namespace %s"
+)
+
+var (
+	certMgrURL, _ = url.Parse("https://charts.jetstack.io") //nolint:gochecknoglobals // Constant
+
+	// Ensure CRDs are installed for the chart.
+	//nolint:gochecknoglobals // Constant
+	values = map[string]any{
+		"installCRDs": "true",
+	}
 )
 
 // CertManager represents a Helm manager.
@@ -51,7 +56,7 @@ type CertManager struct {
 func New(config *rest.Config) (*CertManager, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		certMgrURL,
+		*certMgrURL,
 		helm.WithNamespace(chartName),
 	)
 	if err != nil {

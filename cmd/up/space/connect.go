@@ -114,7 +114,6 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 		c.Registry.Repository,
 		helm.WithNamespace(agentNs),
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
-		helm.IsOCI(),
 		helm.Wait(),
 		helm.Force(true),
 		helm.RollbackOnError(true),

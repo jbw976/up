@@ -65,7 +65,7 @@ type Operator struct {
 func New(config *rest.Config) (*Operator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		otelMgrURL,
+		*otelMgrURL,
 		helm.WithNamespace(chartNamespace),
 	)
 	if err != nil {

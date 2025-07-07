@@ -4,17 +4,15 @@
 package connector
 
 import (
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/upbound"
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *uninstallCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *uninstallCmd) AfterApply() error {
 	if c.ClusterName == "" {
 		c.ClusterName = c.Namespace
 	}
@@ -27,7 +25,6 @@ func (c *uninstallCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context)
 		connectorName,
 		mcpRepoURL,
 		helm.WithNamespace(c.InstallationNamespace),
-		helm.IsOCI(),
 		helm.Wait(),
 	)
 	if err != nil {

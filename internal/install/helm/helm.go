@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package helm implements a helm chart installer.
 package helm
 
 import (
@@ -11,13 +12,12 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/afero"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/client-go/rest"
@@ -55,9 +55,9 @@ const (
 )
 
 type helmPuller interface {
-	Run(string) (string, error)
-	SetDestDir(string)
-	SetVersion(string)
+	Run(ref string) (string, error)
+	SetDestDir(d string)
+	SetVersion(version string)
 }
 
 type puller struct {
@@ -73,19 +73,19 @@ func (p *puller) SetVersion(version string) {
 }
 
 type helmGetter interface {
-	Run(string) (*release.Release, error)
+	Run(ref string) (*release.Release, error)
 }
 
 type helmInstaller interface {
-	Run(*chart.Chart, map[string]any) (*release.Release, error)
+	Run(ch *chart.Chart, values map[string]any) (*release.Release, error)
 }
 
 type helmUpgrader interface {
-	Run(string, *chart.Chart, map[string]any) (*release.Release, error)
+	Run(releaseName string, ch *chart.Chart, values map[string]any) (*release.Release, error)
 }
 
 type helmRollbacker interface {
-	Run(string) error
+	Run(releaseName string) error
 }
 
 type helmUninstaller interface {
@@ -101,8 +101,10 @@ type LoaderFn func(name string) (*chart.Chart, error)
 // HomeDirFn indicates the location of a user's home directory.
 type HomeDirFn func() (string, error)
 
+// Installer is a helm chart installer.
 type Installer struct {
 	repoURL         *url.URL
+	chartRef        string
 	chartFile       *os.File
 	chartName       string
 	releaseName     string
@@ -118,7 +120,6 @@ type Installer struct {
 	fs              afero.Fs
 	tempDir         TempDirFn
 	log             logging.Logger
-	oci             bool
 
 	// Auth
 	username string
@@ -165,13 +166,6 @@ func WithBasicAuth(username, password string) InstallerModifierFn {
 	return func(h *Installer) {
 		h.username = username
 		h.password = password
-	}
-}
-
-// IsOCI indicates that the chart is an OCI image.
-func IsOCI() InstallerModifierFn {
-	return func(h *Installer) {
-		h.oci = true
 	}
 }
 
@@ -225,9 +219,10 @@ func WithNoHooks() InstallerModifierFn {
 }
 
 // NewManager builds a helm install manager for UXP.
-func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) { //nolint:gocyclo
+func NewManager(config *rest.Config, chartName string, repoURL url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) {
 	h := &Installer{
-		repoURL:     repoURL,
+		repoURL:     &repoURL,
+		chartRef:    chartName,
 		chartName:   chartName,
 		releaseName: chartName,
 		namespace:   defaultNamespace,
@@ -239,6 +234,18 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifie
 	}
 	for _, m := range modifiers {
 		m(h)
+	}
+
+	// Assume any repoURL that doesn't have a scheme is an OCI repo. Prepend the
+	// oci:// scheme so helm knows it's OCI.
+	if repoURL.Scheme == "" {
+		repoURL.Scheme = "oci"
+	}
+	// If the repo is OCI, helm doesn't want to know about it. Instead, set the
+	// "chart ref" to the full OCI ref of the chart.
+	if registry.IsOCI(repoURL.String()) {
+		h.chartRef = repoURL.JoinPath(chartName).String()
+		h.repoURL = nil
 	}
 
 	if h.cacheDir == "" {
@@ -266,25 +273,22 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifie
 	}
 
 	// Pull Client
-	if h.oci {
-		h.pullClient = newRegistryPuller(withRemoteOpts(remote.WithAuth(&authn.Basic{
-			Username: h.username,
-			Password: h.password,
-		})), withRepoURL(h.repoURL))
-	} else {
-		// TODO(hasheddan): we currently use our own OCI client instead of the
-		// upstream Helm support.
-		p := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
-		p.DestDir = h.cacheDir
-		p.Username = h.username
-		p.Password = h.password
-		p.Devel = true
-		p.Username = h.username
-		p.Password = h.password
-		p.Settings = &cli.EnvSettings{}
-		p.RepoURL = h.repoURL.String()
-		h.pullClient = &puller{p}
+	rc, err := registry.NewClient()
+	if err != nil {
+		return nil, err
 	}
+	p := action.NewPullWithOpts(action.WithConfig(&action.Configuration{
+		RegistryClient: rc,
+	}))
+	p.DestDir = h.cacheDir
+	p.Username = h.username
+	p.Password = h.password
+	p.Devel = true
+	p.Settings = &cli.EnvSettings{}
+	if h.repoURL != nil {
+		p.RepoURL = h.repoURL.String()
+	}
+	h.pullClient = &puller{p}
 
 	// Get Client
 	h.getClient = action.NewGet(actionConfig)
@@ -437,7 +441,7 @@ func (h *Installer) Uninstall() error {
 }
 
 // pullAndLoad pulls and loads a chart or fetches it from the cache.
-func (h *Installer) pullAndLoad(version string) (*chart.Chart, error) { //nolint:gocyclo
+func (h *Installer) pullAndLoad(version string) (*chart.Chart, error) {
 	// check to see if version is cached
 	if version != "" {
 		// helm strips versions with leading v, which can cause issues when fetching
@@ -495,7 +499,7 @@ func (h *Installer) pullChart(version string) error {
 		version = allVersions
 	}
 	h.pullClient.SetVersion(version)
-	_, err := h.pullClient.Run(h.chartName)
+	_, err := h.pullClient.Run(h.chartRef)
 	return err
 }
 

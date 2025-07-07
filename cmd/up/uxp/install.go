@@ -33,7 +33,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	}
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
-		repo,
+		*repo,
 		helm.WithNamespace(insCtx.Namespace),
 		helm.WithChart(c.Bundle),
 		helm.WithAlternateChart(alternateChartName))
@@ -48,7 +48,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	c.kClient = client
 	base := map[string]any{}
 	if c.File != nil {
-		defer c.File.Close() //nolint:errcheck,gosec
+		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)

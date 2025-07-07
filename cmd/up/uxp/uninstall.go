@@ -18,7 +18,7 @@ func (c *uninstallCmd) AfterApply(insCtx *install.Context) error {
 	// not considered during uninstall.
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
-		&url.URL{},
+		url.URL{},
 		helm.WithNamespace(insCtx.Namespace))
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ type uninstallCmd struct {
 }
 
 // Run executes the uninstall command.
-func (c *uninstallCmd) Run(p pterm.TextPrinter, insCtx *install.Context) error {
+func (c *uninstallCmd) Run(p pterm.TextPrinter) error {
 	if err := c.mgr.Uninstall(); err != nil {
 		return err
 	}

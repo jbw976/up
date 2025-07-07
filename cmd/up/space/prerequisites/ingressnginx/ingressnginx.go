@@ -57,7 +57,7 @@ func New(config *rest.Config, svc ServiceType) (*IngressNginx, error) {
 
 	mgr, err := helm.NewManager(config,
 		chartName,
-		nginxURL,
+		*nginxURL,
 		helm.WithNamespace(chartName),
 	)
 	if err != nil {

@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package cloudnativepg installs the cnpg helm chart.
 package cloudnativepg
 
 import (
@@ -25,21 +26,25 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 )
 
-var (
+const (
 	chartName      = "cloudnative-pg"
 	chartNamespace = "cnpg-system"
-	cnpgURL, _     = url.Parse("https://cloudnative-pg.github.io/charts")
 
 	// Chart version to be installed.
 	version = "0.21.5"
-
-	values = map[string]any{}
 
 	cnpgCRD = "clusters.postgresql.cnpg.io"
 
 	errFmtCreateHelmManager = "failed to create helm manager for %s"
 	errFmtCreateK8sClient   = "failed to create kubernetes client for helm chart %s"
 	errFmtCreateNamespace   = "failed to create namespace %s"
+)
+
+var (
+	//nolint:gochecknoglobals // Constant
+	cnpgURL, _ = url.Parse("https://cloudnative-pg.github.io/charts")
+	//nolint:gochecknoglobals // Constant
+	values = map[string]any{}
 )
 
 // CNPGOperator represents a Helm manager.
@@ -54,7 +59,7 @@ type CNPGOperator struct {
 func New(config *rest.Config) (*CNPGOperator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
-		cnpgURL,
+		*cnpgURL,
 		helm.WithNamespace(chartNamespace),
 	)
 	if err != nil {
