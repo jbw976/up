@@ -215,9 +215,6 @@ func TestRWMetaFile(t *testing.T) {
 			Name: "getting-started-with-aws",
 		},
 		Spec: metav1.ProviderSpec{
-			Controller: metav1.ControllerSpec{
-				Image: ptr.To("crossplane/provider-aws"),
-			},
 			MetaSpec: metav1.MetaSpec{
 				Crossplane: &metav1.CrossplaneConstraints{
 					Version: ">=1.0.0-0",

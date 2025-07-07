@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/utils/ptr"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -366,7 +365,7 @@ func (v *View) parseComposition(ctx context.Context, pCtx parseContext) error {
 		return nil //nolint:nilerr // Intentionally ignoring error.
 	}
 
-	if ptr.Deref(cp.Spec.Mode, xpextv1.CompositionModePipeline) != xpextv1.CompositionModePipeline {
+	if cp.Spec.Mode != "" && cp.Spec.Mode != xpextv1.CompositionModePipeline {
 		return errors.New(errCompositionMode)
 	}
 

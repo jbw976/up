@@ -4,7 +4,6 @@
 package composition
 
 import (
-	"context"
 	"embed"
 	"io/fs"
 	"net/url"
@@ -17,7 +16,6 @@ import (
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
@@ -77,7 +75,7 @@ func TestNewComposition(t *testing.T) {
 							APIVersion: "aws.platform.upbound.io/v1alpha1", // Expected API version
 							Kind:       "XNetwork",                         // Expected kind
 						},
-						Mode: ptr.To(v1.CompositionModePipeline),
+						Mode: v1.CompositionModePipeline,
 						Pipeline: []v1.PipelineStep{
 							{
 								Step: "crossplane-contrib-function-kcl",
@@ -137,7 +135,7 @@ func TestNewComposition(t *testing.T) {
 							APIVersion: "aws.platform.upbound.io/v1alpha1", // Expected API version
 							Kind:       "XNetwork",                         // Expected kind
 						},
-						Mode: ptr.To(v1.CompositionModePipeline),
+						Mode: v1.CompositionModePipeline,
 						Pipeline: []v1.PipelineStep{
 							{
 								Step: "crossplane-contrib-function-auto-ready",
@@ -168,7 +166,7 @@ func TestNewComposition(t *testing.T) {
 							APIVersion: "aws.platform.upbound.io/v1alpha1", // Expected API version
 							Kind:       "XNetwork",                         // Expected kind
 						},
-						Mode: ptr.To(v1.CompositionModePipeline),
+						Mode: v1.CompositionModePipeline,
 						Pipeline: []v1.PipelineStep{
 							{
 								Step: "crossplane-contrib-function-auto-ready",
@@ -198,7 +196,7 @@ func TestNewComposition(t *testing.T) {
 							APIVersion: "aws.platform.upbound.io/v1alpha1", // Expected API version
 							Kind:       "XNetwork",                         // Expected kind from plural
 						},
-						Mode: ptr.To(v1.CompositionModePipeline),
+						Mode: v1.CompositionModePipeline,
 						Pipeline: []v1.PipelineStep{
 							{
 								Step: "crossplane-contrib-function-auto-ready",
@@ -255,7 +253,7 @@ func TestNewComposition(t *testing.T) {
 			}
 
 			// Call newComposition and check results
-			got, _, err := generateCmd.newComposition(context.Background())
+			got, _, err := generateCmd.newComposition(t.Context())
 			assert.NilError(t, err)
 
 			// Compare the result with the expected composition

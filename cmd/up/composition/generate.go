@@ -273,7 +273,7 @@ func (c *generateCmd) newComposition(ctx context.Context) (*apiextv1.Composition
 				APIVersion: fmt.Sprintf("%s/%s", group, version),
 				Kind:       kind,
 			},
-			Mode:     ptr.To(apiextv1.CompositionModePipeline),
+			Mode:     apiextv1.CompositionModePipeline,
 			Pipeline: pipelineSteps,
 		},
 	}

@@ -73,7 +73,7 @@ func (c *CompositionValidator) Validate(ctx context.Context, data any) *validate
 func (c *CompositionValidator) validatePipeline(ctx context.Context, comp *xpextv1.Composition) []error {
 	var errs []error
 
-	if comp.Spec.Mode != nil && *comp.Spec.Mode != xpextv1.CompositionModePipeline {
+	if comp.Spec.Mode != "" && comp.Spec.Mode != xpextv1.CompositionModePipeline {
 		return nil
 	}
 
