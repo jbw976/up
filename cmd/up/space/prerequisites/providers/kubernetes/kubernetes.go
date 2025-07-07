@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package kubernetes installs provider-kubernetes as a spaces prerequisite.
 package kubernetes
 
 import (
@@ -22,24 +23,16 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xppkgv1alpha1 "github.com/crossplane/crossplane/apis/pkg/v1alpha1"
 
 	"github.com/upbound/up/internal/resources"
 )
 
-var (
+const (
 	providerName = "provider-kubernetes"
 	version      = "v0.14.0"
-	pkgRef, _    = name.ParseReference(fmt.Sprintf("crossplane-contrib/provider-kubernetes:%s", version))
 
 	objectsCRD = "objects.kubernetes.crossplane.io"
 	xrdCRD     = "compositeresourcedefinitions.apiextensions.crossplane.io"
-
-	pkgGVR = schema.GroupVersionResource{
-		Group:    "pkg.crossplane.io",
-		Version:  "v1",
-		Resource: "providers",
-	}
 
 	ns = "upbound-system"
 
@@ -48,6 +41,18 @@ var (
 
 	errFmtCreateK8sClient = "failed to create kubernetes client for requirement %s"
 	errFmtUXPRequired     = "UXP is required to install %s"
+)
+
+var (
+	//nolint:gochecknoglobals // Constant
+	pkgRef, _ = name.ParseReference(fmt.Sprintf("crossplane-contrib/provider-kubernetes:%s", version))
+
+	//nolint:gochecknoglobals // Constant
+	pkgGVR = schema.GroupVersionResource{
+		Group:    "pkg.crossplane.io",
+		Version:  "v1",
+		Resource: "providers",
+	}
 )
 
 // Kubernetes represents a Helm manager.
@@ -60,10 +65,7 @@ type Kubernetes struct {
 func init() {
 	// NOTE(tnthornton) we override the runtime.ErrorHandlers so that Helm
 	// doesn't leak Println logs.
-	runtime.ErrorHandlers = []runtime.ErrorHandler{func(ctx context.Context, err error, msg string, keysAndValues ...interface{}) {}} //nolint:reassign
-	// NOTE(tnthornton) this suppresses the warnings coming from client-go for
-	// using ControllerConfig.
-	rest.SetDefaultWarningHandler(rest.NoWarnings{})
+	runtime.ErrorHandlers = []runtime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...interface{}) {}} //nolint:reassign // See above.
 }
 
 // New constructs a new CertManager instance that can used to install the
@@ -95,7 +97,7 @@ func (k *Kubernetes) GetName() string {
 }
 
 // Install performs a Helm install of the chart.
-func (k *Kubernetes) Install() error { //nolint:gocyclo
+func (k *Kubernetes) Install() error {
 	installed, err := k.IsInstalled()
 	if err != nil {
 		return err
@@ -119,19 +121,11 @@ func (k *Kubernetes) Install() error { //nolint:gocyclo
 			return err
 		}
 	}
-	if err := k.createControllerConfig(); err != nil {
-		if !kerrors.IsAlreadyExists(err) {
-			return err
-		}
-	}
 
 	p := &resources.Package{}
 	p.SetName(pkgName)
 	p.SetPackage(pkgRef.String())
 	p.SetGroupVersionKind(xppkgv1.ProviderGroupVersionKind)
-	p.SetControllerConfigRef(xppkgv1.ControllerConfigReference{
-		Name: ccName,
-	})
 
 	_, err = k.dClient.
 		Resource(pkgGVR).
@@ -246,22 +240,6 @@ func (k *Kubernetes) createClusterRoleBinding() error {
 		Create(
 			context.Background(),
 			crb,
-			metav1.CreateOptions{},
-		)
-	return err
-}
-
-func (k *Kubernetes) createControllerConfig() error {
-	cc := &resources.ControllerConfig{}
-	cc.SetName(ccName)
-	cc.SetServiceAccountName(ccName)
-	cc.SetGroupVersionKind(xppkgv1alpha1.ControllerConfigGroupVersionKind)
-
-	_, err := k.dClient.
-		Resource(resources.ControllerConfigGRV).
-		Create(
-			context.Background(),
-			cc.GetUnstructured(),
 			metav1.CreateOptions{},
 		)
 	return err

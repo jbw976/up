@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package resources supports Spaces custom resources.
 package resources
 
 import (
@@ -9,7 +10,6 @@ import (
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 )
 
 // Package represents a Crossplane Package.
@@ -47,9 +47,4 @@ func (p *Package) GetHealthy() bool {
 // SetPackage sets the package reference.
 func (p *Package) SetPackage(pkg string) {
 	_ = fieldpath.Pave(p.Object).SetValue("spec.package", pkg)
-}
-
-// SetControllerConfigRef sets the controllerConfigRef on the package.
-func (p *Package) SetControllerConfigRef(ref xppkgv1.ControllerConfigReference) {
-	_ = fieldpath.Pave(p.Object).SetValue("spec.controllerConfigRef", ref)
 }
