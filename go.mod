@@ -18,7 +18,6 @@ require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/crossplane/crossplane v1.20.0
 	github.com/crossplane/crossplane-runtime v1.20.0
-	github.com/crossplane/crossplane/controller/apiextensions v0.15.0-rc.0
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.4.0
 	github.com/docker/docker-credential-helpers v0.9.3
@@ -145,7 +144,6 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/creack/pty v1.1.20 // indirect
-	github.com/crossplane/crossplane/names v0.0.0-00010101000000-000000000000 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
@@ -419,11 +417,8 @@ require (
 )
 
 replace (
-	github.com/crossplane/crossplane/controller/apiextensions => ./internal/vendor/github.com/crossplane/crossplane/controller/apiextensions
-	github.com/crossplane/crossplane/names => ./internal/vendor/github.com/crossplane/crossplane/names
 	github.com/crossplane/crossplane/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
 	github.com/golang/tools => ./internal/vendor/golang.org/x/tools
-	github.com/willabides/kongplete => ./internal/vendor/github.com/WillAbides/kongplete
 )
 
 // use the local one

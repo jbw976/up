@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package workspace implements a language server workspace for xpkgs.
 package workspace
 
 import (
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/utils/ptr"
 	k8syaml "sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -30,8 +32,6 @@ import (
 	xparser "github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/xpkg"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
@@ -42,32 +42,21 @@ import (
 // paths to extract GVK and name from objects that conform to Kubernetes
 // standard.
 var (
-	compResources *yaml.Path
-	compBase      *yaml.Path
-	compPipeline  *yaml.Path
+	compPipeline *yaml.Path //nolint:gochecknoglobals // Constant
 )
 
 const (
 	yamlExt = ".yaml"
 
-	errCompositionResources = "resources in Composition are malformed"
-	errCompositionPipeline  = "pipeline in Composition is malformed"
-	errCompositionMode      = "unknown Composition mode"
-	errInvalidFileURI       = "invalid path supplied"
-	errInvalidPackage       = "invalid package; more than one meta (configuration,provider or function) file supplied"
+	errCompositionPipeline = "pipeline in Composition is malformed"
+	errCompositionMode     = "unknown Composition mode"
+	errInvalidFileURI      = "invalid path supplied"
+	errInvalidPackage      = "invalid package; more than one meta (configuration,provider or function) file supplied"
 )
 
 // builds static YAML path strings ahead of usage.
 func init() {
 	var err error
-	compResources, err = yaml.PathString("$.spec.resources")
-	if err != nil {
-		panic(err)
-	}
-	compBase, err = yaml.PathString("$.base")
-	if err != nil {
-		panic(err)
-	}
 	compPipeline, err = yaml.PathString("$.spec.pipeline")
 	if err != nil {
 		panic(err)
@@ -298,7 +287,7 @@ type parseContext struct {
 
 // parseDoc recursively parses a YAML document into PackageNodes. Embedded nodes
 // are added to the parent's list of dependants.
-func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier, error) { //nolint:gocyclo
+func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier, error) {
 	b, err := pCtx.node.MarshalYAML()
 	if err != nil {
 		return NodeIdentifier{}, err
@@ -320,7 +309,7 @@ func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier,
 	// to do so.
 	if err := k8syaml.Unmarshal(b, &obj); err != nil {
 		v.printer.Printfln("WARNING: ignoring document %d in file %s: missing 'kind' field, not a Kubernetes object", pCtx.doc+1, v.relativePath(pCtx.path))
-		return NodeIdentifier{}, nil //nolint:nilerr
+		return NodeIdentifier{}, nil //nolint:nilerr // Warn instead of error.
 	}
 	pCtx.obj = obj
 	// NOTE(hasheddan): if we are at document root (i.e. this is a
@@ -341,13 +330,7 @@ func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier,
 		}
 	case pkgmetav1.ConfigurationGroupVersionKind,
 		pkgmetav1.ProviderGroupVersionKind,
-		pkgmetav1.FunctionGroupVersionKind,
-		pkgmetav1beta1.ConfigurationGroupVersionKind,
-		pkgmetav1beta1.ProviderGroupVersionKind,
-		pkgmetav1beta1.FunctionGroupVersionKind,
-		pkgmetav1alpha1.ConfigurationGroupVersionKind,
-		pkgmetav1alpha1.ProviderGroupVersionKind,
-		pkgmetav1alpha1.FunctionGroupVersionKind:
+		pkgmetav1.FunctionGroupVersionKind:
 		if err := v.parseMeta(ctx, pCtx); err != nil {
 			return NodeIdentifier{}, err
 		}
@@ -380,81 +363,22 @@ func (v *View) parseComposition(ctx context.Context, pCtx parseContext) error {
 	var cp xpextv1.Composition
 	if err := k8syaml.Unmarshal(pCtx.docBytes, &cp); err != nil {
 		// we have a composition but failed to unmarshal it, skip for now.
-		return nil //nolint:nilerr
+		return nil //nolint:nilerr // Intentionally ignoring error.
 	}
 
-	mode := xpextv1.CompositionModeResources
-	if cp.Spec.Mode != nil {
-		mode = *cp.Spec.Mode
-	}
-	switch mode {
-	case xpextv1.CompositionModeResources:
-		resNode, err := compResources.FilterNode(pCtx.node)
-		if err != nil {
-			return err
-		}
-		pCtx.node = resNode
-		pCtx.rootNode = false
-
-		return v.parseCompositionResources(ctx, pCtx)
-
-	case xpextv1.CompositionModePipeline:
-		pipeNode, err := compPipeline.FilterNode(pCtx.node)
-		if err != nil {
-			return err
-		}
-
-		pCtx.node = pipeNode
-		pCtx.rootNode = false
-
-		return v.parseCompositionPipeline(ctx, pCtx)
-
-	default:
+	if ptr.Deref(cp.Spec.Mode, xpextv1.CompositionModePipeline) != xpextv1.CompositionModePipeline {
 		return errors.New(errCompositionMode)
 	}
-}
 
-func (v *View) parseCompositionResources(ctx context.Context, pCtx parseContext) error {
-	seq, ok := pCtx.node.(*ast.SequenceNode)
-	if !ok {
-		// NOTE(hasheddan): if the Composition's resources field is not a
-		// sequence node, we skip parsing embedded resources because the
-		// Composition itself is malformed.
-		return errors.New(errCompositionResources)
+	pipeNode, err := compPipeline.FilterNode(pCtx.node)
+	if err != nil {
+		return err
 	}
 
-	dependants := map[NodeIdentifier]struct{}{}
+	pCtx.node = pipeNode
+	pCtx.rootNode = false
 
-	for _, s := range seq.Values {
-		// process ComposedTemplate
-		b, err := s.MarshalYAML()
-		if err != nil {
-			return err
-		}
-
-		var ct xpextv1.ComposedTemplate
-		if err := k8syaml.Unmarshal(b, &ct); err != nil {
-			return err
-		}
-
-		// recurse into resource[i].base
-		sNode, err := compBase.FilterNode(s)
-		if err != nil {
-			// TODO(hasheddan): surface this error as a diagnostic.
-			continue
-		}
-		pCtx.node = sNode
-		pCtx.rootNode = false
-
-		id, err := v.parseDoc(ctx, pCtx)
-		if err != nil {
-			// TODO(hasheddan): surface this error as a diagnostic.
-			continue
-		}
-		dependants[id] = struct{}{}
-	}
-
-	return nil
+	return v.parseCompositionPipeline(ctx, pCtx)
 }
 
 func (v *View) parseCompositionPipeline(_ context.Context, pCtx parseContext) error {

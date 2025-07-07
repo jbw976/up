@@ -82,8 +82,6 @@ require (
 )
 
 replace (
-	github.com/crossplane/crossplane/controller/apiextensions => ../../internal/vendor/github.com/crossplane/crossplane/controller/apiextensions
 	github.com/crossplane/crossplane/xcrd => ../../internal/vendor/github.com/crossplane/crossplane/xcrd
 	github.com/golang/tools => ../../internal/vendor/golang.org/x/tools
-	github.com/willabides/kongplete => ../../internal/vendor/github.com/WillAbides/kongplete
 )

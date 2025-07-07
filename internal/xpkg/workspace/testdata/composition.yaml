@@ -9,28 +9,10 @@ spec:
   compositeTypeRef:
     apiVersion: database.example.org/v1alpha1
     kind: CompositePostgreSQLInstance
-  resources:
-    - name: vpc
-      base:
-        apiVersion: ec2.aws.crossplane.io/v1beta1
-        kind: VPC
-        spec:
-          forProvider:
-            region: us-east-1
-            cidrBlock: 192.168.0.0/16
-            enableDnsSupport: true
-            enableDnsHostNames: true
-    - name: subnet-a
-      base:
-        apiVersion: ec2.aws.crossplane.io/v1beta1
-        kind: Subnet
-        metadata:
-          labels:
-            zone: us-east-1a
-        spec:
-          forProvider:
-            region: us-east-1
-            cidrBlock: 192.168.64.0/18
-            vpcIdSelector:
-              matchControllerRef: true
-            availabilityZone: us-east-1a
+  pipeline:
+    - step: compose-resources
+      functionRef:
+        name: compose-resources
+    - step: ready
+      functionRef:
+        name: crossplane-contrib-function-auto-ready
