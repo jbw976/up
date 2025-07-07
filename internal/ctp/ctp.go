@@ -364,6 +364,9 @@ func (l *localDevControlPlane) Sideload(ctx context.Context, imgMap project.Imag
 		},
 	}
 
+	if err := pkgv1beta1.AddToScheme(l.client.Scheme()); err != nil {
+		return err
+	}
 	if err := l.client.Create(ctx, imgcfg); err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrap(err, "failed to create image config")
 	}
