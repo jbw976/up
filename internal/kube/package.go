@@ -204,7 +204,14 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 		return false, err
 	}
 
-	return resource.IsConditionTrue(pkg.GetCondition(commonv1.TypeHealthy)), nil
+	// Crossplane v1.x sets the `Healthy` condition.
+	v1Healthy := resource.IsConditionTrue(pkg.GetCondition(commonv1.TypeHealthy))
+	// Crossplane v2.x sets the `RevisionHealthy`.
+	v2Healthy := resource.IsConditionTrue(pkg.GetCondition(xpkgv1.TypeRevisionHealthy))
+
+	// Allow for either v1.x health or v2.x health, so we work correctly with
+	// either version.
+	return v1Healthy || v2Healthy, nil
 }
 
 // ApplyResources installs arbitrary resources to the target control plane.
