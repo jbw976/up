@@ -19,6 +19,7 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/connector"
+	"github.com/upbound/up/cmd/up/controlplane/oidcauth"
 	"github.com/upbound/up/cmd/up/controlplane/pkg"
 	"github.com/upbound/up/cmd/up/controlplane/pullsecret"
 	"github.com/upbound/up/cmd/up/controlplane/simulation"
@@ -53,6 +54,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 			"provider":      true,
 			"configuration": true,
 			"pull-secret":   true,
+			"oidc-auth":     true,
 		}
 
 		// Get the selected parent's name.
@@ -128,6 +130,8 @@ type Cmd struct {
 	Function      pkg.Cmd `cmd:"" help:"Manage Functions."      set:"package_type=Function"`
 
 	PullSecret pullsecret.Cmd `cmd:"" help:"Manage package pull secrets."`
+
+	OIDCAuth oidcauth.Cmd `cmd:"" help:"Create OIDC ProviderConfig in a control plane and Cloud Resources."`
 
 	// Deprecated commands
 	Connect    connectCmd    `cmd:"" help:"Deprecated: Connect kubectl to control plane."`
