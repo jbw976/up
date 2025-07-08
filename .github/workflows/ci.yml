@@ -647,6 +647,12 @@ jobs:
           kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
           kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
 
+      - name: up project stop
+        run: |
+          export PATH=~/up-cli-bin:$PATH
+          cd e2e-test
+          up project stop --local --force
+
   e2e-project-example-aws:
     runs-on: ubuntu-24.04
     needs: publish-artifacts
