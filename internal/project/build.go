@@ -149,7 +149,9 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// digest support in the package manager.
 	if cfg.Spec.Crossplane == nil || cfg.Spec.Crossplane.Version == "" {
 		cfg.Spec.Crossplane = &xpmetav1.CrossplaneConstraints{
-			Version: ">=v1.18.0",
+			// TODO(adamwg): Support only v2 if the project uses v2-only
+			// features.
+			Version: ">=v1.18.0 || >= v2.0.0-rc.0",
 		}
 	}
 

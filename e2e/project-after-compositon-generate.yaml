@@ -17,5 +17,5 @@ spec:
   maintainer: Upbound User <user@example.com>
   readme: |
     This is where you can add a readme for your project.
-  repository: xpkg.upbound.io/upbound/e2e-test
+  repository: xpkg.upbound.io/upbound-dev/e2e-test
   source: github.com/upbound/project-example-scratch
