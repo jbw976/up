@@ -32,6 +32,11 @@ func (m *MockDevControlPlane) Info() string {
 	return "Mock development control plane"
 }
 
+// ShortDescription returns a short description.
+func (m *MockDevControlPlane) ShortDescription() string {
+	return "Mock development control plane"
+}
+
 // Client returns the controller-runtime client for the mock control plane.
 func (m *MockDevControlPlane) Client() client.Client {
 	return m.client
