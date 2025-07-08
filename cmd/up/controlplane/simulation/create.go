@@ -28,6 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
@@ -62,6 +63,8 @@ const (
 // CreateCmd creates a control plane simulation and outputs the differences
 // detected.
 type CreateCmd struct {
+	requires.Space
+
 	SourceName string `arg:""     help:"Name of source control plane."                                                                                               required:""`
 	Group      string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 

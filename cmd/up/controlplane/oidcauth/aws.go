@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alecthomas/kong"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -71,18 +70,12 @@ type awsCmd struct {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *awsCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *awsCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	var ctp types.NamespacedName
 	var isSpace bool
 	if _, ctp, isSpace = upCtx.GetCurrentSpaceContextScope(); isSpace && ctp.Name == "" {
 		return errors.New("no control plane context is defined. Use 'up ctx' to set an control plane inside a group context")
 	}
-
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return errors.Wrap(err, "unable to get kube client")
-	}
-	kongCtx.BindTo(cl, (*client.Client)(nil))
 
 	c.quiet = printer.Quiet
 	c.printer = printer

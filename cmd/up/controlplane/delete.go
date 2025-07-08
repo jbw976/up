@@ -15,11 +15,14 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
 )
 
 // deleteCmd deletes a control plane on Upbound.
 type deleteCmd struct {
+	requires.Space
+
 	Name  string `arg:""     help:"Name of control plane."                                                                                                      predictor:"ctps"`
 	Group string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 }

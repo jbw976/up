@@ -15,13 +15,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	xpcommonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/connector"
 	"github.com/upbound/up/cmd/up/controlplane/oidcauth"
 	"github.com/upbound/up/cmd/up/controlplane/pkg"
 	"github.com/upbound/up/cmd/up/controlplane/pullsecret"
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/cmd/up/controlplane/simulation"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/upbound"
@@ -33,50 +33,29 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 	return feature.HideMaturity(p, maturity)
 }
 
-// AfterApply constructs and binds a control plane client to any subcommands
-// that have Run() methods that receive it.
+// AfterApply constructs and binds a k8s client to any subcommands that have
+// Run() methods that receive it.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
 		return err
 	}
 	upCtx.SetupLogging()
-
 	kongCtx.Bind(upCtx)
 
-	// Pre-check the space context and control plane name
-	_, ctp, isSpace := upCtx.GetCurrentSpaceContextScope()
-
-	if isSpace { // Check if we are operating in a "space" context.
-		// Define entities that require a control plane context.
-		requiresControlPlane := map[string]bool{
-			"function":      true,
-			"provider":      true,
-			"configuration": true,
-			"pull-secret":   true,
-			"oidc-auth":     true,
-		}
-
-		// Get the selected parent's name.
-		parentName := kongCtx.Selected().Parent.Name
-
-		if requiresControlPlane[parentName] {
-			// Ensure a control plane context is defined.
-			if ctp.Name == "" {
-				return errors.New("no control plane context is defined. Use 'up ctx' to set a control plane context")
+	// Check that the current context meets the command's requirements and
+	// construct a kube context. The requirement may be on a parent node, so
+	// iterate up the command tree.
+	for current := kongCtx.Selected(); current != nil; current = current.Parent {
+		if req, ok := current.Target.Interface().(requires.Checker); ok {
+			cl, err := req.Check(context.Background(), upCtx)
+			if err != nil {
+				return err
 			}
-		} else {
-			// Ensure we are not in a control plane context when one is not required.
-			if ctp.Name != "" {
-				return errors.New("cannot view control planes from inside a control plane context. Use 'up ctx ..' to go up to the group context")
-			}
+			kongCtx.BindTo(cl, (*client.Client)(nil))
+			break
 		}
 	}
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return errors.Wrap(err, "unable to get kube client")
-	}
-	kongCtx.BindTo(cl, (*client.Client)(nil))
 
 	return nil
 }
@@ -114,39 +93,46 @@ func PredictControlPlanes() complete.Predictor {
 }
 
 // Cmd contains commands for interacting with control planes.
+//
+// Each subcommand struct must embed a struct from the `requires` package to
+// indicate what kind of kube context it needs.
 type Cmd struct {
-	Create createCmd `cmd:"" help:"Create a control plane."`
-	Delete deleteCmd `cmd:"" help:"Delete a control plane."`
-	List   listCmd   `cmd:"" help:"List control planes for the organization."`
-	Get    getCmd    `cmd:"" help:"Get a single control plane."`
+	// Commands for managing control planes in Spaces. These require a space
+	// context.
+	Create createCmd `cmd:"" help:"Create a Spaces control plane."`
+	Delete deleteCmd `cmd:"" help:"Delete a Spaces control plane."`
+	List   listCmd   `cmd:"" help:"List control planes in a Space."`
+	Get    getCmd    `cmd:"" help:"Get a single Spaces control plane."`
 
-	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane."`
+	// Commands for managing the connector. These require a control plane
+	// context.
+	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a Spaces control plane."`
 
+	// Commands for managing control plane simulations. These require a space
+	// context.
 	Simulation simulation.Cmd       `aliases:"sim" cmd:""                                                help:"Manage control plane simulations." maturity:"alpha"`
 	Simulate   simulation.CreateCmd `cmd:""        help:"Alias for 'up controlplane simulation create'." maturity:"alpha"`
 
+	// Commands for managing packages in control planes. These require a control
+	// plane context.
 	Configuration pkg.Cmd `cmd:"" help:"Manage Configurations." set:"package_type=Configuration"`
 	Provider      pkg.Cmd `cmd:"" help:"Manage Providers."      set:"package_type=Provider"`
 	Function      pkg.Cmd `cmd:"" help:"Manage Functions."      set:"package_type=Function"`
 
+	// Commands for managing pull secrets in control planes. These require a
+	// control plane context.
 	PullSecret pullsecret.Cmd `cmd:"" help:"Manage package pull secrets."`
 
-	OIDCAuth oidcauth.Cmd `cmd:"" help:"Create OIDC ProviderConfig in a control plane and Cloud Resources."`
+	// Commands for managing OIDC auth. These require a spaces control plane
+	// context.
+	OIDCAuth oidcauth.Cmd `cmd:"" help:"Create OIDC ProviderConfig in a Spaces control plane and Cloud Resources."`
 
 	// Deprecated commands
-	Connect    connectCmd    `cmd:"" help:"Deprecated: Connect kubectl to control plane."`
-	Disconnect disconnectCmd `cmd:"" help:"Deprecated: Disconnect kubectl from control plane."`
+	Connect    connectCmd    `cmd:"" help:"Deprecated: Connect kubectl to control plane."      hidden:""`
+	Disconnect disconnectCmd `cmd:"" help:"Deprecated: Disconnect kubectl from control plane." hidden:""`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
-}
-
-// Help returns the help text for the command.
-// This method is required by the kong framework to provide command-line help functionality.
-func (c *Cmd) Help() string {
-	return `
-Interact with control planes of the current profile. Use the "up ctx" command to
-connect to a space or switch between contexts within a space.`
 }
 
 func extractSpaceFields(obj any) []string {

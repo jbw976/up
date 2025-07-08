@@ -17,6 +17,7 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	cp "github.com/upbound/up-sdk-go/service/controlplanes"
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -37,6 +38,8 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 
 // getCmd gets a single control plane in an account on Upbound.
 type getCmd struct {
+	requires.Space
+
 	Name  string `arg:""     help:"Name of control plane."                                                                                                      predictor:"ctps" required:""`
 	Group string `default:"" help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 }
