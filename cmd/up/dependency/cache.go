@@ -69,24 +69,49 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 }
 
 func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
-	if err := upterm.WrapWithSuccessSpinner(
-		fmt.Sprintf("Updating %d dependencies...", len(c.proj.Spec.DependsOn)),
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
-		},
-		printer,
-	); err != nil {
-		return err
+	if len(c.proj.Spec.DependsOn) > 0 {
+		if err := upterm.WrapWithSuccessSpinner(
+			fmt.Sprintf("Updating %d dependencies...", len(c.proj.Spec.DependsOn)),
+			upterm.CheckmarkSuccessSpinner,
+			func() error {
+				return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
+			},
+			printer,
+		); err != nil {
+			return err
+		}
+
+		pterm.Success.Printfln("Dependencies updated:")
+		for _, d := range c.proj.Spec.DependsOn {
+			pkg, err := c.m.GetParsedPackage(ctx, d)
+			if err != nil {
+				return err
+			}
+			pterm.Success.Printfln("- %s (%s)", pkg.Name(), pkg.Version())
+		}
 	}
 
-	pterm.Success.Printfln("Dependencies updated:")
-	for _, d := range c.proj.Spec.DependsOn {
-		pkg, err := c.m.GetParsedPackage(ctx, d)
+	if len(c.proj.Spec.APIDependencies) > 0 {
+		if err := upterm.WrapWithSuccessSpinner(
+			fmt.Sprintf("Updating %d api-dependencies...", len(c.proj.Spec.APIDependencies)),
+			upterm.CheckmarkSuccessSpinner,
+			func() error {
+				return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
+			},
+			printer,
+		); err != nil {
+			return err
+		}
+
+		processedAPIDeps, err := c.m.GetProcessedAPIDependencies(ctx, c.proj.Spec.APIDependencies)
 		if err != nil {
 			return err
 		}
-		pterm.Success.Printfln("- %s (%s)", pkg.Name(), pkg.Version())
+
+		pterm.Success.Printfln("API dependencies updated:")
+		for _, dep := range processedAPIDeps {
+			pterm.Success.Printfln("- %s (%s)", dep.Source, dep.Type)
+		}
 	}
 
 	return nil

@@ -223,7 +223,7 @@ func (c *cli) runSchemaGeneration(ctx context.Context, pkg *xpkgmarshaler.Parsed
 	r := runner.NewRealSchemaRunner()
 
 	src := manager.NewXpkgSource(pkg)
-	fromFS, err := src.Resources()
+	fromFS, err := src.Resources(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get resources from package")
 	}
@@ -231,7 +231,7 @@ func (c *cli) runSchemaGeneration(ctx context.Context, pkg *xpkgmarshaler.Parsed
 	for _, gen := range generators {
 		lang := gen.Language()
 
-		schemaFS, err := gen.Generate(ctx, fromFS, r)
+		schemaFS, err := gen.GenerateFromCRD(ctx, fromFS, r)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate schemas for language %s", lang)
 		}

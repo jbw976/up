@@ -6,6 +6,7 @@ package generator
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -38,8 +40,36 @@ func (pythonGenerator) Language() string {
 	return "python"
 }
 
-// Generate generates Python schema files from the XRDs and CRDs fromFS.
-func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
+// generatePythonSchemas runs the datamodel code generator with common arguments.
+func (p pythonGenerator) generatePythonSchemas(ctx context.Context, inputFS afero.Fs, baseFolder string, generator runner.SchemaRunner) error {
+	return generator.Generate(
+		ctx,
+		inputFS,
+		baseFolder,
+		"",
+		pythonImage,
+		[]string{
+			"--input-file-type",
+			"openapi",
+			"--disable-timestamp",
+			"--input",
+			".",
+			"--output-model-type",
+			"pydantic_v2.BaseModel",
+			"--target-python-version",
+			"3.12",
+			"--use-field-description",
+			"--enum-field-as-literal",
+			"all",
+			"--use-one-literal-as-default",
+			"--output",
+			pythonModelsFolder,
+		},
+	)
+}
+
+// GenerateFromCRD generates Python schema files from the XRDs and CRDs fromFS.
+func (p pythonGenerator) GenerateFromCRD(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -123,35 +153,13 @@ func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator 
 		return nil, nil
 	}
 
-	if err := generator.Generate(
-		ctx,
-		crdFS,
-		baseFolder,
-		"",
-		pythonImage,
-		[]string{
-			"--input-file-type",
-			"openapi",
-			"--disable-timestamp",
-			"--input",
-			".",
-			"--output-model-type",
-			"pydantic_v2.BaseModel",
-			"--target-python-version",
-			"3.12",
-			"--use-field-description",
-			"--enum-field-as-literal",
-			"all",
-			"--use-one-literal-as-default",
-			"--output",
-			pythonModelsFolder,
-		},
-	); err != nil {
+	// Generate Python schemas using common function
+	if err := p.generatePythonSchemas(ctx, crdFS, baseFolder, generator); err != nil {
 		return nil, err
 	}
 
 	// reorganization alignment https://github.com/koxudaxi/datamodel-code-generator/issues/2097
-	if err := transformStructurePython(crdFS, pythonGeneratedFolder, pythonAdoptModelsStructure); err != nil {
+	if err := postTransformCRD(crdFS, pythonGeneratedFolder, pythonAdoptModelsStructure); err != nil {
 		return nil, err
 	}
 
@@ -163,8 +171,8 @@ func (pythonGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator 
 	return schemaFS, nil
 }
 
-// transformStructurePython combines the reorganization of Python files and the adjustment of import paths into one pass.
-func transformStructurePython(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need this python transforms
+// postTransformCRD combines the reorganization of Python files and the adjustment of import paths into one pass.
+func postTransformCRD(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need this python transforms
 	v1MetaCopied := false // Flag to track if v1.py has already been moved
 	createdInitFiles := make(map[string]bool)
 
@@ -358,4 +366,373 @@ func adjustLeadingDots(importLine string, depth int) string {
 	}
 
 	return importLine
+}
+
+// GenerateFromOpenAPI generates Python schema files from OpenAPI specifications in fromFS.
+func (p pythonGenerator) GenerateFromOpenAPI(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) {
+	openapiFS := afero.NewMemMapFs()
+	schemaFS := afero.NewMemMapFs()
+	baseFolder := "workdir"
+
+	if err := openapiFS.MkdirAll(baseFolder, 0o755); err != nil {
+		return nil, err
+	}
+
+	var openapiPaths []string
+
+	// Walk the virtual filesystem to find and process OpenAPI JSON files
+	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only process JSON files
+		if !strings.HasSuffix(strings.ToLower(path), ".json") {
+			return nil
+		}
+
+		// Read the file content
+		bs, err := afero.ReadFile(fromFS, path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read file %q", path)
+		}
+
+		// Parse the OpenAPI document once
+		loader := openapi3.NewLoader()
+		doc, err := loader.LoadFromData(bs)
+		if err != nil {
+			// If parsing fails, use original content
+			processedContent := bs
+			targetPath := filepath.Join(baseFolder, path)
+			if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return errors.Wrapf(err, "failed to create directory for %q", targetPath)
+			}
+			if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
+				return errors.Wrapf(err, "failed to write file %q", targetPath)
+			}
+			return nil
+		}
+
+		// Check if we should skip this file based on its pattern
+		if shouldSkipOpenAPIFile(doc) {
+			return nil
+		}
+
+		// Process the OpenAPI content to add default values
+		processedDoc := processOpenAPIContent(doc)
+		processedContent, err := processedDoc.MarshalJSON()
+		if err != nil {
+			// If marshaling fails, use original content
+			processedContent = bs
+		}
+
+		// Write OpenAPI file to working directory
+		targetPath := filepath.Join(baseFolder, path)
+		if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return err
+		}
+		if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
+			return err
+		}
+		openapiPaths = append(openapiPaths, targetPath)
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if len(openapiPaths) == 0 {
+		// Return nil if no files were generated
+		return nil, nil
+	}
+
+	// Generate Python schemas using common function
+	if err := p.generatePythonSchemas(ctx, openapiFS, baseFolder, generator); err != nil {
+		return nil, err
+	}
+
+	if err := postTransformOpenAPI(openapiFS, pythonGeneratedFolder, pythonAdoptModelsStructure); err != nil {
+		return nil, err
+	}
+
+	// Copy the generated models to the schema filesystem
+	if err := filesystem.CopyFilesBetweenFs(afero.NewBasePathFs(openapiFS, pythonAdoptModelsStructure), afero.NewBasePathFs(schemaFS, pythonModelsFolder)); err != nil {
+		return nil, err
+	}
+
+	return schemaFS, nil
+}
+
+// shouldSkipOpenAPIFile checks if the OpenAPI file should be skipped.
+func shouldSkipOpenAPIFile(doc *openapi3.T) bool {
+	if doc.Components == nil {
+		return false
+	}
+
+	for _, schemaRef := range doc.Components.Schemas {
+		if schemaRef == nil || schemaRef.Value == nil {
+			continue
+		}
+		ext, ok := schemaRef.Value.Extensions["x-kubernetes-group-version-kind"]
+		if !ok {
+			continue
+		}
+
+		extBytes, err := json.Marshal(ext)
+		if err != nil {
+			continue
+		}
+
+		var gvkList []map[string]interface{}
+		if err := json.Unmarshal(extBytes, &gvkList); err != nil {
+			continue
+		}
+
+		for _, gvk := range gvkList {
+			if kindRaw, ok := gvk["kind"]; ok {
+				if kind, ok := kindRaw.(string); ok {
+					if kind == "APIVersions" || kind == "APIGroup" {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// processOpenAPIContent processes OpenAPI content to add default values for apiVersion and kind.
+func processOpenAPIContent(doc *openapi3.T) *openapi3.T { //nolint:gocognit // set default apiVersion and kind.
+	if doc.Components == nil {
+		return doc
+	}
+
+	for _, schemaRef := range doc.Components.Schemas {
+		if schemaRef == nil || schemaRef.Value == nil {
+			continue
+		}
+		schema := schemaRef.Value
+
+		// Look for x-kubernetes-group-version-kind extension
+		rawExt, ok := schema.Extensions["x-kubernetes-group-version-kind"]
+		if !ok {
+			continue
+		}
+
+		rawBytes, err := json.Marshal(rawExt)
+		if err != nil {
+			continue
+		}
+
+		var gvkList []map[string]interface{}
+		if err := json.Unmarshal(rawBytes, &gvkList); err != nil {
+			continue
+		}
+
+		if len(gvkList) == 0 {
+			continue
+		}
+
+		gvk := gvkList[0]
+		group := ""
+		if g, ok := gvk["group"].(string); ok {
+			group = g
+		}
+		version := ""
+		if v, ok := gvk["version"].(string); ok {
+			version = v
+		}
+		kind := ""
+		if k, ok := gvk["kind"].(string); ok {
+			kind = k
+		}
+
+		apiVersion := version
+		if group != "" {
+			apiVersion = group + "/" + version
+		}
+
+		// Add defaults to properties
+		if schema.Properties != nil {
+			// Add default to apiVersion property
+			if propSchemaRef, ok := schema.Properties["apiVersion"]; ok {
+				if propSchemaRef != nil && propSchemaRef.Value != nil {
+					propSchemaRef.Value.Default = apiVersion
+				}
+			}
+			// Add default to kind property
+			if propSchemaRef, ok := schema.Properties["kind"]; ok {
+				if propSchemaRef != nil && propSchemaRef.Value != nil {
+					propSchemaRef.Value.Default = kind
+				}
+			}
+		}
+	}
+
+	// Return the modified document
+	return doc
+}
+
+// fixAliasedTypesInFile replaces bool_aliased and int_aliased with bool and int in Python files.
+func fixAliasedTypesInFile(fs afero.Fs, filePath string) error {
+	// Read the file content
+	fileContent, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		return errors.Wrapf(err, "reading file %s", filePath)
+	}
+
+	// Replace bool_aliased with bool and int_aliased with int
+	// https://github.com/koxudaxi/datamodel-code-generator/issues/2431
+	content := string(fileContent)
+	content = strings.ReplaceAll(content, "bool_aliased", "bool")
+	content = strings.ReplaceAll(content, "int_aliased", "int")
+
+	// Write back the modified content
+	if err := afero.WriteFile(fs, filePath, []byte(content), os.ModePerm); err != nil {
+		return errors.Wrapf(err, "writing modified file %s", filePath)
+	}
+
+	return nil
+}
+
+// postTransformOpenAPI consolidates the generated OpenAPI Python files into a unified structure.
+func postTransformOpenAPI(fs afero.Fs, sourceDir, targetDir string) error {
+	createdInitDirs := make(map[string]bool)
+
+	return afero.Walk(fs, sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return errors.Wrapf(walkErr, "walking path %s", path)
+		}
+
+		if shouldSkipFile(info) {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return errors.Wrap(err, "calculating relative path")
+		}
+
+		_, normalizedParts, include := normalizeAndFilterPath(relPath)
+		if !include {
+			return nil
+		}
+
+		destPath, destDir := computeDestPath(targetDir, normalizedParts)
+
+		if err := copyFileWithInit(fs, path, destPath, destDir, createdInitDirs); err != nil {
+			return err
+		}
+
+		if err := postProcessFile(fs, destPath); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func shouldSkipFile(info os.FileInfo) bool {
+	if info.IsDir() || info.Name() == "__init__.py" || filepath.Ext(info.Name()) != ".py" {
+		return true
+	}
+	return false
+}
+
+func normalizeAndFilterPath(relPath string) (openapiFolder string, normalizedParts []string, include bool) {
+	parts := strings.Split(filepath.ToSlash(relPath), "/")
+	if len(parts) == 0 {
+		return "", nil, false
+	}
+
+	// Identify the OpenAPI folder
+	for _, part := range parts {
+		if strings.HasSuffix(part, "_openapi") {
+			openapiFolder = part
+			break
+		}
+	}
+
+	// Locate io/k8s onwards
+	var foundIO bool
+	for i, part := range parts {
+		if part == "io" && i+1 < len(parts) && parts[i+1] == "k8s" {
+			normalizedParts = parts[i:]
+			foundIO = true
+			break
+		}
+	}
+	if !foundIO {
+		return "", nil, false
+	}
+
+	// Filtering rules
+	if len(normalizedParts) >= 3 && normalizedParts[2] == "apimachinery" {
+		if openapiFolder != "api__v1_openapi" {
+			return "", nil, false
+		}
+	}
+
+	if openapiFolder != "" && strings.HasPrefix(openapiFolder, "apis__") {
+		segments := strings.Split(openapiFolder, "__")
+		if len(segments) >= 2 {
+			apiGroup := segments[1]
+			if len(normalizedParts) >= 4 && normalizedParts[2] == "api" {
+				fileAPIGroup := normalizedParts[3]
+				if (fileAPIGroup == "core" || fileAPIGroup == "authentication" ||
+					fileAPIGroup == "autoscaling" || fileAPIGroup == "policy") &&
+					fileAPIGroup != apiGroup {
+					return "", nil, false
+				}
+			}
+		}
+	}
+
+	return openapiFolder, normalizedParts, true
+}
+
+func computeDestPath(targetDir string, normalizedParts []string) (string, string) {
+	destPath := filepath.Join(append([]string{targetDir}, normalizedParts...)...)
+	destDir := filepath.Dir(destPath)
+	return destPath, destDir
+}
+
+func copyFileWithInit(fs afero.Fs, srcPath, destPath, destDir string, created map[string]bool) error {
+	if err := fs.MkdirAll(destDir, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "creating directory %s", destDir)
+	}
+
+	data, err := afero.ReadFile(fs, srcPath)
+	if err != nil {
+		return errors.Wrapf(err, "reading %s", srcPath)
+	}
+
+	if err := afero.WriteFile(fs, destPath, data, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "writing %s", destPath)
+	}
+
+	if !created[destDir] {
+		initPath := filepath.Join(destDir, "__init__.py")
+		if err := afero.WriteFile(fs, initPath, []byte(""), os.ModePerm); err != nil {
+			return errors.Wrapf(err, "creating __init__.py in %s", destDir)
+		}
+		created[destDir] = true
+	}
+
+	return nil
+}
+
+func postProcessFile(fs afero.Fs, path string) error {
+	if err := adjustImportsInFile(fs, path); err != nil {
+		return errors.Wrapf(err, "adjusting imports")
+	}
+	if err := fixAliasedTypesInFile(fs, path); err != nil {
+		return errors.Wrapf(err, "fixing aliased types")
+	}
+	return nil
 }

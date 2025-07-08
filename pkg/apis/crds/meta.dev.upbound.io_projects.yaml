@@ -43,6 +43,64 @@ spec:
               ProjectSpec is the spec for a Project. Since a Project is not a Kubernetes
               resource there is no Status, only Spec.
             properties:
+              apiDependencies:
+                description: |-
+                  APIDependencies are the API dependencies for this project.
+                  NOTE: This is an experimental feature and is subject to change.
+                items:
+                  description: |-
+                    APIDependencies defines a reference to an external API dependency.
+                    NOTE: This is an experimental feature and is subject to change.
+                  properties:
+                    git:
+                      description: Git defines the git repository source for the API
+                        dependency.
+                      properties:
+                        path:
+                          description: Path is the path within the repository to the
+                            API definition.
+                          type: string
+                        ref:
+                          description: Ref is the git reference (branch, tag, or commit
+                            SHA).
+                          type: string
+                        repository:
+                          description: Repository is the git repository URL.
+                          type: string
+                      required:
+                      - repository
+                      type: object
+                    http:
+                      description: HTTP defines the HTTP source for the API dependency.
+                      properties:
+                        url:
+                          description: URL is the HTTP/HTTPS URL to fetch the API
+                            dependency from.
+                          type: string
+                      required:
+                      - url
+                      type: object
+                    k8s:
+                      description: K8s defines the Kubernetes API version for the
+                        dependency.
+                      properties:
+                        version:
+                          description: Version is the Kubernetes API version (e.g.,
+                            "v1.33.0").
+                          type: string
+                      required:
+                      - version
+                      type: object
+                    type:
+                      description: Type defines the type of API dependency.
+                      enum:
+                      - k8s
+                      - crd
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
               architectures:
                 items:
                   type: string

@@ -4,7 +4,6 @@
 package push
 
 import (
-	"context"
 	"embed"
 	"net/http"
 	"net/url"
@@ -89,7 +88,7 @@ func TestPush(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
+			err = c.Run(t.Context(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 
 			// Pull the configuration image from the server and unpack its

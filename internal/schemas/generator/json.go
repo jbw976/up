@@ -24,10 +24,10 @@ func (jsonGenerator) Language() string {
 	return "json"
 }
 
-// Generate generates jsonschemas for the CRDs in the given filesystem. These
+// GenerateFromCRD generates jsonschemas for the CRDs in the given filesystem. These
 // can be used by editors when writing YAML, for example as part of Go
 // templates.
-func (jsonGenerator) Generate(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+func (jsonGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS)
 	if err != nil {
 		return nil, err
@@ -137,4 +137,9 @@ func mutateJSONSchema(s *jsonschema.Schema) *jsonschema.Schema {
 	}
 
 	return s
+}
+
+// GenerateFromOpenAPI is not supported for JSON generator as it only works with CRDs.
+func (jsonGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return nil, nil
 }

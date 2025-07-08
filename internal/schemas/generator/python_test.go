@@ -59,7 +59,7 @@ func TestTransformStructurePython(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			tt.setupFs(fs)
-			err := transformStructurePython(fs, tt.sourceDir, tt.targetDir)
+			err := postTransformCRD(fs, tt.sourceDir, tt.targetDir)
 
 			if (err != nil) != tt.expectedErrors {
 				t.Fatalf("Expected error: %v, got: %v", tt.expectedErrors, err)

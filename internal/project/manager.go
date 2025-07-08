@@ -15,6 +15,8 @@ import (
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	"github.com/upbound/up/internal/apidependency"
+	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/schemas/generator"
 	smanager "github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/schemas/runner"
@@ -31,11 +33,20 @@ import (
 // DependencyManager manages dependencies for a project, including both the xpkg
 // cache and schemas.
 type DependencyManager struct {
-	proj     *v1alpha1.Project
-	projFS   afero.Fs
-	projFile string
-	deps     *dmanager.Manager
-	schemas  *smanager.Manager
+	proj            *v1alpha1.Project
+	projFS          afero.Fs
+	projFile        string
+	deps            *dmanager.Manager
+	schemas         *smanager.Manager
+	apiDepProcessor *apidependency.Processor
+}
+
+// ProcessedAPIDependency contains information about a processed API dependency.
+type ProcessedAPIDependency struct {
+	Type     string
+	SourceID string
+	Version  string
+	Source   string
 }
 
 // Add adds the given dependency to the project, caching and generating schemas
@@ -139,6 +150,87 @@ func (m *DependencyManager) GetParsedPackage(ctx context.Context, dep pkgmetav1.
 	return nil, errors.New("package not found in cache")
 }
 
+// AddAPIDependency adds a single API dependency to the project, fetching and generating
+// schemas for it.
+func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v1alpha1.APIDependencies) error {
+	// Process the API dependency to get the schema source
+	source, err := m.apiDepProcessor.Process(dep)
+	if err != nil {
+		return errors.Wrap(err, "failed to process API dependency")
+	}
+
+	// Add the source to the schema manager
+	if err := m.schemas.Add(ctx, source); err != nil {
+		return errors.Wrapf(err, "failed to generate schemas for API dependency %s", dep.Type)
+	}
+
+	return nil
+}
+
+// AddAllAPIDependencies adds all the API dependencies configured in the project.
+func (m *DependencyManager) AddAllAPIDependencies(ctx context.Context, apiDep []v1alpha1.APIDependencies) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	for _, dep := range apiDep {
+		apiDep := dep
+		eg.Go(func() error {
+			if err := m.AddAPIDependency(egCtx, apiDep); err != nil {
+				return errors.Wrapf(err, "failed to add API dependency %s", apiDep.Type)
+			}
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+// GetProcessedAPIDependencies returns information about all processed API dependencies
+// including their source IDs and versions.
+func (m *DependencyManager) GetProcessedAPIDependencies(ctx context.Context, apiDeps []v1alpha1.APIDependencies) ([]ProcessedAPIDependency, error) {
+	processed := make([]ProcessedAPIDependency, 0, len(apiDeps))
+	for _, dep := range apiDeps {
+		// Process the API dependency to get the schema source
+		source, err := m.apiDepProcessor.Process(dep)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to process API dependency %s", dep.Type)
+		}
+
+		version, err := source.Version(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get version for API dependency %s", dep.Type)
+		}
+
+		processed = append(processed, ProcessedAPIDependency{
+			Type:     dep.Type,
+			SourceID: source.ID(),
+			Version:  version,
+			Source:   getSourceDescription(dep),
+		})
+	}
+
+	return processed, nil
+}
+
+// getSourceDescription returns a human-readable description of the API dependency source.
+func getSourceDescription(dep v1alpha1.APIDependencies) string {
+	switch {
+	case dep.Git != nil:
+		desc := dep.Git.Repository
+		if dep.Git.Ref != "" {
+			desc += " (" + dep.Git.Ref + ")"
+		}
+		if dep.Git.Path != "" {
+			desc += " at " + dep.Git.Path
+		}
+		return desc
+	case dep.HTTP != nil:
+		return dep.HTTP.URL
+	case dep.K8s != nil:
+		return "Kubernetes API " + dep.K8s.Version
+	default:
+		return "unknown source"
+	}
+}
+
 // SchemaManager returns the schema manager.
 func (m *DependencyManager) SchemaManager() *smanager.Manager {
 	return m.schemas
@@ -186,12 +278,22 @@ func NewDependencyManager(upCtx *upbound.Context, proj *v1alpha1.Project, projFS
 		options.schemaRunner,
 	)
 
+	apiDepCache, err := apidependency.NewLocalCache(
+		"/apideps",
+		apidependency.WithFS(options.cacheFS),
+		apidependency.WithLogger(upCtx.Log),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create API dependency cache")
+	}
+
 	return &DependencyManager{
-		proj:     proj,
-		projFS:   projFS,
-		projFile: options.projFile,
-		deps:     deps,
-		schemas:  schemas,
+		proj:            proj,
+		projFS:          projFS,
+		projFile:        options.projFile,
+		deps:            deps,
+		schemas:         schemas,
+		apiDepProcessor: apidependency.NewProcessor(&git.DefaultCloner{}, &git.HTTPSAuthProvider{}, apiDepCache),
 	}, nil
 }
 

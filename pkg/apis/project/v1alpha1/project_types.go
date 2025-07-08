@@ -32,6 +32,10 @@ type ProjectSpec struct {
 	Paths                  *ProjectPaths                    `json:"paths,omitempty"`
 	Architectures          []string                         `json:"architectures,omitempty"`
 	ImageConfig            []ImageConfig                    `json:"imageConfig,omitempty"`
+	// APIDependencies are the API dependencies for this project.
+	// NOTE: This is an experimental feature and is subject to change.
+	// +optional
+	APIDependencies []APIDependencies `json:"apiDependencies,omitempty"`
 }
 
 // ProjectPackageMetadata holds metadata about the project, which will become
@@ -87,4 +91,58 @@ type ImageConfig struct {
 
 	// RewriteImage defines how a matched image should be rewritten.
 	RewriteImage ImageRewrite `json:"rewriteImage"`
+}
+
+// API dependency type constants.
+const (
+	// APIDependencyTypeK8s represents Kubernetes API dependencies.
+	APIDependencyTypeK8s = "k8s"
+	// APIDependencyTypeCRD represents Custom Resource Definition dependencies.
+	APIDependencyTypeCRD = "crd"
+)
+
+// APIDependencies defines a reference to an external API dependency.
+// NOTE: This is an experimental feature and is subject to change.
+type APIDependencies struct {
+	// Type defines the type of API dependency.
+	// +kubebuilder:validation:Enum=k8s;crd
+	Type string `json:"type"`
+
+	// Git defines the git repository source for the API dependency.
+	// +optional
+	Git *APIGitReference `json:"git,omitempty"`
+
+	// HTTP defines the HTTP source for the API dependency.
+	// +optional
+	HTTP *APIHTTPReference `json:"http,omitempty"`
+
+	// K8s defines the Kubernetes API version for the dependency.
+	// +optional
+	K8s *APIK8sReference `json:"k8s,omitempty"`
+}
+
+// APIGitReference defines a git repository source for an API dependency.
+type APIGitReference struct {
+	// Repository is the git repository URL.
+	Repository string `json:"repository"`
+
+	// Ref is the git reference (branch, tag, or commit SHA).
+	// +optional
+	Ref string `json:"ref,omitempty"`
+
+	// Path is the path within the repository to the API definition.
+	// +optional
+	Path string `json:"path,omitempty"`
+}
+
+// APIHTTPReference defines an HTTP source for an API dependency.
+type APIHTTPReference struct {
+	// URL is the HTTP/HTTPS URL to fetch the API dependency from.
+	URL string `json:"url"`
+}
+
+// APIK8sReference defines a Kubernetes API version reference.
+type APIK8sReference struct {
+	// Version is the Kubernetes API version (e.g., "v1.33.0").
+	Version string `json:"version"`
 }

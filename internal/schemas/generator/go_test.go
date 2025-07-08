@@ -4,7 +4,6 @@
 package generator
 
 import (
-	"context"
 	"embed"
 	"go/parser"
 	"go/token"
@@ -21,7 +20,7 @@ var testdataFS embed.FS
 
 func TestGenerateGo(t *testing.T) {
 	inputFS := afero.NewBasePathFs(afero.FromIOFS{FS: testdataFS}, "testdata")
-	schemaFS, err := goGenerator{}.Generate(context.Background(), inputFS, nil)
+	schemaFS, err := goGenerator{}.GenerateFromCRD(t.Context(), inputFS, nil)
 	assert.NilError(t, err)
 
 	expectedFiles := []string{

@@ -106,7 +106,7 @@ func TestManager_Add(t *testing.T) {
 				assert.NilError(t, err)
 			}
 
-			err := m.Add(context.Background(), tc.src)
+			err := m.Add(t.Context(), tc.src)
 			if tc.expectErr {
 				assert.Assert(t, err != nil)
 				return
@@ -150,7 +150,7 @@ func (g *mockGenerator) Language() string {
 	return "mock"
 }
 
-func (g *mockGenerator) Generate(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+func (g *mockGenerator) GenerateFromCRD(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	fs := afero.NewMemMapFs()
 	for path, contents := range g.files {
 		if err := afero.WriteFile(fs, path, []byte(contents), 0o600); err != nil {
@@ -158,6 +158,10 @@ func (g *mockGenerator) Generate(_ context.Context, _ afero.Fs, _ runner.SchemaR
 		}
 	}
 	return fs, nil
+}
+
+func (g *mockGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return nil, nil
 }
 
 type mockSource struct {
@@ -169,10 +173,14 @@ func (s *mockSource) ID() string {
 	return s.id
 }
 
-func (s *mockSource) Version() (string, error) {
+func (s *mockSource) Version(_ context.Context) (string, error) {
 	return s.version, nil
 }
 
-func (s *mockSource) Resources() (afero.Fs, error) {
+func (s *mockSource) Resources(_ context.Context) (afero.Fs, error) {
 	return nil, nil
+}
+
+func (s *mockSource) Type() SourceType {
+	return SourceTypeCRD
 }

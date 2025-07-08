@@ -128,16 +128,6 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		opt(os)
 	}
 
-	// Check that we have all the dependencies in the cache for function
-	// building.
-	statusStage := "Checking dependencies"
-	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := os.depManager.AddAll(ctx, project.Spec.DependsOn...); err != nil {
-		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
-		return nil, err
-	}
-	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
-
 	// Scaffold a configuration based on the metadata in the project. Later
 	// we'll add any embedded functions we build to the dependencies.
 	cfg := &xpmetav1.Configuration{
@@ -174,7 +164,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	}
 
 	// Collect APIs (composites).
-	statusStage = "Collecting composites"
+	statusStage := "Collecting composites"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
 	packageFS, err := collectComposites(apisSource, apiExcludes)
 	if err != nil {
@@ -189,6 +179,20 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource)); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, errors.Wrap(err, "failed to generate language schemas")
+	}
+	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
+
+	// Check that we have all the dependencies in the cache for function
+	// building
+	statusStage = "Checking dependencies"
+	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
+	if err := os.depManager.AddAll(ctx, project.Spec.DependsOn...); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, err
+	}
+	if err := os.depManager.AddAllAPIDependencies(ctx, project.Spec.APIDependencies); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, err
 	}
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 

@@ -36,7 +36,7 @@ type Manager struct {
 // Add ensures schemas for resources in the given source are present in the
 // managed directory.
 func (m *Manager) Add(ctx context.Context, source Source) error {
-	version, err := source.Version()
+	version, err := source.Version(ctx)
 	if err != nil {
 		return err
 	}
@@ -50,15 +50,26 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 		return nil
 	}
 
-	fromFS, err := source.Resources()
+	fromFS, err := source.Resources(ctx)
 	if err != nil {
 		return err
 	}
 
 	eg, egCtx := errgroup.WithContext(ctx)
+	sourceType := source.Type()
 	for _, gen := range m.generators {
 		eg.Go(func() error {
-			schemaFS, err := gen.Generate(egCtx, fromFS, m.runner)
+			var schemaFS afero.Fs
+			var err error
+
+			switch sourceType {
+			case SourceTypeCRD:
+				schemaFS, err = gen.GenerateFromCRD(egCtx, fromFS, m.runner)
+			case SourceTypeOpenAPI:
+				schemaFS, err = gen.GenerateFromOpenAPI(egCtx, fromFS, m.runner)
+			default:
+				return errors.Errorf("unsupported source type %q", sourceType)
+			}
 			if err != nil {
 				return err
 			}

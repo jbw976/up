@@ -190,7 +190,11 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
-		return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
+		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
+		if err != nil {
+			return err
+		}
+		return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
 	}, printer)
 	if err != nil {
 		return err

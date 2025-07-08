@@ -68,8 +68,8 @@ func (goGenerator) Language() string {
 	return "go"
 }
 
-// Generate generates Go schemas for the CRDs in the given filesystem.
-func (goGenerator) Generate(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+// GenerateFromCRD generates Go schemas for the CRDs in the given filesystem.
+func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	openAPIs, err := goCollectOpenAPIs(fromFS)
 	if err != nil {
 		return nil, err
@@ -558,4 +558,9 @@ func goKeepOnlyComponents(s *spec3.OpenAPI) {
 		Info:       s.Info,
 		Components: s.Components,
 	}
+}
+
+// GenerateFromOpenAPI is not supported for Go generator as it only works with CRDs.
+func (goGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return nil, nil
 }

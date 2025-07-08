@@ -39,8 +39,8 @@ func (kclGenerator) Language() string {
 	return "kcl"
 }
 
-// Generate generates KCL schema files from the XRDs and CRDs fromFS.
-func (kclGenerator) Generate(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
+// GenerateFromCRD generates KCL schema files from the XRDs and CRDs fromFS.
+func (kclGenerator) GenerateFromCRD(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generate kcl schemas
 	crdFS := afero.NewMemMapFs()
 	schemaFS := afero.NewMemMapFs()
 	baseFolder := "workdir"
@@ -252,4 +252,9 @@ func transformStructureKcl(fs afero.Fs, sourceDir, targetDir string) error { //n
 	}
 
 	return nil
+}
+
+// GenerateFromOpenAPI is not supported for KCL generator as it only works with CRDs.
+func (kclGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return nil, nil
 }

@@ -35,7 +35,7 @@ func (f *metaAPIsSource) ID() string {
 	return "up://apis"
 }
 
-func (f *metaAPIsSource) Version() (string, error) {
+func (f *metaAPIsSource) Version(_ context.Context) (string, error) {
 	// Calculate a hash of all the yaml files in the filesystem. This isn't
 	// super efficient, but is almost certainly faster than generating schemas
 	// for the files.
@@ -73,6 +73,10 @@ func (f *metaAPIsSource) Version() (string, error) {
 	return fmt.Sprintf("%x", sum), nil
 }
 
-func (f *metaAPIsSource) Resources() (afero.Fs, error) {
+func (f *metaAPIsSource) Resources(_ context.Context) (afero.Fs, error) {
 	return afero.NewBasePathFs(afero.FromIOFS{FS: f.fs}, "crds"), nil
+}
+
+func (f *metaAPIsSource) Type() manager.SourceType {
+	return manager.SourceTypeCRD
 }

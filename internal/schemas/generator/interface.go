@@ -14,15 +14,16 @@ import (
 // Interface generates schemas for a specific language.
 type Interface interface {
 	Language() string
-	Generate(ctx context.Context, fs afero.Fs, runner runner.SchemaRunner) (afero.Fs, error)
+	GenerateFromCRD(ctx context.Context, fs afero.Fs, runner runner.SchemaRunner) (afero.Fs, error)
+	GenerateFromOpenAPI(ctx context.Context, fs afero.Fs, runner runner.SchemaRunner) (afero.Fs, error)
 }
 
 // AllLanguages returns generators for all supported languages.
 func AllLanguages() []Interface {
 	return []Interface{
-		goGenerator{},
-		jsonGenerator{},
-		kclGenerator{},
-		pythonGenerator{},
+		&goGenerator{},
+		&jsonGenerator{},
+		&kclGenerator{},
+		&pythonGenerator{},
 	}
 }

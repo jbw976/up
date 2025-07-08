@@ -190,7 +190,7 @@ func TestBuild(t *testing.T) {
 			}
 
 			// Build the package.
-			err = c.Run(context.Background(), upCtx, upterm.DefaultObjPrinter)
+			err = c.Run(t.Context(), upCtx, upterm.DefaultObjPrinter)
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.
@@ -367,8 +367,12 @@ func (g mockGenerator) Language() string {
 	return "mock"
 }
 
-func (g mockGenerator) Generate(_ context.Context, fs afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+func (g mockGenerator) GenerateFromCRD(_ context.Context, fs afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
 	return fs, nil
+}
+
+func (g mockGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	return nil, nil
 }
 
 type TestWriter struct {

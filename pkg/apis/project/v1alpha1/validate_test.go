@@ -129,6 +129,151 @@ func TestValidate(t *testing.T) {
 				"architectures must not be empty",
 			},
 		},
+		"ValidAPIDependency": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "crd",
+							Git: &APIGitReference{
+								Repository: "https://github.com/crossplane/crossplane.git",
+								Ref:        "v1.14.0",
+								Path:       "cluster/crds",
+							},
+						},
+					},
+				},
+			},
+		},
+		"InvalidAPIDependencyNoType": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Git: &APIGitReference{
+								Repository: "https://github.com/crossplane/crossplane.git",
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: type must not be empty",
+			},
+		},
+		"InvalidAPIDependencyNoSource": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "crd",
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: exactly one source (git, http, or k8s) must be specified",
+			},
+		},
+		"InvalidAPIDependencyMultipleSources": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "crd",
+							Git: &APIGitReference{
+								Repository: "https://github.com/crossplane/crossplane.git",
+							},
+							HTTP: &APIHTTPReference{
+								URL: "https://example.com/api.yaml",
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: only one source (git, http, or k8s) may be specified",
+			},
+		},
+		"InvalidAPIDependencyGitEmptyRepository": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "crd",
+							Git: &APIGitReference{
+								Repository: "",
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: git: repository must not be empty",
+			},
+		},
+		"InvalidAPIDependencyHTTPEmptyURL": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "crd",
+							HTTP: &APIHTTPReference{
+								URL: "",
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: http: url must not be empty",
+			},
+		},
+		"InvalidAPIDependencyK8sEmptyVersion": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					APIDependencies: []APIDependencies{
+						{
+							Type: "k8s",
+							K8s: &APIK8sReference{
+								Version: "",
+							},
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"api dependency 0: k8s: version must not be empty",
+			},
+		},
 	}
 
 	for name, tc := range tcs {
