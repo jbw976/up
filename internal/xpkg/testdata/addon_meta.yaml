@@ -1,0 +1,8 @@
+apiVersion: meta.pkg.upbound.io/v1beta1
+kind: AddOn
+metadata:
+  name: test-addon
+spec:
+  packagingType: Helm
+  helm:
+    releaseName: some-addon

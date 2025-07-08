@@ -17,6 +17,7 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
+	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
 )
@@ -28,6 +29,7 @@ const (
 	errNotMetaConfiguration              = "package meta type is not Configuration"
 	errNotMetaFunction                   = "package meta type is not Function"
 	errNotMetaController                 = "package meta type is not Upbound Controller"
+	errNotMetaAddOn                      = "package meta type is not Upbound AddOn"
 	errNotCRD                            = "object is not a CRD"
 	errNotMutatingWebhookConfiguration   = "object is not a MutatingWebhookConfiguration"
 	errNotValidatingWebhookConfiguration = "object is not a ValidatingWebhookConfiguration"
@@ -66,6 +68,12 @@ func NewFunctionLinter() linter.Linter {
 // Upbound controllers.
 func NewControllerLinter() linter.Linter {
 	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta, AtLeastOneCRD), linter.ObjectLinterFns(IsController), linter.ObjectLinterFns(IsCRD))
+}
+
+// NewAddOnLinter is a convenience function for creating a package linter for
+// Upbound AddOns.
+func NewAddOnLinter() linter.Linter {
+	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsAddOn), linter.ObjectLinterFns(IsCRD))
 }
 
 // OneMeta checks that there is only one meta object in the package.
@@ -118,6 +126,15 @@ func IsController(o runtime.Object) error {
 	po, _ := scheme.TryConvert(o, &upboundpkgmetav1alpha1.Controller{})
 	if _, ok := po.(*upboundpkgmetav1alpha1.Controller); !ok {
 		return errors.New(errNotMetaController)
+	}
+	return nil
+}
+
+// IsAddOn checks that an object is an AddOn meta type.
+func IsAddOn(o runtime.Object) error {
+	po, _ := scheme.TryConvert(o, &upboundpkgmetav1beta1.AddOn{})
+	if _, ok := po.(*upboundpkgmetav1beta1.AddOn); !ok {
+		return errors.New(errNotMetaAddOn)
 	}
 	return nil
 }

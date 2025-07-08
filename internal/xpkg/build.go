@@ -25,6 +25,7 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
+	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/scheme"
@@ -44,7 +45,7 @@ const (
 	errMutateConfig      = "failed to mutate config"
 	errParseAuth         = "failed to parse auth"
 	errAuthNotAnnotated  = "failed to annotate auth"
-	errControllerNoHelm  = "controller package requires a helm chart"
+	errPackageNoHelm     = "package requires a helm chart"
 	errBuildObjectScheme = "failed to build scheme for package encoder"
 	authMetaAnno         = "auth.upbound.io/group"
 	// AuthObjectAnno is the auth object annotation.
@@ -247,6 +248,8 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 		linter = NewProviderLinter()
 	case upboundpkgmetav1alpha1.ControllerKind:
 		linter = NewControllerLinter()
+	case upboundpkgmetav1beta1.AddOnKind:
+		linter = NewAddOnLinter()
 	}
 	if err := linter.Lint(pkg); err != nil {
 		return nil, nil, errors.Wrap(err, errLintPackage)
@@ -286,10 +289,11 @@ func (b *Builder) Build(ctx context.Context, opts ...BuildOpt) (v1.Image, runtim
 		layers = append(layers, exLayer)
 	}
 
-	if meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind {
-		// Controller packages must have a helm chart
+	if meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1alpha1.ControllerKind ||
+		meta.GetObjectKind().GroupVersionKind().Kind == upboundpkgmetav1beta1.AddOnKind {
+		// Controller and AddOn packages must have a helm chart
 		if helmReader == nil {
-			return nil, nil, errors.New(errControllerNoHelm)
+			return nil, nil, errors.New(errPackageNoHelm)
 		}
 		// Create the helm layer from the helm chart
 		helmBuf := new(bytes.Buffer)
