@@ -400,6 +400,65 @@ func inferProperties(spec map[string]interface{}) (map[string]extv1.JSONSchemaPr
 	return properties, nil
 }
 
+// inferArrayProperty handles array type inference with property merging for objects.
+func inferArrayProperty(v []interface{}) (extv1.JSONSchemaProps, error) {
+	if len(v) == 0 {
+		// If the array is empty, default to array of objects
+		return extv1.JSONSchemaProps{
+			Type: "array",
+			Items: &extv1.JSONSchemaPropsOrArray{
+				Schema: &extv1.JSONSchemaProps{
+					Type: "object",
+				},
+			},
+		}, nil
+	}
+
+	// Infer the type of the first element
+	firstElemSchema, err := inferProperty(v[0])
+	if err != nil {
+		return extv1.JSONSchemaProps{}, err
+	}
+
+	// Check if all elements are of the same type and merge object properties
+	mergedProperties := make(map[string]extv1.JSONSchemaProps)
+	if firstElemSchema.Type == "object" {
+		// For objects, merge all properties from all elements
+		for key, prop := range firstElemSchema.Properties {
+			mergedProperties[key] = prop
+		}
+	}
+
+	for _, elem := range v {
+		elemSchema, err := inferProperty(elem)
+		if err != nil {
+			return extv1.JSONSchemaProps{}, err
+		}
+		if elemSchema.Type != firstElemSchema.Type {
+			return extv1.JSONSchemaProps{}, errors.New("mixed types detected in array")
+		}
+		// If it's an object, merge additional properties
+		if elemSchema.Type == "object" {
+			for key, prop := range elemSchema.Properties {
+				mergedProperties[key] = prop
+			}
+		}
+	}
+
+	// Build the result schema
+	resultSchema := firstElemSchema
+	if firstElemSchema.Type == "object" && len(mergedProperties) > 0 {
+		resultSchema.Properties = mergedProperties
+	}
+
+	return extv1.JSONSchemaProps{
+		Type: "array",
+		Items: &extv1.JSONSchemaPropsOrArray{
+			Schema: &resultSchema,
+		},
+	}, nil
+}
+
 // inferProperty to return extv1.JSONSchemaProps.
 func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) {
 	// Explicitly handle nil
@@ -437,43 +496,7 @@ func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) {
 			Properties: inferredProps,
 		}, nil
 	case []interface{}:
-		if len(v) > 0 {
-			// Infer the type of the first element
-			firstElemSchema, err := inferProperty(v[0])
-			if err != nil {
-				return extv1.JSONSchemaProps{}, err
-			}
-
-			// Check if all elements are of the same type
-			for _, elem := range v {
-				elemSchema, err := inferProperty(elem)
-				if err != nil {
-					return extv1.JSONSchemaProps{}, err
-				}
-				if elemSchema.Type != firstElemSchema.Type {
-					// Return an error if mixed types are found (remove elemSchema.Items)
-					return extv1.JSONSchemaProps{}, errors.New("mixed types detected in array")
-				}
-			}
-
-			// If all types are the same, return the inferred type
-			return extv1.JSONSchemaProps{
-				Type: "array",
-				Items: &extv1.JSONSchemaPropsOrArray{
-					Schema: &firstElemSchema,
-				},
-			}, nil
-		}
-
-		// If the array is empty, default to array of objects
-		return extv1.JSONSchemaProps{
-			Type: "array",
-			Items: &extv1.JSONSchemaPropsOrArray{
-				Schema: &extv1.JSONSchemaProps{
-					Type: "object",
-				},
-			},
-		}, nil
+		return inferArrayProperty(v)
 	default:
 		// Return an error for unknown types (excluding nil which is handled earlier)
 		return extv1.JSONSchemaProps{}, errors.Errorf("unknown type: %T", value)
