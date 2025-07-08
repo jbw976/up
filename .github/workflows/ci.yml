@@ -643,7 +643,9 @@ jobs:
           # working properly by waiting a very short interval for health.
           kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
           kubectl wait pkg --all --for=condition=Healthy --timeout 5s
-          kubectl wait pkgrev --all --for=condition=Healthy --timeout 5s
+          kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
+          kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
+          kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
 
   e2e-project-example-aws:
     runs-on: ubuntu-24.04
