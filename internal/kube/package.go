@@ -66,7 +66,7 @@ func InstallConfiguration(ctx context.Context, cl client.Client, name string, ta
 
 	stage = "Waiting for package to be ready"
 	ch.SendEvent(stage, async.EventStatusStarted)
-	if err := waitForPackagesReady(ctx, cl, tag); err != nil {
+	if err := waitForPackagesReady(ctx, cl, cfg); err != nil {
 		ch.SendEvent(stage, async.EventStatusFailure)
 		return err
 	}
@@ -93,37 +93,92 @@ func isRetryableServerError(err error) bool {
 	return false
 }
 
-func waitForPackagesReady(ctx context.Context, cl client.Client, tag name.Tag) error {
+func waitForPackagesReady(ctx context.Context, cl client.Client, cfg *xpkgv1.Configuration) error {
 	nn := types.NamespacedName{
 		Name: "lock",
 	}
 	var lock xpkgv1beta1.Lock
 
 	return retryWithBackoff(ctx, 5*time.Second, func(ctx context.Context) (bool, error) {
-		if err := cl.Get(ctx, nn, &lock); err != nil {
-			return false, nil //nolint:nilerr // Retry the operation
-		}
-
-		cfgPkg, cfgFound := lookupLockPackage(lock.Packages, tag.Repository.String(), tag.TagStr())
-		if !cfgFound {
-			return false, nil
-		}
-
-		healthy, err := packageIsHealthy(ctx, cl, cfgPkg)
+		// First, make sure the current revision reflects the latest version of
+		// the package. If not, wait for a new revision to be created.
+		cfgRev, revFound, err := getCurrentRevision(ctx, cl, cfg)
 		if err != nil {
 			return false, err
 		}
-		if !healthy {
+		if !revFound {
 			return false, nil
 		}
 
-		healthy, err = allDepsHealthy(ctx, cl, lock, cfgPkg)
+		if cfgRev.GetSource() != cfg.GetSource() {
+			// Revision is not current - wait for a new one.
+			return false, nil
+		}
+
+		// Now we have the right revision. Wait for it to be healthy.
+		if !packageHasHealthyConditions(cfgRev) {
+			return false, nil
+		}
+
+		// Finally, find the package in the lock and make sure all its deps are
+		// healthy.
+		if err := cl.Get(ctx, nn, &lock); err != nil {
+			if apierrors.IsNotFound(err) {
+				// Lock not created yet - retry.
+				return false, nil
+			}
+			return false, errors.Wrap(err, "failed to get lock")
+		}
+
+		var cfgPkg *xpkgv1beta1.LockPackage
+		for _, pkg := range lock.Packages {
+			if pkg.Name == cfgRev.Name {
+				cfgPkg = &pkg
+				break
+			}
+		}
+		if cfgPkg == nil {
+			// Package is not in the lock yet.
+			return false, nil
+		}
+
+		healthy, err := allDepsHealthy(ctx, cl, lock, *cfgPkg)
 		if err != nil {
 			return false, err
 		}
 
 		return healthy, nil
 	})
+}
+
+func getCurrentRevision(ctx context.Context, cl client.Client, cfg *xpkgv1.Configuration) (*xpkgv1.ConfigurationRevision, bool, error) {
+	cfgNN := types.NamespacedName{
+		Name: cfg.Name,
+	}
+	if err := cl.Get(ctx, cfgNN, cfg); err != nil {
+		// Should exist since we created it before calling this
+		// function. Don't retry for not found.
+		return nil, false, errors.Wrap(err, "failed to get configuration")
+	}
+
+	if cfg.Status.CurrentRevision == "" {
+		// Revision not created yet, caller should retry.
+		return nil, false, nil
+	}
+
+	revNN := types.NamespacedName{
+		Name: cfg.Status.CurrentRevision,
+	}
+	var cfgRev xpkgv1.ConfigurationRevision
+	if err := cl.Get(ctx, revNN, &cfgRev); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Revision not yet created, caller should retry.
+			return nil, false, nil
+		}
+		return nil, false, errors.Wrap(err, "failed to get configuration revision")
+	}
+
+	return &cfgRev, true, nil
 }
 
 func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock, pkg xpkgv1beta1.LockPackage) (bool, error) {
@@ -204,6 +259,10 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 		return false, err
 	}
 
+	return packageHasHealthyConditions(pkg), nil
+}
+
+func packageHasHealthyConditions(pkg xpkgv1.PackageRevision) bool {
 	// Crossplane v1.x sets the `Healthy` condition.
 	v1Healthy := resource.IsConditionTrue(pkg.GetCondition(commonv1.TypeHealthy))
 	// Crossplane v2.x sets the `RevisionHealthy`.
@@ -211,7 +270,7 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 
 	// Allow for either v1.x health or v2.x health, so we work correctly with
 	// either version.
-	return v1Healthy || v2Healthy, nil
+	return v1Healthy || v2Healthy
 }
 
 // ApplyResources installs arbitrary resources to the target control plane.
