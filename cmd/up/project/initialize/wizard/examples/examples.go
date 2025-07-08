@@ -547,6 +547,10 @@ func ResolveTemplateURL(templateName string) TemplateURL {
 
 	switch {
 	case strings.HasPrefix(repo, ".") || strings.HasPrefix(repo, "/"):
+		if len(parts) == 1 {
+			ref = "HEAD"
+		}
+
 		// Local git repo - return a file URL.
 		path, _ := filepath.Abs(repo)
 		return TemplateURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
