@@ -19,6 +19,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/xpkg"
 	rxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 )
@@ -104,6 +105,10 @@ func (e *entry) flush() (*flushstats, error) {
 		return stats, err
 	}
 	stats.combine(objstats)
+
+	if err := e.writeSchemas(e.pkg.Schema); err != nil {
+		return stats, err
+	}
 
 	// writing empty digest file
 	_, err = e.fs.Create(filepath.Join(e.location(), e.pkg.Digest()))
@@ -277,6 +282,17 @@ func (e *entry) Clean() error {
 
 func (e *entry) location() string {
 	return filepath.Join(e.cacheRoot, e.path)
+}
+
+func (e *entry) writeSchemas(schemas map[string]afero.Fs) error {
+	for language, fs := range schemas {
+		targetFS := afero.NewBasePathFs(e.fs, filepath.Join(e.location(), fmt.Sprintf("schema.%s", language)))
+		if err := filesystem.CopyFilesBetweenFs(fs, targetFS); err != nil {
+			return errors.Wrapf(err, "failed to write %s schema to disk", language)
+		}
+	}
+
+	return nil
 }
 
 type flushstats struct {

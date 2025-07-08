@@ -50,50 +50,63 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 		return nil
 	}
 
-	fromFS, err := source.Resources(ctx)
-	if err != nil {
-		return err
-	}
+	// If we have pre-generated schemas, use them. Note that we never generate
+	// schemas for sources that *could* have pre-generated schemas, even if they
+	// do not have schemas packaged. This is intentional, since we don't want to
+	// enable client-side schema generation for xpkgs.
+	schemas := make(map[string]afero.Fs)
+	if ps, ok := source.(PackagedSource); ok {
+		schemas, err = ps.Schemas()
+		if err != nil {
+			return errors.Wrap(err, "failed to get packaged schemas")
+		}
+	} else {
+		fromFS, err := source.Resources(ctx)
+		if err != nil {
+			return err
+		}
 
-	eg, egCtx := errgroup.WithContext(ctx)
-	sourceType := source.Type()
-	for _, gen := range m.generators {
-		eg.Go(func() error {
-			var schemaFS afero.Fs
-			var err error
+		eg, egCtx := errgroup.WithContext(ctx)
+		sourceType := source.Type()
+		for _, gen := range m.generators {
+			eg.Go(func() error {
+				var schemaFS afero.Fs
+				var err error
 
-			switch sourceType {
-			case SourceTypeCRD:
-				schemaFS, err = gen.GenerateFromCRD(egCtx, fromFS, m.runner)
-			case SourceTypeOpenAPI:
-				schemaFS, err = gen.GenerateFromOpenAPI(egCtx, fromFS, m.runner)
-			default:
-				return errors.Errorf("unsupported source type %q", sourceType)
-			}
-			if err != nil {
-				return err
-			}
+				switch sourceType {
+				case SourceTypeCRD:
+					schemaFS, err = gen.GenerateFromCRD(egCtx, fromFS, m.runner)
+				case SourceTypeOpenAPI:
+					schemaFS, err = gen.GenerateFromOpenAPI(egCtx, fromFS, m.runner)
+				default:
+					return errors.Errorf("unsupported source type %q", sourceType)
+				}
+				if err != nil {
+					return err
+				}
 
-			// If no schemas were generated we're done.
-			if schemaFS == nil {
+				if schemaFS != nil {
+					schemas[gen.Language()] = schemaFS
+				}
+
 				return nil
-			}
-
-			langFS := afero.NewBasePathFs(m.fs, gen.Language())
-			if err := filesystem.CopyFilesBetweenFs(schemaFS, langFS); err != nil {
-				return err
-			}
-
-			if err := postProcessModelsForLanguage(gen.Language(), langFS); err != nil {
-				return err
-			}
-
-			return nil
-		})
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
-	if err := eg.Wait(); err != nil {
-		return err
+	// Copy the generated or retrieved schemas into our schema repository.
+	for lang, fs := range schemas {
+		langFS := afero.NewBasePathFs(m.fs, lang)
+		if err := filesystem.CopyFilesBetweenFs(fs, langFS); err != nil {
+			return err
+		}
+
+		if err := postProcessModelsForLanguage(lang, langFS); err != nil {
+			return err
+		}
 	}
 
 	return m.updateVersion(source.ID(), version)

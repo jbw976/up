@@ -92,6 +92,29 @@ func TestManager_Add(t *testing.T) {
 				"mock/should-exist": "does get created",
 			},
 		},
+		"PackagedSource": {
+			lock: &lock{
+				Packages: make(map[string]string),
+			},
+			src: &mockPackagedSource{
+				mockSource: mockSource{
+					id:      "xpkg.upbound.io/my-org/my-pkg",
+					version: "v1.1.0",
+				},
+				files: map[string]string{
+					"should-exist": "does get created",
+				},
+			},
+			expectedLock: &lock{
+				Packages: map[string]string{
+					"xpkg.upbound.io/my-org/my-pkg": "v1.1.0",
+				},
+			},
+			expectedFiles: map[string]string{
+				"mock/should-exist": "does get created",
+			},
+			// Generator intentionally left nil since it should not be called.
+		},
 	}
 
 	for name, tc := range tcs {
@@ -184,3 +207,23 @@ func (s *mockSource) Resources(_ context.Context) (afero.Fs, error) {
 func (s *mockSource) Type() SourceType {
 	return SourceTypeCRD
 }
+
+type mockPackagedSource struct {
+	mockSource
+	files map[string]string
+}
+
+func (s *mockPackagedSource) Schemas() (map[string]afero.Fs, error) {
+	fs := afero.NewMemMapFs()
+	for path, contents := range s.files {
+		if err := afero.WriteFile(fs, path, []byte(contents), 0o600); err != nil {
+			return nil, err
+		}
+	}
+
+	return map[string]afero.Fs{
+		"mock": fs,
+	}, nil
+}
+
+var _ PackagedSource = &mockPackagedSource{}

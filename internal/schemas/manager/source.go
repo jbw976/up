@@ -43,7 +43,7 @@ const (
 	SourceTypeOpenAPI SourceType = "openapi"
 )
 
-// Source is a source of resources for which dependencies can be generated.
+// Source is a source of resources for which schemas can be generated.
 type Source interface {
 	// ID returns a unique identifier for this source that does not change
 	// across versions. For example, this could be an OCI repository.
@@ -58,6 +58,13 @@ type Source interface {
 	Resources(ctx context.Context) (afero.Fs, error)
 	// Type returns the type of source, which determines which generators to use.
 	Type() SourceType
+}
+
+// PackagedSource is a source of resources that includes pre-generated schemas.
+type PackagedSource interface {
+	// Schemas returns a map in which the keys are languages and the values are
+	// filesystems containing schemas for the language.
+	Schemas() (map[string]afero.Fs, error)
 }
 
 // calculateFilesystemHash calculates a SHA256 hash of the filesystem contents
@@ -220,6 +227,11 @@ func (s *xpkgSource) Resources(_ context.Context) (afero.Fs, error) {
 // Type returns the source type for xpkgSource.
 func (s *xpkgSource) Type() SourceType {
 	return SourceTypeCRD
+}
+
+// Schemas returns packaged schemas from the xpkg.
+func (s *xpkgSource) Schemas() (map[string]afero.Fs, error) {
+	return s.pkg.Schemas(), nil
 }
 
 // NewXpkgSource returns a new xpkg-backed resource source.
