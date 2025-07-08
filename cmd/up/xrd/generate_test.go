@@ -109,6 +109,43 @@ func TestInferProperty(t *testing.T) {
 				err:    errors.New("mixed types detected in array"),
 			},
 		},
+		"ArrayOfObjectsWithOptionalFields": {
+			input: []interface{}{
+				map[string]interface{}{
+					"name":             "aks-subnet",
+					"cidr":             "10.0.1.0/24",
+					"serviceEndpoints": []interface{}{"Microsoft.ContainerRegistry"},
+				},
+				map[string]interface{}{
+					"name":             "database-subnet",
+					"cidr":             "10.0.2.0/24",
+					"delegation":       "Microsoft.DBforMySQL/flexibleServers",
+					"serviceEndpoints": []interface{}{"Microsoft.Storage"},
+				},
+			},
+			want: want{
+				output: extv1.JSONSchemaProps{
+					Type: "array",
+					Items: &extv1.JSONSchemaPropsOrArray{
+						Schema: &extv1.JSONSchemaProps{
+							Type: "object",
+							Properties: map[string]extv1.JSONSchemaProps{
+								"name": {Type: "string"},
+								"cidr": {Type: "string"},
+								"serviceEndpoints": {
+									Type: "array",
+									Items: &extv1.JSONSchemaPropsOrArray{
+										Schema: &extv1.JSONSchemaProps{Type: "string"},
+									},
+								},
+								"delegation": {Type: "string"},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
 	}
 
 	for name, tc := range cases {
@@ -911,6 +948,9 @@ spec:
 
 // helper function to convert JSONSchemaProps to RawExtension.
 func jsonSchemaPropsToRawExtension(schema *extv1.JSONSchemaProps) runtime.RawExtension {
-	schemaBytes, _ := json.Marshal(schema)
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		panic(err) // This should never happen in tests with valid schema
+	}
 	return runtime.RawExtension{Raw: schemaBytes}
 }
