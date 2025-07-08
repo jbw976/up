@@ -4,7 +4,6 @@
 package dependency
 
 import (
-	"context"
 	"embed"
 	"net/url"
 	"testing"
@@ -49,7 +48,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    ">=v0.0.0",
@@ -85,7 +84,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -97,7 +96,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    ">=v0.1.0",
@@ -109,7 +108,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    ">v0.1.0",
@@ -121,7 +120,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "<v0.3.0",
@@ -193,7 +192,7 @@ func TestAdd(t *testing.T) {
 		},
 		"AddProviderWithExistingDeps": {
 			inputDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -203,7 +202,7 @@ func TestAdd(t *testing.T) {
 			packageType: pkgv1beta1.ProviderPackageType,
 			expectedDeps: []pkgmetav1.Dependency{
 				{
-					APIVersion: ptr.To("pkg.crossplane.io/v1"),
+					APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 					Kind:       ptr.To("Function"),
 					Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 					Version:    "v0.2.1",
@@ -218,7 +217,7 @@ func TestAdd(t *testing.T) {
 		},
 		"UpdateFunction": {
 			inputDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.1.0",
@@ -227,7 +226,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -239,7 +238,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -271,7 +270,7 @@ func TestAdd(t *testing.T) {
 		},
 		"AddProviderWithExistingDepsColon": {
 			inputDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -281,7 +280,7 @@ func TestAdd(t *testing.T) {
 			packageType: pkgv1beta1.ProviderPackageType,
 			expectedDeps: []pkgmetav1.Dependency{
 				{
-					APIVersion: ptr.To("pkg.crossplane.io/v1"),
+					APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 					Kind:       ptr.To("Function"),
 					Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 					Version:    "v0.2.1",
@@ -296,7 +295,7 @@ func TestAdd(t *testing.T) {
 		},
 		"UpdateFunctionColon": {
 			inputDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.1.0",
@@ -305,7 +304,7 @@ func TestAdd(t *testing.T) {
 			imageTag:    name.MustParseReference("xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1").(name.Tag),
 			packageType: pkgv1beta1.FunctionPackageType,
 			expectedDeps: []pkgmetav1.Dependency{{
-				APIVersion: ptr.To("pkg.crossplane.io/v1"),
+				APIVersion: ptr.To("pkg.crossplane.io/v1beta1"),
 				Kind:       ptr.To("Function"),
 				Package:    ptr.To("xpkg.upbound.io/crossplane-contrib/function-auto-ready"),
 				Version:    "v0.2.1",
@@ -368,7 +367,7 @@ func (tc *addTestCase) Run(t *testing.T) {
 		ProjectFile: "upbound.yaml",
 		Package:     tc.newPackage,
 	}
-	err = cmd.Run(context.Background(), printer)
+	err = cmd.Run(t.Context(), printer)
 
 	// Check if we expect an error.
 	if tc.expectError {

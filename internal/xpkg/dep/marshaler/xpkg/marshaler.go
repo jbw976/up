@@ -24,6 +24,7 @@ import (
 	xpmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/parser/ndjson"
@@ -175,17 +176,16 @@ func processPackage(pkg linter.Package) (*ParsedPackage, error) {
 	meta := metas[0]
 
 	var linter linter.Linter
-	var pkgType v1beta1.PackageType
-	switch meta.GetObjectKind().GroupVersionKind().Kind {
+	gvk := meta.GetObjectKind().GroupVersionKind()
+	switch gvk.Kind {
 	case xpmetav1.ConfigurationKind:
 		linter = xpkg.NewConfigurationLinter()
-		pkgType = v1beta1.ConfigurationPackageType
 	case xpmetav1.ProviderKind:
 		linter = xpkg.NewProviderLinter()
-		pkgType = v1beta1.ProviderPackageType
 	case xpmetav1beta1.FunctionKind:
 		linter = xpkg.NewFunctionLinter()
-		pkgType = v1beta1.FunctionPackageType
+	case upboundpkgmetav1alpha1.ControllerKind:
+		linter = xpkg.NewControllerLinter()
 	}
 	if err := linter.Lint(pkg); err != nil {
 		return nil, errors.Wrap(err, errLintPackage)
@@ -194,7 +194,9 @@ func processPackage(pkg linter.Package) (*ParsedPackage, error) {
 	return &ParsedPackage{
 		MetaObj: meta,
 		Objs:    pkg.GetObjects(),
-		PType:   pkgType,
+		// strip out meta.
+		APIVersion: gvk.GroupVersion().String()[5:],
+		Kind:       gvk.Kind,
 	}, nil
 }
 

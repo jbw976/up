@@ -143,8 +143,9 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				}(),
 				packages: map[string]*mxpkg.ParsedPackage{
 					"xpkg.upbound.io/crossplane-contrib/function-auto-ready": {
-						PType: v1beta1.FunctionPackageType,
-						Objs:  []runtime.Object{},
+						Kind:       string(v1beta1.FunctionPackageType),
+						APIVersion: "pkg.crossplane.io/v1",
+						Objs:       []runtime.Object{},
 					},
 				},
 				data: &v1.Composition{
@@ -188,7 +189,8 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				}(),
 				packages: map[string]*mxpkg.ParsedPackage{
 					"xpkg.upbound.io/crossplane-contrib/function-auto-ready": {
-						PType: v1beta1.FunctionPackageType,
+						Kind:       string(v1beta1.FunctionPackageType),
+						APIVersion: "pkg.crossplane.io/v1",
 						Objs: []runtime.Object{
 							&apiextv1.CustomResourceDefinition{
 								TypeMeta: apimetav1.TypeMeta{
@@ -260,7 +262,8 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				}(),
 				packages: map[string]*mxpkg.ParsedPackage{
 					"xpkg.upbound.io/crossplane-contrib/function-auto-ready": {
-						PType: v1beta1.FunctionPackageType,
+						Kind:       string(v1beta1.FunctionPackageType),
+						APIVersion: "pkg.crossplane.io/v1",
 						Objs: []runtime.Object{
 							&apiextv1.CustomResourceDefinition{
 								TypeMeta: apimetav1.TypeMeta{
@@ -332,7 +335,8 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				}(),
 				packages: map[string]*mxpkg.ParsedPackage{
 					"xpkg.upbound.io/crossplane-contrib/function-auto-ready": {
-						PType: v1beta1.FunctionPackageType,
+						Kind:       string(v1beta1.FunctionPackageType),
+						APIVersion: "pkg.crossplane.io/v1",
 						Objs: []runtime.Object{
 							&apiextv1.CustomResourceDefinition{
 								TypeMeta: apimetav1.TypeMeta{
@@ -416,7 +420,8 @@ func TestCompositionValidationPipeline(t *testing.T) {
 				}(),
 				packages: map[string]*mxpkg.ParsedPackage{
 					"xpkg.upbound.io/crossplane-contrib/function-auto-ready": {
-						PType: v1beta1.FunctionPackageType,
+						Kind:       string(v1beta1.FunctionPackageType),
+						APIVersion: "pkg.crossplane.io/v1",
 						Objs: []runtime.Object{
 							&apiextv1.CustomResourceDefinition{
 								TypeMeta: apimetav1.TypeMeta{

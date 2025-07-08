@@ -102,9 +102,10 @@ func TestFromImage(t *testing.T) {
 							},
 						},
 					},
-					PType: v1beta1.ProviderPackageType,
-					Reg:   "index.docker.io",
-					Ver:   "v0.20.0",
+					APIVersion: "pkg.crossplane.io/v1",
+					Kind:       string(v1beta1.ProviderPackageType),
+					Reg:        "index.docker.io",
+					Ver:        "v0.20.0",
 				},
 				numObjects: 2,
 			},
@@ -153,7 +154,7 @@ func TestFromImage(t *testing.T) {
 					t.Errorf("\n%s\nFromImage(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
 
-				if diff := cmp.Diff(tc.want.pkg.Type(), pkg.Type()); diff != "" {
+				if diff := cmp.Diff(tc.want.pkg.PKind(), pkg.PKind()); diff != "" {
 					t.Errorf("\n%s\nFromImage(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
 
@@ -269,10 +270,11 @@ func TestFromDir(t *testing.T) {
 							},
 						},
 					},
-					DepName: "crossplane/provider-helm",
-					PType:   v1beta1.ProviderPackageType,
-					Reg:     "index.docker.io",
-					Ver:     "v0.9.0",
+					DepName:    "crossplane/provider-helm",
+					APIVersion: "pkg.crossplane.io/v1",
+					Kind:       string(v1beta1.ProviderPackageType),
+					Reg:        "index.docker.io",
+					Ver:        "v0.9.0",
 				},
 				numObjects: 2,
 			},
@@ -311,10 +313,11 @@ func TestFromDir(t *testing.T) {
 							},
 						},
 					},
-					DepName: "registry.upbound.io/crossplane/provider-helm",
-					PType:   v1beta1.ProviderPackageType,
-					Reg:     "registry.upbound.io",
-					Ver:     "v0.9.0",
+					DepName:    "registry.upbound.io/crossplane/provider-helm",
+					APIVersion: "pkg.crossplane.io/v1",
+					Kind:       string(v1beta1.ProviderPackageType),
+					Reg:        "registry.upbound.io",
+					Ver:        "v0.9.0",
 				},
 				numObjects: 2,
 			},
@@ -374,7 +377,7 @@ func TestFromDir(t *testing.T) {
 					t.Errorf("\n%s\nFromDir(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
 
-				if diff := cmp.Diff(tc.want.pkg.Type(), pkg.Type()); diff != "" {
+				if diff := cmp.Diff(tc.want.pkg.PKind(), pkg.PKind()); diff != "" {
 					t.Errorf("\n%s\nFromDir(...): -want err, +got err:\n%s", tc.reason, diff)
 				}
 

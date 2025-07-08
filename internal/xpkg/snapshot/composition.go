@@ -253,7 +253,7 @@ func (c *CompositionValidator) inputCRDsForFunction(name string) ([]*apiextv1.Cu
 	var pkg *mxpkg.ParsedPackage
 	for _, repo := range possibleRepos {
 		got := c.s.Package(repo)
-		if got == nil || got.Type() != v1beta1.FunctionPackageType {
+		if got == nil || got.PKind() != string(v1beta1.FunctionPackageType) {
 			continue
 		}
 		pkg = got

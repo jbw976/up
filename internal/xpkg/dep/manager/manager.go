@@ -211,8 +211,10 @@ func (m *Manager) Resolve(ctx context.Context, d v1beta1.Dependency) (v1beta1.De
 		return ud, m.acc, err
 	}
 
-	t := e.Type()
-	ud.Type = &t
+	kind := e.PKind()
+	apiVersion := e.PVersion()
+	ud.Kind = &kind
+	ud.APIVersion = &apiVersion
 	ud.Package = d.Package
 	ud.Constraints = e.Version()
 
@@ -237,8 +239,10 @@ func (m *Manager) AddAll(ctx context.Context, d v1beta1.Dependency) (v1beta1.Dep
 		return ud, m.acc, err
 	}
 
-	t := e.Type()
-	ud.Type = &t
+	kind := e.PKind()
+	apiVersion := e.PVersion()
+	ud.APIVersion = &apiVersion
+	ud.Kind = &kind
 	ud.Package = d.Package
 	ud.Constraints = e.Version()
 

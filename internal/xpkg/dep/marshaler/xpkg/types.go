@@ -32,8 +32,10 @@ type ParsedPackage struct {
 	DepName string
 	// The N corresponding Objs (CRDs, XRDs, Compositions) depending on the package type.
 	Objs []runtime.Object
-	// The type of Package.
-	PType v1beta1.PackageType
+	// The API version of the package.
+	APIVersion string
+	// The Kind of the package (e.g. Provider, Configuration, Function, Controller).
+	Kind string
 	// The container registry.
 	Reg string
 	// The SHA corresponding to the package.
@@ -68,9 +70,14 @@ func (p *ParsedPackage) Objects() []runtime.Object {
 	return p.Objs
 }
 
-// Type returns the package's type.
-func (p *ParsedPackage) Type() v1beta1.PackageType {
-	return p.PType
+// PKind returns the package's type based on Kind.
+func (p *ParsedPackage) PKind() string {
+	return p.Kind
+}
+
+// PVersion returns the package's version based on apiVersion.
+func (p *ParsedPackage) PVersion() string {
+	return p.APIVersion
 }
 
 // Registry returns the registry path where the package image is located.

@@ -171,13 +171,13 @@ func (v *TypeValidator) validate(_ context.Context, i int, d v1beta1.Dependency)
 	if got == nil {
 		return nil
 	}
-	if got.Type() != *d.Type {
+	if got.PKind() != *d.Kind {
 		return &validator.ValidationError{
-			Name: fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(string(*d.Type))),
+			Name: fmt.Sprintf(dependsOnPathFmt, i, strings.ToLower(*d.Kind)),
 			Message: fmt.Sprintf(errWrongPkgTypeFmt,
-				strings.ToLower(string(*d.Type)),
+				strings.ToLower(*d.Kind),
 				strings.ToLower(d.Package),
-				strings.ToLower(string(got.PType)),
+				strings.ToLower(got.Kind),
 			),
 		}
 	}

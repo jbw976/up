@@ -33,10 +33,11 @@ var (
 				Name: "provider-aws",
 			},
 		},
-		PType: v1beta1.ProviderPackageType,
-		SHA:   "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927641f99933892e",
-		Reg:   "index.docker.io",
-		Ver:   "v0.20.1-alpha",
+		Kind:       string(v1beta1.ProviderPackageType),
+		APIVersion: "pkg.crossplane.io/v1alpha1",
+		SHA:        "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927641f99933892e",
+		Reg:        "index.docker.io",
+		Ver:        "v0.20.1-alpha",
 	}
 
 	pkg2 = &xpkg.ParsedPackage{
@@ -49,10 +50,11 @@ var (
 				Name: "provider-gcp",
 			},
 		},
-		PType: v1beta1.ProviderPackageType,
-		SHA:   "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927077099933707",
-		Reg:   "index.docker.io",
-		Ver:   "v0.18.1",
+		APIVersion: "pkg.crossplane.io/v1alpha1",
+		Kind:       string(v1beta1.ProviderPackageType),
+		SHA:        "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927077099933707",
+		Reg:        "index.docker.io",
+		Ver:        "v0.18.1",
 	}
 
 	pkg3 = &xpkg.ParsedPackage{
@@ -65,10 +67,11 @@ var (
 				Name: "provider-gcp",
 			},
 		},
-		PType: v1beta1.ProviderPackageType,
-		SHA:   "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927077099933707",
-		Reg:   "registry.upbound.io",
-		Ver:   "v0.2.0",
+		APIVersion: "pkg.crossplane.io/v1alpha1",
+		Kind:       string(v1beta1.ProviderPackageType),
+		SHA:        "sha256:d507e508234732c6dc95d29c8a8c932fa8fa6a229231e309927077099933707",
+		Reg:        "registry.upbound.io",
+		Ver:        "v0.2.0",
 	}
 )
 
