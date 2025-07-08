@@ -277,9 +277,21 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 
 	// Calculate the relative path from the targetPath's parent directory to the sourcePath
 	symlinkParentDir := filepath.Dir(realTargetPath)
-	relativeSymlinkPath, err := filepath.Rel(symlinkParentDir, realSourcePath)
+	
+	// On Windows, ensure both paths are absolute before calculating relative path
+	absSymlinkParentDir, err := filepath.Abs(symlinkParentDir)
 	if err != nil {
-		return errors.Wrapf(err, "failed to calculate relative symlink path from %s to %s", symlinkParentDir, realSourcePath)
+		return errors.Wrapf(err, "failed to get absolute path for symlink parent directory: %s", symlinkParentDir)
+	}
+	
+	absRealSourcePath, err := filepath.Abs(realSourcePath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get absolute path for source path: %s", realSourcePath)
+	}
+	
+	relativeSymlinkPath, err := filepath.Rel(absSymlinkParentDir, absRealSourcePath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to calculate relative symlink path from %s to %s", absSymlinkParentDir, absRealSourcePath)
 	}
 
 	// Clean the paths to normalize them
