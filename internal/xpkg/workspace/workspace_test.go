@@ -5,7 +5,6 @@ package workspace
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"syscall"
@@ -15,7 +14,6 @@ import (
 	"github.com/spf13/afero"
 	apimetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
@@ -43,7 +41,7 @@ func init() {
 }
 
 func TestParse(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cases := map[string]struct {
 		reason    string
 		opts      []Option
@@ -106,15 +104,13 @@ func TestParse(t *testing.T) {
 			}()), WithPermissiveParser()},
 		},
 		"SuccessfulParseComposition": {
-			reason: "Should add a package node for Composition and every embedded resource.",
+			reason: "Should add a package node for Composition.",
 			opts: []Option{WithFS(func() afero.Fs {
 				fs := afero.NewMemMapFs()
 				_ = afero.WriteFile(fs, "/ws/composition.yaml", testComposition, os.ModePerm)
 				return fs
 			}())},
 			nodes: map[NodeIdentifier]struct{}{
-				nodeID("", schema.FromAPIVersionAndKind("ec2.aws.crossplane.io/v1beta1", "VPC")):               {},
-				nodeID("", schema.FromAPIVersionAndKind("ec2.aws.crossplane.io/v1beta1", "Subnet")):            {},
 				nodeID("vpcpostgresqlinstances.aws.database.example.org", xpextv1.CompositionGroupVersionKind): {},
 			},
 		},
@@ -219,9 +215,6 @@ func TestRWMetaFile(t *testing.T) {
 			Name: "getting-started-with-aws",
 		},
 		Spec: metav1.ProviderSpec{
-			Controller: metav1.ControllerSpec{
-				Image: ptr.To("crossplane/provider-aws"),
-			},
 			MetaSpec: metav1.MetaSpec{
 				Crossplane: &metav1.CrossplaneConstraints{
 					Version: ">=1.0.0-0",
@@ -315,7 +308,7 @@ func TestRWMetaFile(t *testing.T) {
 			// parse meta file
 			parser, _ := yaml.New()
 
-			p, _ := parser.Parse(context.Background(), io.NopCloser(bytes.NewReader(pkgBytes)))
+			p, _ := parser.Parse(t.Context(), io.NopCloser(bytes.NewReader(pkgBytes)))
 			if len(p.GetMeta()) == 1 {
 				meta := p.GetMeta()[0]
 

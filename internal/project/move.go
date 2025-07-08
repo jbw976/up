@@ -108,10 +108,6 @@ func updateCompositions(ws *workspace.Workspace, fnMap map[string]string) error 
 			continue
 		}
 
-		if comp.Spec.Mode == nil || *comp.Spec.Mode != xpextv1.CompositionModePipeline {
-			continue
-		}
-
 		newPipeline := make([]xpextv1.PipelineStep, len(comp.Spec.Pipeline))
 		rewritten := false
 		for i, step := range comp.Spec.Pipeline {
