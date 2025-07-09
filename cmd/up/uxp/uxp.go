@@ -9,6 +9,7 @@ import (
 
 	"github.com/alecthomas/kong"
 
+	"github.com/upbound/up/cmd/up/uxp/license"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -54,6 +55,7 @@ type Cmd struct {
 	Install   installCmd   `cmd:"" help:"Install UXP."`
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
+	License   license.Cmd  `cmd:"" help:"Manage UXP licenses."`
 
 	Namespace string `default:"upbound-system" env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
