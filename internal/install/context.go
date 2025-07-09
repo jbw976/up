@@ -12,7 +12,6 @@ import (
 // Context includes common data that installer consumers may utilize.
 type Context struct {
 	Kubeconfig *rest.Config
-	Namespace  string
 }
 
 // CommonParams are common parameters for installing and upgrading.

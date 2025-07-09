@@ -42,10 +42,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(&install.Context{
-		Kubeconfig: kubeconfig,
-		Namespace:  c.Namespace,
-	})
+	kongCtx.Bind(&install.Context{Kubeconfig: kubeconfig})
 	return nil
 }
 
@@ -54,8 +51,6 @@ type Cmd struct {
 	Install   installCmd   `cmd:"" help:"Install UXP."`
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
-
-	Namespace string `default:"upbound-system" env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

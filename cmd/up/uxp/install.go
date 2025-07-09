@@ -23,6 +23,8 @@ import (
 const (
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
+
+	namespace = "upbound-system"
 )
 
 // AfterApply sets default values in command after assignment and validation.
@@ -34,7 +36,6 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
 		*repo,
-		helm.WithNamespace(insCtx.Namespace),
 		helm.WithChart(c.Bundle),
 		helm.WithAlternateChart(alternateChartName))
 	if err != nil {
@@ -77,11 +78,11 @@ type installCmd struct {
 }
 
 // Run executes the install command.
-func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter, insCtx *install.Context) error {
+func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	// Create namespace if it does not exist.
 	_, err := c.kClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: insCtx.Namespace,
+			Name: namespace,
 		},
 	}, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
