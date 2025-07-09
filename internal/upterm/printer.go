@@ -15,9 +15,9 @@ import (
 	"text/template"
 
 	"github.com/pterm/pterm"
-	"gopkg.in/yaml.v3"
 
 	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/yaml"
 )
 
 // Printer describes interactions for working with the ObjectPrinter below.
