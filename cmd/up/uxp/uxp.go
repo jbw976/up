@@ -15,7 +15,21 @@ import (
 
 const (
 	chartName = "crossplane"
+
+	namespace       = "upbound-system"
+	imagePullSecret = "upbound-pull-secret"
 )
+
+// baseValues returns base values for the UXP chart.
+func baseValues() map[string]any {
+	return map[string]any{
+		"upbound": map[string]any{
+			"manager": map[string]any{
+				"imagePullSecrets": []string{imagePullSecret},
+			},
+		},
+	}
+}
 
 var (
 	// RepoURL is the URL of the stable helm chart repository.

@@ -4,15 +4,21 @@
 package uxp
 
 import (
+	"context"
+	"fmt"
 	"io"
 
 	"github.com/pterm/pterm"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/registry"
+	"github.com/upbound/up/internal/registry/pullsecret"
+	"github.com/upbound/up/internal/upterm"
 )
 
 const (
@@ -35,28 +41,36 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		return err
 	}
 	c.mgr = ins
-	base := map[string]any{}
+
+	client, err := kubernetes.NewForConfig(insCtx.Kubeconfig)
+	if err != nil {
+		return err
+	}
+	c.kClient = client
+
+	values := baseValues()
 	if c.File != nil {
 		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
 		if err != nil {
 			return errors.Wrap(err, errReadParametersFile)
 		}
-		if err := yaml.Unmarshal(b, &base); err != nil {
+		if err := yaml.Unmarshal(b, &values); err != nil {
 			return errors.Wrap(err, errReadParametersFile)
 		}
 		if err := c.File.Close(); err != nil {
 			return errors.Wrap(err, errReadParametersFile)
 		}
 	}
-	c.parser = helm.NewParser(base, c.Set)
+	c.parser = helm.NewParser(values, c.Set)
 	return nil
 }
 
 // upgradeCmd upgrades UXP.
 type upgradeCmd struct {
-	mgr    install.Manager
-	parser install.ParameterParser
+	mgr     install.Manager
+	parser  install.ParameterParser
+	kClient kubernetes.Interface
 
 	Version string `arg:"" help:"UXP version to upgrade to." optional:""`
 
@@ -64,22 +78,52 @@ type upgradeCmd struct {
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
 	Unstable bool `help:"Allow installing unstable versions."`
 
+	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 }
 
 // Run executes the upgrade command.
-func (c *upgradeCmd) Run(p pterm.TextPrinter) error {
-	params, err := c.parser.Parse()
-	if err != nil {
-		return errors.Wrap(err, errParseUpgradeParameters)
-	}
-	if err := c.mgr.Upgrade(c.Version, params); err != nil {
+func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
+	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
+
+	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, namespace, c.Registry)
+
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", imagePullSecret), 1, 2),
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			return errors.Wrap(pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
+		},
+		p,
+	); err != nil {
+		pterm.Println()
+		pterm.Println()
+		return err
+	}
+
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Upgrading UXP", 2, 2),
+		upterm.CheckmarkSuccessSpinner,
+		func() error {
+			params, err := c.parser.Parse()
+			if err != nil {
+				return errors.Wrap(err, errParseUpgradeParameters)
+			}
+			return c.mgr.Upgrade(c.Version, params)
+		},
+		p,
+	); err != nil {
+		pterm.Println()
+		pterm.Println()
+		return err
+	}
+
 	curVer, err := c.mgr.GetCurrentVersion()
 	if err != nil {
 		return err
 	}
-	p.Printfln("UXP upgraded to %s", curVer)
+	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("UXP upgraded to %s", curVer)
 	return nil
 }
