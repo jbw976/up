@@ -16,7 +16,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -276,11 +275,8 @@ func (l *localDevControlPlane) Teardown(ctx context.Context, _ bool) error {
 		return errors.Wrap(err, "failed to create docker client")
 	}
 
-	if err := cli.ContainerStop(ctx, l.registryContainerID, container.StopOptions{}); err != nil {
-		return errors.Wrap(err, "failed to stop registry container")
-	}
-	if err := cli.ContainerRemove(ctx, l.registryContainerID, container.RemoveOptions{Force: true}); err != nil {
-		return errors.Wrap(err, "failed to remove registry container")
+	if err := teardownLocalRegistry(ctx, cli, l.registryContainerID); err != nil {
+		return errors.Wrap(err, "failed to tear down registry")
 	}
 
 	_ = os.RemoveAll(l.registryDir)
