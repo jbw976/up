@@ -32,6 +32,7 @@ func TestNativeResources(t *testing.T) {
 		"APIGroup",
 		"APIVersion",
 		"APIVersions",
+		"DeviceTaintRule",
 	)
 	for gvk := range scheme.AllKnownTypes() {
 		if strings.HasSuffix(gvk.Kind, "List") || special.Has(gvk.Kind) || strings.HasSuffix(gvk.Kind, "Options") {
