@@ -358,7 +358,7 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 }
 
 // Install installs in the cluster.
-func (h *Installer) Install(version string, parameters map[string]any, opts ...install.InstallOption) error {
+func (h *Installer) Install(version string, parameters map[string]any, opts ...install.Option) error {
 	// make sure no version is already installed
 	current, err := h.GetCurrentVersion()
 	if err == nil {

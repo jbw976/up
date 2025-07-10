@@ -6,8 +6,8 @@ package install
 
 import "helm.sh/helm/v3/pkg/chart"
 
-// InstallOption customizes the behavior of an install.
-type InstallOption func(*chart.Chart) error
+// Option customizes the behavior of an install.
+type Option func(*chart.Chart) error
 
 // UpgradeOption customizes the behavior of an upgrade.
 type UpgradeOption func(oldVersion string, ch *chart.Chart) error
@@ -16,7 +16,7 @@ type UpgradeOption func(oldVersion string, ch *chart.Chart) error
 // TODO(hasheddan): support custom error types, such as AlreadyExists.
 type Manager interface {
 	GetCurrentVersion() (string, error)
-	Install(version string, parameters map[string]any, opts ...InstallOption) error
+	Install(version string, parameters map[string]any, opts ...Option) error
 	Upgrade(version string, parameters map[string]any, opts ...UpgradeOption) error
 	Uninstall() error
 }
