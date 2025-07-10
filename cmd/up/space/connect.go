@@ -59,6 +59,8 @@ const (
 	devConnect  = "tls://connect.u5d.dev"
 	stagConnect = "tls://connect.staging-eikeagoo.upbound.services"
 	prodConnect = "tls://connect.upbound.io"
+
+	errFmtCreateNamespace = "failed to create namespace %q"
 )
 
 type connectCmd struct {

@@ -15,9 +15,6 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"helm.sh/helm/v3/pkg/chart"
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -41,6 +38,7 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/registry"
+	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -75,7 +73,6 @@ const (
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
-	errFmtCreateNamespace     = "failed to create namespace %q"
 	errCreateSpace            = "failed to create Space"
 )
 
@@ -94,7 +91,7 @@ type initCmd struct {
 	helmParams map[string]any
 	kClient    kubernetes.Interface
 	dClient    dynamic.Interface
-	pullSecret *kube.ImagePullApplicator
+	pullSecret *pullsecret.Manager
 	features   *feature.Flags
 	printer    upterm.ObjectPrinter
 }
@@ -162,8 +159,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter
 		pterm.Info.Println("Public ingress will be exposed")
 	}
 
-	secret := kube.NewSecretApplicator(kClient)
-	c.pullSecret = kube.NewImagePullApplicator(secret)
+	c.pullSecret = pullsecret.NewManagerFromFlags(kClient, defaultImagePullSecret, ns, c.Registry)
 	dClient, err := dynamic.NewForConfig(kubeconfig)
 	if err != nil {
 		return err
@@ -264,7 +260,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	pterm.Info.Printfln("Required prerequisites met!")
 	pterm.Info.Printfln("Proceeding with Upbound Spaces installation...")
 
-	if err := c.applySecret(ctx, &c.Registry, ns); err != nil {
+	if err := c.applySecret(ctx); err != nil {
 		return err
 	}
 
@@ -304,34 +300,15 @@ func installPrereqs(status *prerequisites.Status, printer upterm.ObjectPrinter) 
 	return nil
 }
 
-func (c *initCmd) applySecret(ctx context.Context, regFlags *authorizedRegistryFlags, namespace string) error {
-	creatPullSecret := func() error {
-		if err := c.pullSecret.Apply(
-			ctx,
-			defaultImagePullSecret,
-			namespace,
-			regFlags.Username,
-			regFlags.Password,
-			regFlags.Endpoint.String(),
-		); err != nil {
-			return errors.Wrap(err, errCreateImagePullSecret)
-		}
-		return nil
-	}
-
-	_, err := c.kClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}, metav1.CreateOptions{})
-	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return errors.Wrap(err, fmt.Sprintf(errFmtCreateNamespace, ns))
+func (c *initCmd) applySecret(ctx context.Context) error {
+	createPullSecret := func() error {
+		return errors.Wrap(c.pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
 	}
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 3),
 		upterm.CheckmarkSuccessSpinner,
-		creatPullSecret,
+		createPullSecret,
 		c.printer,
 	); err != nil {
 		pterm.Println()
