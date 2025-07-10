@@ -25,21 +25,21 @@ const tmpl = `{{- with .Status }}
 {{- $validity = printf "Invalid (%s)" .Message }}
 {{- end }}
 {{- end }}
-{{- end }}Upbound Crossplane License Status: {{ $validity }}
+{{- end }}Upbound Crossplane License Status: 	{{ $validity }}
 
 {{- if .CreatedAt }}
-Created: {{ .CreatedAt }}
+Created: 	{{ .CreatedAt }}
 {{- end }}
 {{- if .ExpiresAt }}
-Expires: {{ .ExpiresAt }}
+Expires: 	{{ .ExpiresAt }}
 {{- end }}
 
-Plan: {{ .Plan }}
+Plan: 	{{ .Plan }}
 {{- if .Capacity }}
-Resource Hour Limit: {{ .Capacity.ResourceHours }}
-Operation Limit: {{ .Capacity.Operations }}
+Resource Hour Limit: 	{{ .Capacity.ResourceHours }}
+Operation Limit: 	{{ .Capacity.Operations }}
 {{- end }}
-Enabled Features: {{- if not .EnabledFeatures }} None {{- end}}
+Enabled Features: {{- if not .EnabledFeatures }} 	None {{- end}}
 {{- range .EnabledFeatures }}
 - {{ . }}
 {{- end }}

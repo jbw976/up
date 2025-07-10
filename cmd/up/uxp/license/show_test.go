@@ -44,10 +44,10 @@ func TestShowTemplate(t *testing.T) {
 					},
 				},
 			},
-			want: `Upbound Crossplane License Status: Valid (Community edition license is active.)
+			want: `Upbound Crossplane License Status: 	Valid (Community edition license is active.)
 
-Plan: community
-Enabled Features: None`,
+Plan: 	community
+Enabled Features: 	None`,
 		},
 		"ValidCommercial": {
 			license: v1alpha1.License{
@@ -69,13 +69,13 @@ Enabled Features: None`,
 					},
 				},
 			},
-			want: `Upbound Crossplane License Status: Valid (The license signature has been successfully verified.)
-Created: 2023-02-15 09:15:00 +0000 UTC
-Expires: 2025-07-29 21:45:00 +0000 UTC
+			want: `Upbound Crossplane License Status: 	Valid (The license signature has been successfully verified.)
+Created: 	2023-02-15 09:15:00 +0000 UTC
+Expires: 	2025-07-29 21:45:00 +0000 UTC
 
-Plan: commercial
-Resource Hour Limit: 1000
-Operation Limit: 1000
+Plan: 	commercial
+Resource Hour Limit: 	1000
+Operation Limit: 	1000
 Enabled Features:
 - Cool feature 1
 - Cool Feature 2`,
@@ -100,13 +100,13 @@ Enabled Features:
 					},
 				},
 			},
-			want: `Upbound Crossplane License Status: Invalid (License validation failed: stolen crossplane)
-Created: 2023-02-15 09:15:00 +0000 UTC
-Expires: 2025-07-29 21:45:00 +0000 UTC
+			want: `Upbound Crossplane License Status: 	Invalid (License validation failed: stolen crossplane)
+Created: 	2023-02-15 09:15:00 +0000 UTC
+Expires: 	2025-07-29 21:45:00 +0000 UTC
 
-Plan: commercial
-Resource Hour Limit: 1000
-Operation Limit: 1000
+Plan: 	commercial
+Resource Hour Limit: 	1000
+Operation Limit: 	1000
 Enabled Features:
 - Cool feature 1
 - Cool Feature 2`,
