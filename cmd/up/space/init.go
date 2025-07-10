@@ -40,6 +40,7 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -80,7 +81,7 @@ const (
 
 // initCmd installs Upbound Spaces.
 type initCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
 

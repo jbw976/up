@@ -25,6 +25,7 @@ import (
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -43,7 +44,7 @@ const (
 
 // upgradeCmd upgrades Upbound.
 type upgradeCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
 

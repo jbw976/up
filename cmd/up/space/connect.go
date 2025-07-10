@@ -33,6 +33,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -61,7 +62,7 @@ const (
 )
 
 type connectCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 
 	Upbound upbound.Flags `embed:""`
 
