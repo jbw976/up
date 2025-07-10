@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package install contains types for installs.
 package install
 
 import "helm.sh/helm/v3/pkg/chart"
