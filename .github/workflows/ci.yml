@@ -73,7 +73,6 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      # TODO(hasheddan): temporary to allow access to up-sdk-go
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
@@ -136,7 +135,6 @@ jobs:
         with:
           submodules: true
 
-      # TODO(hasheddan): temporary to allow access to up-sdk-go
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
@@ -192,7 +190,6 @@ jobs:
         with:
           submodules: true
 
-      # TODO(hasheddan): temporary to allow access to up-sdk-go
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
@@ -246,6 +243,10 @@ jobs:
           large-packages: false
           swap-storage: false
           docker-images: false
+
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
