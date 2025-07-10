@@ -29,7 +29,6 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		chartName,
 		*repo,
 		helm.WithChart(c.Bundle),
-		helm.WithAlternateChart(alternateChartName),
 		helm.RollbackOnError(c.Rollback),
 		helm.Force(c.Force))
 	if err != nil {

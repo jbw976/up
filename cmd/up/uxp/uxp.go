@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	chartName          = "universal-crossplane"
-	alternateChartName = "crossplane"
+	chartName = "crossplane"
 )
 
 var (
