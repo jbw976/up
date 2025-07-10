@@ -171,7 +171,9 @@ func getValues(svc ServiceType) map[string]any {
 	pubAddress := false
 	if svc == LoadBalancer {
 		nodeSelector = nil
-		extraArgs = nil
+		extraArgs = map[string]any{
+			"enable-ssl-passthrough": "true",
+		}
 		pubAddress = true
 	}
 	// Ensure we don't request a LoadBalancer to be deployed.
