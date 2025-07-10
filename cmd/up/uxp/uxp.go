@@ -16,7 +16,6 @@ import (
 const (
 	chartName = "crossplane"
 
-	namespace       = "upbound-system"
 	imagePullSecret = "upbound-pull-secret"
 )
 

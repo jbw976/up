@@ -33,7 +33,8 @@ import (
 const (
 	helmDriverSecret = "secret"
 	defaultCacheDir  = ".cache/up/charts"
-	defaultNamespace = "upbound-system"
+	// DefaultNamespace is the namespace that UXP is installed to by default.
+	DefaultNamespace = "crossplane-system"
 	allVersions      = ">0.0.0-0"
 	waitTimeout      = 10 * time.Minute
 )
@@ -226,7 +227,7 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, modifier
 		chartRef:    chartName,
 		chartName:   chartName,
 		releaseName: chartName,
-		namespace:   defaultNamespace,
+		namespace:   DefaultNamespace,
 		home:        os.UserHomeDir,
 		fs:          afero.NewOsFs(),
 		tempDir:     afero.TempDir,

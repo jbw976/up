@@ -83,7 +83,7 @@ func (c *installCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 		return err
 	}
 
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, namespace, c.Registry)
+	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, helm.DefaultNamespace, c.Registry)
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", imagePullSecret), 1, 2),
