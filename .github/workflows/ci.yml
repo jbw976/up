@@ -642,6 +642,20 @@ jobs:
           cd e2e-test
           up project stop --local --force
 
+      - name: assert kind cluster was destroyed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: kind get clusters
+          contains: e2e-test
+          expected_result: FAILED
+
+      - name: assert docker container were removed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: docker ps -a
+          contains: e2e-test
+          expected_result: FAILED
+
   e2e-project-example-aws:
     runs-on: ubuntu-24.04
     needs: publish-artifacts
