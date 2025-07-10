@@ -175,7 +175,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	}
 
 	if c.ControlPlaneName == "" {
-		c.ControlPlaneName = c.proj.Name
+		c.ControlPlaneName = "up-" + c.proj.Name
 	}
 
 	b := project.NewBuilder(

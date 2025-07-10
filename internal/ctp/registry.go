@@ -4,6 +4,7 @@
 package ctp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ import (
 func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir string, certSecret *corev1.Secret) (string, error) {
 	// Mirrored from ghcr.io/olareg/olareg.
 	const regImage = "xpkg.upbound.io/upbound/olareg:v0.1.2"
+	certDir := filepath.Join(dir, ".certs")
 
 	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
 	if err != nil {
@@ -39,12 +41,32 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	// Check for existing registry container.
 	cs, err := cli.ContainerList(ctx, container.ListOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: regName}),
+		// Include non-running containers, so we don't end up with a naming
+		// conflict.
+		All: true,
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to list containers")
 	}
 	if len(cs) > 0 {
-		return cs[0].ID, nil
+		// Registry container exists. Check whether it has the right certificate
+		// data; if not, delete and re-create it. If we fail to read the file it
+		// probably was deleted, so re-create.
+
+		//nolint:gosec // We don't do anything dangerous with the CA data.
+		caData, err := os.ReadFile(filepath.Join(certDir, "ca.crt"))
+		if err == nil && bytes.Equal(caData, certSecret.Data[certs.SecretKeyCACert]) {
+			// Make sure the container is running.
+			if err := cli.ContainerStart(ctx, cs[0].ID, container.StartOptions{}); err != nil {
+				return "", errors.Wrap(err, "failed to start registry container")
+			}
+
+			return cs[0].ID, nil
+		}
+
+		if err := teardownLocalRegistry(ctx, cli, cs[0].ID); err != nil {
+			return "", errors.Wrap(err, "failed to tear down outdated registry")
+		}
 	}
 
 	// Find kind's network so we can attach the registry to it.
@@ -59,7 +81,6 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	}
 
 	// Write the TLS cert and key files.
-	certDir := filepath.Join(dir, ".certs")
 	if err := os.MkdirAll(certDir, 0o755); err != nil { //nolint:gosec // Container needs to read the dir.
 		return "", errors.New("failed to create cert directory")
 	}
@@ -118,6 +139,17 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	}
 
 	return resp.ID, nil
+}
+
+func teardownLocalRegistry(ctx context.Context, cli *docker.Client, cid string) error {
+	if err := cli.ContainerStop(ctx, cid, container.StopOptions{}); err != nil {
+		return errors.Wrap(err, "failed to stop registry container")
+	}
+	if err := cli.ContainerRemove(ctx, cid, container.RemoveOptions{Force: true}); err != nil {
+		return errors.Wrap(err, "failed to remove registry container")
+	}
+
+	return nil
 }
 
 // ensureLocalRegistryCertificate creates a CA certificate and server
