@@ -39,7 +39,7 @@ const (
 	ReleaseTargetRelease Target = "release"
 	// ReleaseTargetDebug used as debug.
 	ReleaseTargetDebug  Target = "debug"
-	agentVersion               = "0.0.0-429.g5433474"
+	agentVersion               = "0.0.0-649.g97cc957"
 	mcpConnectorVersion        = "0.8.0"
 	gitCommit                  = "unknown-commit"
 	releaseTarget              = string(ReleaseTargetDebug)
