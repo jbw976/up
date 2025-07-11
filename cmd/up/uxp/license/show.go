@@ -13,37 +13,12 @@ import (
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
+
+	_ "embed"
 )
 
-const tmpl = `{{- with .Status }}
-{{- $validity := "Unknown" }}
-{{- range .Conditions }}
-{{- if eq .Type "LicenseValid" }}
-{{- if eq .Status "True" }}
-{{- $validity = printf "Valid (%s)" .Message }}
-{{- else }}
-{{- $validity = printf "Invalid (%s)" .Message }}
-{{- end }}
-{{- end }}
-{{- end }}Upbound Crossplane License Status: 	{{ $validity }}
-
-{{- if .CreatedAt }}
-Created: 	{{ .CreatedAt }}
-{{- end }}
-{{- if .ExpiresAt }}
-Expires: 	{{ .ExpiresAt }}
-{{- end }}
-
-Plan: 	{{ .Plan }}
-{{- if .Capacity }}
-Resource Hour Limit: 	{{ .Capacity.ResourceHours }}
-Operation Limit: 	{{ .Capacity.Operations }}
-{{- end }}
-Enabled Features: {{- if not .EnabledFeatures }} 	None {{- end}}
-{{- range .EnabledFeatures }}
-- {{ . }}
-{{- end }}
-{{- end }}`
+//go:embed show.tmpl
+var tmpl string
 
 // showCmd is the `up uxp license show` command.
 type showCmd struct{}

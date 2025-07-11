@@ -47,7 +47,8 @@ func TestShowTemplate(t *testing.T) {
 			want: `Upbound Crossplane License Status: 	Valid (Community edition license is active.)
 
 Plan: 	community
-Enabled Features: 	None`,
+Enabled Features: 	None
+`,
 		},
 		"ValidCommercial": {
 			license: v1alpha1.License{
@@ -78,7 +79,8 @@ Resource Hour Limit: 	1000
 Operation Limit: 	1000
 Enabled Features:
 - Cool feature 1
-- Cool Feature 2`,
+- Cool Feature 2
+`,
 		},
 		"Invalid": {
 			license: v1alpha1.License{
@@ -109,7 +111,8 @@ Resource Hour Limit: 	1000
 Operation Limit: 	1000
 Enabled Features:
 - Cool feature 1
-- Cool Feature 2`,
+- Cool Feature 2
+`,
 		},
 	}
 
