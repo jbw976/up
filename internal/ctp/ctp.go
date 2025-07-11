@@ -167,6 +167,9 @@ func WithLocalCrossplaneVersion(v string) EnsureDevControlPlaneOption {
 type DevControlPlane interface {
 	// Info returns human-friendly information about the control plane.
 	Info() string
+	// ShortDescription returns a short description of the control plane,
+	// suitable for use in a prompt.
+	ShortDescription() string
 	// Client returns a controller-runtime client for the control plane.
 	Client() client.Client
 	// Kubeconfig returns a kubeconfig for the control plane.
@@ -199,6 +202,11 @@ Connect to the development control plane with 'up ctx %s'.`
 // Info returns human-readable information about the control plane.
 func (s *spacesDevControlPlane) Info() string {
 	return fmt.Sprintf(spacesInfoFmt, s.breadcrumbs)
+}
+
+// ShortDescription returns a short description of the control plane.
+func (s *spacesDevControlPlane) ShortDescription() string {
+	return fmt.Sprintf("Spaces control plane %s", s.breadcrumbs)
 }
 
 // Client returns a controller-runtime client for the control plane.
@@ -250,6 +258,11 @@ type localDevControlPlane struct {
 // Info returns human-readable information about the dev control plane.
 func (l *localDevControlPlane) Info() string {
 	return fmt.Sprintf("💻 Local dev control plane running in kind cluster %q.", l.name)
+}
+
+// ShortDescription returns a short description of the control plane.
+func (l *localDevControlPlane) ShortDescription() string {
+	return fmt.Sprintf("kind cluster %s", l.name)
 }
 
 // Client returns a controller-runtime client for the control plane.
@@ -881,6 +894,11 @@ type KubeconfigDevControlPlane struct {
 // Info returns human-readable information about the dev control plane.
 func (l *KubeconfigDevControlPlane) Info() string {
 	return fmt.Sprintf("Using existing kubeconfig context %q.", l.context)
+}
+
+// ShortDescription returns a short description of the control plane.
+func (l *KubeconfigDevControlPlane) ShortDescription() string {
+	return fmt.Sprintf("existing kubeconfig context %s", l.context)
 }
 
 // Client returns a controller-runtime client for the control plane.

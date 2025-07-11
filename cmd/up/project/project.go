@@ -11,6 +11,7 @@ import (
 	"github.com/upbound/up/cmd/up/project/push"
 	"github.com/upbound/up/cmd/up/project/run"
 	"github.com/upbound/up/cmd/up/project/simulate"
+	"github.com/upbound/up/cmd/up/project/stop"
 )
 
 // Cmd is the top-level project command.
@@ -19,6 +20,7 @@ type Cmd struct {
 	Build build.Cmd      `cmd:"" help:"Build a project into a Crossplane package."`
 	Push  push.Cmd       `cmd:"" help:"Push a project's packages to the Upbound Marketplace."`
 	Run   run.Cmd        `cmd:"" help:"Run a project on a development control plane for testing."`
+	Stop  stop.Cmd       `cmd:"" help:"Tear down a development control plane started by the run command."`
 	Move  move.Cmd       `cmd:"" help:"Update the repository for a project"`
 
 	Simulate   simulate.CreateCmd `cmd:"" help:"Run a project as a simulation against an existing control plane."`

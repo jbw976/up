@@ -494,23 +494,21 @@ jobs:
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          mv _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
+          cp _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
+          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
       - name: up version
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up version
 
       # TODO(adamwg): Change back to upbound once UXPv2 is public.
       - name: up login with robot
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up login -t ${{ secrets.UPBOUND_DEV_TOKEN }} --organization=upbound-dev
 
       - name: up project init
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up project init --empty e2e-test
 
       - name: assert project
@@ -522,7 +520,6 @@ jobs:
 
       - name: up project deps
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up dep add xpkg.upbound.io/upbound/provider-kubernetes
 
@@ -535,7 +532,6 @@ jobs:
 
       - name: up example generate
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up example generate \
             --type xr \
@@ -553,7 +549,6 @@ jobs:
 
       - name: up xrd generate
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up xrd generate examples/xcluster/example.yaml
 
@@ -566,7 +561,6 @@ jobs:
 
       - name: up composition generate
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up composition generate examples/xcluster/example.yaml
 
@@ -586,7 +580,6 @@ jobs:
 
       - name: up function generate
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up function generate xcluster apis/xclusters/composition.yaml
 
@@ -606,7 +599,6 @@ jobs:
 
       - name: up project build
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd e2e-test
           up project build
 
@@ -628,14 +620,12 @@ jobs:
       # TODO(adamwg): Re-enable once UXPv2 is public.
       # - name: up project push
       #   run: |
-      #     export PATH=~/up-cli-bin:$PATH
       #     eval $(make --no-print-directory build.vars)
       #     cd e2e-test
       #     up project push --tag=${VERSION}
 
       - name: up project run
         run: |
-          export PATH=~/up-cli-bin:$PATH
           eval $(make --no-print-directory build.vars)
           cd e2e-test
           up project run --local --timeout=30m
@@ -646,6 +636,25 @@ jobs:
           kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
           kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
           kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
+
+      - name: up project stop
+        run: |
+          cd e2e-test
+          up project stop --local --force
+
+      - name: assert kind cluster was destroyed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: kind get clusters
+          contains: e2e-test
+          expected_result: FAILED
+
+      - name: assert docker container were removed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: docker ps -a
+          contains: e2e-test
+          expected_result: FAILED
 
   e2e-project-example-aws:
     runs-on: ubuntu-24.04
@@ -708,22 +717,20 @@ jobs:
           mkdir -p ~/up-cli-bin
           cp _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
+          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
       - name: up version
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up version
 
       - name: up project init project-example-aws
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up project init --organization=upbound -e upbound/project-example-aws --language ${{ matrix.language }} --test-language ${{ matrix.test-language }} project-example-aws
           cd project-example-aws
           up project build
 
       - name: up composition render project-example-aws
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd project-example-aws
           up composition render apis/xstoragebucket/composition.yaml examples/xstoragebuckets/example.yaml --xrd apis/xstoragebucket/definition.yaml -q >> render.yaml
 
@@ -737,18 +744,15 @@ jobs:
       - name: up test run example-project-aws      
         if: matrix.test-language == 'kcl' || matrix.test-language == 'python'
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd project-example-aws
           up test run tests/*
 
       - name: up login with robot
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up login -t ${{ secrets.UPBOUND_ROBOT_TOKEN }} --organization=upbound
 
       - name: up ctx
         run: |
-          export PATH=~/up-cli-bin:$PATH
           up ctx upbound/upbound-gcp-us-central-1/default
 
       - name: Login to xpkg with robot
@@ -762,6 +766,5 @@ jobs:
         # Only run e2e tests for kcl and python, since the other languages don't have e2e tests.
         if: (matrix.language == 'kcl' && matrix.test-language == 'kcl') || (matrix.language == 'python' && matrix.test-language == 'python')
         run: |
-          export PATH=~/up-cli-bin:$PATH
           cd project-example-aws
           up test run tests/e2etest-xstoragebucket --e2e
