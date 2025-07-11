@@ -127,10 +127,6 @@ type Cmd struct {
 	// context.
 	OIDCAuth oidcauth.Cmd `cmd:"" help:"Create OIDC ProviderConfig in a Spaces control plane and Cloud Resources."`
 
-	// Deprecated commands
-	Connect    connectCmd    `cmd:"" help:"Deprecated: Connect kubectl to control plane."      hidden:""`
-	Disconnect disconnectCmd `cmd:"" help:"Deprecated: Disconnect kubectl from control plane." hidden:""`
-
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
 }
