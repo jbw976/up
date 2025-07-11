@@ -1,0 +1,29 @@
+{{- with .Status }}
+{{- $validity := "Unknown" }}
+{{- range .Conditions }}
+{{- if eq .Type "LicenseValid" }}
+{{- if eq .Status "True" }}
+{{- $validity = printf "Valid (%s)" .Message }}
+{{- else }}
+{{- $validity = printf "Invalid (%s)" .Message }}
+{{- end }}
+{{- end }}
+{{- end }}Upbound Crossplane License Status: 	{{ $validity }}
+
+{{- if .CreatedAt }}
+Created: 	{{ .CreatedAt }}
+{{- end }}
+{{- if .ExpiresAt }}
+Expires: 	{{ .ExpiresAt }}
+{{- end }}
+
+Plan: 	{{ .Plan }}
+{{- if .Capacity }}
+Resource Hour Limit: 	{{ .Capacity.ResourceHours }}
+Operation Limit: 	{{ .Capacity.Operations }}
+{{- end }}
+Enabled Features: {{- if not .EnabledFeatures }} 	None {{- end}}
+{{- range .EnabledFeatures }}
+- {{ . }}
+{{- end }}
+{{- end }}
