@@ -27,7 +27,7 @@ env:
 
 jobs:
   detect-noop:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
@@ -40,7 +40,7 @@ jobs:
           do_not_skip: '["workflow_dispatch", "schedule", "push"]'
 
   lint:
-    runs-on: blacksmith-8vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -92,7 +92,7 @@ jobs:
           only-new-issues: true
 
   check-diff:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -136,7 +136,7 @@ jobs:
         run: make check-diff
 
   unit-tests:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -184,7 +184,7 @@ jobs:
           GO_TAGS="integration" make -j2 test
 
   publish-artifacts:
-    runs-on: blacksmith-8vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -397,7 +397,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
   e2e:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
