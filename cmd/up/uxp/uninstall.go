@@ -20,6 +20,7 @@ func (c *uninstallCmd) AfterApply(insCtx *install.Context) error {
 		chartName,
 		url.URL{},
 		chartNamespace,
+		helm.Wait(),
 	)
 	if err != nil {
 		return err

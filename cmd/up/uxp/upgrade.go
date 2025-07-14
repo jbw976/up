@@ -37,7 +37,9 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		chartNamespace,
 		helm.WithChart(c.Bundle),
 		helm.RollbackOnError(c.Rollback),
-		helm.Force(c.Force))
+		helm.Force(c.Force),
+		helm.Wait(),
+	)
 	if err != nil {
 		return err
 	}

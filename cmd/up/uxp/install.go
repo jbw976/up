@@ -37,7 +37,9 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		chartName,
 		*repo,
 		chartNamespace,
-		helm.WithChart(c.Bundle))
+		helm.WithChart(c.Bundle),
+		helm.Wait(),
+	)
 	if err != nil {
 		return err
 	}
