@@ -27,14 +27,19 @@ const (
 
 // GetKubeConfig constructs a Kubernetes REST config from the specified
 // kubeconfig, or falls back to same defaults as kubectl.
-func GetKubeConfig(path string) (*rest.Config, error) {
+func GetKubeConfig(path string, context ...string) (*rest.Config, error) {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	rules.ExplicitPath = path
+	if len(context) > 0 && context[0] != "" {
+		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{
+			CurrentContext: context[0],
+		}).ClientConfig()
+	}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 }
 
 // BuildCloudControlPlaneKubeconfig builds a kubeconfig entry for a control plane.
-func BuildCloudControlPlaneKubeconfig(proxy *url.URL, id string, token string, includePrefix bool) *api.Config { //nolint:interfacer
+func BuildCloudControlPlaneKubeconfig(proxy *url.URL, id string, token string, includePrefix bool) *api.Config { //nolint:interfacer // This is a helper function.
 	conf := api.NewConfig()
 	key := strings.ReplaceAll(id, "/", "-")
 	if includePrefix {
@@ -55,6 +60,7 @@ func BuildCloudControlPlaneKubeconfig(proxy *url.URL, id string, token string, i
 	return conf
 }
 
+// VerifyKubeConfig verifies if the kubeconfig is valid.
 func VerifyKubeConfig() func(cfg *api.Config) error {
 	return func(cfg *api.Config) error {
 		clientConfig := clientcmd.NewDefaultClientConfig(*cfg, &clientcmd.ConfigOverrides{
