@@ -268,6 +268,12 @@ func packageHasHealthyConditions(pkg xpkgv1.PackageRevision) bool {
 	// Crossplane v2.x sets the `RevisionHealthy`.
 	v2Healthy := resource.IsConditionTrue(pkg.GetCondition(xpkgv1.TypeRevisionHealthy))
 
+	// Crossplane v2 sets an additional `RuntimeHealthy` condition on packages
+	// with a runtime (providers and functions).
+	if _, ok := pkg.(xpkgv1.PackageRevisionWithRuntime); ok {
+		v2Healthy = v2Healthy && resource.IsConditionTrue(pkg.GetCondition(xpkgv1.TypeRuntimeHealthy))
+	}
+
 	// Allow for either v1.x health or v2.x health, so we work correctly with
 	// either version.
 	return v1Healthy || v2Healthy
