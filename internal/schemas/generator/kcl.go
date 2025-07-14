@@ -30,7 +30,7 @@ const (
 	kclSchemaFolder         = "schemas"
 	kclModelsFolder         = "models"
 	kclAdoptModelsStructure = "sorted"
-	kclImage                = "xpkg.upbound.io/upbound/kcl:v0.10.6"
+	kclImage                = "xpkg.upbound.io/upbound/kcl:v0.11.2"
 )
 
 type kclGenerator struct{}
