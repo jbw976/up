@@ -50,9 +50,7 @@ func New(config *rest.Config) (*UXP, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*uxp.RepoURL,
-		// The default namespace is upbound-system, but we set it in order to
-		// be explicit.
-		helm.WithNamespace(ns),
+		ns,
 		helm.Wait())
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateHelmManager, chartName))

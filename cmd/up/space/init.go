@@ -168,7 +168,7 @@ func (c *initCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter
 	mgr, err := helm.NewManager(kubeconfig,
 		spacesChart,
 		c.Registry.Repository,
-		helm.WithNamespace(ns),
+		ns,
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
 		helm.WithChart(c.Bundle),
 		helm.Wait(),

@@ -100,7 +100,7 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrin
 	mgr, err := helm.NewManager(kubeconfig,
 		spacesChart,
 		c.Registry.Repository,
-		helm.WithNamespace(ns),
+		ns,
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
 		helm.WithChart(c.Bundle),
 		helm.RollbackOnError(c.Rollback),

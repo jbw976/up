@@ -87,14 +87,10 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	kongCtx.Bind(kClient)
 
-	with := []helm.InstallerModifierFn{
-		helm.WithNamespace(agentNs),
-	}
-
 	mgr, err := helm.NewManager(kubeconfig,
 		agentChart,
 		c.Registry.Repository,
-		with...,
+		agentNs,
 	)
 	if err != nil {
 		return err

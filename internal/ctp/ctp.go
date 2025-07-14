@@ -565,7 +565,7 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
 		*repo,
-		helm.WithNamespace(crossplaneNamespace),
+		crossplaneNamespace,
 		helm.Wait(),
 	)
 	if err != nil {

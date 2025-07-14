@@ -54,9 +54,7 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	kongCtx.Bind(kClient)
 
-	with := []helm.InstallerModifierFn{
-		helm.WithNamespace(ns),
-	}
+	with := []helm.InstallerModifierFn{}
 	if c.Orphan {
 		with = append(with, helm.WithNoHooks())
 	}
@@ -64,6 +62,7 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 	mgr, err := helm.NewManager(kubeconfig,
 		spacesChart,
 		c.Registry.Repository,
+		ns,
 		with...,
 	)
 	if err != nil {

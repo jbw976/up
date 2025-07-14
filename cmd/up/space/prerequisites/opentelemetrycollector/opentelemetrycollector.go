@@ -66,7 +66,7 @@ func New(config *rest.Config) (*Operator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*otelMgrURL,
-		helm.WithNamespace(chartNamespace),
+		chartNamespace,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateHelmManager, chartName))

@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	chartName = "crossplane"
+	chartName      = "crossplane"
+	chartNamespace = "crossplane-system"
 
 	imagePullSecret = "upbound-pull-secret"
 )

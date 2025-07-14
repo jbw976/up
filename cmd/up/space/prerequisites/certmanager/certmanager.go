@@ -25,7 +25,8 @@ import (
 const (
 	chartName = "cert-manager"
 	// Chart version to be installed.
-	version = "v1.11.0"
+	version   = "v1.11.0"
+	namespace = "cert-manager"
 
 	certificatesCRD = "certificates.cert-manager.io"
 
@@ -57,7 +58,7 @@ func New(config *rest.Config) (*CertManager, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*certMgrURL,
-		helm.WithNamespace(chartName),
+		namespace,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateHelmManager, chartName))

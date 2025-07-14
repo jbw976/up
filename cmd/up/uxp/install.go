@@ -36,6 +36,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
 		*repo,
+		chartNamespace,
 		helm.WithChart(c.Bundle))
 	if err != nil {
 		return err
@@ -83,7 +84,7 @@ func (c *installCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 		return err
 	}
 
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, helm.DefaultNamespace, c.Registry)
+	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, chartNamespace, c.Registry)
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", imagePullSecret), 1, 2),

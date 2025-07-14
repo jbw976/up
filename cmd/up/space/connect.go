@@ -115,7 +115,7 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 	mgr, err := helm.NewManager(kubeconfig,
 		agentChart,
 		c.Registry.Repository,
-		helm.WithNamespace(agentNs),
+		agentNs,
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
 		helm.Wait(),
 		helm.Force(true),
