@@ -33,7 +33,7 @@ func (t *KCLRunner) Run(ctx context.Context, fs afero.Fs, basePath string, schem
 		fs,
 		".",
 		basePath,
-		"xpkg.upbound.io/upbound/kcl:v0.10.6",
+		"xpkg.upbound.io/upbound/kcl:v0.11.2",
 		[]string{"kcl", "run", "-o", "test.yaml"},
 	)
 	if err != nil {
