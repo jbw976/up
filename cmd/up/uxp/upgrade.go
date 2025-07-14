@@ -100,8 +100,6 @@ func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 		},
 		p,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 
@@ -117,8 +115,6 @@ func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 		},
 		p,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 
