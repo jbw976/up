@@ -27,21 +27,10 @@ env:
 
 jobs:
   detect-noop:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Detect No-op Changes
         id: noop
         uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
@@ -51,22 +40,11 @@ jobs:
           do_not_skip: '["workflow_dispatch", "schedule", "push"]'
 
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -79,7 +57,7 @@ jobs:
 
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -107,29 +85,18 @@ jobs:
       # this action because it leaves 'annotations' (i.e. it comments on PRs to
       # point out linter violations).
       - name: Lint
-        uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6
+        uses: useblacksmith/golangci-lint-action@a441b42f4a441117ad7ee20b8d84a061db747efe # v6
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           skip-go-installation: true
           only-new-issues: true
 
   check-diff:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -141,7 +108,7 @@ jobs:
 
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -169,22 +136,11 @@ jobs:
         run: make check-diff
 
   unit-tests:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -199,7 +155,7 @@ jobs:
 
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -228,22 +184,11 @@ jobs:
           GO_TAGS="integration" make -j2 test
 
   publish-artifacts:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@main
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          large-packages: false
-          swap-storage: false
-          docker-images: false
-
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
@@ -269,7 +214,7 @@ jobs:
 
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -452,22 +397,12 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
   e2e:
+    # ToDo(haarchri): Download artifacts is too slow with blacksmith
     runs-on: ubuntu-24.04
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -658,6 +593,7 @@ jobs:
           expected_result: FAILED
 
   e2e-project-example-aws:
+    # ToDo(haarchri): Download artifacts is too slow with blacksmith
     runs-on: ubuntu-24.04
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
@@ -668,17 +604,6 @@ jobs:
         test-language: [kcl, python]
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -689,7 +614,7 @@ jobs:
       # up itself.
       - name: Setup Go
         id: setup-go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -742,7 +667,7 @@ jobs:
           assert_file_path: e2e/render-${{ matrix.language }}.yaml
           expected_result: PASSED
 
-      - name: up test run example-project-aws      
+      - name: up test run example-project-aws
         if: matrix.test-language == 'kcl' || matrix.test-language == 'python'
         run: |
           cd project-example-aws

@@ -4,7 +4,7 @@ on: pull_request_target
 
 jobs:
   auto-approve:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     permissions:
       pull-requests: write
     if: github.actor == 'upbound-self-hosted-renovate[bot]'

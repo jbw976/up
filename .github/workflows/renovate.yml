@@ -16,7 +16,7 @@ env:
 
 jobs:
   renovate:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     if: |
       !github.event.repository.fork &&
       !github.event.pull_request.head.repo.fork
