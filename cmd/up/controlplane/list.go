@@ -13,12 +13,15 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
 // listCmd list control planes in an account on Upbound.
 type listCmd struct {
+	requires.Space
+
 	AllGroups bool   `default:"false" help:"List control planes across all groups."                                                                                      short:"A"`
 	Group     string `default:""      help:"The control plane group that the control plane is contained in. This defaults to the group specified in the current context" short:"g"`
 }

@@ -56,12 +56,6 @@ func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) e
 		),
 	)
 
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return errors.Wrap(err, "unable to get kube client")
-	}
-	kongCtx.BindTo(cl, (*client.Client)(nil))
-
 	return nil
 }
 

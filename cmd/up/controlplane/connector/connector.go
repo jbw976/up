@@ -7,6 +7,7 @@ package connector
 import (
 	"github.com/alecthomas/kong"
 
+	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/feature"
 )
 
@@ -17,6 +18,8 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // Cmd contains commands for installing mcp-connector into an App Cluster.
 type Cmd struct {
+	requires.ControlPlane
+
 	Install   installCmd   `cmd:"" help:"Install mcp-connector into an App Cluster."`
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall mcp-connector from an App Cluster."`
 }

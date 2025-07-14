@@ -29,16 +29,6 @@ const (
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	if _, ctp, isSpace := upCtx.GetCurrentSpaceContextScope(); isSpace && ctp.Name == "" {
-		return errors.New("no control plane context is defined. Use 'up ctx' to set an control plane inside a group context")
-	}
-
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return errors.Wrap(err, "unable to get kube client")
-	}
-	kongCtx.BindTo(cl, (*client.Client)(nil))
-
 	if c.File != "" {
 		tf, err := upbound.TokenFromPath(c.File)
 		if err != nil {
