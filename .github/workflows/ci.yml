@@ -27,21 +27,10 @@ env:
 
 jobs:
   detect-noop:
-    runs-on: blacksmith
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Detect No-op Changes
         id: noop
         uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
@@ -51,22 +40,11 @@ jobs:
           do_not_skip: '["workflow_dispatch", "schedule", "push"]'
 
   lint:
-    runs-on: blacksmith-8vcpu-ubuntu-2204
+    runs-on: blacksmith-8vcpu-ubuntu-2404-arm
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -114,22 +92,11 @@ jobs:
           only-new-issues: true
 
   check-diff:
-    runs-on: blacksmith
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -169,22 +136,11 @@ jobs:
         run: make check-diff
 
   unit-tests:
-    runs-on: blacksmith
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -228,22 +184,11 @@ jobs:
           GO_TAGS="integration" make -j2 test
 
   publish-artifacts:
-    runs-on: blacksmith
+    runs-on: blacksmith-8vcpu-ubuntu-2404-arm
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@main
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          large-packages: false
-          swap-storage: false
-          docker-images: false
-
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
@@ -452,7 +397,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
   e2e:
-    runs-on: blacksmith
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -657,17 +602,6 @@ jobs:
         test-language: [kcl, python]
 
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          swap-storage: false
-          large-packages: false
-          docker-images: false
-
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
