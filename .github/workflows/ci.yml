@@ -397,7 +397,8 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
   e2e:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # ToDo(haarchri): Download artifacts is too slow with blacksmith
+    runs-on: ubuntu-24.04
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -592,7 +593,8 @@ jobs:
           expected_result: FAILED
 
   e2e-project-example-aws:
-    runs-on: blacksmith
+    # ToDo(haarchri): Download artifacts is too slow with blacksmith
+    runs-on: ubuntu-24.04
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
