@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
@@ -24,16 +24,7 @@ var tmpl string
 type showCmd struct{}
 
 // Run is the body of the command.
-func (c *showCmd) Run(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
-	cl, err := upCtx.BuildCurrentContextClient()
-	if err != nil {
-		return errors.Wrap(err, "failed to get kube client")
-	}
-
-	if err := v1alpha1.AddToScheme(cl.Scheme()); err != nil {
-		return errors.Wrap(err, "failed to add license types to scheme")
-	}
-
+func (c *showCmd) Run(cl client.Client, printer upterm.ObjectPrinter) error {
 	var l v1alpha1.License
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: v1alpha1.LicenseName}, &l); err != nil {
 		return errors.Wrap(err, "failed to get license")
