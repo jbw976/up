@@ -89,6 +89,7 @@ func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 		return err
 	}
 
+	// TODO(branden): Remove this once UXP is public.
 	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, chartNamespace, c.Registry)
 
 	if err := upterm.WrapWithSuccessSpinner(

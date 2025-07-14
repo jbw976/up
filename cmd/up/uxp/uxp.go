@@ -25,6 +25,7 @@ func baseValues() map[string]any {
 	return map[string]any{
 		"upbound": map[string]any{
 			"manager": map[string]any{
+				// TODO(branden): Remove this once UXP is public.
 				"imagePullSecrets": []string{imagePullSecret},
 			},
 		},
