@@ -26,6 +26,10 @@ jobs:
         with:
           submodules: true
 
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
       # Don't waste time starting Renovate if JSON is invalid
       - name: Validate Renovate JSON
         run:  npx --yes --package renovate -- renovate-config-validator
