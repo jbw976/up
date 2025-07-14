@@ -49,8 +49,7 @@ const (
 )
 
 const (
-	// TODO(mjudeikis): Move to stable version.
-	apiConnectorVersion = "v0.0.0-103.g4c6128a"
+	apiConnectorVersion = "0.0.1"
 )
 
 var version string

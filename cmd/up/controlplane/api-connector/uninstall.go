@@ -26,7 +26,7 @@ func (c *uninstallCmd) Help() string {
 The 'uninstall' command uninstalls the API Connector from a cluster.
 
 Examples:
-    up controlplane api-connector uninstall  --target-kubeconfig <kubeconfig-path-for-deployment-cluster>
+    up controlplane api-connector uninstall --target-kubeconfig <kubeconfig-path-for-deployment-cluster>
 	    Uninstalls the API Connector from the cluster but leaves the connections and secrets.
 
     up controlplane api-connector uninstall --all --target-kubeconfig <kubeconfig-path-for-deployment-cluster>

@@ -470,11 +470,12 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 		return err
 	}
 
-	cliDesiredVersion, err := mgr.GetCurrentVersion()
+	cliDesiredVersion := version.APIConnectorVersion()
 	if o.version != "" {
 		p.printer.Printfln("Version flag provided. Using version %s.", nice(o.version))
 		cliDesiredVersion = o.version
 	}
+	currentVersion, err := mgr.GetCurrentVersion()
 	if err != nil {
 		// error means that the connector is not installed
 		p.printer.Printfln("Installing %s to %s.", nice(connectorName), nice(o.namespace))
@@ -486,11 +487,11 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 	}
 	// We already have the connector installed. Moving into the upgrade logic.
 	switch {
-	case cliDesiredVersion == version.APIConnectorVersion():
+	case cliDesiredVersion == currentVersion:
 		p.printer.Printfln("API Connector is already installed. And matches the current known version. Skipping installation. Use --version to install a different version.")
 		return nil
-	case cliDesiredVersion != version.APIConnectorVersion() && o.upgrade:
-		p.printer.Printfln("Upgrading API Connector from %s to %s.", nice(cliDesiredVersion), nice(version.APIConnectorVersion()))
+	case cliDesiredVersion != currentVersion && o.upgrade:
+		p.printer.Printfln("Upgrading API Connector from %s to %s.", nice(currentVersion), nice(cliDesiredVersion))
 		if err = mgr.Upgrade(cliDesiredVersion, o.params); err != nil {
 			return err
 		}
