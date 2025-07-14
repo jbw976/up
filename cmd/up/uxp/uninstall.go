@@ -19,7 +19,9 @@ func (c *uninstallCmd) AfterApply(insCtx *install.Context) error {
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		chartName,
 		url.URL{},
-		helm.WithNamespace(insCtx.Namespace))
+		chartNamespace,
+		helm.Wait(),
+	)
 	if err != nil {
 		return err
 	}

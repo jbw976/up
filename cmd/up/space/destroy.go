@@ -16,6 +16,7 @@ import (
 
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -26,8 +27,8 @@ const (
 
 // destroyCmd uninstalls Upbound.
 type destroyCmd struct {
-	Upbound  upbound.Flags `embed:""`
-	Registry registryFlags `embed:""`
+	Upbound  upbound.Flags  `embed:""`
+	Registry registry.Flags `embed:""`
 
 	Confirmed bool `help:"Bypass safety checks and destroy Spaces"                    name:"yes-really-delete-space-and-all-data" type:"bool"`
 	Orphan    bool `help:"Remove Space components but retain Control Planes and data" name:"orphan"                               type:"bool"`
@@ -53,9 +54,7 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	kongCtx.Bind(kClient)
 
-	with := []helm.InstallerModifierFn{
-		helm.WithNamespace(ns),
-	}
+	with := []helm.InstallerModifierFn{}
 	if c.Orphan {
 		with = append(with, helm.WithNoHooks())
 	}
@@ -63,6 +62,7 @@ func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
 	mgr, err := helm.NewManager(kubeconfig,
 		spacesChart,
 		c.Registry.Repository,
+		ns,
 		with...,
 	)
 	if err != nil {

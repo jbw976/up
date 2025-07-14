@@ -33,6 +33,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -58,10 +59,12 @@ const (
 	devConnect  = "tls://connect.u5d.dev"
 	stagConnect = "tls://connect.staging-eikeagoo.upbound.services"
 	prodConnect = "tls://connect.upbound.io"
+
+	errFmtCreateNamespace = "failed to create namespace %q"
 )
 
 type connectCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 
 	Upbound upbound.Flags `embed:""`
 
@@ -112,7 +115,7 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 	mgr, err := helm.NewManager(kubeconfig,
 		agentChart,
 		c.Registry.Repository,
-		helm.WithNamespace(agentNs),
+		agentNs,
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
 		helm.Wait(),
 		helm.Force(true),

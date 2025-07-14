@@ -61,7 +61,7 @@ const (
 	crossplaneNamespace = "crossplane-system"
 	// pullSecretName is the name of the xpkg pull secret we create in the
 	// crossplane namespace.
-	pullSecretName = "upbound-system-pull-secret"
+	pullSecretName = "upbound-pull-secret"
 )
 
 // errNotDevControlPlane is used in project and test commands.
@@ -578,7 +578,7 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
 		*repo,
-		helm.WithNamespace(crossplaneNamespace),
+		crossplaneNamespace,
 		helm.Wait(),
 	)
 	if err != nil {

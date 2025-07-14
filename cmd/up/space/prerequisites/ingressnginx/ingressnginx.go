@@ -34,9 +34,10 @@ const (
 
 const (
 	chartName = "ingress-nginx"
-
 	// Chart version to be installed.
-	version                 = "4.12.1"
+	version   = "4.12.1"
+	namespace = "ingress-nginx"
+
 	errFmtCreateHelmManager = "failed to create helm manager for %s"
 	errFmtCreateK8sClient   = "failed to create kubernetes client for helm chart %s"
 	errFmtCreateNamespace   = "failed to create namespace %s"
@@ -58,7 +59,7 @@ func New(config *rest.Config, svc ServiceType) (*IngressNginx, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*nginxURL,
-		helm.WithNamespace(chartName),
+		namespace,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateHelmManager, chartName))

@@ -21,6 +21,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/oci"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upterm"
 )
 
@@ -69,7 +70,7 @@ type ociconfig struct {
 }
 
 type mirrorCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 
 	OutputDir           string `help:"The local directory path where exported artifacts will be saved as .tgz files." optional:"" short:"t"`
 	DestinationRegistry string `help:"The target container registry where the artifacts will be mirrored."            optional:"" short:"d"`

@@ -47,7 +47,7 @@ func (c *installCmd) AfterApply() error {
 	mgr, err := helm.NewManager(kubeconfig,
 		connectorName,
 		mcpRepoURL,
-		helm.WithNamespace(c.InstallationNamespace),
+		c.InstallationNamespace,
 		helm.Wait(),
 	)
 	if err != nil {

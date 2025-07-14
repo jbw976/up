@@ -29,12 +29,13 @@ import (
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/spaces"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
 type disconnectCmd struct {
-	Registry registryFlags `embed:""`
+	Registry registry.Flags `embed:""`
 
 	Upbound upbound.Flags `embed:""`
 
@@ -86,14 +87,10 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	kongCtx.Bind(kClient)
 
-	with := []helm.InstallerModifierFn{
-		helm.WithNamespace(agentNs),
-	}
-
 	mgr, err := helm.NewManager(kubeconfig,
 		agentChart,
 		c.Registry.Repository,
-		with...,
+		agentNs,
 	)
 	if err != nil {
 		return err

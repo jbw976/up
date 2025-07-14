@@ -1,12 +1,13 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
-package space
+// Package registry contains types for OCI registries.
+package registry
 
 import (
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -14,22 +15,31 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-type registryFlags struct {
+const (
+	upboundRegistry = "xpkg.upbound.io"
+)
+
+// Flags contains flags for specifying an OCI registry.
+type Flags struct {
 	Repository url.URL `default:"xpkg.upbound.io/spaces-artifacts" env:"UPBOUND_REGISTRY"          help:"Set registry for where to pull OCI artifacts from. This is an OCI registry reference, i.e. a URL without the scheme or protocol prefix." hidden:"" name:"registry-repository"`
 	Endpoint   url.URL `default:"https://xpkg.upbound.io"          env:"UPBOUND_REGISTRY_ENDPOINT" help:"Set registry endpoint, including scheme, for authentication."                                                                            hidden:"" name:"registry-endpoint"`
 }
 
-type authorizedRegistryFlags struct {
-	registryFlags
+// AuthorizedFlags contains flags for specifying an OCI registry and credentials
+// to authenticate with it.
+type AuthorizedFlags struct {
+	Flags
 
 	TokenFile *os.File `help:"File containing authentication token. Expecting a JSON file with \"accessId\" and \"token\" keys." name:"token-file"`
 	Username  string   `help:"Set the registry username."                                                                        hidden:""         name:"registry-username"`
 	Password  string   `help:"Set the registry password."                                                                        hidden:""         name:"registry-password"`
 }
 
-func (p *authorizedRegistryFlags) AfterApply() error {
-	if p.TokenFile == nil && p.Username == "" && p.Password == "" {
-		if p.Repository.String() == defaultRegistry {
+// AfterApply sets default values in AuthorizedFlags after assignment and
+// validation.
+func (f *AuthorizedFlags) AfterApply() error {
+	if f.TokenFile == nil && f.Username == "" && f.Password == "" {
+		if strings.HasPrefix(f.Repository.String(), upboundRegistry) {
 			return errors.New("--token-file is required")
 		}
 
@@ -42,21 +52,21 @@ func (p *authorizedRegistryFlags) AfterApply() error {
 		if err != nil {
 			return err
 		}
-		p.Username = id
-		p.Password = token
+		f.Username = id
+		f.Password = token
 
 		return nil
 	}
 
-	if p.Username != "" {
+	if f.Username != "" {
 		return nil
 	}
 
-	tf, err := upbound.TokenFromPath(p.TokenFile.Name())
+	tf, err := upbound.TokenFromPath(f.TokenFile.Name())
 	if err != nil {
 		return err
 	}
-	p.Username, p.Password = tf.AccessID, tf.Token
+	f.Username, f.Password = tf.AccessID, tf.Token
 
 	return nil
 }

@@ -60,7 +60,7 @@ func New(config *rest.Config) (*CNPGOperator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*cnpgURL,
-		helm.WithNamespace(chartNamespace),
+		chartNamespace,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtCreateHelmManager, chartName))

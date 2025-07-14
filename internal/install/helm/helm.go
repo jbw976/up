@@ -33,7 +33,6 @@ import (
 const (
 	helmDriverSecret = "secret"
 	defaultCacheDir  = ".cache/up/charts"
-	defaultNamespace = "upbound-system"
 	allVersions      = ">0.0.0-0"
 	waitTimeout      = 10 * time.Minute
 )
@@ -148,13 +147,6 @@ func CreateNamespace(b bool) InstallerModifierFn {
 	}
 }
 
-// WithNamespace sets the namespace for the helm installer.
-func WithNamespace(ns string) InstallerModifierFn {
-	return func(h *Installer) {
-		h.namespace = ns
-	}
-}
-
 // WithAlternateChart sets an alternate chart that is compatible to upgrade from if installed.
 func WithAlternateChart(chartName string) InstallerModifierFn {
 	return func(h *Installer) {
@@ -219,14 +211,14 @@ func WithNoHooks() InstallerModifierFn {
 	}
 }
 
-// NewManager builds a helm install manager for UXP.
-func NewManager(config *rest.Config, chartName string, repoURL url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) {
+// NewManager builds a helm install manager.
+func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespace string, modifiers ...InstallerModifierFn) (install.Manager, error) {
 	h := &Installer{
 		repoURL:     &repoURL,
 		chartRef:    chartName,
 		chartName:   chartName,
 		releaseName: chartName,
-		namespace:   defaultNamespace,
+		namespace:   namespace,
 		home:        os.UserHomeDir,
 		fs:          afero.NewOsFs(),
 		tempDir:     afero.TempDir,
@@ -358,7 +350,7 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 }
 
 // Install installs in the cluster.
-func (h *Installer) Install(version string, parameters map[string]any, opts ...install.InstallOption) error {
+func (h *Installer) Install(version string, parameters map[string]any, opts ...install.Option) error {
 	// make sure no version is already installed
 	current, err := h.GetCurrentVersion()
 	if err == nil {

@@ -15,9 +15,23 @@ import (
 )
 
 const (
-	chartName          = "universal-crossplane"
-	alternateChartName = "crossplane"
+	chartName      = "crossplane"
+	chartNamespace = "crossplane-system"
+
+	imagePullSecret = "upbound-pull-secret"
 )
+
+// baseValues returns base values for the UXP chart.
+func baseValues() map[string]any {
+	return map[string]any{
+		"upbound": map[string]any{
+			"manager": map[string]any{
+				// TODO(branden): Remove this once UXP is public.
+				"imagePullSecrets": []string{imagePullSecret},
+			},
+		},
+	}
+}
 
 var (
 	// RepoURL is the URL of the stable helm chart repository.
@@ -43,10 +57,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(&install.Context{
-		Kubeconfig: kubeconfig,
-		Namespace:  c.Namespace,
-	})
+	kongCtx.Bind(&install.Context{Kubeconfig: kubeconfig})
 	return nil
 }
 
@@ -56,8 +67,6 @@ type Cmd struct {
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
 	License   license.Cmd  `cmd:"" help:"Manage UXP licenses."`
-
-	Namespace string `default:"upbound-system" env:"UXP_NAMESPACE" help:"Kubernetes namespace for UXP." short:"n"`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`

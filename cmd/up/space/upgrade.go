@@ -24,7 +24,8 @@ import (
 	"github.com/upbound/up/cmd/up/space/prerequisites"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
-	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/registry"
+	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -43,7 +44,7 @@ const (
 
 // upgradeCmd upgrades Upbound.
 type upgradeCmd struct {
-	Registry authorizedRegistryFlags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 	Upbound upbound.Flags `embed:""`
 
@@ -57,7 +58,7 @@ type upgradeCmd struct {
 	prereqs    *prerequisites.Manager
 	helmParams map[string]any
 	kClient    kubernetes.Interface
-	pullSecret *kube.ImagePullApplicator
+	pullSecret *pullsecret.Manager
 	printer    upterm.ObjectPrinter
 	features   *feature.Flags
 	oldVersion string
@@ -95,12 +96,11 @@ func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrin
 	}
 	c.kClient = kClient
 
-	secret := kube.NewSecretApplicator(kClient)
-	c.pullSecret = kube.NewImagePullApplicator(secret)
+	c.pullSecret = pullsecret.NewManagerFromFlags(kClient, defaultImagePullSecret, ns, c.Registry)
 	mgr, err := helm.NewManager(kubeconfig,
 		spacesChart,
 		c.Registry.Repository,
-		helm.WithNamespace(ns),
+		ns,
 		helm.WithBasicAuth(c.Registry.Username, c.Registry.Password),
 		helm.WithChart(c.Bundle),
 		helm.RollbackOnError(c.Rollback),
@@ -205,12 +205,8 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 	pterm.Info.Printfln("Proceeding with Upbound Spaces upgrade...")
 
 	// Create or update image pull secret.
-
 	pullSecret := func() error {
-		if err := c.pullSecret.Apply(ctx, defaultImagePullSecret, ns, c.Registry.Username, c.Registry.Password, c.Registry.Endpoint.String()); err != nil {
-			return errors.Wrap(err, errCreateImagePullSecret)
-		}
-		return nil
+		return errors.Wrap(c.pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
 	}
 
 	if err := upterm.WrapWithSuccessSpinner(
