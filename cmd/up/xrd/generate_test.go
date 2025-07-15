@@ -16,249 +16,11 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 )
 
-// TestInferProperty tests the inferProperty function.
-func TestInferProperty(t *testing.T) {
-	type want struct {
-		output extv1.JSONSchemaProps
-		err    error
-	}
-
-	cases := map[string]struct {
-		input interface{}
-		want  want
-	}{
-		"StringType": {
-			input: "hello",
-			want: want{
-				output: extv1.JSONSchemaProps{Type: "string"},
-				err:    nil,
-			},
-		},
-		"IntegerType": {
-			input: 42,
-			want: want{
-				output: extv1.JSONSchemaProps{Type: "integer"},
-				err:    nil,
-			},
-		},
-		"FloatType": {
-			input: 3.14,
-			want: want{
-				output: extv1.JSONSchemaProps{Type: "number"},
-				err:    nil,
-			},
-		},
-		"BooleanType": {
-			input: true,
-			want: want{
-				output: extv1.JSONSchemaProps{Type: "boolean"},
-				err:    nil,
-			},
-		},
-		"ObjectType": {
-			input: map[string]interface{}{
-				"key": "value",
-			},
-			want: want{
-				output: extv1.JSONSchemaProps{
-					Type: "object",
-					Properties: map[string]extv1.JSONSchemaProps{
-						"key": {Type: "string"},
-					},
-				},
-				err: nil,
-			},
-		},
-		"ArrayTypeWithElements": {
-			input: []interface{}{"one", "two"},
-			want: want{
-				output: extv1.JSONSchemaProps{
-					Type: "array",
-					Items: &extv1.JSONSchemaPropsOrArray{
-						Schema: &extv1.JSONSchemaProps{Type: "string"},
-					},
-				},
-				err: nil,
-			},
-		},
-		"ArrayTypeEmpty": {
-			input: []interface{}{},
-			want: want{
-				output: extv1.JSONSchemaProps{
-					Type: "array",
-					Items: &extv1.JSONSchemaPropsOrArray{
-						Schema: &extv1.JSONSchemaProps{Type: "object"},
-					},
-				},
-				err: nil,
-			},
-		},
-		"UnknownType": {
-			input: nil,
-			want: want{
-				output: extv1.JSONSchemaProps{Type: "string"},
-				err:    nil,
-			},
-		},
-		"ArrayWithMixedTypes": {
-			input: []interface{}{1, "2", true},
-			want: want{
-				output: extv1.JSONSchemaProps{},
-				err:    errors.New("mixed types detected in array"),
-			},
-		},
-		"ArrayOfObjectsWithOptionalFields": {
-			input: []interface{}{
-				map[string]interface{}{
-					"name":             "aks-subnet",
-					"cidr":             "10.0.1.0/24",
-					"serviceEndpoints": []interface{}{"Microsoft.ContainerRegistry"},
-				},
-				map[string]interface{}{
-					"name":             "database-subnet",
-					"cidr":             "10.0.2.0/24",
-					"delegation":       "Microsoft.DBforMySQL/flexibleServers",
-					"serviceEndpoints": []interface{}{"Microsoft.Storage"},
-				},
-			},
-			want: want{
-				output: extv1.JSONSchemaProps{
-					Type: "array",
-					Items: &extv1.JSONSchemaPropsOrArray{
-						Schema: &extv1.JSONSchemaProps{
-							Type: "object",
-							Properties: map[string]extv1.JSONSchemaProps{
-								"name": {Type: "string"},
-								"cidr": {Type: "string"},
-								"serviceEndpoints": {
-									Type: "array",
-									Items: &extv1.JSONSchemaPropsOrArray{
-										Schema: &extv1.JSONSchemaProps{Type: "string"},
-									},
-								},
-								"delegation": {Type: "string"},
-							},
-						},
-					},
-				},
-				err: nil,
-			},
-		},
-	}
-
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			got, err := inferProperty(tc.input)
-
-			// Compare errors
-			if err != nil || tc.want.err != nil {
-				if err == nil || tc.want.err == nil || err.Error() != tc.want.err.Error() {
-					t.Errorf("inferProperty() error = %v, wantErr %v", err, tc.want.err)
-				}
-				return
-			}
-
-			// Compare the output
-			if diff := cmp.Diff(got, tc.want.output); diff != "" {
-				t.Errorf("inferProperty() -got, +want:\n%s", diff)
-			}
-		})
-	}
-}
-
-// TestInferProperties tests the inferProperties function.
-func TestInferProperties(t *testing.T) {
-	type want struct {
-		output map[string]extv1.JSONSchemaProps
-		err    error
-	}
-
-	cases := map[string]struct {
-		input map[string]interface{}
-		want  want
-	}{
-		"SimpleObject": {
-			input: map[string]interface{}{
-				"key1": "value1",
-				"key2": 42,
-			},
-			want: want{
-				output: map[string]extv1.JSONSchemaProps{
-					"key1": {Type: "string"},
-					"key2": {Type: "integer"},
-				},
-				err: nil,
-			},
-		},
-		"NestedObject": {
-			input: map[string]interface{}{
-				"nested": map[string]interface{}{
-					"key": true,
-				},
-			},
-			want: want{
-				output: map[string]extv1.JSONSchemaProps{
-					"nested": {
-						Type: "object",
-						Properties: map[string]extv1.JSONSchemaProps{
-							"key": {Type: "boolean"},
-						},
-					},
-				},
-				err: nil,
-			},
-		},
-		"ArrayInObject": {
-			input: map[string]interface{}{
-				"array": []interface{}{"a", "b"},
-			},
-			want: want{
-				output: map[string]extv1.JSONSchemaProps{
-					"array": {
-						Type: "array",
-						Items: &extv1.JSONSchemaPropsOrArray{
-							Schema: &extv1.JSONSchemaProps{Type: "string"},
-						},
-					},
-				},
-				err: nil,
-			},
-		},
-		"ObjectWithMixedArray": {
-			input: map[string]interface{}{
-				"array": []interface{}{1, "2"},
-			},
-			want: want{
-				output: nil,
-				err:    errors.New("error inferring property for key 'array': mixed types detected in array"),
-			},
-		},
-	}
-
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			got, err := inferProperties(tc.input)
-
-			// Compare errors
-			if err != nil || tc.want.err != nil {
-				if err == nil || tc.want.err == nil || err.Error() != tc.want.err.Error() {
-					t.Errorf("inferProperties() error = %v, wantErr %v", err, tc.want.err)
-				}
-				return
-			}
-
-			// Compare the output
-			if diff := cmp.Diff(got, tc.want.output); diff != "" {
-				t.Errorf("inferProperties() -got, +want:\n%s", diff)
-			}
-		})
-	}
-}
-
-// TestNewXRD tests the newXRD function.
-func TestNewXRD(t *testing.T) {
+// TestNewXRDv1 tests the newXRD function.
+func TestNewXRDv1(t *testing.T) {
 	type want struct {
 		xrd *v1.CompositeResourceDefinition
 		err error
@@ -921,7 +683,7 @@ spec:
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			got, err := newXRD([]byte(tc.inputYAML), tc.customPlural)
+			got, err := newXRDv1([]byte(tc.inputYAML), tc.customPlural)
 
 			// Compare error messages as strings, trimming whitespace for safety
 			gotErrMsg := ""
@@ -941,6 +703,459 @@ spec:
 			// Compare the output XRD (ignoring "Required" field for simplicity)
 			if diff := cmp.Diff(got, tc.want.xrd, cmpopts.IgnoreFields(extv1.JSONSchemaProps{}, "Required")); diff != "" {
 				t.Errorf("newXRD() -got, +want:\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestNewXRDv2 tests the newXRDv2 function.
+func TestNewXRDv2(t *testing.T) {
+	type want struct {
+		xrd *v2alpha1.CompositeResourceDefinition
+		err error
+	}
+
+	cases := map[string]struct {
+		inputYAML    string
+		customPlural string
+		want         want
+	}{
+		"ClusterScopedXR": {
+			inputYAML: `
+apiVersion: aws.u5d.io/v1
+kind: XEKS
+metadata:
+  name: test
+spec:
+  parameters:
+    id: test
+    region: eu-central-1
+`,
+			customPlural: "xeks",
+			want: want{
+				xrd: &v2alpha1.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xeks.aws.u5d.io",
+					},
+					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+						Group: "aws.u5d.io",
+						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "XEKS",
+							Plural:     "xeks",
+						},
+						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2alpha1.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "XEKS is the Schema for the XEKS API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Description: "XEKSSpec defines the desired state of XEKS.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"parameters": {
+														Type: "object",
+														Properties: map[string]extv1.JSONSchemaProps{
+															"id": {
+																Type: "string",
+															},
+															"region": {
+																Type: "string",
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Description: "XEKSStatus defines the observed state of XEKS.",
+												Type:        "object",
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"NamespaceScopedXRC": {
+			inputYAML: `
+apiVersion: aws.u5d.io/v1
+kind: EKS
+metadata:
+  name: test
+  namespace: test-namespace
+spec:
+  parameters:
+    id: test
+    region: eu-central-1
+`,
+			customPlural: "eks",
+			want: want{
+				xrd: &v2alpha1.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "eks.aws.u5d.io",
+					},
+					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+						Group: "aws.u5d.io",
+						Scope: v2alpha1.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "EKS",
+							Plural:     "eks",
+						},
+						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2alpha1.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "EKS is the Schema for the EKS API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Description: "EKSSpec defines the desired state of EKS.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"parameters": {
+														Type: "object",
+														Properties: map[string]extv1.JSONSchemaProps{
+															"id": {
+																Type: "string",
+															},
+															"region": {
+																Type: "string",
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Description: "EKSStatus defines the observed state of EKS.",
+												Type:        "object",
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"CustomPluralPostgres": {
+			inputYAML: `
+apiVersion: database.u5d.io/v1
+kind: Postgres
+metadata:
+  name: test
+spec:
+  parameters:
+    version: "13"
+`,
+			customPlural: "postgreses",
+			want: want{
+				xrd: &v2alpha1.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "postgreses.database.u5d.io",
+					},
+					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+						Group: "database.u5d.io",
+						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Postgres",
+							Plural:     "postgreses",
+						},
+						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2alpha1.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Postgres is the Schema for the Postgres API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Description: "PostgresSpec defines the desired state of Postgres.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"parameters": {
+														Type: "object",
+														Properties: map[string]extv1.JSONSchemaProps{
+															"version": {
+																Type: "string",
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Description: "PostgresStatus defines the observed state of Postgres.",
+												Type:        "object",
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"BucketWithStatus": {
+			inputYAML: `
+apiVersion: storage.u5d.io/v1
+kind: Bucket
+metadata:
+  name: test
+spec:
+  parameters:
+    storage: "13"
+status:
+  bucketName: test
+`,
+			want: want{
+				xrd: &v2alpha1.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "buckets.storage.u5d.io",
+					},
+					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+						Group: "storage.u5d.io",
+						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Bucket",
+							Plural:     "buckets",
+						},
+						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2alpha1.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Bucket is the Schema for the Bucket API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Description: "BucketSpec defines the desired state of Bucket.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"parameters": {
+														Type: "object",
+														Properties: map[string]extv1.JSONSchemaProps{
+															"storage": {
+																Type: "string",
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Description: "BucketStatus defines the observed state of Bucket.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"bucketName": {
+														Type: "string",
+													},
+												},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"RemoveXPStandardFieldsFromSpec": {
+			inputYAML: `
+apiVersion: aws.u5d.io/v1
+kind: XEKS
+metadata:
+  name: test
+spec:
+  parameters:
+    id: test
+    region: eu-central-1
+  resourceRefs:
+    - name: resource1
+  writeConnectionSecretToRef:
+    name: secret
+  publishConnectionDetailsTo:
+    name: details
+  environmentConfigRefs:
+    - name: config1
+  compositionSelector:
+    matchLabels:
+      layer: functions
+`,
+			customPlural: "xeks",
+			want: want{
+				xrd: &v2alpha1.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xeks.aws.u5d.io",
+					},
+					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+						Group: "aws.u5d.io",
+						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "XEKS",
+							Plural:     "xeks",
+						},
+						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2alpha1.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "XEKS is the Schema for the XEKS API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Description: "XEKSSpec defines the desired state of XEKS.",
+												Type:        "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"parameters": {
+														Type: "object",
+														Properties: map[string]extv1.JSONSchemaProps{
+															"id": {
+																Type: "string",
+															},
+															"region": {
+																Type: "string",
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Description: "XEKSStatus defines the observed state of XEKS.",
+												Type:        "object",
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"MissingAPIVersion": {
+			inputYAML: `
+kind: Postgres
+metadata:
+  name: test
+spec:
+  parameters:
+    version: "13"
+`,
+			customPlural: "postgreses",
+			want: want{
+				xrd: nil,
+				err: errors.New("invalid manifest: apiVersion is required"),
+			},
+		},
+		"MissingKind": {
+			inputYAML: `
+apiVersion: database.u5d.io/v1
+metadata:
+  name: test
+spec:
+  parameters:
+    version: "13"
+`,
+			customPlural: "postgreses",
+			want: want{
+				xrd: nil,
+				err: errors.New("invalid manifest: kind is required"),
+			},
+		},
+		"InvalidTopLevelKey": {
+			inputYAML: `
+apiVersion: database.u5d.io/v1
+kind: Postgres
+metadata:
+  name: test
+spec:
+  parameters:
+    version: "13"
+invalidKey: shouldNotBeHere
+`,
+			customPlural: "postgreses",
+			want: want{
+				xrd: nil,
+				err: errors.New("invalid manifest: only apiVersion, kind, metadata, spec, and status are allowed as top-level keys"),
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := newXRDv2([]byte(tc.inputYAML), tc.customPlural)
+
+			// Compare error messages as strings, trimming whitespace for safety
+			gotErrMsg := ""
+			wantErrMsg := ""
+
+			if err != nil {
+				gotErrMsg = strings.TrimSpace(err.Error())
+			}
+			if tc.want.err != nil {
+				wantErrMsg = strings.TrimSpace(tc.want.err.Error())
+			}
+
+			if gotErrMsg != wantErrMsg {
+				t.Errorf("newXRDv2() error - got: %q, want: %q", gotErrMsg, wantErrMsg)
+			}
+
+			// Compare the output XRD (ignoring "Required" field for simplicity)
+			if diff := cmp.Diff(got, tc.want.xrd, cmpopts.IgnoreFields(extv1.JSONSchemaProps{}, "Required")); diff != "" {
+				t.Errorf("newXRDv2() -got, +want:\n%s", diff)
 			}
 		})
 	}

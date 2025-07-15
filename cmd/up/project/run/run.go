@@ -284,6 +284,16 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		pterm.Printfln("Kubeconfig updated. Current context is %q.", ctpKubeconfig.CurrentContext)
 	}
 
+	if !c.printer.Quiet {
+		vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
+		if err != nil {
+			return errors.New("this is not a project directory")
+		}
+		if vPrj.IsV1() {
+			pterm.Info.Println("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
+		}
+	}
+
 	return nil
 }
 

@@ -30,12 +30,14 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	xparser "github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpextv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/xpkg"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
 	"github.com/upbound/up/internal/xpkg/workspace/meta"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // paths to extract GVK and name from objects that conform to Kubernetes
@@ -333,7 +335,8 @@ func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier,
 		if err := v.parseMeta(ctx, pCtx); err != nil {
 			return NodeIdentifier{}, err
 		}
-	case projectv1alpha1.ProjectGroupVersionKind:
+	case projectv1alpha1.ProjectGroupVersionKind,
+		projectv2alpha1.ProjectGroupVersionKind:
 		if err := v.parseProject(pCtx); err != nil {
 			return NodeIdentifier{}, err
 		}
@@ -431,25 +434,46 @@ func (v *View) parseMeta(ctx context.Context, pCtx parseContext) error {
 }
 
 func (v *View) parseProject(pCtx parseContext) error {
-	var proj projectv1alpha1.Project
-	if err := k8syaml.Unmarshal(pCtx.docBytes, &proj); err != nil {
-		return err
+	switch pCtx.obj.GroupVersionKind() {
+	case projectv1alpha1.ProjectGroupVersionKind:
+		var proj projectv1alpha1.Project
+		if err := k8syaml.Unmarshal(pCtx.docBytes, &proj); err != nil {
+			return err
+		}
+		v.meta = meta.New(&proj)
+		v.metaPath = pCtx.path
+		return nil
+	case projectv2alpha1.ProjectGroupVersionKind:
+		var proj projectv2alpha1.Project
+		if err := k8syaml.Unmarshal(pCtx.docBytes, &proj); err != nil {
+			return err
+		}
+		v.meta = meta.New(&proj)
+		v.metaPath = pCtx.path
+		return nil
+	default:
+		return errors.Errorf("unexpected project version: %s", pCtx.obj.GroupVersionKind())
 	}
-
-	v.meta = meta.New(&proj)
-	v.metaPath = pCtx.path
-
-	return nil
 }
 
 func (v *View) parseXRD(ctx parseContext) error {
-	var xrd xpextv1.CompositeResourceDefinition
-	if err := k8syaml.Unmarshal(ctx.docBytes, &xrd); err != nil {
-		return err
+	switch ctx.obj.GroupVersionKind() {
+	case xpextv1.CompositeResourceDefinitionGroupVersionKind:
+		var xrd xpextv1.CompositeResourceDefinition
+		if err := k8syaml.Unmarshal(ctx.docBytes, &xrd); err != nil {
+			return err
+		}
+		v.xrClaimRefs[xrd.GetCompositeGroupVersionKind()] = xrd.GetClaimGroupVersionKind()
+		return nil
+	case xpextv2alpha1.CompositeResourceDefinitionGroupVersionKind:
+		var xrd xpextv2alpha1.CompositeResourceDefinition
+		if err := k8syaml.Unmarshal(ctx.docBytes, &xrd); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("unexpected XRD version: %s", ctx.obj.GroupVersionKind())
 	}
-
-	v.xrClaimRefs[xrd.GetCompositeGroupVersionKind()] = xrd.GetClaimGroupVersionKind()
-	return nil
 }
 
 func (v *View) appendID(path string, id NodeIdentifier) {

@@ -1,0 +1,18 @@
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: Project
+metadata:
+  name: project-embedded-functions
+spec:
+  maintainer: Upbound <support@upbound.io>
+  source: github.com/upbound/project-getting-started
+  license: Apache-2.0
+  repository: xpkg.upbound.io/awg/getting-started
+  dependsOn:
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Provider
+      package: xpkg.upbound.io/crossplane-contrib/provider-nop
+      version: "v0.2.1"
+    - apiVersion: pkg.crossplane.io/v1
+      kind: Function
+      package: xpkg.upbound.io/crossplane-contrib/function-auto-ready
+      version: "v0.2.1"

@@ -1,0 +1,47 @@
+apiVersion: apiextensions.crossplane.io/v2alpha1
+kind: CompositeResourceDefinition
+metadata:
+  name: xeks.aws.platform.upbound.io
+spec:
+  group: aws.platform.upbound.io
+  scope: Cluster
+  names:
+    kind: XEKS
+    plural: xeks
+    categories:
+    - crossplane
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - parameters
+            properties:
+              parameters:
+                type: object
+                required:
+                - region
+                - nodes
+                properties:
+                  region:
+                    type: string
+                  nodes:
+                    type: object
+                    required:
+                    - count
+                    - instanceType
+                    properties:
+                      count:
+                        type: integer
+                        default: 1
+                      instanceType:
+                        type: string
+                        default: t3.small
+          status:
+            type: object

@@ -18,17 +18,20 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 	"github.com/crossplane/crossplane/xcrd"
 
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
 )
 
 func (c *generateCmd) Help() string {
 	return `
 The 'generate' command is used to create an Composite Resource (XR) or Composite Resource Claim (XRC) resource.
+For v2 projects: Only Composite Resources (XRs) are supported. XRs are namespace-scoped by default, but you can choose cluster-scoped if needed.
 
 Examples:
 
@@ -55,14 +58,15 @@ Examples:
 }
 
 const (
-	outputFile  = "file"
-	outputYAML  = "yaml"
-	outputJSON  = "json"
-	xr          = "Composite Resource (XR)"
-	xrString    = "xr"
-	xrc         = "Composite Resource Claim (XRC)"
-	xrcString   = "xrc"
-	claimString = "claim"
+	outputFile       = "file"
+	outputYAML       = "yaml"
+	outputJSON       = "json"
+	xr               = "Composite Resource (XR)"
+	xrString         = "xr"
+	xrc              = "Composite Resource Claim (XRC)"
+	xrcString        = "xrc"
+	claimString      = "claim"
+	defaultNamespace = "default"
 )
 
 type resource struct {
@@ -88,6 +92,7 @@ type generateCmd struct {
 
 	projFS    afero.Fs
 	exampleFS afero.Fs
+	proj      *project.WithVersion
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -105,12 +110,14 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	projDirPath := filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
-	// The location of the co position defines the root of the xrd.
-	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
+	// The location of the project file defines the root of the project.
+	proj, err := project.ParseWithVersion(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}
 	proj.Default()
+
+	c.proj = proj
 
 	c.exampleFS = afero.NewBasePathFs(
 		c.projFS, proj.Spec.Paths.Examples,
@@ -142,8 +149,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 func (c *generateCmd) Run() error {
-	// get xr or xrc/claim as input otherwise ask interactive
-	if c.Type == "" {
+	// For v2 projects, we only have XRs (no XRCs), so set type to xr
+	if c.proj != nil && c.proj.IsV2() {
+		c.Type = xrString
+	} else if c.Type == "" {
+		// For v1 projects, get xr or xrc/claim as input otherwise ask interactive
 		c.Type = c.getInteractiveType()
 	}
 	if len(c.relXrdFilePath) > 0 {
@@ -172,38 +182,77 @@ func (c *generateCmd) processXRDFile() error {
 	return c.outputResource(resource)
 }
 
-// readXRDFile reads and unmarshals the XRD file.
-func (c *generateCmd) readXRDFile() (v1.CompositeResourceDefinition, error) {
-	var xrd v1.CompositeResourceDefinition
-
+// readXRDFile reads and unmarshals the XRD file, returning either v1 or v2alpha1 XRD.
+func (c *generateCmd) readXRDFile() (interface{}, error) {
 	xrdRaw, err := afero.ReadFile(c.projFS, c.relXrdFilePath)
 	if err != nil {
-		return xrd, errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relXrdFilePath))
+		return nil, errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relXrdFilePath))
 	}
 
-	err = yaml.Unmarshal(xrdRaw, &xrd)
+	// First, determine the API version
+	var typeMeta metav1.TypeMeta
+	err = yaml.Unmarshal(xrdRaw, &typeMeta)
 	if err != nil {
-		return xrd, errors.Wrapf(err, "failed to unmarshal XRD file")
+		return nil, errors.Wrapf(err, "failed to unmarshal XRD TypeMeta")
 	}
 
-	return xrd, nil
+	switch typeMeta.APIVersion {
+	case v1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		var xrd v1.CompositeResourceDefinition
+		err = yaml.Unmarshal(xrdRaw, &xrd)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal v1 XRD file")
+		}
+		return xrd, nil
+	case v2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		var xrd v2alpha1.CompositeResourceDefinition
+		err = yaml.Unmarshal(xrdRaw, &xrd)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal v2alpha1 XRD file")
+		}
+		return xrd, nil
+	default:
+		return nil, errors.Errorf("unsupported XRD API version: %s", typeMeta.APIVersion)
+	}
 }
 
-// createCRDFromXRD creates a CRD from the XRD.
-func (c *generateCmd) createCRDFromXRD(xrd v1.CompositeResourceDefinition) (*apiextensionsv1.CustomResourceDefinition, error) {
+// createCRDFromXRD creates a CRD from the XRD (supports both v1 and v2alpha1).
+func (c *generateCmd) createCRDFromXRD(xrd interface{}) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
+	var xrdName string
 
-	if c.Type == xrcString || c.Type == claimString {
-		crd, err = xcrd.ForCompositeResourceClaim(&xrd)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q for Composite Resource Claim", xrd.GetName())
+	switch x := xrd.(type) {
+	case v1.CompositeResourceDefinition:
+		xrdName = x.GetName()
+		switch c.Type {
+		case xrcString, claimString:
+			crd, err = xcrd.ForCompositeResourceClaim(&x)
+			if err != nil {
+				return nil, errors.Wrapf(err, "cannot derive composite CRD from v1 XRD %q for Composite Resource Claim", xrdName)
+			}
+		case xrString:
+			crd, err = xcrd.ForCompositeResource(&x)
+			if err != nil {
+				return nil, errors.Wrapf(err, "cannot derive composite CRD from v1 XRD %q for Composite Resource", xrdName)
+			}
 		}
-	} else if c.Type == xrString {
-		crd, err = xcrd.ForCompositeResource(&xrd)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot derive composite CRD from XRD %q for Composite Resource", xrd.GetName())
+	case v2alpha1.CompositeResourceDefinition:
+		xrdName = x.GetName()
+		// For v2alpha1 XRDs, we only support XRs (no XRCs)
+		switch c.Type {
+		case xrString:
+			// Convert v2alpha1 XRD to v1 format for xcrd processing
+			v1XRD := ixrd.ConvertV2Alpha1ToV1(&x)
+			crd, err = xcrd.ForCompositeResource(v1XRD)
+			if err != nil {
+				return nil, errors.Wrapf(err, "cannot derive composite CRD from v2alpha1 XRD %q for Composite Resource", xrdName)
+			}
+		default:
+			return nil, errors.New("v2alpha1 XRDs only support Composite Resources (XRs), not Composite Resource Claims (XRCs)")
 		}
+	default:
+		return nil, errors.New("unsupported XRD type")
 	}
 
 	crdGVK := apiextensionsv1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
@@ -231,8 +280,18 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 	}
 
 	res.ObjectMeta.Name = strings.ToLower(res.Kind)
-	if c.Type == xrcString || c.Type == claimString {
-		res.ObjectMeta.Namespace = "default"
+
+	// Set namespace based on resource type and CRD scope
+	switch c.Type {
+	case xrcString, claimString:
+		// XRC/Claims are always namespace-scoped
+		res.ObjectMeta.Namespace = defaultNamespace
+	case xrString:
+		// For XRs, check the CRD scope to determine if namespace is needed
+		if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
+			res.ObjectMeta.Namespace = defaultNamespace
+		}
+		// If cluster-scoped, no namespace is set
 	}
 
 	return res, nil
@@ -255,12 +314,13 @@ func (c *generateCmd) processInput() error {
 
 func (c *generateCmd) collectInteractiveInput() (string, string, string, string, string, string, error) {
 	// Collect the resource type, kind, API group, API version, metadata.name and metadata.namespace
-	return c.getInteractiveType(),
-		c.getInteractiveKind(c.Type),
+	resourceType := c.getInteractiveType()
+	return resourceType,
+		c.getInteractiveKind(resourceType),
 		c.getInteractiveGroup(),
 		c.getInteractiveVersion(),
 		c.getInteractiveMetadataName(),
-		c.getInteractiveMetadataNamespace(c.Type),
+		c.getInteractiveMetadataNamespace(resourceType),
 		nil
 }
 
@@ -305,9 +365,14 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 			WithDefaultText("What is your Composite Resource Claim (XRC) kind?").
 			WithDefaultValue("Cluster")
 	} else {
+		// For V2 projects, use "Cluster" as default for XR; for V1 projects, use "XCluster"
+		defaultValue := "XCluster"
+		if c.proj.IsV2() {
+			defaultValue = "Cluster"
+		}
 		input = *pterm.DefaultInteractiveTextInput.
 			WithDefaultText("What is your Composite Resource (XR) kind?").
-			WithDefaultValue("XCluster")
+			WithDefaultValue(defaultValue)
 	}
 
 	name, err := input.Show()
@@ -382,18 +447,54 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 		return c.Namespace
 	}
 
-	if resourceType != xrcString {
+	// For v2 projects, only XRs exist and we ask about namespace scoping
+	if c.proj != nil && c.proj.IsV2() {
+		return c.getInteractiveXRNamespace()
+	}
+
+	// For v1 projects: XRC/Claims always ask for namespace, XRs don't have namespace
+	if resourceType == xrcString || resourceType == claimString {
+		input := *pterm.DefaultInteractiveTextInput.
+			WithDefaultText("What is the metadata namespace?").
+			WithDefaultValue(defaultNamespace)
+
+		namespace, err := input.Show()
+		if err != nil {
+			pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
+			return ""
+		}
+
+		return namespace
+	}
+
+	// For XR resources in v1 projects, no namespace
+	return ""
+}
+
+// getInteractiveXRNamespace asks whether XR should be cluster scoped or gets the namespace for namespace scoping.
+func (c *generateCmd) getInteractiveXRNamespace() string {
+	confirm := pterm.DefaultInteractiveConfirm.
+		WithDefaultText("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)").
+		WithDefaultValue(false)
+
+	wantClusterScoped, err := confirm.Show()
+	if err != nil {
+		pterm.Error.Println("An error occurred while getting scoping choice:", err)
+		return defaultNamespace // Default to namespace scoped with default namespace
+	}
+
+	if wantClusterScoped {
 		return ""
 	}
 
 	input := *pterm.DefaultInteractiveTextInput.
 		WithDefaultText("What is the metadata namespace?").
-		WithDefaultValue("default")
+		WithDefaultValue(defaultNamespace)
 
 	namespace, err := input.Show()
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
-		return ""
+		return defaultNamespace
 	}
 
 	return namespace
@@ -431,7 +532,8 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 		Spec: map[string]interface{}{},
 	}
 
-	if resourceType == xrcString || resourceType == claimString {
+	// Set namespace for XRC/Claims (v1) or for XRs when namespace is provided (v1 and v2)
+	if resourceType == xrcString || resourceType == claimString || (resourceType == xrString && namespace != "") {
 		res.ObjectMeta.Namespace = strings.ToLower(validatedNamespace)
 	}
 
@@ -512,7 +614,7 @@ func validateNameNamespace(name, namespace string) (string, error) {
 	}
 
 	if namespace == "" {
-		namespace = "default"
+		namespace = defaultNamespace
 	} else {
 		if len(namespace) > 63 {
 			return "", errors.New("metadata.namespace must be no more than 63 characters")

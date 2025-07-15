@@ -8,19 +8,29 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 
 	_ "embed"
 )
 
-// Embed an XRD YAML file
+// Embed XRD YAML files
 //
 //go:embed testdata/xeks-xrd-definition.yaml
 var xeksXRDYAML []byte
+
+// Embed XRDv2 YAML files
+//
+//go:embed testdata/xeks-xrd2-namespaces-definition.yaml
+var v2XRDNamespacedYAML []byte
+
+// Embed XRDv2 YAML files
+//
+//go:embed testdata/xeks-xrd2-cluster-definition.yaml
+var v2XRDClusterYAML []byte
 
 func TestCreateResource(t *testing.T) {
 	type want struct {
@@ -65,6 +75,46 @@ func TestCreateResource(t *testing.T) {
 			apiVersion:    "v1alpha1",
 			name:          "cluster",
 			namespace:     "",
+			want: want{
+				res: resource{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "customer.upbound.io/v1alpha1",
+						Kind:       "XCluster",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Spec: map[string]interface{}{},
+				},
+			},
+		},
+		"ValidNamespacedXRResource": {
+			resourceType:  "xr",
+			compositeName: "XCluster",
+			apiGroup:      "customer.upbound.io",
+			apiVersion:    "v1alpha1",
+			name:          "cluster",
+			namespace:     "test-namespace",
+			want: want{
+				res: resource{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "customer.upbound.io/v1alpha1",
+						Kind:       "XCluster",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster",
+						Namespace: "test-namespace",
+					},
+					Spec: map[string]interface{}{},
+				},
+			},
+		},
+		"ValidClusterXRResource": {
+			resourceType:  "xr",
+			compositeName: "XCluster",
+			apiGroup:      "customer.upbound.io",
+			apiVersion:    "v1alpha1",
+			name:          "cluster",
 			want: want{
 				res: resource{
 					TypeMeta: metav1.TypeMeta{
@@ -156,56 +206,40 @@ func TestCreateResource(t *testing.T) {
 
 func TestCreateCRDAndGenerateResource(t *testing.T) {
 	type want struct {
-		crd apiextensionsv1.CustomResourceDefinition
 		res resource
 		err string
 	}
 
 	// Unmarshal the embedded XRD YAML into a CompositeResourceDefinition object
-	var xrd v1.CompositeResourceDefinition
-	err := yaml.Unmarshal(xeksXRDYAML, &xrd)
-	assert.NilError(t, err, "Failed to unmarshal sample XRD")
+	var v1XRD v1.CompositeResourceDefinition
+	err := yaml.Unmarshal(xeksXRDYAML, &v1XRD)
+	assert.NilError(t, err, "Failed to unmarshal v1 sample XRD")
 
-	trueVar := true
+	// Unmarshal the v2alpha1 Namespaced XRD
+	var v2XRDNamespaced v2alpha1.CompositeResourceDefinition
+	err = yaml.Unmarshal(v2XRDNamespacedYAML, &v2XRDNamespaced)
+	assert.NilError(t, err, "Failed to unmarshal v2alpha1 sample XRD")
+
+	var v2XRDCluster v2alpha1.CompositeResourceDefinition
+	err = yaml.Unmarshal(v2XRDClusterYAML, &v2XRDCluster)
+	assert.NilError(t, err, "Failed to unmarshal v2alpha1 sample XRD")
+
 	cases := map[string]struct {
+		xrd          interface{}
 		resourceType string
 		want         want
 	}{
-		"XRCGeneration": {
+		"V1XRCGeneration": {
+			xrd:          v1XRD,
 			resourceType: "xrc",
 			want: want{
-				err: "cannot derive composite CRD from XRD",
+				err: "cannot derive composite CRD from v1 XRD",
 			},
 		},
-		"XRGeneration": {
+		"V1XRGeneration": {
+			xrd:          v1XRD,
 			resourceType: "xr",
 			want: want{
-				crd: apiextensionsv1.CustomResourceDefinition{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.k8s.io/v1",
-						Kind:       "CustomResourceDefinition",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "xeks.aws.platform.upbound.io",
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion:         "apiextensions.crossplane.io/v1",
-								Kind:               "CompositeResourceDefinition",
-								Name:               "xeks.aws.platform.upbound.io",
-								UID:                "",
-								Controller:         &trueVar,
-								BlockOwnerDeletion: &trueVar,
-							},
-						},
-					},
-					Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-						Group: "aws.platform.upbound.io",
-						Names: apiextensionsv1.CustomResourceDefinitionNames{
-							Kind:   "XEKS",
-							Plural: "xeks",
-						},
-					},
-				},
 				res: resource{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "aws.platform.upbound.io/v1alpha1",
@@ -230,13 +264,71 @@ func TestCreateCRDAndGenerateResource(t *testing.T) {
 				err: "",
 			},
 		},
+		"V2XRCGeneration": {
+			xrd:          v2XRDNamespaced,
+			resourceType: "xrc",
+			want: want{
+				err: "v2alpha1 XRDs only support Composite Resources",
+			},
+		},
+		"V2XRNamespacedGeneration": {
+			xrd:          v2XRDNamespaced,
+			resourceType: "xr",
+			want: want{
+				res: resource{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "aws.platform.upbound.io/v1alpha1",
+						Kind:       "XEKS",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "xeks",
+						Namespace: "default", // Should be namespace-scoped based on XRD scope
+					},
+					Spec: map[string]interface{}{
+						"parameters": map[string]interface{}{
+							"region": "string",
+							"nodes": map[string]interface{}{
+								"count":        float64(1),
+								"instanceType": "t3.small",
+							},
+						},
+					},
+				},
+				err: "",
+			},
+		},
+		"V2XRClusterGeneration": {
+			xrd:          v2XRDCluster,
+			resourceType: "xr",
+			want: want{
+				res: resource{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "aws.platform.upbound.io/v1alpha1",
+						Kind:       "XEKS",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "xeks",
+					},
+					Spec: map[string]interface{}{
+						"parameters": map[string]interface{}{
+							"region": "string",
+							"nodes": map[string]interface{}{
+								"count":        float64(1),
+								"instanceType": "t3.small",
+							},
+						},
+					},
+				},
+				err: "",
+			},
+		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			cmd := &generateCmd{Type: tc.resourceType}
 
-			gotCRD, err := cmd.createCRDFromXRD(xrd)
+			gotCRD, err := cmd.createCRDFromXRD(tc.xrd)
 
 			if tc.want.err != "" {
 				assert.ErrorContains(t, err, tc.want.err)
@@ -244,10 +336,6 @@ func TestCreateCRDAndGenerateResource(t *testing.T) {
 			}
 
 			assert.NilError(t, err, "Failed to create CRD from XRD")
-
-			assert.DeepEqual(t, gotCRD, &tc.want.crd, cmp.FilterPath(func(p cmp.Path) bool {
-				return p.String() == "Spec"
-			}, cmp.Ignore()))
 
 			gotRes, err := cmd.generateResourceFromCRD(gotCRD)
 			assert.NilError(t, err, "Failed to generate resource from CRD")

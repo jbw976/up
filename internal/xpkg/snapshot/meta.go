@@ -25,6 +25,8 @@ import (
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
 	"github.com/upbound/up/internal/xpkg/scheme"
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
+	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -148,7 +150,18 @@ func validateAPIVersion(o runtime.Object) error {
 			),
 			TypeCode: validator.WarningTypeCode,
 		}
+	case *projectv1alpha1.Project:
+		return &validator.ValidationError{
+			Name: apiVersionField,
+			Message: fmt.Sprintf(
+				errAPIVersionDeprecatedFmt,
+				o.GetObjectKind().GroupVersionKind().GroupVersion(),
+				projectv2alpha1.ProjectGroupVersionKind.GroupVersion(),
+			),
+			TypeCode: validator.WarningTypeCode,
+		}
 	}
+
 	return nil
 }
 

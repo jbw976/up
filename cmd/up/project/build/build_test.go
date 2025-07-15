@@ -44,8 +44,11 @@ var (
 	//go:embed testdata/configuration-getting-started/**
 	configurationGettingStarted embed.FS
 
-	//go:embed testdata/project-embedded-functions/**
-	projectEmbeddedFunctions embed.FS
+	//go:embed testdata/projectv1alpha1-embedded-functions/**
+	projectv1alpha1EmbeddedFunctions embed.FS
+
+	//go:embed testdata/projectv2alpha1-embedded-functions/**
+	projectv2alpha1EmbeddedFunctions embed.FS
 
 	//go:embed testdata/packages/*
 	packagesFS embed.FS
@@ -79,10 +82,73 @@ func TestBuild(t *testing.T) {
 				return common.ImageLabels(c)
 			},
 		},
-		"EmbeddedFunctions": {
+		"EmbeddedFunctionsWithProjectV1alpha1": {
 			projFS: afero.NewBasePathFs(
-				afero.FromIOFS{FS: projectEmbeddedFunctions},
-				"testdata/project-embedded-functions",
+				afero.FromIOFS{FS: projectv1alpha1EmbeddedFunctions},
+				"testdata/projectv1alpha1-embedded-functions",
+			),
+			outputFile: "_output/project-embedded-functions.uppkg",
+			expectedFunctions: []*xpmetav1.Function{
+				{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: xpmetav1.SchemeGroupVersion.String(),
+						Kind:       xpmetav1.FunctionKind,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project-embedded-functions-xcluster",
+						Annotations: map[string]string{
+							"meta.crossplane.io/maintainer":  "Upbound <support@upbound.io>",
+							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
+							"meta.crossplane.io/license":     "Apache-2.0",
+							"meta.crossplane.io/description": "Function xcluster from project project-embedded-functions",
+						},
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: xpmetav1.SchemeGroupVersion.String(),
+						Kind:       xpmetav1.FunctionKind,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project-embedded-functions-xnetwork",
+						Annotations: map[string]string{
+							"meta.crossplane.io/maintainer":  "Upbound <support@upbound.io>",
+							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
+							"meta.crossplane.io/license":     "Apache-2.0",
+							"meta.crossplane.io/description": "Function xnetwork from project project-embedded-functions",
+						},
+					},
+				},
+				{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: xpmetav1.SchemeGroupVersion.String(),
+						Kind:       xpmetav1.FunctionKind,
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "project-embedded-functions-xsubnetwork",
+						Annotations: map[string]string{
+							"meta.crossplane.io/maintainer":  "Upbound <support@upbound.io>",
+							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
+							"meta.crossplane.io/license":     "Apache-2.0",
+							"meta.crossplane.io/description": "Function xsubnetwork from project project-embedded-functions",
+						},
+					},
+				},
+			},
+			// 3 APIs = 3 XRDs + 3 compositions.
+			expectedObjectCount: 6,
+			expectedAnnotatedLayers: map[string]bool{
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: false, // no-examples expected
+			},
+			expectedLabels: func(c *Cmd) map[string]string {
+				return common.ImageLabels(c)
+			},
+		},
+		"EmbeddedFunctionsWithProjectV2alpha1": {
+			projFS: afero.NewBasePathFs(
+				afero.FromIOFS{FS: projectv2alpha1EmbeddedFunctions},
+				"testdata/projectv2alpha1-embedded-functions",
 			),
 			outputFile: "_output/project-embedded-functions.uppkg",
 			expectedFunctions: []*xpmetav1.Function{
@@ -184,13 +250,14 @@ func TestBuild(t *testing.T) {
 				functionIdentifier: functions.FakeIdentifier,
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
+				printer:            upterm.DefaultObjPrinter,
 
 				m:    mgr,
 				proj: prj,
 			}
 
 			// Build the package.
-			err = c.Run(t.Context(), upCtx, upterm.DefaultObjPrinter)
+			err = c.Run(t.Context(), upCtx)
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.
@@ -342,9 +409,17 @@ func TestBuild(t *testing.T) {
 			})
 			// Our project doesn't have a Crossplane constraint, so we should
 			// get the default.
-			assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
-				Version: ">=v1.18.0 || >= v2.0.0-rc.0",
-			})
+			vproj, _ := project.ParseWithVersion(projFS, "upbound.yaml")
+			if vproj.IsV2() {
+				assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
+					Version: ">=v2.0.0-rc.0",
+				})
+			} else {
+				assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
+					Version: ">=v1.18.0 || >= v2.0.0-rc.0",
+				})
+			}
+
 			// Validate that the configuration depends on all the project
 			// dependencies and the embedded functions.
 			assert.Assert(t, cmp.Len(cfgMeta.Spec.MetaSpec.DependsOn, len(c.proj.Spec.DependsOn)+len(fnImages)))

@@ -17,6 +17,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/scheme"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -47,6 +48,7 @@ func (m *Meta) DependsOn() ([]v1beta1.Dependency, error) {
 		&pkgmetav1.Configuration{},
 		&pkgmetav1.Function{},
 		&projectv1alpha1.Project{},
+		&projectv2alpha1.Project{},
 	)
 	if !ok {
 		return nil, errors.New(errUnsupportedPackageVersion)
@@ -90,6 +92,7 @@ func upsertDeps(d v1beta1.Dependency, o runtime.Object) error {
 		&pkgmetav1.Configuration{},
 		&pkgmetav1.Function{},
 		&projectv1alpha1.Project{},
+		&projectv2alpha1.Project{},
 	)
 	if !ok {
 		return errors.New(errUnsupportedPackageVersion)
@@ -153,6 +156,8 @@ func upsertDeps(d v1beta1.Dependency, o runtime.Object) error {
 	case *pkgmetav1.Function:
 		v.Spec.DependsOn = deps
 	case *projectv1alpha1.Project:
+		v.Spec.DependsOn = deps
+	case *projectv2alpha1.Project:
 		v.Spec.DependsOn = deps
 	}
 

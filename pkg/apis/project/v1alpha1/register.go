@@ -29,6 +29,7 @@ var (
 	// AddToScheme adds all registered types to scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 
+	// ProjectGroupVersionKind used for GVK.
 	ProjectGroupVersionKind = SchemeGroupVersion.WithKind(ProjectKind)
 )
 

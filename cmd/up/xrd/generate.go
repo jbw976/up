@@ -21,7 +21,9 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 
+	"github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/schemas/generator"
@@ -29,16 +31,15 @@ import (
 	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/yaml"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 func (c *generateCmd) Help() string {
 	return `
-The 'generate' command creates a CompositeResourceDefinition (XRD) from a given Composite Resource (XR) or Composite Resource Claim (XRC) and generates associated language models for function usage.
+The 'generate' command creates a CompositeResourceDefinition (XRD) from a given Composite Resource (XR) and generates associated language models for function usage.
 
 Usage Examples:
     xrd generate examples/cluster/example.yaml
-        Generates a CompositeResourceDefinition (XRD) based on the specified Composite Resource or Claim and saves it to the default APIs folder in the project.
+        Generates a CompositeResourceDefinition (XRD) based on the specified Composite Resource and saves it to the default APIs folder in the project.
 
     xrd generate examples/postgres/example.yaml --plural postgreses
         Generates a CompositeResourceDefinition (XRD) with a specified plural form, useful for cases where automatic pluralization may not be accurate (e.g., "postgres").
@@ -61,6 +62,20 @@ type inputYAML struct {
 	Status            map[string]interface{} `json:"status"`
 }
 
+// parsedXRD represents the common parsed data from XR YAML.
+type parsedXRD struct {
+	input        inputYAML
+	group        string
+	version      string
+	kind         string
+	plural       string
+	description  string
+	specProps    map[string]extv1.JSONSchemaProps
+	statusProps  map[string]extv1.JSONSchemaProps
+	rawSchema    *runtime.RawExtension
+	hasNamespace bool
+}
+
 type generateCmd struct {
 	File     string `arg:""                                                                                      help:"Path to the file containing the Composite Resource (XR) or Composite Resource Claim (XRC)."`
 	CacheDir string `default:"~/.up/cache/"                                                                      env:"CACHE_DIR"                                                                                   help:"Directory used for caching dependency images."                                                                                    type:"path"`
@@ -74,7 +89,7 @@ type generateCmd struct {
 
 	projFS  afero.Fs
 	apisFS  afero.Fs
-	proj    *projectv1alpha1.Project
+	proj    *project.WithVersion
 	relFile string
 
 	sm *manager.Manager
@@ -103,7 +118,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// The location of the co position defines the root of the xrd.
-	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
+	proj, err := project.ParseWithVersion(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}
@@ -144,12 +159,27 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
 	}
 
-	xrd, err := newXRD(yamlData, c.Plural)
-	if err != nil {
-		return errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
+	var xrd any
+	if c.proj.IsV2() {
+		xrd, err = newXRDv2(yamlData, c.Plural)
+		if err != nil {
+			return errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
+		}
+	} else {
+		xrd, err = newXRDv1(yamlData, c.Plural)
+		if err != nil {
+			return errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
+		}
 	}
 
-	// Convert XRD to YAML format
+	var pluralName string
+	switch x := xrd.(type) {
+	case *v1.CompositeResourceDefinition:
+		pluralName = x.Spec.Names.Plural
+	case *v2alpha1.CompositeResourceDefinition:
+		pluralName = x.Spec.Names.Plural
+	}
+
 	xrdYAML, err := yaml.Marshal(xrd, yaml.RemoveField("status"))
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal XRD to YAML")
@@ -160,7 +190,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		// Determine the file path
 		filePath := c.Path
 		if filePath == "" {
-			filePath = fmt.Sprintf("%s/definition.yaml", xrd.Spec.Names.Plural)
+			filePath = fmt.Sprintf("%s/definition.yaml", pluralName)
 		}
 
 		// Check if the composition file already exists
@@ -215,8 +245,8 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	return nil
 }
 
-// newXRD to create a new CompositeResourceDefinition and fail if inferProperties fails.
-func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) {
+// parseAndValidateXRD parses and validates the input YAML and returns common XRD data.
+func parseAndValidateXRD(yamlData []byte, customPlural string) (*parsedXRD, error) {
 	var input inputYAML
 	err := yaml.Unmarshal(yamlData, &input)
 	if err != nil {
@@ -291,12 +321,12 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 	description := fmt.Sprintf("%s is the Schema for the %s API.", kind, kind)
 
 	// Infer properties for spec and status and handle errors
-	specProps, err := inferProperties(input.Spec)
+	specProps, err := crd.InferProperties(input.Spec)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to infer properties for spec")
 	}
 
-	statusProps, err := inferProperties(input.Status)
+	statusProps, err := crd.InferProperties(input.Status)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to infer properties for status")
 	}
@@ -329,8 +359,32 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 		Raw: schemaBytes,
 	}
 
-	// Determine whether to modify based on XRC
-	if input.Namespace != "" {
+	return &parsedXRD{
+		input:        input,
+		group:        group,
+		version:      version,
+		kind:         kind,
+		plural:       plural,
+		description:  description,
+		specProps:    specProps,
+		statusProps:  statusProps,
+		rawSchema:    rawSchema,
+		hasNamespace: input.Namespace != "",
+	}, nil
+}
+
+// newXRDv1 creates a new CompositeResourceDefinition v1.
+func newXRDv1(yamlData []byte, customPlural string) (*v1.CompositeResourceDefinition, error) {
+	// Parse and validate common XRD data
+	parsed, err := parseAndValidateXRD(yamlData, customPlural)
+	if err != nil {
+		return nil, err
+	}
+
+	// For v1: Determine whether to modify based on XRC
+	kind := parsed.kind
+	plural := parsed.plural
+	if parsed.hasNamespace {
 		// Ensure plural and kind start with 'x'
 		if !strings.HasPrefix(plural, "x") {
 			plural = "x" + plural
@@ -340,17 +394,17 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 		}
 	}
 
-	// Construct the XRD
+	// Construct the XRD v1
 	xrd := &v1.CompositeResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
 			Kind:       v1.CompositeResourceDefinitionGroupVersionKind.Kind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: strings.ToLower(fmt.Sprintf("%s.%s", plural, group)),
+			Name: strings.ToLower(fmt.Sprintf("%s.%s", plural, parsed.group)),
 		},
 		Spec: v1.CompositeResourceDefinitionSpec{
-			Group: group,
+			Group: parsed.group,
 			Names: extv1.CustomResourceDefinitionNames{
 				Categories: []string{"crossplane"},
 				Kind:       flect.Capitalize(kind),
@@ -358,19 +412,19 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 			},
 			Versions: []v1.CompositeResourceDefinitionVersion{
 				{
-					Name:          version,
+					Name:          parsed.version,
 					Referenceable: true,
 					Served:        true,
 					Schema: &v1.CompositeResourceValidation{
-						OpenAPIV3Schema: *rawSchema,
+						OpenAPIV3Schema: *parsed.rawSchema,
 					},
 				},
 			},
 		},
 	}
 
-	// Conditionally add ClaimNames without 'x' prefix if metadata.namespace is present
-	if input.Namespace != "" {
+	// For v1: Conditionally add ClaimNames without 'x' prefix if metadata.namespace is present
+	if parsed.hasNamespace {
 		claimPlural := strings.ToLower(strings.TrimPrefix(plural, "x"))
 		claimKind := flect.Capitalize(strings.TrimPrefix(kind, "x"))
 
@@ -383,122 +437,49 @@ func newXRD(yamlData []byte, customPlural string) (*v1.CompositeResourceDefiniti
 	return xrd, nil
 }
 
-// inferProperties to return the correct type.
-func inferProperties(spec map[string]interface{}) (map[string]extv1.JSONSchemaProps, error) {
-	properties := make(map[string]extv1.JSONSchemaProps)
-
-	for key, value := range spec {
-		strKey := fmt.Sprintf("%v", key)
-		inferredProp, err := inferProperty(value)
-		if err != nil {
-			// Return the error and propagate it upwards
-			return nil, errors.Wrapf(err, "error inferring property for key '%s'", strKey)
-		}
-		properties[strKey] = inferredProp
+// newXRDv2 creates a new CompositeResourceDefinition v2.
+func newXRDv2(yamlData []byte, customPlural string) (*v2alpha1.CompositeResourceDefinition, error) {
+	// Parse and validate common XRD data
+	parsed, err := parseAndValidateXRD(yamlData, customPlural)
+	if err != nil {
+		return nil, err
 	}
 
-	return properties, nil
-}
+	// For v2: Handle scope based on namespace
+	scope := v2alpha1.CompositeResourceScopeCluster
+	if parsed.hasNamespace {
+		scope = v2alpha1.CompositeResourceScopeNamespaced
+	}
 
-// inferArrayProperty handles array type inference with property merging for objects.
-func inferArrayProperty(v []interface{}) (extv1.JSONSchemaProps, error) {
-	if len(v) == 0 {
-		// If the array is empty, default to array of objects
-		return extv1.JSONSchemaProps{
-			Type: "array",
-			Items: &extv1.JSONSchemaPropsOrArray{
-				Schema: &extv1.JSONSchemaProps{
-					Type: "object",
+	// Construct the XRD v2
+	xrd := &v2alpha1.CompositeResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
+			Kind:       v2alpha1.CompositeResourceDefinitionGroupVersionKind.Kind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: strings.ToLower(fmt.Sprintf("%s.%s", parsed.plural, parsed.group)),
+		},
+		Spec: v2alpha1.CompositeResourceDefinitionSpec{
+			Group: parsed.group,
+			Scope: scope,
+			Names: extv1.CustomResourceDefinitionNames{
+				Categories: []string{"crossplane"},
+				Kind:       flect.Capitalize(parsed.kind),
+				Plural:     strings.ToLower(parsed.plural),
+			},
+			Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+				{
+					Name:          parsed.version,
+					Referenceable: true,
+					Served:        true,
+					Schema: &v2alpha1.CompositeResourceValidation{
+						OpenAPIV3Schema: *parsed.rawSchema,
+					},
 				},
 			},
-		}, nil
-	}
-
-	// Infer the type of the first element
-	firstElemSchema, err := inferProperty(v[0])
-	if err != nil {
-		return extv1.JSONSchemaProps{}, err
-	}
-
-	// Check if all elements are of the same type and merge object properties
-	mergedProperties := make(map[string]extv1.JSONSchemaProps)
-	if firstElemSchema.Type == "object" {
-		// For objects, merge all properties from all elements
-		for key, prop := range firstElemSchema.Properties {
-			mergedProperties[key] = prop
-		}
-	}
-
-	for _, elem := range v {
-		elemSchema, err := inferProperty(elem)
-		if err != nil {
-			return extv1.JSONSchemaProps{}, err
-		}
-		if elemSchema.Type != firstElemSchema.Type {
-			return extv1.JSONSchemaProps{}, errors.New("mixed types detected in array")
-		}
-		// If it's an object, merge additional properties
-		if elemSchema.Type == "object" {
-			for key, prop := range elemSchema.Properties {
-				mergedProperties[key] = prop
-			}
-		}
-	}
-
-	// Build the result schema
-	resultSchema := firstElemSchema
-	if firstElemSchema.Type == "object" && len(mergedProperties) > 0 {
-		resultSchema.Properties = mergedProperties
-	}
-
-	return extv1.JSONSchemaProps{
-		Type: "array",
-		Items: &extv1.JSONSchemaPropsOrArray{
-			Schema: &resultSchema,
 		},
-	}, nil
-}
-
-// inferProperty to return extv1.JSONSchemaProps.
-func inferProperty(value interface{}) (extv1.JSONSchemaProps, error) {
-	// Explicitly handle nil
-	if value == nil {
-		return extv1.JSONSchemaProps{
-			Type: "string", // Ensure this returns "string" for nil
-		}, nil
 	}
 
-	switch v := value.(type) {
-	case string:
-		return extv1.JSONSchemaProps{
-			Type: "string",
-		}, nil
-	case int, int32, int64:
-		return extv1.JSONSchemaProps{
-			Type: "integer",
-		}, nil
-	case float32, float64:
-		return extv1.JSONSchemaProps{
-			Type: "number",
-		}, nil
-	case bool:
-		return extv1.JSONSchemaProps{
-			Type: "boolean",
-		}, nil
-	case map[string]interface{}:
-		// Recursively infer properties for nested objects and handle errors
-		inferredProps, err := inferProperties(v)
-		if err != nil {
-			return extv1.JSONSchemaProps{}, errors.Wrap(err, "error inferring properties for object")
-		}
-		return extv1.JSONSchemaProps{
-			Type:       "object",
-			Properties: inferredProps,
-		}, nil
-	case []interface{}:
-		return inferArrayProperty(v)
-	default:
-		// Return an error for unknown types (excluding nil which is handled earlier)
-		return extv1.JSONSchemaProps{}, errors.Errorf("unknown type: %T", value)
-	}
+	return xrd, nil
 }

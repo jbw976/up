@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgmetav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	pkgmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
@@ -20,6 +21,7 @@ import (
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // BuildMetaScheme builds the default scheme used for identifying metadata in a
@@ -38,6 +40,9 @@ func BuildMetaScheme() (*runtime.Scheme, error) {
 	if err := projectv1alpha1.AddToScheme(metaScheme); err != nil {
 		return nil, err
 	}
+	if err := projectv2alpha1.AddToScheme(metaScheme); err != nil {
+		return nil, err
+	}
 	if err := upboundpkgmetav1alpha1.AddToScheme(metaScheme); err != nil {
 		return nil, err
 	}
@@ -52,6 +57,10 @@ func BuildMetaScheme() (*runtime.Scheme, error) {
 func BuildObjectScheme() (*runtime.Scheme, error) {
 	objScheme := runtime.NewScheme()
 	if err := v1.AddToScheme(objScheme); err != nil {
+		return nil, err
+	}
+	// ToDo(haarchri): bump to v2 if available
+	if err := v2alpha1.AddToScheme(objScheme); err != nil {
 		return nil, err
 	}
 	if err := extv1beta1.AddToScheme(objScheme); err != nil {

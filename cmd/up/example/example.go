@@ -6,5 +6,5 @@ package example
 
 // Cmd contains commands for example cmd.
 type Cmd struct {
-	Generate generateCmd `cmd:"" help:"Generate an Example Claim (XRC) or Composite Resource (XR)."`
+	Generate generateCmd `cmd:"" help:"Generate an Example Composite Resource (XR) or Claim (XRC)"`
 }

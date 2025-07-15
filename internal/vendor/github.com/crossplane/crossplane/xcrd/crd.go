@@ -41,9 +41,14 @@ const (
 // ForCompositeResource derives the CustomResourceDefinition for a composite
 // resource from the supplied CompositeResourceDefinition.
 func ForCompositeResource(xrd *v1.CompositeResourceDefinition) (*extv1.CustomResourceDefinition, error) {
+	scope := extv1.ClusterScoped
+	if xrd.Spec.Scope != nil {
+		scope = extv1.ResourceScope(*xrd.Spec.Scope)
+	}
+
 	crd := &extv1.CustomResourceDefinition{
 		Spec: extv1.CustomResourceDefinitionSpec{
-			Scope:      extv1.ClusterScoped,
+			Scope:      scope,
 			Group:      xrd.Spec.Group,
 			Names:      xrd.Spec.Names,
 			Versions:   make([]extv1.CustomResourceDefinitionVersion, len(xrd.Spec.Versions)),

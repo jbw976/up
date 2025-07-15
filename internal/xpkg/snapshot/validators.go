@@ -25,6 +25,7 @@ import (
 
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -35,7 +36,7 @@ const (
 )
 
 // ValidatorsForObj returns a mapping of GVK -> validator for the given runtime.Object.
-func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[schema.GroupVersionKind]*validator.ObjectValidator, error) { //nolint:gocyclo
+func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[schema.GroupVersionKind]*validator.ObjectValidator, error) { //nolint:gocyclo // validation of objects
 	validators := make(map[schema.GroupVersionKind]*validator.ObjectValidator)
 
 	switch rd := o.(type) {
@@ -77,6 +78,10 @@ func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[s
 		}
 	case *projectv1alpha1.Project:
 		if err := s.validatorsForV1Alpha1Project(rd, validators); err != nil {
+			return nil, err
+		}
+	case *projectv2alpha1.Project:
+		if err := s.validatorsForV2Alpha1Project(rd, validators); err != nil {
 			return nil, err
 		}
 	default:
@@ -223,6 +228,15 @@ func (s *Snapshot) validatorsForV1Alpha1Project(c *projectv1alpha1.Project, acc 
 	return nil
 }
 
+func (s *Snapshot) validatorsForV2Alpha1Project(c *projectv2alpha1.Project, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
+	v, err := DefaultMetaValidators(s)
+	if err != nil {
+		return err
+	}
+	appendToValidators(c.GroupVersionKind(), acc, v)
+	return nil
+}
+
 func appendToValidators(gvk schema.GroupVersionKind, acc map[schema.GroupVersionKind]*validator.ObjectValidator, v validator.Validator) {
 	curr, ok := acc[gvk]
 	if !ok {
@@ -270,7 +284,7 @@ func buildSchema(s runtime.RawExtension) (*extv1.JSONSchemaProps, error) {
 }
 
 // newSchemaValidator creates an openapi schema validator for the given JSONSchemaProps validation.
-func newV1SchemaValidator(schema extv1.JSONSchemaProps) (*validate.SchemaValidator, *spec.Schema, error) { //nolint:unparam
+func newV1SchemaValidator(schema extv1.JSONSchemaProps) (*validate.SchemaValidator, *spec.Schema, error) { //nolint:unparam // error is always nil but kept for interface consistency
 	// Convert CRD schema to openapi schema
 	openapiSchema := &spec.Schema{}
 	out := new(apiextensions.JSONSchemaProps)

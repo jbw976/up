@@ -51,6 +51,7 @@ type Cmd struct {
 
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
+	printer      upterm.ObjectPrinter
 
 	proj *v1alpha1.Project
 }
@@ -104,6 +105,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
+	c.printer = printer
 	c.quiet = printer.Quiet
 	switch {
 	case bool(printer.Quiet):
@@ -117,7 +119,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) er
 }
 
 // Run runs the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // This is fine.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // This is fine.
 	basePath := ""
 	if c.Repository != "" {
 		// Update the project (in-memory) to use the new repository. This
@@ -190,10 +192,20 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 			}
 			return nil
 		},
-		printer,
+		c.printer,
 	)
 	if err != nil {
 		return err
+	}
+
+	if !c.printer.Quiet {
+		vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
+		if err != nil {
+			return errors.New("this is not a project directory")
+		}
+		if vPrj.IsV1() {
+			pterm.Info.Println("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
+		}
 	}
 
 	return nil

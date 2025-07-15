@@ -1,0 +1,38 @@
+// Copyright 2025 Upbound Inc.
+// All rights reserved
+
+package v2alpha1
+
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
+)
+
+const (
+	// Group is the API Group for projects.
+	Group = "meta.dev.upbound.io"
+	// Version is the API version for projects.
+	Version = "v2alpha1"
+	// GroupVersion is the GroupVersion for projects.
+	GroupVersion = Group + "/" + Version
+	// ProjectKind is the kind of a Project.
+	ProjectKind = "Project"
+)
+
+var (
+	// SchemeGroupVersion is group version used to register these objects.
+	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
+
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
+	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+
+	// AddToScheme adds all registered types to scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+
+	// ProjectGroupVersionKind used for GVK.
+	ProjectGroupVersionKind = SchemeGroupVersion.WithKind(ProjectKind)
+)
+
+func init() {
+	SchemeBuilder.Register(&Project{})
+}

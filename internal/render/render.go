@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/utils/ptr"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
 	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	apiextensionsv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
@@ -42,6 +44,7 @@ import (
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
+	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
@@ -259,8 +262,29 @@ func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefini
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot read XRD file")
 	}
-	xrd := &apiextensionsv1.CompositeResourceDefinition{}
-	return xrd, errors.Wrap(yaml.Unmarshal(y, xrd), "cannot unmarshal XRD YAML")
+
+	var obj unstructured.Unstructured
+	if err := yaml.Unmarshal(y, &obj); err != nil {
+		return nil, errors.Wrap(err, "cannot unmarshal XRD YAML")
+	}
+
+	apiVersion := obj.GetAPIVersion()
+	switch apiVersion {
+	case apiextensionsv1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		xrd := &apiextensionsv1.CompositeResourceDefinition{}
+		if err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), xrd); err != nil {
+			return nil, errors.Wrap(err, "cannot convert unstructured to v1 XRD")
+		}
+		return xrd, nil
+	case apiextensionsv2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		v2xrd := &apiextensionsv2alpha1.CompositeResourceDefinition{}
+		if err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), v2xrd); err != nil {
+			return nil, errors.Wrap(err, "cannot convert unstructured to v2alpha1 XRD")
+		}
+		return ixrd.ConvertV2Alpha1ToV1(v2xrd), nil
+	default:
+		return nil, errors.Errorf("unsupported XRD API version: %s", apiVersion)
+	}
 }
 
 // embeddedFunctionsToDaemon loads each compatible image in the ImageTagMap into the Docker daemon.

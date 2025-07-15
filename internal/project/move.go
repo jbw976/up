@@ -22,6 +22,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/workspace/meta"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Move updates a project to use a new repository. The project metadata and any
@@ -51,11 +52,15 @@ func Move(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, ne
 	// Update the repository in the project metadata. We do this instead of
 	// writing out the parsed project because we don't want to write out
 	// defaults we've applied during parsing.
-	metaProj, ok := ws.View().Meta().Object().(*v1alpha1.Project)
-	if !ok {
-		return errors.New("project has unexpected metadata type")
+	metaProj := ws.View().Meta().Object()
+	switch proj := metaProj.(type) {
+	case *v1alpha1.Project:
+		proj.Spec.Repository = newRepository
+	case *v2alpha1.Project:
+		proj.Spec.Repository = newRepository
+	default:
+		return errors.Errorf("project has unexpected metadata type: %T", metaProj)
 	}
-	metaProj.Spec.Repository = newRepository
 	if err := ws.Write(meta.New(metaProj)); err != nil {
 		return errors.Wrap(err, "failed to write project metadata")
 	}

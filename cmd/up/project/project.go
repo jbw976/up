@@ -12,16 +12,18 @@ import (
 	"github.com/upbound/up/cmd/up/project/run"
 	"github.com/upbound/up/cmd/up/project/simulate"
 	"github.com/upbound/up/cmd/up/project/stop"
+	"github.com/upbound/up/cmd/up/project/upgrade"
 )
 
 // Cmd is the top-level project command.
 type Cmd struct {
-	Init  initialize.Cmd `cmd:"" help:"Initialize a new project."`
-	Build build.Cmd      `cmd:"" help:"Build a project into a Crossplane package."`
-	Push  push.Cmd       `cmd:"" help:"Push a project's packages to the Upbound Marketplace."`
-	Run   run.Cmd        `cmd:"" help:"Run a project on a development control plane for testing."`
-	Stop  stop.Cmd       `cmd:"" help:"Tear down a development control plane started by the run command."`
-	Move  move.Cmd       `cmd:"" help:"Update the repository for a project"`
+	Init    initialize.Cmd `cmd:"" help:"Initialize a new project."`
+	Build   build.Cmd      `cmd:"" help:"Build a project into a Crossplane package."`
+	Push    push.Cmd       `cmd:"" help:"Push a project's packages to the Upbound Marketplace."`
+	Run     run.Cmd        `cmd:"" help:"Run a project on a development control plane for testing."`
+	Stop    stop.Cmd       `cmd:"" help:"Tear down a development control plane started by the run command."`
+	Move    move.Cmd       `cmd:"" help:"Update the repository for a project"`
+	Upgrade upgrade.Cmd    `cmd:"" help:"Upgrade a project to a newer API version."`
 
 	Simulate   simulate.CreateCmd `cmd:"" help:"Run a project as a simulation against an existing control plane."`
 	Simulation simulate.Cmd       `cmd:"" help:"Manage project simulations."`

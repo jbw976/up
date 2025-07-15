@@ -144,13 +144,15 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		},
 	}
 
+	// v1alpha1 projects:
 	// If the user didn't specify a version constraint for their project, use
 	// v1.18 as the default, since our configurations require v1.18 or newer for
 	// digest support in the package manager.
+	// v2alpha1 projects:
+	// If the user didn't specify a version constraint for their project, use
+	// v2.0.0 as the default (pkg/apis/project/conversion/ConvertToV1()),
 	if cfg.Spec.Crossplane == nil || cfg.Spec.Crossplane.Version == "" {
 		cfg.Spec.Crossplane = &xpmetav1.CrossplaneConstraints{
-			// TODO(adamwg): Support only v2 if the project uses v2-only
-			// features.
 			Version: ">=v1.18.0 || >= v2.0.0-rc.0",
 		}
 	}

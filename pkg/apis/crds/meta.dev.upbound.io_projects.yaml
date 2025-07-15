@@ -251,3 +251,240 @@ spec:
         type: object
     served: true
     storage: true
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Project defines an Upbound Project, which can be built into a Crossplane
+          Configuration.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ProjectSpec is the spec for a Project. Since a Project is not a Kubernetes
+              resource there is no Status, only Spec.
+            properties:
+              apiDependencies:
+                description: |-
+                  APIDependencies are the API dependencies for this project.
+                  NOTE: This is an experimental feature and is subject to change.
+                items:
+                  description: |-
+                    APIDependencies defines a reference to an external API dependency.
+                    NOTE: This is an experimental feature and is subject to change.
+                  properties:
+                    git:
+                      description: Git defines the git repository source for the API
+                        dependency.
+                      properties:
+                        path:
+                          description: Path is the path within the repository to the
+                            API definition.
+                          type: string
+                        ref:
+                          description: Ref is the git reference (branch, tag, or commit
+                            SHA).
+                          type: string
+                        repository:
+                          description: Repository is the git repository URL.
+                          type: string
+                      required:
+                      - repository
+                      type: object
+                    http:
+                      description: HTTP defines the HTTP source for the API dependency.
+                      properties:
+                        url:
+                          description: URL is the HTTP/HTTPS URL to fetch the API
+                            dependency from.
+                          type: string
+                      required:
+                      - url
+                      type: object
+                    k8s:
+                      description: K8s defines the Kubernetes API version for the
+                        dependency.
+                      properties:
+                        version:
+                          description: Version is the Kubernetes API version (e.g.,
+                            "v1.33.0").
+                          type: string
+                      required:
+                      - version
+                      type: object
+                    type:
+                      description: Type defines the type of API dependency.
+                      enum:
+                      - k8s
+                      - crd
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+              architectures:
+                items:
+                  type: string
+                type: array
+              crossplane:
+                description: CrossplaneConstraints specifies a packages compatibility
+                  with Crossplane versions.
+                properties:
+                  version:
+                    description: Semantic version constraints of Crossplane that package
+                      is compatible with.
+                    type: string
+                required:
+                - version
+                type: object
+              dependsOn:
+                items:
+                  description: |-
+                    Dependency is a dependency on another package. A dependency can be of an
+                    arbitrary API version and kind, but Crossplane expects package dependencies
+                    to behave like a Crossplane package. Specifically it expects to be able to
+                    create the dependency and set its spec.package field to a package OCI
+                    reference.
+                  properties:
+                    apiVersion:
+                      description: APIVersion of the dependency.
+                      type: string
+                    configuration:
+                      description: |-
+                        Configuration is the name of a Configuration package image.
+                        Must be a fully qualified image name, including the registry,
+                        Deprecated: Specify an apiVersion, kind, and package instead.
+                      type: string
+                    function:
+                      description: |-
+                        Function is the name of a Function package image.
+                        Must be a fully qualified image name, including the registry,
+                        Deprecated: Specify an apiVersion, kind, and package instead.
+                      type: string
+                    kind:
+                      description: Kind of the dependency.
+                      type: string
+                    package:
+                      description: |-
+                        Package OCI reference of the dependency. Only used when apiVersion and
+                        kind are set.
+                        Musth be a fully qualified image name, including the registry,
+                        repository, and tag. For example, "registry.example.com/repo/package:tag".
+                      type: string
+                    provider:
+                      description: |-
+                        Provider is the name of a Provider package image.
+                        Must be a fully qualified image name, including the registry,
+                        Deprecated: Specify an apiVersion and kind instead.
+                      type: string
+                    version:
+                      description: Version is the semantic version constraints of
+                        the dependency image.
+                      type: string
+                  required:
+                  - version
+                  type: object
+                type: array
+              description:
+                type: string
+              imageConfig:
+                items:
+                  description: ImageConfig defines a set of rules for matching and
+                    rewriting images.
+                  properties:
+                    matchImages:
+                      description: MatchImages is a list of image matching rules that
+                        should be satisfied.
+                      items:
+                        description: ImageMatch defines a rule for matching image.
+                        properties:
+                          prefix:
+                            description: Prefix is the prefix that should be matched.
+                            type: string
+                          type:
+                            default: Prefix
+                            description: Type is the type of match.
+                            enum:
+                            - Prefix
+                            type: string
+                        required:
+                        - prefix
+                        type: object
+                      type: array
+                      x-kubernetes-validations:
+                      - message: matchImages should have at least one element.
+                        rule: size(self) > 0
+                    rewriteImage:
+                      description: RewriteImage defines how a matched image should
+                        be rewritten.
+                      properties:
+                        prefix:
+                          description: Prefix is the prefix to use when rewriting
+                            the image.
+                          type: string
+                      required:
+                      - prefix
+                      type: object
+                  required:
+                  - matchImages
+                  - rewriteImage
+                  type: object
+                type: array
+              license:
+                type: string
+              maintainer:
+                type: string
+              paths:
+                description: |-
+                  ProjectPaths configures the locations of various parts of the project, for
+                  use at build time.
+                properties:
+                  apis:
+                    description: |-
+                      APIs is the directory holding the project's apis. If not
+                      specified, it defaults to `apis/`.
+                    type: string
+                  examples:
+                    description: |-
+                      Examples is the directory holding the project's examples. If not
+                      specified, it defaults to `examples/`.
+                    type: string
+                  functions:
+                    description: |-
+                      Functions is the directory holding the project's functions. If not
+                      specified, it defaults to `functions/`.
+                    type: string
+                  tests:
+                    description: |-
+                      Tests is the directory holding the project's tests. If not
+                      specified, it defaults to `tests/`.
+                    type: string
+                type: object
+              readme:
+                type: string
+              repository:
+                type: string
+              source:
+                type: string
+            required:
+            - repository
+            type: object
+        type: object
+    served: true
+    storage: false
