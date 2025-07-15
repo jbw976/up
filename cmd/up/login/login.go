@@ -125,6 +125,38 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 	UseDeviceCode bool `help:"Use authentication flow based on device code. We will also use this if it can't launch a browser in your behalf, e.g. in remote SSH"`
 }
 
+// Help returns help text for the login command.
+func (c *LoginCmd) Help() string {
+	return `
+The 'login' command authenticates with Upbound Cloud and stores session credentials.
+
+Authentication Methods:
+    1. Web Browser (default) - Opens browser for OAuth authentication
+    2. Device Code - Use --use-device-code for headless environments
+    3. Username/Password - Provide --username and --password flags
+    4. Personal Access Token - Provide --token flag
+
+The command creates or updates a profile with the authenticated session. If no profile
+name is specified, it uses the "default" profile.
+
+Usage Examples:
+    up login
+        Opens browser for OAuth authentication (recommended).
+
+    up login --username=user@example.com
+        Prompts for password and authenticates with credentials.
+
+    up login --token=upat_xxxxx
+        Authenticates using a personal access token.
+
+    up login --use-device-code
+        Uses device code flow for headless/remote environments.
+
+    up login --profile=production --organization=my-org
+        Authenticates and creates/updates the "production" profile.
+`
+}
+
 // Run executes the login command.
 func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
 	// simple auth using explicit flags

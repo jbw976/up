@@ -23,6 +23,27 @@ type useCmd struct {
 	Name string `arg:"" help:"Name of the Profile to use." predictor:"profiles" required:""`
 }
 
+func (c *useCmd) Help() string {
+	return `
+The 'use' command switches the active Upbound profile and updates the kubeconfig context.
+
+This command:
+  - Sets the specified profile as the default profile
+  - Updates the kubeconfig to use the context associated with the profile
+  - Preserves any existing kubeconfig context information from the profile
+
+Usage Examples:
+    up profile use production
+        Switches to the "production" profile and updates the kubeconfig context.
+
+    up profile use dev
+        Switches to the "dev" profile and updates the kubeconfig context.
+
+Note: If the profile has no associated kubeconfig context, only the profile switch
+occurs without kubeconfig updates.
+`
+}
+
 // Run executes the Use command.
 func (c *useCmd) Run(ctx context.Context, upCtx *upbound.Context, flags upbound.Flags, p pterm.TextPrinter) error {
 	if err := upCtx.Cfg.SetDefaultUpboundProfile(c.Name); err != nil {

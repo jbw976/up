@@ -21,11 +21,29 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 
 type listCmd struct{}
 
+func (c *listCmd) Help() string {
+	return `
+The 'list' command displays all configured Upbound profiles in a table format.
+
+This command shows:
+  - CURRENT: Indicates the active profile with an asterisk (*)
+  - NAME: The name of each profile
+  - TYPE: Profile type (cloud or disconnected)
+  - ORGANIZATION: The organization associated with the profile (for cloud profiles)
+
+The profiles are listed in alphabetical order by name for consistent output.
+
+Usage Examples:
+    up profile list
+        Shows all configured profiles in a table format.
+`
+}
+
 // Run executes the list command.
 func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
-		p.Println(errNoProfiles)
+		p.Println("No profiles found")
 		return nil //nolint:nilerr // Successfully list nothing if there are no profiles.
 	}
 
@@ -34,7 +52,7 @@ func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upboun
 		redacted[k] = profile.Redacted{Profile: v}
 	}
 	if len(redacted) == 0 {
-		p.Println(errNoProfiles)
+		p.Println("No profiles found")
 		return nil
 	}
 

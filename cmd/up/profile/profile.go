@@ -8,21 +8,19 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/posener/complete"
 
-	"github.com/upbound/up/cmd/up/profile/config"
 	"github.com/upbound/up/internal/upbound"
 )
 
 // Cmd contains commands for Upbound Profiles.
 type Cmd struct {
-	Current currentCmd `cmd:"" help:"Get current Upbound Profile."`
-	List    listCmd    `cmd:"" help:"List Upbound Profiles."`
-	Use     useCmd     `cmd:"" help:"Select an Upbound Profile as the default."`
-	View    viewCmd    `cmd:"" help:"View the Upbound Profile settings across profiles."`
-	Set     setCmd     `cmd:"" help:"Set Upbound Profile parameters."`
-	Create  createCmd  `cmd:"" help:"Create a new Upbound Profile without logging in."`
-	Delete  deleteCmd  `cmd:"" help:"Delete an Upbound Profile."`
-	Rename  renameCmd  `cmd:"" help:"Rename an Upbound Profile."`
-	Config  config.Cmd `cmd:"" deprecated:""                                             help:"Deprecated: Interact with the current Upbound Profile's config." hidden:""`
+	Current currentCmd `cmd:"" help:"Get the current active Upbound profile."`
+	List    listCmd    `cmd:"" help:"List all configured Upbound profiles."`
+	Use     useCmd     `cmd:"" help:"Switch to a different Upbound profile."`
+	View    viewCmd    `cmd:"" help:"View all Upbound profiles in JSON format."`
+	Set     setCmd     `cmd:"" help:"Set configuration values for the current profile."`
+	Create  createCmd  `cmd:"" help:"Create a new Upbound profile."`
+	Delete  deleteCmd  `cmd:"" help:"Delete an existing Upbound profile."`
+	Rename  renameCmd  `cmd:"" help:"Rename an existing Upbound profile."`
 
 	Flags upbound.Flags `embed:""`
 }

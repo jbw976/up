@@ -14,16 +14,34 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-var errNoProfiles = "No profiles found"
-
 type viewCmd struct{}
+
+func (c *viewCmd) Help() string {
+	return `
+The 'view' command displays all configured Upbound profiles in JSON format.
+
+This command outputs detailed information about all profiles, including:
+  - Profile names as keys
+  - Profile configuration details (with sensitive data redacted)
+  - Profile type, organization, domain, and other settings
+
+The output is formatted as indented JSON for easy reading and processing.
+
+Usage Examples:
+    up profile view
+        Shows all profiles in JSON format.
+
+    up profile view | jq '.["my-profile"]'
+        Shows only the "my-profile" configuration using jq.
+`
+}
 
 // Run executes the list command.
 func (c *viewCmd) Run(p pterm.TextPrinter, ctx *kong.Context, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
-		p.Println(errNoProfiles)
-		return nil //nolint:nilerr
+		p.Println("No profiles found")
+		return nil //nolint:nilerr // error is handled by printing message
 	}
 
 	redacted := make(map[string]profile.Redacted)
@@ -35,6 +53,6 @@ func (c *viewCmd) Run(p pterm.TextPrinter, ctx *kong.Context, upCtx *upbound.Con
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(ctx.Stdout, string(b))
-	return nil
+	_, err = fmt.Fprintln(ctx.Stdout, string(b))
+	return err
 }

@@ -49,6 +49,29 @@ type LogoutCmd struct {
 	Flags upbound.Flags `embed:""`
 }
 
+// Help returns help text for the logout command.
+func (c *LogoutCmd) Help() string {
+	return `
+The 'logout' command invalidates the current session and removes stored credentials.
+
+This command:
+  - Invalidates the session token with Upbound Cloud
+  - Removes the session token from the local profile configuration
+  - Keeps the profile configuration intact (only removes authentication)
+
+After logout, you can log back in using 'up login' to re-authenticate with the same profile.
+
+Usage Examples:
+    up logout
+        Logs out from the selected active profile.
+
+    up logout --profile=production
+        Logs out from the "production" profile.
+
+Note: This only affects the selected profile. Other profiles remain authenticated.
+`
+}
+
 // Run executes the logout command.
 func (c *LogoutCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
