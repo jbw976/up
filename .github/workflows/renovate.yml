@@ -58,4 +58,4 @@ jobs:
           RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '["^git submodule update --init$", "^make generate$", "^install-tool golang \\$\\(grep -oP \"\\^go \\\\K\\.\\+\" go\\.mod\\)$", "^make go.lint$"]'
         with:
           configurationFile: .github/renovate.json5
-          token: '${{ steps.get-github-app-token.outputs.token }}'
+          token: '${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}'
