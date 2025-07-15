@@ -113,7 +113,14 @@ func (c *CompositionValidator) validatePipelineFunctionRefs(comp *xpextv1.Compos
 	// Figure out the valid function names based on the dependencies.
 	functionDeps := make(map[string]bool)
 	for _, dep := range deps {
-		if *dep.Type != v1beta1.FunctionPackageType {
+		// Check if this is a Function dependency - either by Type or Kind
+		isFunction := false
+		if dep.Type != nil && *dep.Type == v1beta1.FunctionPackageType {
+			isFunction = true
+		} else if dep.Kind != nil && *dep.Kind == "Function" {
+			isFunction = true
+		}
+		if !isFunction {
 			continue
 		}
 		reg, err := name.NewRepository(dep.Package)
@@ -166,8 +173,9 @@ func (c *CompositionValidator) collectFunctionDeps() ([]v1beta1.Dependency, erro
 	for i, info := range infos {
 		fnRepo := projRepo.Registry.Repo(projRepo.RepositoryStr() + "_" + info.Name())
 		deps[i] = v1beta1.Dependency{
-			Package: fnRepo.String(),
-			Type:    ptr.To(v1beta1.FunctionPackageType),
+			Package:    fnRepo.String(),
+			APIVersion: ptr.To("pkg.crossplane.io/v1"),
+			Kind:       ptr.To("Function"),
 		}
 	}
 
