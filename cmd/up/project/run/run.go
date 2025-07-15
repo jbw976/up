@@ -193,7 +193,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		eg.Go(func() error {
 			var err error
 			if c.UseCurrentContext {
-				devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
+				devCtp, err = ctp.NewKubeconfigDevControlPlane(ctx, upCtx)
 			} else {
 				devCtp, err = c.ensureDevControlPlane(
 					ctx,

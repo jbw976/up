@@ -561,7 +561,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error
 		if c.UseCurrentContext {
-			devCtp, err = ctp.NewKubeconfigDevControlPlane(upCtx)
+			devCtp, err = ctp.NewKubeconfigDevControlPlane(ctx, upCtx)
 		} else {
 			opts := []ctp.EnsureDevControlPlaneOption{
 				ctp.WithEventChannel(ch),

@@ -39,6 +39,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	licensev1alpha1 "github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/uxp"
 	"github.com/upbound/up/internal/async"
@@ -50,6 +51,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
+	"github.com/upbound/uxp-licensing/pkg/license"
 )
 
 const (
@@ -931,7 +933,7 @@ func (l *KubeconfigDevControlPlane) Teardown(_ context.Context, _ bool) error {
 
 // NewKubeconfigDevControlPlane returns an initialized
 // KubeconfigDevControlPlane.
-func NewKubeconfigDevControlPlane(upCtx *upbound.Context) (*KubeconfigDevControlPlane, error) {
+func NewKubeconfigDevControlPlane(ctx context.Context, upCtx *upbound.Context) (*KubeconfigDevControlPlane, error) {
 	ctxName, err := upCtx.GetCurrentContextName()
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot get current kubeconfig context name")
@@ -951,5 +953,37 @@ func NewKubeconfigDevControlPlane(upCtx *upbound.Context) (*KubeconfigDevControl
 		context:    ctxName,
 		kubeconfig: upCtx.Kubecfg,
 		client:     cl,
-	}, nil
+	}, checkUXPLicense(ctx, cl)
+}
+
+func checkUXPLicense(ctx context.Context, cl client.Client) error {
+	_ = licensev1alpha1.AddToScheme(cl.Scheme())
+
+	var l licensev1alpha1.License
+	if err := cl.Get(ctx, types.NamespacedName{Name: licensev1alpha1.LicenseName}, &l); err != nil {
+		return errors.Wrap(err, "failed to get uxp license")
+	}
+
+	if l.Spec.SecretRef == nil {
+		// Community edition - this is fine.
+		return nil
+	}
+
+	secretKey := l.Spec.SecretRef.Key
+	if secretKey == "" {
+		secretKey = licensev1alpha1.LicenseSecretKeyDefault
+	}
+
+	// Get the license data from the secret and validate it.
+	var s corev1.Secret
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: l.Spec.SecretRef.Namespace, Name: l.Spec.SecretRef.Name}, &s); err != nil {
+		return errors.Wrap(err, "failed to get uxp license data")
+	}
+
+	val := license.NewValidator()
+	if lic, err := val.Validate(s.Data[secretKey]); err != nil || lic == nil {
+		return errors.Wrap(err, "invalid uxp license")
+	}
+
+	return nil
 }
