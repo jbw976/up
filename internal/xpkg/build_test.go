@@ -37,6 +37,7 @@ var (
 	testMetav1WAuth       []byte
 	testMetav1            []byte
 	testController        []byte
+	testAddOn             []byte
 	testHelmChart         []byte
 	testEx1               []byte
 	testEx2               []byte
@@ -61,6 +62,7 @@ func init() {
 	testMetav1, _ = afero.ReadFile(afero.NewOsFs(), "testdata/provider_meta_v1.yaml")
 	testAuth, _ = afero.ReadFile(afero.NewOsFs(), "testdata/auth.yaml")
 	testController, _ = afero.ReadFile(afero.NewOsFs(), "testdata/controller_meta.yaml")
+	testAddOn, _ = afero.ReadFile(afero.NewOsFs(), "testdata/addon_meta.yaml")
 	testHelmChart, _ = afero.ReadFile(afero.NewOsFs(), "testdata/chart.tgz")
 	testEx1, _ = afero.ReadFile(afero.NewOsFs(), "testdata/examples/ec2/instance.yaml")
 	testEx2, _ = afero.ReadFile(afero.NewOsFs(), "testdata/examples/ec2/internetgateway.yaml")
@@ -134,7 +136,7 @@ func TestBuild(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			builder := New(tc.args.be, nil, tc.args.ex, nil, tc.args.p, tc.args.e, nil)
 
-			_, _, err := builder.Build(context.TODO())
+			_, _, err := builder.Build(t.Context())
 
 			if diff := cmp.Diff(tc.want, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nBuild(...): -want err, +got err:\n%s", tc.reason, diff)
@@ -258,7 +260,7 @@ func TestBuildExamples(t *testing.T) {
 
 			builder := New(pkgBe, nil, pkgEx, nil, pkgp, examples.New())
 
-			img, _, err := builder.Build(context.TODO())
+			img, _, err := builder.Build(t.Context())
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nBuildExamples(...): -want err, +got err:\n%s", tc.reason, diff)
@@ -403,7 +405,7 @@ func TestBuildAuth(t *testing.T) {
 
 			builder := New(pkgBe, tc.args.authBE, pkgEx, nil, pkgp, examples.New())
 
-			img, _, err := builder.Build(context.TODO())
+			img, _, err := builder.Build(t.Context())
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nBuildAuth(...): -want err, +got err:\n%s", tc.reason, diff)
@@ -472,7 +474,7 @@ func TestBuildHelm(t *testing.T) {
 				},
 			},
 		},
-		"SuccessWithHelmChart": {
+		"SuccessWithHelmChartController": {
 			reason: "Controller packages with a Helm chart should succeed",
 			args: args{
 				rootDir: "/ws",
@@ -484,6 +486,28 @@ func TestBuildHelm(t *testing.T) {
 					// Use a controller meta file for this test
 					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testController, os.ModePerm)
 					_ = afero.WriteFile(fs, "/ws/crds/crd.yaml", testCRD, os.ModePerm)
+					return fs
+				},
+			},
+			want: want{
+				pkgExists:  true,
+				helmExists: true,
+				labels: []string{
+					PackageAnnotation,
+					HelmChartAnnotation,
+				},
+			},
+		},
+		"SuccessWithHelmChart": {
+			reason: "AddOn packages with a Helm chart should succeed",
+			args: args{
+				rootDir: "/ws",
+				helmBE:  parser.NewEchoBackend(string(testHelmChart)),
+				fs: func() afero.Fs {
+					fs := afero.NewMemMapFs()
+					_ = fs.Mkdir("/ws", os.ModePerm)
+					// Use a controller meta file for this test
+					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testAddOn, os.ModePerm)
 					return fs
 				},
 			},
@@ -511,7 +535,23 @@ func TestBuildHelm(t *testing.T) {
 				},
 			},
 			want: want{
-				err: errors.New(errControllerNoHelm),
+				err: errors.New(errPackageNoHelm),
+			},
+		},
+		"ErrAddOnNoHelmChart": {
+			reason: "AddOn packages without a Helm chart should fail",
+			args: args{
+				rootDir: "/ws",
+				helmBE:  nil, // No Helm chart provided
+				fs: func() afero.Fs {
+					fs := afero.NewMemMapFs()
+					_ = fs.Mkdir("/ws", os.ModePerm)
+					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testAddOn, os.ModePerm)
+					return fs
+				},
+			},
+			want: want{
+				err: errors.New(errPackageNoHelm),
 			},
 		},
 		"SuccessWithHelmChartButNotController": {
@@ -537,7 +577,7 @@ func TestBuildHelm(t *testing.T) {
 			},
 		},
 		"ErrInitHelmBackend": {
-			reason: "Should return an error if we fail to initialize helm backend for a controller package",
+			reason: "Should return an error if we fail to initialize helm backend for an AddOn package",
 			args: args{
 				rootDir: "/ws",
 				helmBE: &MockBackend{
@@ -547,7 +587,7 @@ func TestBuildHelm(t *testing.T) {
 					fs := afero.NewMemMapFs()
 					_ = fs.Mkdir("/ws", os.ModePerm)
 					_ = fs.Mkdir("/ws/crds", os.ModePerm)
-					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testController, os.ModePerm)
+					_ = afero.WriteFile(fs, "/ws/crossplane.yaml", testAddOn, os.ModePerm)
 					_ = afero.WriteFile(fs, "/ws/crds/crd.yaml", testCRD, os.ModePerm)
 					return fs
 				},
@@ -578,7 +618,7 @@ func TestBuildHelm(t *testing.T) {
 
 			builder := New(pkgBe, nil, pkgEx, tc.args.helmBE, pkgp, examples.New())
 
-			img, _, err := builder.Build(context.TODO())
+			img, _, err := builder.Build(t.Context())
 
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nBuildHelm(...): -want err, +got err:\n%s", tc.reason, diff)

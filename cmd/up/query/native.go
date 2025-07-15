@@ -44,6 +44,7 @@ var (
 		"DaemonSet":                        "daemonsets",
 		"DeploymentRollback":               "deploymentrollbacks",
 		"DeviceClass":                      "deviceclasses",
+		"DeviceTaintRule":                  "devicetaintrules",
 		"Eviction":                         "evictions",
 		"HorizontalPodAutoscaler":          "horizontalpodautoscalers",
 		"IPAddress":                        "ipaddresses",
