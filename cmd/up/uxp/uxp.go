@@ -24,11 +24,23 @@ const (
 // baseValues returns base values for the UXP chart.
 func baseValues() map[string]any {
 	return map[string]any{
+		// TODO(branden): Remove this once UXP is public.
 		"upbound": map[string]any{
 			"manager": map[string]any{
-				// TODO(branden): Remove this once UXP is public.
-				"imagePullSecrets": []string{imagePullSecret},
+				"imagePullSecrets": []map[string]any{{
+					"name": imagePullSecret,
+				}},
 			},
+		},
+		"webui": map[string]any{
+			"imagePullSecrets": []map[string]any{{
+				"name": imagePullSecret,
+			}},
+		},
+		"apollo": map[string]any{
+			"imagePullSecrets": []map[string]any{{
+				"name": imagePullSecret,
+			}},
 		},
 	}
 }
