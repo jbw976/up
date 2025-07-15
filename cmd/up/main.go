@@ -34,7 +34,6 @@ import (
 	"github.com/upbound/up/cmd/up/test"
 	"github.com/upbound/up/cmd/up/token"
 	"github.com/upbound/up/cmd/up/trace"
-	tviewtemplate "github.com/upbound/up/cmd/up/tview-template"
 	"github.com/upbound/up/cmd/up/uxp"
 	v "github.com/upbound/up/cmd/up/version"
 	"github.com/upbound/up/cmd/up/xpkg"
@@ -168,17 +167,14 @@ func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam // Kong 
 }
 
 type alpha struct {
-	// For now, we maintain compatibility for systems that may still use the alpha variant of `controlplane`.
-	// This nudges users towards the stable variant when they attempt to emit help.
-	ControlPlane  controlplane.Cmd  `aliases:"ctp" cmd:""                                                           help:"Interact with control planes in the current context, both in the cloud and in a local space." hidden:""        name:"controlplane"`
-	Migration     migration.Cmd     `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes." maturity:"alpha"`
-	Trace         trace.Cmd         `cmd:""        help:"Trace a Crossplane resource."                              hidden:""                                                                                           maturity:"alpha"`
-	TviewTemplate tviewtemplate.Cmd `cmd:""        help:"TView example."                                            hidden:""                                                                                           maturity:"alpha"`
-	Query         query.QueryCmd    `cmd:""        help:"Query objects in one or many control planes."              hidden:""                                                                                           maturity:"alpha"`
-	Get           query.GetCmd      `cmd:""        help:"Get objects in the current control plane."                 hidden:""                                                                                           maturity:"alpha"`
-	Space         space.Cmd         `cmd:""        help:"Interact with Spaces."                                     maturity:"alpha"`
-	Ctx           ctx.Cmd           `cmd:""        help:"Select an Upbound kubeconfig context."                     maturity:"alpha"`
-	Xpkg          xpkg.Cmd          `cmd:""        help:"Manage Crossplane packages."                               hidden:""`
+	// ControlPlane has two alpha commands: `simulate` and `simulation`.
+	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                                           help:"Interact with control planes." hidden:""        name:"controlplane"`
+	Migration    migration.Cmd    `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes." maturity:"alpha"`
+	Trace        trace.Cmd        `cmd:""        help:"Trace a Crossplane resource."                              hidden:""                            maturity:"alpha"`
+	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes."              hidden:""                            maturity:"alpha"`
+	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane."                 hidden:""                            maturity:"alpha"`
+	// Xpkg has one alpha command: `append`.
+	Xpkg xpkg.Cmd `cmd:"" help:"Manage Crossplane packages." hidden:""`
 }
 
 const helpDescription = `The Upbound CLI.

@@ -35,7 +35,6 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/kyverno/chainsaw v0.2.13-0.20250116043056-57a42010852a
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
-	github.com/navidys/tvxwidgets v0.11.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/posener/complete v1.2.3
@@ -365,7 +364,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.65.0
+	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
