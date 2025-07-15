@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/name"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -186,7 +187,7 @@ func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock
 		depPkg, found := lookupLockPackage(lock.Packages, dep.Package, dep.Constraints)
 		if !found {
 			// Dep is not in lock yet - no need to look at the rest.
-			break
+			return false, nil
 		}
 		healthy, err := packageIsHealthy(ctx, cl, depPkg)
 		if err != nil {
@@ -200,12 +201,30 @@ func allDepsHealthy(ctx context.Context, cl client.Client, lock xpkgv1beta1.Lock
 	return true, nil
 }
 
-func lookupLockPackage(pkgs []xpkgv1beta1.LockPackage, source, version string) (xpkgv1beta1.LockPackage, bool) {
+// lookupLockPackage finds a package in the lock with the given source that
+// satisfies the given version constraint. If the constraint does not parse as a
+// semver constraint (e.g., if it's a digest), we look for an exactly matching
+// version string.
+func lookupLockPackage(pkgs []xpkgv1beta1.LockPackage, source, constraint string) (xpkgv1beta1.LockPackage, bool) {
 	for _, pkg := range pkgs {
-		if sourcesEqual(pkg.Source, source) {
-			if version == "" || pkg.Version == version {
+		if !sourcesEqual(pkg.Source, source) {
+			continue
+		}
+
+		vc, err := semver.NewConstraint(constraint)
+		if err != nil {
+			// Not a semver, use exact matching.
+			if pkg.Version == constraint {
 				return pkg, true
 			}
+		}
+		pv, err := semver.NewVersion(pkg.Version)
+		if err != nil {
+			// Not a semver, can't compare.
+			continue
+		}
+		if vc.Check(pv) {
+			return pkg, true
 		}
 	}
 	return xpkgv1beta1.LockPackage{}, false
