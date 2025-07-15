@@ -201,11 +201,11 @@ func (w *Wizard) examplePath(state State) string {
 }
 
 func (w *Wizard) xrdPath(state State) string {
-	return fmt.Sprintf("%s/definition.yaml", state.Kind)
+	return fmt.Sprintf("%s/definition.yaml", strings.ToLower(state.Kind))
 }
 
 func (w *Wizard) compPath(state State) string {
-	return fmt.Sprintf("%s/composition.yaml", state.Kind)
+	return fmt.Sprintf("%s/composition.yaml", strings.ToLower(state.Kind))
 }
 
 func (w *Wizard) functionName(state State) string {
