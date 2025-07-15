@@ -68,7 +68,7 @@ type installCmd struct {
 	// name will be used to construct object names in the api layer and target cluster
 	name string
 
-	// All bellow will be used to construct secret name in the target cluster
+	// All below will be used to construct secret name in the target cluster
 	// to connect to the control plane.
 	group            string
 	space            string
@@ -107,11 +107,25 @@ func (c *installCmd) Help() string {
 The 'install' command installs the API Connector into a cluster.
 
 Examples:
-    up controlplane api-connector install <` + nice("control-plane-name-full-qualified-path") + `> --target-kubeconfig <` + nice("kubeconfig-path-for-deployment-cluster") + `>
+    up controlplane api-connector install <` +
+		nice("control-plane-name-full-qualified-path") +
+		`> --target-kubeconfig <` +
+		nice("kubeconfig-path-for-deployment-cluster") +
+		`> --token <` +
+		nice("api-token") +
+		`>
         Installs the API Connector into the cluster and connects it to the control plane 'my-control-plane'.
 		Current context must be set to the organization that contains the control plane.
 
-    up controlplane api-connector install <` + nice("control-plane-name-full-qualified-path") + `> --name <` + nice("connection-resources-name") + `> --target-kubeconfig <` + nice("kubeconfig-path-for-deployment-cluster") + `>
+    up controlplane api-connector install <` +
+		nice("control-plane-name-full-qualified-path") +
+		`> --name <` +
+		nice("connection-resources-name") +
+		`> --target-kubeconfig <` +
+		nice("kubeconfig-path-for-deployment-cluster") +
+		`> --token <` +
+		nice("api-token") +
+		`>
         Installs the API Connector into the cluster and connects it to the control plane 'my-control-plane' with a custom name for the connection resources.
 		Current context must be set to the organization that contains the control plane.
 
@@ -197,9 +211,6 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 			return errors.Wrap(err, errReadParametersFile)
 		}
 		if err := yaml.Unmarshal(b, &base); err != nil {
-			return errors.Wrap(err, errReadParametersFile)
-		}
-		if err := c.File.Close(); err != nil {
 			return errors.Wrap(err, errReadParametersFile)
 		}
 	}

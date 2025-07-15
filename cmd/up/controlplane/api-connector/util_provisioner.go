@@ -431,13 +431,18 @@ type installOptions struct {
 	upgrade   bool
 }
 
-func (p *provisioner) uninstallConnector(_ context.Context, targetRestConfig *rest.Config, o installOptions) error {
+func (p *provisioner) uninstallConnector(_ context.Context, targetRestConfig *rest.Config, _ installOptions) error {
 	opts := []helm.InstallerModifierFn{
-		helm.WithNamespace(o.namespace),
 		helm.Wait(),
 	}
 
-	mgr, err := helm.NewManager(targetRestConfig, connectorName, *mcpRepoURL, opts...)
+	mgr, err := helm.NewManager(
+		targetRestConfig,
+		connectorName,
+		*mcpRepoURL,
+		defaultInstallationNamespace,
+		opts...,
+	)
 	if err != nil {
 		return err
 	}
@@ -451,7 +456,6 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 	}
 
 	opts := []helm.InstallerModifierFn{
-		helm.WithNamespace(o.namespace),
 		helm.CreateNamespace(true),
 		helm.Wait(),
 	}
@@ -462,10 +466,21 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 		if err != nil {
 			return errors.Wrap(err, "failed to open chart")
 		}
+		defer func() {
+			if err := chart.Close(); err != nil {
+				p.printer.Printfln("Failed to close chart: %s", err.Error())
+			}
+		}()
+
 		opts = append(opts, helm.WithChart(chart))
 	}
 
-	mgr, err := helm.NewManager(targetRestConfig, connectorName, *mcpRepoURL, opts...)
+	mgr, err := helm.NewManager(
+		targetRestConfig,
+		connectorName,
+		*mcpRepoURL,
+		defaultInstallationNamespace,
+		opts...)
 	if err != nil {
 		return err
 	}

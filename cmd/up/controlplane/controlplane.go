@@ -108,7 +108,8 @@ type Cmd struct {
 	// Commands for managing the connector. These require a control plane
 	// context.
 	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane using MCP Connector."`
-	// Command for managing the api connectors. These require a spaces context.
+	// Command for managing the api connectors.These require a space
+	// context.
 	APIConnector apiconnector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane using API Connector." maturity:"alpha"`
 
 	// Commands for managing control plane simulations. These require a space
