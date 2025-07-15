@@ -26,9 +26,16 @@ jobs:
         with:
           submodules: true
 
-      - name: Granting private modules access
+      # Renovate needs SSH auth instead of the HTTPS auth we use in our other
+      # actions.
+      - name: Granting private modules access with SSH
+        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.UPBOUND_BOT_GITHUB_SSH_PRIVATE_KEY }}
+
+      - name: Configure Git to use SSH
         run: |
-          git config --global url."https://${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+          git config --global url."git@github.com:".insteadOf "https://github.com/"
 
       # Don't waste time starting Renovate if JSON is invalid
       - name: Validate Renovate JSON
