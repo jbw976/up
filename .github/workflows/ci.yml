@@ -12,6 +12,10 @@ on:
   merge_group:
     types: [checks_requested]
 
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read    # Required for checkout
+
 env:
   # Common versions
   GOLANGCI_VERSION: 'v1.64.8'
@@ -24,6 +28,7 @@ env:
   DOCKER_USR: ${{ secrets.DOCKER_USR }}
   AWS_USR: ${{ secrets.AWS_USR }}
   XPKG_ACCESS_ID: ${{ secrets.XPKG_ACCESS_ID }}
+  AWS_REGION: us-east-1
 
 jobs:
   detect-noop:
@@ -688,9 +693,19 @@ jobs:
           username: ${{ secrets.UPBOUND_ROBOT_ID }}
           password: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: up test run --e2e example-project-aws
         # Only run e2e tests for kcl and python, since the other languages don't have e2e tests.
         if: (matrix.language == 'kcl' && matrix.test-language == 'kcl') || (matrix.language == 'python' && matrix.test-language == 'python')
+        env:
+          UP_AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          UP_AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: |
           cd project-example-aws
           up test run tests/e2etest-xstoragebucket --e2e
