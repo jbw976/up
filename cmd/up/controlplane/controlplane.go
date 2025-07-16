@@ -23,6 +23,7 @@ import (
 	"github.com/upbound/up/cmd/up/controlplane/pullsecret"
 	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/cmd/up/controlplane/simulation"
+	"github.com/upbound/up/cmd/up/migration"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -122,6 +123,10 @@ type Cmd struct {
 	// Commands for managing pull secrets in control planes. These require a
 	// control plane context.
 	PullSecret pullsecret.Cmd `cmd:"" help:"Manage package pull secrets."`
+
+	// Commands for managing migrations from control planes. These require a
+	// control plane context.
+	Migration migration.Cmd `cmd:"" help:"Migrate control planes to Upbound Managed Control Planes."`
 
 	// Commands for managing OIDC auth. These require a spaces control plane
 	// context.

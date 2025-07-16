@@ -168,11 +168,11 @@ func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam // Kong 
 
 type alpha struct {
 	// ControlPlane has two alpha commands: `simulate` and `simulation`.
-	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                                           help:"Interact with control planes." hidden:""        name:"controlplane"`
-	Migration    migration.Cmd    `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes." maturity:"alpha"`
-	Trace        trace.Cmd        `cmd:""        help:"Trace a Crossplane resource."                              hidden:""                            maturity:"alpha"`
-	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes."              hidden:""                            maturity:"alpha"`
-	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane."                 hidden:""                            maturity:"alpha"`
+	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                                                                                                          help:"Interact with control planes." hidden:""        name:"controlplane"`
+	Migration    migration.Cmd    `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes. Deprecated: use \"up controlplane migration\" command instead." hidden:""`
+	Trace        trace.Cmd        `cmd:""        help:"Trace a Crossplane resource."                                                                                             hidden:""                            maturity:"alpha"`
+	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes."                                                                             hidden:""                            maturity:"alpha"`
+	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane."                                                                                hidden:""                            maturity:"alpha"`
 	// Xpkg has one alpha command: `append`.
 	Xpkg xpkg.Cmd `cmd:"" help:"Manage Crossplane packages." hidden:""`
 }
