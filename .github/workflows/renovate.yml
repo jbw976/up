@@ -33,10 +33,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.UPBOUND_BOT_GITHUB_SSH_PRIVATE_KEY }}
 
-      - name: Configure Git to use SSH
-        run: |
-          git config url."git@github.com:".insteadOf "https://github.com/"
-
       # Don't waste time starting Renovate if JSON is invalid
       - name: Validate Renovate JSON
         run:  npx --yes --package renovate -- renovate-config-validator
@@ -56,11 +52,17 @@ jobs:
           RENOVATE_PLATFORM_COMMIT: "true"
           LOG_LEVEL: ${{ github.event.inputs.logLevel || env.LOG_LEVEL }}
           RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '["^git submodule update --init$", "^make generate$", "^install-tool golang \\$\\(grep -oP \"\\^go \\\\K\\.\\+\" go\\.mod\\)$", "^make go.lint$"]'
+          # Configure git to use SSH for auth instead of HTTPS, since we have an
+          # ssh-agent to pull private modules.
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: 'url."git@github.com:".insteadOf'
+          GIT_CONFIG_VALUE_0: 'https://github.com/'
         with:
           configurationFile: .github/renovate.json5
           token: '${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}'
           # Mount in the ssh auth socket.
           docker-volumes: |
             ${{ env.SSH_AUTH_SOCK }}:${{ env.SSH_AUTH_SOCK }}
-          # Pass the SSH_AUTH_SOCK through to the renovate docker container.
-          env-regex: "^(?:RENOVATE_\\w+|LOG_LEVEL|GITHUB_COM_TOKEN|NODE_OPTIONS|SSH_AUTH_SOCK)$"
+          # Pass the SSH_AUTH_SOCK and GIT_CONFIG_* envvars through to the
+          # renovate docker container.
+          env-regex: "^(?:RENOVATE_\\w+|LOG_LEVEL|GITHUB_COM_TOKEN|NODE_OPTIONS|SSH_AUTH_SOCK|GIT_CONFIG_\\w+)$"
