@@ -188,7 +188,9 @@ func (c *openCmd) localPort() (int, error) {
 		return 0, errors.Wrap(err, errListen)
 	}
 	defer func() {
-		_ = listener.Close()
+		if err := listener.Close(); err != nil {
+			pterm.Println(fmt.Sprintf("Error closing listener: %s", err))
+		}
 	}()
 
 	addr, ok := listener.Addr().(*net.TCPAddr)
