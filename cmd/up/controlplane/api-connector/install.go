@@ -83,7 +83,6 @@ type installCmd struct {
 	Version string `help:"Version of the API Connector to install. If not provided, the latest, known to CLI, will be installed."`
 
 	// Identity flags
-	Team                           string `help:"Team to create the robot in. If not provided, new team will be created."`
 	FullyQualifiedControlPlaneName string `arg:""                                                                                                                          help:"Full qualified name of the control plane. If not provided, the name argument value will be used. Example: organization-name/upbound-gcp-us-west-1/default/my-control-plane"`
 	Name                           string `help:"Name of the related objects for named connection. If not provided, last segment of the full qualified name will be used."`
 	UpboundToken                   string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
@@ -151,10 +150,6 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 
 	if c.Name != "" {
 		c.name = c.Name
-	}
-
-	if c.Team == "" {
-		c.Team = c.name
 	}
 
 	if !strings.HasPrefix(c.space, "upbound-") {
