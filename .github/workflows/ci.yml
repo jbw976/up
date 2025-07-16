@@ -141,7 +141,7 @@ jobs:
         run: make check-diff
 
   unit-tests:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
 
