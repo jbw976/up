@@ -96,24 +96,28 @@
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true
     },
-    {
-      "description": "Generate code after upgrading go dependencies",
-      "matchDatasources": [
-        "go"
-      ],
-      postUpgradeTasks: {
-        // Post-upgrade tasks that are executed before a commit is made by Renovate.
-        "commands": [
-          "git submodule update --init",
-          "install-tool golang $(grep -oP \"^go \\K.+\" go.mod)",
-          "make generate",
-        ],
-        fileFilters: [
-          "**/*"
-        ],
-        executionMode: "update",
-      },
-    },
+    // TODO(adamwg): Re-enable this when we can figure out how to give
+    // renovate's docker container access to private repositories. For now,
+    // any dep update that changes code generation will fail CI and need
+    // manual intervention.
+    // {
+    //   "description": "Generate code after upgrading go dependencies",
+    //   "matchDatasources": [
+    //     "go"
+    //   ],
+    //   postUpgradeTasks: {
+    //     // Post-upgrade tasks that are executed before a commit is made by Renovate.
+    //     "commands": [
+    //       "git submodule update --init",
+    //       "install-tool golang $(grep -oP \"^go \\K.+\" go.mod)",
+    //       "make generate",
+    //     ],
+    //     fileFilters: [
+    //       "**/*"
+    //     ],
+    //     executionMode: "update",
+    //   },
+    // },
     {
       "description": "Lint code after upgrading golangci-lint",
       "matchDepNames": [
