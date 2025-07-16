@@ -283,7 +283,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 
 		// Step 2.2: Create a robot and a token.
 		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Creating robot for the connection", 3, totalSteps),
+			upterm.StepCounter("Creating robot", 3, totalSteps),
 			stepSpinner,
 			func() error {
 				if err := provisioner.seedRobots(ctx, c.name); err != nil {
@@ -298,7 +298,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 
 		// Step 2.3: Create a token.
 		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Creating token for the connection", 3, totalSteps),
+			upterm.StepCounter("Creating token", 3, totalSteps),
 			stepSpinner,
 			func() error {
 				return provisioner.seedToken(ctx)
