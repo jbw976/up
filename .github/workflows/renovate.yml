@@ -26,13 +26,6 @@ jobs:
         with:
           submodules: true
 
-      # Renovate needs SSH auth instead of the HTTPS auth we use in our other
-      # actions.
-      - name: Granting private modules access with SSH
-        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.UPBOUND_BOT_GITHUB_SSH_PRIVATE_KEY }}
-
       # Don't waste time starting Renovate if JSON is invalid
       - name: Validate Renovate JSON
         run:  npx --yes --package renovate -- renovate-config-validator
@@ -51,18 +44,12 @@ jobs:
           # Use GitHub API to create commits
           RENOVATE_PLATFORM_COMMIT: "true"
           LOG_LEVEL: ${{ github.event.inputs.logLevel || env.LOG_LEVEL }}
-          RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '["^git submodule update --init$", "^make generate$", "^install-tool golang \\$\\(grep -oP \"\\^go \\\\K\\.\\+\" go\\.mod\\)$", "^make go.lint$"]'
-          # Configure git to use SSH for auth instead of HTTPS, since we have an
-          # ssh-agent to pull private modules.
-          GIT_CONFIG_COUNT: '1'
-          GIT_CONFIG_KEY_0: 'url."git@github.com:".insteadOf'
-          GIT_CONFIG_VALUE_0: 'https://github.com/'
+          # Our post-upgrade commands don't work when we depend on private
+          # modules since we haven't figured out how to get the necessary SSH
+          # config into the renovate container. Dep updates that impact
+          # generated code will fail CI and need to be updated manually.
+          #
+          # RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: '["^git submodule update --init$", "^make generate$", "^install-tool golang \\$\\(grep -oP \"\\^go \\\\K\\.\\+\" go\\.mod\\)$", "^make go.lint$"]'
         with:
           configurationFile: .github/renovate.json5
           token: '${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}'
-          # Mount in the ssh auth socket.
-          docker-volumes: |
-            ${{ env.SSH_AUTH_SOCK }}:${{ env.SSH_AUTH_SOCK }}
-          # Pass the SSH_AUTH_SOCK and GIT_CONFIG_* envvars through to the
-          # renovate docker container.
-          env-regex: "^(?:RENOVATE_\\w+|LOG_LEVEL|GITHUB_COM_TOKEN|NODE_OPTIONS|SSH_AUTH_SOCK|GIT_CONFIG_\\w+)$"
