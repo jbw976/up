@@ -37,10 +37,11 @@ type CompositionTestSpec struct {
 	Validate *bool `json:"validate,omitempty"`
 
 	// XR specifies the composite resource (XR) inline.
+	// Mutually exclusive with XRPath. At least one of XR or XRPath must be specified.
 	XR runtime.RawExtension `json:"xr,omitempty"`
 
-	// XR specifies the composite resource (XR) path.
-	// Optional.
+	// XRPath specifies the composite resource (XR) path.
+	// Mutually exclusive with XR. At least one of XR or XRPath must be specified.
 	XRPath string `json:"xrPath,omitempty"`
 
 	// XRD specifies the XRD definition inline.
