@@ -93,12 +93,12 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	mainStyle := style.SelectableItemStyle
 	if index == m.Index() {
-		copy := style.SelectedItemStyle
-		mainStyle = copy
+		c := style.SelectedItemStyle
+		mainStyle = c
 	}
 	if str.notSelectable {
-		copy := style.SelectableItemStyle
-		mainStyle = copy
+		c := style.SelectableItemStyle
+		mainStyle = c
 	}
 	padding := str.padding
 	mainStyle = mainStyle.Padding(padding.top, padding.right, padding.bottom, padding.left)
