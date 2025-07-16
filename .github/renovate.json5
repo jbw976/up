@@ -5,6 +5,7 @@
     "helpers:pinGitHubActionDigests",
     ":semanticCommits"
   ],
+  "gitAuthor": "upbot <38707938+upbound-bot@users.noreply.github.com>",
   // We only want renovate to rebase PRs when they have conflicts,
   // default "auto" mode is not required.
   "rebaseWhen": "conflicted",
