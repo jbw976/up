@@ -77,6 +77,7 @@ type runCmd struct {
 	ControlPlaneNamePrefix  string   `help:"Prefex of the control plane name to use. It will be created if not found."`
 	Force                   bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane." name:"skip-control-plane-check"`
 	Local                   bool     `help:"Use a local dev control plane, even if Spaces is available."`
+	LocalRegistryPath       string   `help:"Directory to use for local registry images. The default is system-dependent."`
 	SkipControlPlaneCleanup bool     `help:"Skip cleanup of the control plane after the test run."                                                                               name:"skip-control-plane-cleanup"`
 	UseCurrentContext       bool     `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
 	CacheDir                string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                          help:"Directory used for caching dependencies."               type:"path"`
@@ -569,6 +570,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 				ctp.WithControlPlaneName(controlPlaneName),
 				ctp.SkipDevCheck(c.Force),
 				ctp.ForceLocal(c.Local),
+				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 			}
 
 			if test.Spec.Crossplane != nil {

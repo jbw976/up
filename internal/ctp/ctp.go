@@ -96,6 +96,7 @@ type spacesConfig struct {
 // control planes.
 type localConfig struct {
 	crossplaneVersion string
+	registryDir       string
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
@@ -161,6 +162,14 @@ func WithControlPlaneName(n string) EnsureDevControlPlaneOption {
 func WithLocalCrossplaneVersion(v string) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.localConfig.crossplaneVersion = v
+	}
+}
+
+// WithLocalRegistryDirectory sets the directory to use for the local
+// sideloading registry's data when creating a local dev control plane.
+func WithLocalRegistryDirectory(path string) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.localConfig.registryDir = path
 	}
 }
 
@@ -472,7 +481,11 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	// Create a directory to store sideloaded images and spin up a registry
 	// container that uses it. This will let us get images into the dev CTP
 	// without pushing to a registry.
-	registryDir := filepath.Join(os.TempDir(), "up-local-registry", cfg.name)
+	registryDir := cfg.localConfig.registryDir
+	if registryDir == "" {
+		registryDir = filepath.Join(os.TempDir(), "up-local-registry")
+	}
+	registryDir = filepath.Join(registryDir, cfg.name)
 	if err := os.MkdirAll(registryDir, 0o755); err != nil { //nolint:gosec // Container needs to read the dir.
 		return nil, err
 	}

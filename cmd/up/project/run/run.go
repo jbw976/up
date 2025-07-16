@@ -57,6 +57,7 @@ type Cmd struct {
 	ControlPlaneName   string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
 	Force              bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
 	Local              bool          `help:"Use a local dev control plane, even if Spaces is available."`
+	LocalRegistryPath  string        `help:"Directory to use for local registry images. The default is system-dependent."`
 	NoUpdateKubeconfig bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
 	UseCurrentContext  bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
 	CacheDir           string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
@@ -203,6 +204,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 					ctp.WithControlPlaneName(c.ControlPlaneName),
 					ctp.SkipDevCheck(c.Force),
 					ctp.ForceLocal(c.Local),
+					ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 				)
 			}
 			if err != nil {
