@@ -35,7 +35,7 @@ jobs:
 
       - name: Configure Git to use SSH
         run: |
-          git config --global url."git@github.com:".insteadOf "https://github.com/"
+          git config url."git@github.com:".insteadOf "https://github.com/"
 
       # Don't waste time starting Renovate if JSON is invalid
       - name: Validate Renovate JSON
@@ -59,3 +59,8 @@ jobs:
         with:
           configurationFile: .github/renovate.json5
           token: '${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}'
+          # Mount in the ssh auth socket.
+          docker-volumes: |
+            ${{ env.SSH_AUTH_SOCK }}:${{ env.SSH_AUTH_SOCK }}
+          # Pass the SSH_AUTH_SOCK through to the renovate docker container.
+          env-regex: "^(?:RENOVATE_\\w+|LOG_LEVEL|GITHUB_COM_TOKEN|NODE_OPTIONS|SSH_AUTH_SOCK)$"
