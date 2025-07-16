@@ -68,11 +68,20 @@ func Extract(src Source) (*Config, error) {
 
 // GetDefaultPath returns the default config path or error.
 func GetDefaultPath() (string, error) {
-	h, err := os.UserHomeDir()
+	h, err := GetUpConfigDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(h, ConfigDir, ConfigFile), nil
+}
+
+// GetUpConfigDir returns the default up configurations dir or error.
+func GetUpConfigDir() (string, error) {
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(h, ConfigDir), nil
 }
 
 // Upbound contains configuration information for Upbound.

@@ -5,6 +5,7 @@
 package project
 
 import (
+	"github.com/upbound/up/cmd/up/project/ai"
 	"github.com/upbound/up/cmd/up/project/build"
 	"github.com/upbound/up/cmd/up/project/initialize"
 	"github.com/upbound/up/cmd/up/project/move"
@@ -27,4 +28,6 @@ type Cmd struct {
 
 	Simulate   simulate.CreateCmd `cmd:"" help:"Run a project as a simulation against an existing control plane."`
 	Simulation simulate.Cmd       `cmd:"" help:"Manage project simulations."`
+
+	AI ai.Cmd `cmd:"" help:"Generate AI tooling for a project."`
 }

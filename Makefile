@@ -45,6 +45,7 @@ GO_SUBDIRS += cmd internal pkg
 GO111MODULE = on
 GO_REQUIRED_VERSION = 1.23
 GOLANGCILINT_VERSION = 1.64.8
+GO_LINT_ARGS ?= "--fix"
 
 -include build/makelib/golang.mk
 
