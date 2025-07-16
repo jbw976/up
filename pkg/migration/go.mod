@@ -10,10 +10,10 @@ require (
 	github.com/pterm/pterm v0.12.62
 	github.com/spf13/afero v1.14.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.33.2
-	k8s.io/apiextensions-apiserver v0.33.2
-	k8s.io/apimachinery v0.33.2
-	k8s.io/client-go v0.33.2
+	k8s.io/api v0.33.3
+	k8s.io/apiextensions-apiserver v0.33.3
+	k8s.io/apimachinery v0.33.3
+	k8s.io/client-go v0.33.3
 	sigs.k8s.io/yaml v1.4.0
 )
 
