@@ -6,8 +6,9 @@ package license
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/license"
 	"github.com/upbound/up/internal/upterm"
