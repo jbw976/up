@@ -31,21 +31,10 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/version"
 )
-
-var (
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	upboundBrandColor = lipgloss.AdaptiveColor{Light: "#5e3ba5", Dark: "#af7efd"}
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	neutralColor = lipgloss.AdaptiveColor{Light: "#4e5165", Dark: "#9a9ca7"}
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	dimColor = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
-)
-
-//nolint:gochecknoglobals // We'd make these consts if we could.
-var upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
 
 // TODO(adamwg): All the nav states here should probably be unexported. Today we
 // do use them a bit outside of the ctx command, but that's a bit of a smell -
@@ -70,7 +59,7 @@ func (b Breadcrumbs) String() string {
 
 // styledString returns a pretty string version of the breadcrumbs.
 func (b Breadcrumbs) styledString() string {
-	pathInactiveSegmentStyle := lipgloss.NewStyle().Foreground(neutralColor)
+	pathInactiveSegmentStyle := lipgloss.NewStyle().Foreground(style.NeutralColor)
 	pathSegmentStyle := lipgloss.NewStyle()
 
 	switch len(b) {

@@ -5,13 +5,13 @@ package apiconnector
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/pterm/pterm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -28,16 +28,16 @@ import (
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
-var (
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	upboundBrandColor = lipgloss.AdaptiveColor{Light: "#5e3ba5", Dark: "#af7efd"}
-
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	upboundRootStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
-)
+// nice is a helper function to render a string with the Upbound brand color.
+// It basically shortens the name of the function to make it easier to read.
+func nice(s string) string {
+	return style.UpboundRootStyle.Render(s)
+}
 
 var mcpRepoURL = urlMustParse("xpkg.upbound.io/spaces-artifacts") //nolint:gochecknoglobals // Would make this a const if we could.
 
@@ -86,11 +86,11 @@ type installCmd struct {
 	Team                           string `help:"Team to create the robot in. If not provided, new team will be created."`
 	FullyQualifiedControlPlaneName string `arg:""                                                                                                                          help:"Full qualified name of the control plane. If not provided, the name argument value will be used. Example: organization-name/upbound-gcp-us-west-1/default/my-control-plane"`
 	Name                           string `help:"Name of the related objects for named connection. If not provided, last segment of the full qualified name will be used."`
-	Token                          string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
+	UpboundToken                   string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 
 	// Installation flags
 	SkipConnection          bool   `help:"Skip connection creation to the control plane. If provided, the connector will be installed without connecting to the control plane."`
-	TargetKubeconfig        string `help:"Path to the kubeconfig file for the cluster. If not provided, the current context will be used."`
+	TargetKubeconfig        string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."`
 	TargetKubeconfigContext string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 
 	ControlPlaneSecretNamespace string `default:"upbound-system"                                                    help:"Namespace of the secret that contains the kubeconfig for a control plane."`
@@ -172,7 +172,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 		targetRestConfig, err = upCtx.Kubecfg.ClientConfig()
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get target kubeconfig: %w", err)
 	}
 	c.targetRestConfig = targetRestConfig
 
@@ -186,7 +186,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 
 	spaceRestConfig, err := upCtx.Kubecfg.ClientConfig()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get space kubeconfig: %w", err)
 	}
 
 	spaceKubeClient, err := client.New(spaceRestConfig, client.Options{
@@ -219,77 +219,134 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 }
 
 // Run executes the connect command.
-func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	return c.deploy(ctx, p, upCtx)
+	return c.deploy(ctx, p, upCtx, printer)
 }
 
-func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
-	provisioner := newProvisioner(p, c.sdkConfig)
+func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
+
+	provisioner := newProvisioner(c.sdkConfig, p, printer)
 	params, err := c.parser.Parse()
 	if err != nil {
 		return errors.Wrap(err, errParseInstallParameters)
 	}
 
-	// First and foremost - check if we have a connection with same name already as
-	// further action will bork if we have a connection with same name.
-	_, err = provisioner.getConnection(ctx, c.targetClient, c.name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return errors.Wrap(err, "failed to get connection")
+	totalSteps := 5
+
+	// Step 1: Check if connection already exists. Fail early if it does.
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Checking if connection already exists", 1, totalSteps),
+		stepSpinner,
+		func() error {
+			// First and foremost - check if we have a connection with same name already as
+			// further action will bork if we have a connection with same name.
+			_, err = provisioner.getConnection(ctx, c.targetClient, c.name)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return errors.Wrap(err, "failed to get connection")
+			}
+			return nil
+		},
+		printer,
+	); err != nil {
+		return err
 	}
 
-	if err == nil { // we only expect 404 here,
-		return errors.New("connection with same name already exists. Please delete the connection first or provide a different name with --name flag")
-	}
-
-	// First part is - BYO permissions.
-	if c.Token != "" {
+	// Step 2: If token is provided, we use it. Otherwise, we create a robot and a token, and wire things up.
+	if c.UpboundToken != "" {
 		if c.organization == "" {
 			return errors.New("organization is required when providing a token")
 		}
 		// Now this is where we stomp over the BYO permissions.
 		// This is not quite nice place for this, but code is bit tricky to get right now.
-		provisioner.results.Token = c.Token
+		provisioner.results.Token = c.UpboundToken
 		provisioner.results.OrganizationName = c.organization
 	} else { // No token provided, so we need to create a robot and a token, and wire things up.
+		// Step 2.1: Read organization configuration.
 		p.Printfln("Creating a robot & related resources for the cluster %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
-
-		if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
-			return errors.Wrap(err, "failed to seed organizations")
-		}
-		if err := provisioner.seedRobots(ctx, c.name); err != nil {
-			return errors.Wrap(err, "failed to seed robots")
-		}
-		if err := provisioner.seedTeams(ctx, c.name); err != nil {
-			return errors.Wrap(err, "failed to seed teams")
-		}
-		if err := provisioner.seedToken(ctx); err != nil {
-			return errors.Wrap(err, "failed to seed token")
-		}
-
-		namespace, err := upCtx.GetCurrentContextNamespace()
-		if err != nil {
-			return errors.Wrap(err, "failed to get current context namespace")
+		if err := upterm.WrapWithSuccessSpinner(
+			upterm.StepCounter("Reading organization configuration", 2, totalSteps),
+			stepSpinner,
+			func() error {
+				if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
+					return errors.Wrap(err, "failed to seed organizations")
+				}
+				return nil
+			},
+			printer,
+		); err != nil {
+			return err
 		}
 
-		if err := provisioner.seedAccess(ctx, c.spaceClient, c.name, namespace); err != nil {
-			return errors.Wrap(err, "failed to seed access")
+		// Step 2.2: Create a robot and a token.
+		if err := upterm.WrapWithSuccessSpinner(
+			upterm.StepCounter("Creating robot for the connection", 3, totalSteps),
+			stepSpinner,
+			func() error {
+				if err := provisioner.seedRobots(ctx, c.name); err != nil {
+					return errors.Wrap(err, "failed to seed robots")
+				}
+				return nil
+			},
+			printer,
+		); err != nil {
+			return err
+		}
+
+		// Step 2.3: Create a token.
+		if err := upterm.WrapWithSuccessSpinner(
+			upterm.StepCounter("Creating token for the connection", 3, totalSteps),
+			stepSpinner,
+			func() error {
+				return provisioner.seedToken(ctx)
+			},
+			printer,
+		); err != nil {
+			return err
+		}
+
+		// Step 2.4: Seed access to the namespace.
+		if err := upterm.WrapWithSuccessSpinner(
+			upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
+			stepSpinner,
+			func() error {
+				namespace, err := upCtx.GetCurrentContextNamespace()
+				if err != nil {
+					return errors.Wrap(err, "failed to get current context namespace")
+				}
+				return provisioner.seedAccess(ctx, c.spaceClient, namespace)
+			},
+			printer,
+		); err != nil {
+			return err
 		}
 	}
 
-	installOptions := installOptions{
-		name:      c.name,
-		namespace: c.installationNamespace,
-		version:   c.Version,
-		chartPath: c.HelmDirectory,
-		params:    params,
-		upgrade:   c.Upgrade,
-	}
+	// Step 3: Install the connector.
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Installing the connector", 5, totalSteps),
+		stepSpinner,
+		func() error {
+			installOptions := installOptions{
+				name:      c.name,
+				namespace: c.installationNamespace,
+				version:   c.Version,
+				chartPath: c.HelmDirectory,
+				params:    params,
+				upgrade:   c.Upgrade,
+			}
 
-	if err := provisioner.installOrUpgradeConnector(ctx, c.targetRestConfig, installOptions); err != nil {
-		return errors.Wrap(err, "failed to install or upgrade")
+			if err := provisioner.installOrUpgradeConnector(ctx, c.targetRestConfig, installOptions); err != nil {
+				return errors.Wrap(err, "failed to install or upgrade")
+			}
+			return nil
+		},
+		printer,
+	); err != nil {
+		return err
 	}
 
 	// If skip connection is provided, we are done.
@@ -297,14 +354,31 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		return nil
 	}
 
-	if err := provisioner.seedConnectionSecret(ctx, c.targetClient, c.name, c.installationNamespace, c.spacesHostname, c.group, c.controlPlaneName); err != nil {
-		return errors.Wrap(err, "failed to seed connection secret")
+	// Step 4: Create a connection secret.
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Creating connection secret", 5, totalSteps),
+		stepSpinner,
+		func() error {
+			return provisioner.seedConnectionSecret(ctx, c.targetClient, c.name, c.installationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
+		},
+		printer,
+	); err != nil {
+		return err
 	}
 
-	if err := provisioner.seedConnection(ctx, c.targetClient, c.name, c.installationNamespace); err != nil {
-		return errors.Wrap(err, "failed to seed connection")
+	// Step 5: Create a connection.
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Creating connection", 5, totalSteps),
+		stepSpinner,
+		func() error {
+			return provisioner.seedConnection(ctx, c.targetClient, c.name, c.installationNamespace)
+		},
+		printer,
+	); err != nil {
+		return err
 	}
 
+	p.Printfln("API Connector installed")
 	return nil
 }
 
@@ -314,8 +388,4 @@ func urlMustParse(s string) *url.URL {
 		panic(err)
 	}
 	return u
-}
-
-func nice(s string) string {
-	return upboundRootStyle.Render(s)
 }

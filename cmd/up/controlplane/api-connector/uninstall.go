@@ -19,6 +19,7 @@ import (
 	"github.com/upbound/up-sdk-go"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 func (c *uninstallCmd) Help() string {
@@ -79,11 +80,11 @@ type uninstallCmd struct {
 }
 
 // Run executes the uninstall command.
-func (c *uninstallCmd) Run(p pterm.TextPrinter) error {
+func (c *uninstallCmd) Run(p pterm.TextPrinter, printer upterm.ObjectPrinter) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	provisioner := newProvisioner(p, c.sdkConfig)
+	provisioner := newProvisioner(c.sdkConfig, p, printer)
 
 	err := provisioner.uninstallConnector(ctx, c.targetRestConfig, installOptions{
 		namespace: defaultInstallationNamespace,
@@ -98,7 +99,7 @@ func (c *uninstallCmd) Run(p pterm.TextPrinter) error {
 			return errors.Wrap(err, "failed to delete connection secret")
 		}
 
-		err = provisioner.deleteConnections(ctx, c.targetClient, defaultInstallationNamespace)
+		err = provisioner.deleteConnections(ctx, c.targetClient)
 		if err != nil {
 			return errors.Wrap(err, "failed to delete connections")
 		}

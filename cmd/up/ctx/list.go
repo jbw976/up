@@ -15,17 +15,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"k8s.io/apimachinery/pkg/util/sets"
-)
 
-var (
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	itemStyle = lipgloss.NewStyle()
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	unselectableItemStyle = lipgloss.NewStyle().Foreground(dimColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	kindStyle = lipgloss.NewStyle().Foreground(neutralColor)
-	//nolint:gochecknoglobals // We'd make these consts if we could.
-	selectedItemStyle = lipgloss.NewStyle().Foreground(upboundBrandColor)
+	"github.com/upbound/up/internal/style"
 )
 
 var (
@@ -100,15 +91,17 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	mainStyle := itemStyle
+	mainStyle := style.SelectableItemStyle
 	if index == m.Index() {
-		mainStyle = selectedItemStyle
+		copy := style.SelectedItemStyle
+		mainStyle = copy
 	}
 	if str.notSelectable {
-		mainStyle = unselectableItemStyle
+		copy := style.SelectableItemStyle
+		mainStyle = copy
 	}
 	padding := str.padding
-	mainStyle = mainStyle.Copy().Padding(padding.top, padding.right, padding.bottom, padding.left)
+	mainStyle = mainStyle.Padding(padding.top, padding.right, padding.bottom, padding.left)
 
 	var kind string
 	if str.kind != "" {
@@ -116,7 +109,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	}
 
 	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, //nolint:errcheck // Can't do anything useful with this error.
-		kindStyle.Render(fmt.Sprintf("%15s ", kind)),
+		style.KindStyle.Render(fmt.Sprintf("%15s ", kind)),
 		mainStyle.Render(str.text),
 	))
 }

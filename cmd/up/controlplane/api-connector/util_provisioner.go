@@ -8,26 +8,27 @@ import (
 	"encoding/base64"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pterm/pterm"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
-	authorizationv1alpha1 "github.com/upbound/up-sdk-go/apis/authorization/v1alpha1"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/teams"
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/version"
 )
 
@@ -37,7 +38,8 @@ import (
 // and makes readability bit easier.
 
 const (
-	labelConnectorOwned = "connect.upbound.io/connector-secret"
+	labelConnectorOwned        = "connect.upbound.io/connector-secret"
+	controllersRoleBindingName = "controlplane-controller"
 )
 
 type provisionerResults struct {
@@ -61,19 +63,21 @@ type provisioner struct {
 	teamsClient         *teams.Client
 	tokensClient        *tokens.Client
 
-	printer pterm.TextPrinter
+	printer       pterm.TextPrinter
+	objectPrinter upterm.ObjectPrinter
 
 	// These are used to store results for later use.
 	results provisionerResults
 }
 
-func newProvisioner(p pterm.TextPrinter, cfg *up.Config) *provisioner {
+func newProvisioner(cfg *up.Config, printer pterm.TextPrinter, objectPrinter upterm.ObjectPrinter) *provisioner {
 	return &provisioner{
 		robotsClient:        robots.NewClient(cfg),
 		organizationsClient: organizations.NewClient(cfg),
 		teamsClient:         teams.NewClient(cfg),
 		tokensClient:        tokens.NewClient(cfg),
-		printer:             p,
+		printer:             printer,
+		objectPrinter:       objectPrinter,
 	}
 }
 
@@ -114,7 +118,7 @@ func (p *provisioner) seedRobots(ctx context.Context, clusterName string) error 
 		if robot.Name == clusterName {
 			alreadyExists = true
 			p.results.Robot = robot
-			p.printer.Printfln("Robot %s already exists in the organization %s. Will use existing robot.", nice(clusterName), nice(p.results.OrganizationName))
+			p.printer.Printfln("\nRobot %s already exists in the organization %s. Will use existing robot.", nice(clusterName), nice(p.results.OrganizationName))
 			break
 		}
 	}
@@ -124,7 +128,7 @@ func (p *provisioner) seedRobots(ctx context.Context, clusterName string) error 
 		payload := &robots.RobotCreateParameters{
 			Attributes: robots.RobotAttributes{
 				Name:        clusterName,
-				Description: "API Connector robot for " + p.results.OrganizationName,
+				Description: "API Connector robot for " + clusterName,
 			},
 			Relationships: robots.RobotRelationships{
 				Owner: robots.RobotOwner{
@@ -142,52 +146,6 @@ func (p *provisioner) seedRobots(ctx context.Context, clusterName string) error 
 		p.results.Robot = organizations.Robot{
 			ID: robot.ID,
 		}
-	}
-	return nil
-}
-
-func (p *provisioner) seedTeams(ctx context.Context, clusterName string) error {
-	if p.results.Robot.ID.String() == "" {
-		return errors.New("programmer error: seedRobots should have been called first")
-	}
-	teamsList, err := p.organizationsClient.ListTeams(ctx, p.results.OrganizationID)
-	if err != nil {
-		return errors.Wrap(err, "failed to get teams")
-	}
-	p.results.OrganizationTeams = teamsList
-
-	alreadyExists := false
-	for _, team := range teamsList {
-		if team.Name == clusterName {
-			alreadyExists = true
-			p.results.Team = team
-			p.printer.Printfln("Team %s already exists in the organization %s. Will use existing team.", nice(clusterName), nice(p.results.OrganizationName))
-			break
-		}
-	}
-
-	if !alreadyExists {
-		p.printer.Printfln("Creating a team for the cluster %s in the organization %s.", nice(clusterName), nice(p.results.OrganizationName))
-		payload := &teams.TeamCreateParameters{
-			Name:           clusterName,
-			OrganizationID: p.results.OrganizationID,
-		}
-		team, err := p.teamsClient.Create(ctx, payload)
-		if err != nil {
-			return errors.Wrap(err, "failed to create team")
-		}
-		p.results.Team = organizations.Team{
-			ID: team.ID,
-		}
-	}
-
-	// We dont need to check if its exists as api is idempotent.
-	err = p.robotsClient.CreateTeamMembership(ctx, p.results.Robot.ID, &robots.RobotTeamMembershipResourceIdentifier{
-		Type: robots.RobotTeamMembershipTypeTeam,
-		ID:   p.results.Team.ID.String(),
-	})
-	if err != nil {
-		return errors.Wrap(err, "failed to create team membership")
 	}
 	return nil
 }
@@ -210,10 +168,6 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 		},
 	})
 	if err != nil {
-		if strings.Contains(err.Error(), "Conflict") {
-			p.printer.Printfln("Token already exists for the robot %s. Either provide it with --token flag or delete and rerun the command.", nice(p.results.Robot.Name))
-			return errors.New("token already exists")
-		}
 		return errors.Wrap(err, "failed to create token")
 	}
 	jwtToken, ok := token.DataSet.Meta["jwt"]
@@ -228,61 +182,43 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 	return nil
 }
 
-func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, name, namespace string) error {
+func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, namespace string) error {
 	if p.results.Team.ID.String() == "" {
 		return errors.New("programmer error: seedTeams should have been called first")
 	}
 
-	orb := authorizationv1alpha1.ObjectRoleBinding{
+	currentControllerRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + "-api-connector",
-			Namespace: namespace,
-		},
-		Spec: authorizationv1alpha1.ObjectRoleBindingSpec{
-			Subjects: []authorizationv1alpha1.SubjectBinding{
-				{
-					Kind: "UpboundTeam",
-					Name: p.results.Team.ID.String(),
-					Role: "admin",
-				},
-			},
-			Object: authorizationv1alpha1.Object{
-				APIGroup: "core",
-				Resource: "namespaces",
-				Name:     namespace,
-			},
+			Name: controllersRoleBindingName,
 		},
 	}
 
-	current := &authorizationv1alpha1.ObjectRoleBinding{}
 	err := spacesClient.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      name + "-api-connector",
-	}, current)
+		Name: controllersRoleBindingName,
+	}, &currentControllerRoleBinding)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			p.printer.Printfln("No existing rbac found for the namespace %s. Will create a new one.", nice(namespace))
-			return spacesClient.Create(ctx, &orb)
-		}
-		return errors.Wrap(err, "failed to get current rbac")
+		return errors.Wrap(err, "failed to get current controller role binding")
 	}
 
+	// - kind: User
+	//   name: upbound:robot:foo
+	//   apiGroup: rbac.authorization.k8s.io
 	var found bool
-	for _, subject := range current.Spec.Subjects {
-		if subject.Kind == "UpboundTeam" && subject.Name == p.results.Team.ID.String() {
-			p.printer.Printfln("Team %s already has access to the namespace %s.", nice(p.results.Team.Name), nice(namespace))
+	for _, subject := range currentControllerRoleBinding.Subjects {
+		if subject.Kind == "User" && subject.Name == "upbound:robot:"+p.results.Robot.Name {
+			p.printer.Printfln("\nRobot %s already has access to the namespace %s.", nice(p.results.Robot.Name), nice(namespace))
 			found = true
 			break
 		}
 	}
 	if !found {
-		p.printer.Printfln("Team %s does not have access to the namespace %s. Will add it.", p.results.Team.Name, namespace)
-		current.Spec.Subjects = append(current.Spec.Subjects, authorizationv1alpha1.SubjectBinding{
-			Kind: "UpboundTeam",
-			Name: p.results.Team.ID.String(),
-			Role: "admin",
+		p.printer.Printfln("Robot %s does not have access to the namespace %s. Will add it.", p.results.Robot.Name, namespace)
+		currentControllerRoleBinding.Subjects = append(currentControllerRoleBinding.Subjects, rbacv1.Subject{
+			Kind:     "User",
+			Name:     "upbound:robot:" + p.results.Robot.Name,
+			APIGroup: "rbac.authorization.k8s.io",
 		})
-		err = spacesClient.Update(ctx, current)
+		err = spacesClient.Update(ctx, &currentControllerRoleBinding)
 		if err != nil {
 			return errors.Wrap(err, "failed to update rbac")
 		}
@@ -343,7 +279,7 @@ func (p *provisioner) deleteConnectionSecrets(ctx context.Context, targetClient 
 	})
 }
 
-func (p *provisioner) deleteConnections(ctx context.Context, targetClient client.Client, namespace string) error {
+func (p *provisioner) deleteConnections(ctx context.Context, targetClient client.Client) error {
 	gvk := schema.GroupVersionKind{
 		Group:   "connect.upbound.io",
 		Version: "v1alpha1",
@@ -351,7 +287,6 @@ func (p *provisioner) deleteConnections(ctx context.Context, targetClient client
 	}
 	connection := unstructured.Unstructured{}
 	connection.SetGroupVersionKind(gvk)
-	connection.SetNamespace(namespace)
 	return targetClient.DeleteAllOf(ctx, &connection)
 }
 
@@ -418,6 +353,13 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 	}, &connection)
 	if apierrors.IsNotFound(err) {
 		return nil, err
+	}
+	// This happens when crds are not installed.
+	if errors.As(err, &apiutil.ErrResourceDiscoveryFailed{}) {
+		return nil, apierrors.NewNotFound(schema.GroupResource{ // create sintetic error.
+			Group:    "connect.upbound.io",
+			Resource: "ClusterConnection",
+		}, name)
 	}
 	return &connection, nil
 }
@@ -490,10 +432,11 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 		p.printer.Printfln("Version flag provided. Using version %s.", nice(o.version))
 		cliDesiredVersion = o.version
 	}
+
 	currentVersion, err := mgr.GetCurrentVersion()
 	if err != nil {
 		// error means that the connector is not installed
-		p.printer.Printfln("Installing %s to %s.", nice(connectorName), nice(o.namespace))
+		p.printer.Printfln("\nInstalling %s to %s.", nice(connectorName), nice(o.namespace))
 		p.printer.Printfln("Using version %s. This may take a few minutes.", nice(cliDesiredVersion))
 		if err = mgr.Install(cliDesiredVersion, o.params); err != nil {
 			return err

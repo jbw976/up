@@ -16,10 +16,10 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 	return feature.HideMaturity(p, maturity)
 }
 
-// Cmd contains commands for installing api-connector into an App Cluster.
+// Cmd contains commands for installing api-connector into an consumer cluster.
 type Cmd struct {
 	requires.ControlPlane
 
-	Install   installCmd   `cmd:"" help:"Install api-connector into an App Cluster."`
-	Uninstall uninstallCmd `cmd:"" help:"Uninstall api-connector from an App Cluster."`
+	Install   installCmd   `cmd:"" help:"Install api-connector into an consumer cluster."`
+	Uninstall uninstallCmd `cmd:"" help:"Uninstall api-connector from an consumer cluster."`
 }
