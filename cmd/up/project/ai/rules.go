@@ -36,6 +36,9 @@ Examples:
 `
 }
 
+//go:embed templates/claude/**
+var claudeTemplate embed.FS
+
 //go:embed templates/gemini/**
 var geminiTemplate embed.FS
 
@@ -43,6 +46,7 @@ type rulesCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
 	Gemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."`
+	Claude bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations."`
 
 	Flags upbound.Flags `embed:""`
 
@@ -98,6 +102,12 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 	switch {
 	case c.Gemini:
 		fs, err := c.generateGeminiTemplates()
+		if err != nil {
+			return errors.Wrap(err, "failed to handle gemini templates")
+		}
+		cfgFS = append(cfgFS, fs)
+	case c.Claude:
+		fs, err := c.generateClaudeTemplates()
 		if err != nil {
 			return errors.Wrap(err, "failed to handle gemini templates")
 		}
@@ -163,6 +173,26 @@ func (c *rulesCmd) generateGeminiTemplates() (afero.Fs, error) {
 	}
 
 	templates := template.Must(template.ParseFS(geminiTemplate, "templates/gemini/**"))
+	tmplData := templateData{
+		ProjectName: c.proj.Name,
+		UpConfigDir: cd,
+	}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+func (c *rulesCmd) generateClaudeTemplates() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+	cd, err := config.GetUpConfigDir()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to retrieve up config")
+	}
+
+	templates := template.Must(template.ParseFS(claudeTemplate, "templates/claude/**"))
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
 		UpConfigDir: cd,

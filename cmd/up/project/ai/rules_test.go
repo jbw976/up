@@ -19,8 +19,10 @@ import (
 )
 
 var (
-	//go:embed testdata/fake-project/**
-	projectEmbeddedFunctions embed.FS
+	//go:embed testdata/fake-project-gemini/**
+	projectGemini embed.FS
+	//go:embed testdata/fake-project-claude/**
+	projectClaude embed.FS
 )
 
 // TestRuleCmd_Run tests the Run method of the ruleCmd struct.
@@ -29,12 +31,24 @@ func TestRuleCmd_Run(t *testing.T) {
 
 	tcs := map[string]struct {
 		gemini        bool
+		claude        bool
+		fs            embed.FS
+		path          string
 		expectedFiles []string
 		err           error
 	}{
 		"Gemini": {
+			fs:            projectGemini,
+			path:          "testdata/fake-project-gemini",
 			gemini:        true,
 			expectedFiles: []string{"GEMINI.md", ".gemini", "upbound.yaml"},
+			err:           nil,
+		},
+		"Claude": {
+			fs:            projectClaude,
+			path:          "testdata/fake-project-claude",
+			claude:        true,
+			expectedFiles: []string{"CLAUDE.md", ".claude", ".mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
 	}
@@ -45,7 +59,7 @@ func TestRuleCmd_Run(t *testing.T) {
 
 			tempProjDir := t.TempDir()
 			projFS := afero.NewBasePathFs(afero.NewOsFs(), tempProjDir)
-			srcFS := afero.NewBasePathFs(afero.FromIOFS{FS: projectEmbeddedFunctions}, "testdata/fake-project")
+			srcFS := afero.NewBasePathFs(afero.FromIOFS{FS: tc.fs}, tc.path)
 			err := filesystem.CopyFilesBetweenFs(srcFS, projFS)
 			assert.NilError(t, err)
 

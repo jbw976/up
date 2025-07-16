@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "kubectl-ai",
+    "upbound-marketplace"
+  ]
+}
