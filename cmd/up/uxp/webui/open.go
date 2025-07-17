@@ -26,7 +26,6 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/internal/install"
 	ilicense "github.com/upbound/up/internal/license"
 	"github.com/upbound/uxp-licensing/pkg/license"
 )
@@ -49,7 +48,7 @@ const (
 	errGetListenerAddr     = "failed to get listener addr"
 	errGetRoundTripper     = "failed to get roundtripper"
 	errGetServicePort      = "failed to get service port"
-	errLicenseNotFound     = "License not found. This command must be used with a context for a UXPv2 control plane."
+	errLicenseNotFound     = "License not found. Verify your kubeconfig is pointing at a UXP control plane."
 	errListen              = "failed to listen on an available port"
 	errListPods            = "failed to list pods"
 	errMakePortForwarder   = "failed to make port-forwarder"
@@ -61,8 +60,8 @@ const (
 // openCmd opens the UXP web UI in a browser.
 type openCmd struct{}
 
-func (c *openCmd) Run(ctx context.Context, insCtx *install.Context) error {
-	cl, err := client.New(insCtx.Kubeconfig, client.Options{})
+func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
+	cl, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return errors.Wrap(err, errCreateClient)
 	}
@@ -71,7 +70,7 @@ func (c *openCmd) Run(ctx context.Context, insCtx *install.Context) error {
 		return err
 	}
 
-	pf, url, ready, err := c.portForwarder(ctx, insCtx.Kubeconfig, cl)
+	pf, url, ready, err := c.portForwarder(ctx, cfg, cl)
 	if err != nil {
 		return errors.Wrap(err, errCreatePortForward)
 	}
@@ -87,12 +86,12 @@ func (c *openCmd) Run(ctx context.Context, insCtx *install.Context) error {
 	case <-ready:
 	}
 
-	pterm.Println(fmt.Sprintf("The web UI is available at: %s", url))
+	pterm.Printfln("The web UI is available at: %s", url)
 	if err := browser.OpenURL(url); err != nil {
 		// Add a blank line to distinguish the error message from regular
 		// output.
 		pterm.Println()
-		pterm.Println(fmt.Sprintf("Error opening web UI in browser: %s", err))
+		pterm.Printfln("Error opening web UI in browser: %s", err)
 		// Continue executing. The port-forward is reachable from the URL
 		// printed earlier.
 	}
@@ -104,7 +103,7 @@ func (c *openCmd) Run(ctx context.Context, insCtx *install.Context) error {
 // checkLicense returns nil if the UXPv2 deployment has a valid paid license or
 // community license, otherwise it returns an error.
 func (c *openCmd) checkLicense(ctx context.Context, cl client.Client) error {
-	l, err := ilicense.FileFromUXPv2(ctx, cl)
+	l, err := ilicense.BytesFromUXPv2(ctx, cl)
 	if err == nil {
 		// Paid license, validate it.
 		_, err = license.NewValidator().Validate(l)

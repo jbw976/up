@@ -289,7 +289,7 @@ func TestFileFromUXPv2(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			got, err := FileFromUXPv2(t.Context(), tc.args.cl)
+			got, err := BytesFromUXPv2(t.Context(), tc.args.cl)
 			if diff := cmp.Diff(tc.want.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("%s\nFileFromUXPv2(...) error -want +got:\n%s", tc.reason, diff)
 			}

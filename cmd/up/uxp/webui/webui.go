@@ -7,7 +7,6 @@ package webui
 import (
 	"github.com/alecthomas/kong"
 
-	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -27,10 +26,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 
-	kubeconfig, err := upCtx.GetKubeconfig()
+	cfg, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(&install.Context{Kubeconfig: kubeconfig})
+	kongCtx.Bind(cfg)
 	return nil
 }

@@ -52,9 +52,9 @@ func FromUXPv2(ctx context.Context, cl client.Client) (*v1alpha1.License, error)
 	return &l, nil
 }
 
-// FileFromUXPv2 returns a license file from a controller-runtime client for a
+// BytesFromUXPv2 returns a license file from a controller-runtime client for a
 // UXPv2 control plane.
-func FileFromUXPv2(ctx context.Context, cl client.Client) ([]byte, error) {
+func BytesFromUXPv2(ctx context.Context, cl client.Client) ([]byte, error) {
 	l, err := FromUXPv2(ctx, cl)
 	if err != nil {
 		return nil, err
