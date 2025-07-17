@@ -6,11 +6,13 @@ package generator
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -131,6 +133,10 @@ func mutateJSONSchema(s *jsonschema.Schema) *jsonschema.Schema {
 		s.Items = mutateJSONSchema(s.Items)
 	}
 
+	if s.AdditionalProperties != nil {
+		s.AdditionalProperties = mutateJSONSchema(s.AdditionalProperties)
+	}
+
 	for prop := s.Properties.Oldest(); prop != nil; prop = prop.Next() {
 		rep := mutateJSONSchema(prop.Value)
 		s.Properties.Set(prop.Key, rep)
@@ -139,7 +145,87 @@ func mutateJSONSchema(s *jsonschema.Schema) *jsonschema.Schema {
 	return s
 }
 
-// GenerateFromOpenAPI is not supported for JSON generator as it only works with CRDs.
-func (jsonGenerator) GenerateFromOpenAPI(_ context.Context, _ afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
-	return nil, nil
+// GenerateFromOpenAPI generates jsonschemas from OpenAPI v3 specs in the given filesystem.
+func (jsonGenerator) GenerateFromOpenAPI(_ context.Context, fromFS afero.Fs, _ runner.SchemaRunner) (afero.Fs, error) {
+	// Collect all OpenAPI v3 JSON files
+	var openAPISpecs []*spec3.OpenAPI
+	err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only process .json files
+		if filepath.Ext(path) != ".json" {
+			return nil
+		}
+
+		// Read the file
+		bs, err := afero.ReadFile(fromFS, path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read OpenAPI file %q", path)
+		}
+
+		// Parse as OpenAPI v3 spec
+		var openAPI spec3.OpenAPI
+		if err := json.Unmarshal(bs, &openAPI); err != nil {
+			// Skip files that aren't valid OpenAPI specs
+			return nil //nolint:nilerr // See comment above.
+		}
+
+		// Only process if it has components/schemas
+		if openAPI.Components != nil && len(openAPI.Components.Schemas) > 0 {
+			openAPISpecs = append(openAPISpecs, &openAPI)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to walk OpenAPI filesystem")
+	}
+
+	if len(openAPISpecs) == 0 {
+		// Return nil if no specs were found
+		return nil, nil
+	}
+
+	// Create output filesystem
+	schemaFS := afero.NewMemMapFs()
+	if err := schemaFS.Mkdir("models", 0o755); err != nil {
+		return nil, errors.Wrap(err, "failed to create models directory")
+	}
+
+	// Collect all schemas from all OpenAPI specs
+	schemas := make(map[string]*spec.Schema)
+	for _, oapi := range openAPISpecs {
+		for name, s := range oapi.Components.Schemas {
+			schemas[name] = s
+		}
+	}
+
+	// Generate JSON schemas
+	for name, schema := range schemas {
+		jschema, err := oapiSchemaToJSONSchema(schema)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate jsonschema for %s", name)
+		}
+
+		bs, err := json.Marshal(jschema)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to marshal jsonschema for %s", name)
+		}
+
+		// To keep references simple, we don't build a directory
+		// hierarchy. Rather, we write a flat directory of files with
+		// unambiguous names.
+		fname := filepath.Join("models", strings.ReplaceAll(name, ".", "-")+".schema.json")
+		if err := afero.WriteFile(schemaFS, fname, bs, 0o644); err != nil {
+			return nil, errors.Wrapf(err, "failed to write jsonschema for %s", name)
+		}
+	}
+
+	return schemaFS, nil
 }
