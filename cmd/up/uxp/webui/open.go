@@ -239,7 +239,8 @@ func (c *openCmd) servicePod(ctx context.Context, cl client.Client, svc *corev1.
 func (c *openCmd) containerPort(pod *corev1.Pod, targetPort intstr.IntOrString) (int, error) {
 	for _, container := range pod.Spec.Containers {
 		for _, p := range container.Ports {
-			if p.Name == targetPort.String() || int(p.ContainerPort) == targetPort.IntValue() {
+			if (targetPort.Type == intstr.String && p.Name == targetPort.StrVal) ||
+				(targetPort.Type == intstr.Int && p.ContainerPort == targetPort.IntVal) {
 				return int(p.ContainerPort), nil
 			}
 		}
