@@ -20,7 +20,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/project/initialize/wizard"
-	"github.com/upbound/up/cmd/up/project/initialize/wizard/examples"
+	"github.com/upbound/up/cmd/up/project/initialize/wizard/template"
 	"github.com/upbound/up/cmd/up/runner"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/git"
@@ -30,13 +30,13 @@ import (
 )
 
 // Cmd represents the command for initializing a new project. It handles the creation
-// of new projects from templates, examples, or scratch.
+// of new projects from templates or scratch.
 type Cmd struct {
 	Name      string `arg:""                                                                                        help:"The name of the new project to initialize."`
 	Directory string `help:"The directory to initialize. It must be empty. It will be created if it doesn't exist." type:"path"`
 
 	Scratch      bool              `aliases:"empty"                                  default:"false"                                           help:"Create a new project from scratch."`
-	Example      string            `default:""                                       help:"The example to use to initialize the new project."  short:"e"`
+	Template     string            `default:""                                       help:"The template to use to initialize the new project." short:"t"`
 	Values       map[string]string `help:"Values to use for templating the project."`
 	StateFile    string            `default:".up_wizard_state.json"                  help:"Path to wizard state file."`
 	Language     string            `default:""                                       help:"The language to use to initialize the new project." short:"l"`
@@ -64,29 +64,29 @@ type Cmd struct {
 // supported template options.
 func (c *Cmd) Help() string {
 	tpl := `
-This command initializes a new project. By default, it will start a wizard to help you create a new project. You can specify which example to use with the --example flag along with a --language flag. The following --language flags are supported:
+This command initializes a new project. By default, it will start a wizard to help you create a new project. You can specify which template to use with the --template flag along with a --language flag. The following --language flags are supported:
 
 %s
 
 Examples:
 
-  # Initialize a new project using a specific example:
-  up project init --example="project-example-aws" --language="go" my-new-project
+  # Initialize a new project using a specific template:
+  up project init --template="project-template-aws" --language="go" my-new-project
 
-  # Initialize a new project using a specific example and use a different language for tests:
-  up project init --example="project-example-aws" --language="go" --test-language="python" my-new-project
+  # Initialize a new project using a specific template and use a different language for tests:
+  up project init --template="project-template-aws" --language="go" --test-language="python" my-new-project
 
-  # Initialize a new project using a public example repository at a specific ref:
-  up project init --example="https://github.com/upbound/project-example-aws@main" --language="kcl" my-new-project
+  # Initialize a new project using a public template repository at a specific ref:
+  up project init --template="https://github.com/upbound/project-template-aws@main" --language="kcl" my-new-project
 
-  # Initialize a new project from a example using Git token authentication:
-  up project init --example="https://github.com/example/project-example-private.git" --language="kcl" --method=https --username="<username>" --password="<token>" my-new-project
+  # Initialize a new project from a template using Git token authentication:
+  up project init --template="https://github.com/template/project-template-private.git" --language="kcl" --method=https --username="<username>" --password="<token>" my-new-project
 
-  # Initialize a new project from a example using SSH authentication:
-  up project init --example="git@github.com:upbound/project-example-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa my-new-project
+  # Initialize a new project from a template using SSH authentication:
+  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa my-new-project
 
-  # Initialize a new project from a private example using SSH authentication with an SSH key password:
-  up project init --example="git@github.com:upbound/project-example-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
+  # Initialize a new project from a private template using SSH authentication with an SSH key password:
+  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
 `
 
 	languages := strings.Builder{}
@@ -127,15 +127,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 	}
 
 	if c.Scratch {
-		if c.Example != "" {
-			return errors.New("cannot specify both scratch and example")
+		if c.Template != "" {
+			return errors.New("cannot specify both scratch and template")
 		}
 
-		c.Example = string(wizard.ExampleProjectBlank)
+		c.Template = string(wizard.BlankProjectTemplate)
 		c.Language = string(wizard.FunctionLanguageKCL)
 		c.TestLanguage = string(wizard.FunctionLanguageKCL)
-	} else if c.Example != "" && c.Language == "" {
-		return errors.New("language must be specified when using an example")
+	} else if c.Template != "" && c.Language == "" {
+		return errors.New("language must be specified when using an template")
 	}
 
 	// Validate and set test language
@@ -183,29 +183,29 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 }
 
 // Run executes the project initialization process, handling template cloning,
-// example selection, and project file generation.
+// language selection, and project file generation.
 func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error {
 	var wiz *wizardResult
 
-	if !c.Scratch && c.Example == "" {
+	if !c.Scratch && c.Template == "" {
 		var err error
 		wiz, err = c.runWizard()
 		if err != nil {
 			return err
 		}
 
-		c.Scratch = wiz.state.Example == string(wizard.ExampleProjectBlank)
-		c.Example = wiz.state.Example
+		c.Scratch = wiz.state.Template == string(wizard.BlankProjectTemplate)
+		c.Template = wiz.state.Template
 		c.Language = string(wiz.state.FuncLang)
 		c.TestLanguage = string(wiz.state.TestLang)
 	}
 
-	pterm.Info.Printfln("Initializing project from template %q...", c.Example)
-	ref, err := c.initializeExampleProject(p)
+	pterm.Info.Printfln("Initializing project from template %q...", c.Template)
+	ref, err := c.initializeProjectFromTemplate(p)
 	if err != nil {
 		return err
 	}
-	repoURL := examples.ResolveTemplateURL(c.Example).URL
+	repoURL := template.ResolveTemplateURL(c.Template).URL
 
 	// if we got here from the wizard, we need to generate the resources
 	if wiz != nil {
@@ -254,9 +254,9 @@ func (c *Cmd) runWizard() (*wizardResult, error) {
 	return result, err
 }
 
-func (c *Cmd) initializeExampleProject(p pterm.TextPrinter) (*plumbing.Reference, error) {
+func (c *Cmd) initializeProjectFromTemplate(p pterm.TextPrinter) (*plumbing.Reference, error) {
 	// Resolve template URL
-	templateURL := examples.ResolveTemplateURL(c.Example)
+	templateURL := template.ResolveTemplateURL(c.Template)
 
 	// Check if target directory is suitable
 	if err := c.checkTargetDirectory(c.Directory); err != nil {
@@ -264,9 +264,9 @@ func (c *Cmd) initializeExampleProject(p pterm.TextPrinter) (*plumbing.Reference
 	}
 
 	// Clone and transform the template
-	p.Printfln("Initializing project from template %s for %s...", c.Example, c.Language)
+	p.Printfln("Initializing project from template %s for %s...", c.Template, c.Language)
 
-	cloner := examples.NewCloner(templateURL, c.Directory, c.Language, c.TestLanguage, c.Values, c.gitCloner, c.gitAuthProvider, p, c.Flags.Debug > 0)
+	cloner := template.NewCloner(templateURL, c.Directory, c.Language, c.TestLanguage, c.Values, c.gitCloner, c.gitAuthProvider, p, c.Flags.Debug > 0)
 	return cloner.CloneAndTransform()
 }
 

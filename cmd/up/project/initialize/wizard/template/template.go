@@ -1,7 +1,8 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package examples
+// Package template implements utility routines for fetching and initializing projects from project templates.
+package template
 
 import (
 	"fmt"
@@ -25,7 +26,7 @@ import (
 	"github.com/upbound/up/internal/git"
 )
 
-// templateConfig defines the structure of template metadata
+// templateConfig defines the structure of template metadata.
 type templateConfig struct {
 	Name        string                `yaml:"name"`
 	Description string                `yaml:"description"`
@@ -60,9 +61,9 @@ type fileRename struct {
 	Languages   []string `yaml:"languages"`
 }
 
-// Cloner handles the complete cloning and transformation process
+// Cloner handles the complete cloning and transformation process.
 type Cloner struct {
-	templateURL     TemplateURL
+	templateURL     RepoURL
 	targetDir       string
 	language        string
 	testLanguage    string
@@ -73,14 +74,13 @@ type Cloner struct {
 	gitCloner       git.Cloner
 	gitAuthProvider git.AuthProvider
 	printer         pterm.TextPrinter
-	fs              *afero.BasePathFs
-	tempFs          *afero.BasePathFs
+	fs              afero.Fs
+	tempFs          afero.Fs
 }
 
-// NewCloner creates a new template cloner
-func NewCloner(templateURL TemplateURL, targetDir, language, testLanguage string, values map[string]string, gitCloner git.Cloner, gitAuthProvider git.AuthProvider, printer pterm.TextPrinter, debug bool) *Cloner {
-	baseFs := afero.NewOsFs()
-	targetBasePathFs := afero.NewBasePathFs(baseFs, targetDir)
+// NewCloner creates a new template cloner.
+func NewCloner(templateURL RepoURL, targetDir, language, testLanguage string, values map[string]string, gitCloner git.Cloner, gitAuthProvider git.AuthProvider, printer pterm.TextPrinter, debug bool) *Cloner {
+	targetBasePathFs := afero.NewBasePathFs(afero.NewOsFs(), targetDir)
 	return &Cloner{
 		templateURL:     templateURL,
 		targetDir:       targetDir,
@@ -91,12 +91,12 @@ func NewCloner(templateURL TemplateURL, targetDir, language, testLanguage string
 		gitCloner:       gitCloner,
 		gitAuthProvider: gitAuthProvider,
 		printer:         printer,
-		fs:              targetBasePathFs.(*afero.BasePathFs),
+		fs:              targetBasePathFs,
 		tempFs:          nil, // Will be set in cloneRepository
 	}
 }
 
-// CloneAndTransform performs the complete clone and transform operation
+// CloneAndTransform performs the complete clone and transform operation.
 func (c *Cloner) CloneAndTransform() (*plumbing.Reference, error) {
 	// 1. Clone the repository
 	ref, err := c.cloneRepository()
@@ -116,7 +116,7 @@ func (c *Cloner) CloneAndTransform() (*plumbing.Reference, error) {
 	}
 
 	// 4. Create target directory
-	if err := c.fs.MkdirAll(".", 0755); err != nil {
+	if err := c.fs.MkdirAll(".", 0o755); err != nil {
 		return nil, errors.Wrap(err, "failed to create target directory")
 	}
 
@@ -136,7 +136,7 @@ func (c *Cloner) CloneAndTransform() (*plumbing.Reference, error) {
 	return ref, nil
 }
 
-// cloneRepository clones the template repository to a temporary directory
+// cloneRepository clones the template repository to a temporary directory.
 func (c *Cloner) cloneRepository() (*plumbing.Reference, error) {
 	tempDir, err := afero.TempDir(afero.NewOsFs(), "", "project-template")
 	if err != nil {
@@ -145,10 +145,9 @@ func (c *Cloner) cloneRepository() (*plumbing.Reference, error) {
 	c.tempDir = tempDir
 
 	// Initialize tempFs with the base path
-	baseFs := afero.NewOsFs()
-	c.tempFs = afero.NewBasePathFs(baseFs, tempDir).(*afero.BasePathFs)
+	c.tempFs = afero.NewBasePathFs(afero.NewOsFs(), tempDir)
 
-	c.Debugf("Cloning template repository %s...", c.templateURL)
+	c.debugf("Cloning template repository %s...", c.templateURL)
 
 	ref, err := c.gitCloner.CloneRepository(memory.NewStorage(), osfs.New(tempDir, osfs.WithBoundOS()), c.gitAuthProvider, git.CloneOptions{
 		Repo:      c.templateURL.URL,
@@ -162,7 +161,7 @@ func (c *Cloner) cloneRepository() (*plumbing.Reference, error) {
 	return ref, nil
 }
 
-// loadConfig loads the template configuration from template.yaml
+// loadConfig loads the template configuration from template.yaml.
 func (c *Cloner) loadConfig() error {
 	configPath := "template.yaml"
 	data, err := afero.ReadFile(c.tempFs, configPath)
@@ -174,14 +173,14 @@ func (c *Cloner) loadConfig() error {
 	return yaml.Unmarshal(data, c.config)
 }
 
-// isLanguageSupported checks if the specified language is supported
+// isLanguageSupported checks if the specified language is supported.
 func (c *Cloner) isLanguageSupported() bool {
 	return slices.Contains(c.config.Languages, c.language)
 }
 
-// processFiles walks through template files and processes them
+// processFiles walks through template files and processes them.
 func (c *Cloner) processFiles() error {
-	c.Debugf("Processing template for language: %s", c.language)
+	c.debugf("Processing template for language: %s", c.language)
 
 	return afero.Walk(c.tempFs, "template", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -211,16 +210,16 @@ func (c *Cloner) processFiles() error {
 		targetRelPath := c.applyRenames(relPath)
 
 		if info.IsDir() {
-			c.Debugf("Creating directory: %s", targetRelPath)
+			c.debugf("Creating directory: %s", targetRelPath)
 			return c.fs.MkdirAll(targetRelPath, info.Mode())
 		}
 
-		c.Debugf("Processing file: %s → %s", relPath, targetRelPath)
+		c.debugf("Processing file: %s → %s", relPath, targetRelPath)
 		return c.processFile(path, targetRelPath, relPath)
 	})
 }
 
-// shouldInclude determines if a file/directory should be included
+// shouldInclude determines if a file/directory should be included.
 func (c *Cloner) shouldInclude(relPath string) bool {
 	// Check explicit file configuration first
 	if fileConfig, exists := c.config.Files[relPath]; exists {
@@ -243,7 +242,7 @@ func (c *Cloner) shouldInclude(relPath string) bool {
 	return true
 }
 
-// isFileIncludedByConfig checks explicit file configuration
+// isFileIncludedByConfig checks explicit file configuration.
 func (c *Cloner) isFileIncludedByConfig(fileConfig fileConfig) bool {
 	if len(fileConfig.Languages) > 0 {
 		for _, lang := range fileConfig.Languages {
@@ -256,7 +255,7 @@ func (c *Cloner) isFileIncludedByConfig(fileConfig fileConfig) bool {
 	return true
 }
 
-// hasLanguageSuffix checks if a directory name has any language suffix
+// hasLanguageSuffix checks if a directory name has any language suffix.
 func (c *Cloner) hasLanguageSuffix(dirName string) bool {
 	for _, lang := range c.config.Languages {
 		if strings.HasSuffix(dirName, "-"+lang) {
@@ -266,17 +265,17 @@ func (c *Cloner) hasLanguageSuffix(dirName string) bool {
 	return false
 }
 
-// matchesCurrentLanguage checks if directory name matches current language
+// matchesCurrentLanguage checks if directory name matches current language.
 func (c *Cloner) matchesCurrentLanguage(dirName string) bool {
 	return strings.HasSuffix(dirName, "-"+c.language)
 }
 
-// matchesCurrentTestLanguage checks if directory name matches current test language
+// matchesCurrentTestLanguage checks if directory name matches current test language.
 func (c *Cloner) matchesCurrentTestLanguage(dirName string) bool {
 	return strings.HasSuffix(dirName, "-"+c.testLanguage)
 }
 
-// applyRenames applies directory and file rename patterns
+// applyRenames applies directory and file rename patterns.
 func (c *Cloner) applyRenames(relPath string) string {
 	// Apply directory renames
 	targetPath := c.applyDirectoryRenames(relPath)
@@ -296,7 +295,7 @@ func (c *Cloner) applyRenames(relPath string) string {
 	return targetPath
 }
 
-// applyDirectoryRenames applies directory rename patterns
+// applyDirectoryRenames applies directory rename patterns.
 func (c *Cloner) applyDirectoryRenames(targetPath string) string {
 	parts := strings.Split(targetPath, string(filepath.Separator))
 
@@ -316,7 +315,7 @@ func (c *Cloner) applyDirectoryRenames(targetPath string) string {
 	return strings.Join(parts, string(filepath.Separator))
 }
 
-// applyFileRenames applies file rename patterns
+// applyFileRenames applies file rename patterns.
 func (c *Cloner) applyFileRenames(targetPath string) string {
 	fileName := filepath.Base(targetPath)
 	dir := filepath.Dir(targetPath)
@@ -334,7 +333,7 @@ func (c *Cloner) applyFileRenames(targetPath string) string {
 	return targetPath
 }
 
-// applyPatternReplace applies pattern-based string replacement
+// applyPatternReplace applies pattern-based string replacement.
 func (c *Cloner) applyPatternReplace(input, pattern, replacement string) string {
 	if !strings.Contains(pattern, "*") && pattern == input {
 		return replacement
@@ -358,7 +357,7 @@ func (c *Cloner) applyPatternReplace(input, pattern, replacement string) string 
 	return input
 }
 
-// containsLanguage checks if current language is in the list
+// containsLanguage checks if current language is in the list.
 func (c *Cloner) containsLanguage(languages []string) bool {
 	for _, lang := range languages {
 		if lang == c.language {
@@ -368,7 +367,7 @@ func (c *Cloner) containsLanguage(languages []string) bool {
 	return false
 }
 
-// containsTestLanguage checks if current test language is in the list
+// containsTestLanguage checks if current test language is in the list.
 func (c *Cloner) containsTestLanguage(languages []string) bool {
 	for _, lang := range languages {
 		if lang == c.testLanguage {
@@ -378,7 +377,7 @@ func (c *Cloner) containsTestLanguage(languages []string) bool {
 	return false
 }
 
-// processFile processes a single file (template rendering or copying)
+// processFile processes a single file (template rendering or copying).
 func (c *Cloner) processFile(srcPath, targetPath, relPath string) error {
 	// Check if this is a template file
 	isTemplate := c.isTemplateFile(srcPath, relPath)
@@ -392,7 +391,7 @@ func (c *Cloner) processFile(srcPath, targetPath, relPath string) error {
 	return c.copyFile(srcPath, targetPath)
 }
 
-// isTemplateFile determines if a file should be processed as a template
+// isTemplateFile determines if a file should be processed as a template.
 func (c *Cloner) isTemplateFile(srcPath, relPath string) bool {
 	// Check explicit configuration
 	if fileConfig, exists := c.config.Files[relPath]; exists {
@@ -403,7 +402,7 @@ func (c *Cloner) isTemplateFile(srcPath, relPath string) bool {
 	return strings.HasSuffix(srcPath, ".template")
 }
 
-// processTemplateFile processes a template file with variable substitution
+// processTemplateFile processes a template file with variable substitution.
 func (c *Cloner) processTemplateFile(srcPath, targetPath string) error {
 	// Read template content
 	tmplData, err := afero.ReadFile(c.tempFs, srcPath)
@@ -430,7 +429,7 @@ func (c *Cloner) processTemplateFile(srcPath, targetPath string) error {
 	variables := c.getTemplateVariables()
 
 	// Create target file
-	if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return err
 	}
 
@@ -438,13 +437,13 @@ func (c *Cloner) processTemplateFile(srcPath, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer targetFile.Close()
+	defer targetFile.Close() //nolint:errcheck // nothing to do here
 
 	// Execute template
 	return tmpl.Execute(targetFile, variables)
 }
 
-// getTemplateVariables returns variables for template processing
+// getTemplateVariables returns variables for template processing.
 func (c *Cloner) getTemplateVariables() map[string]interface{} {
 	variables := make(map[string]interface{})
 	values := make(map[string]interface{})
@@ -462,17 +461,21 @@ func (c *Cloner) getTemplateVariables() map[string]interface{} {
 	// Add runtime variables
 	variables["Language"] = c.language
 	variables["ProjectName"] = filepath.Base(c.targetDir)
-	variables["ExampleName"] = c.config.Name
-	variables["ExampleVersion"] = c.config.Version
+	variables["TemplateName"] = c.config.Name
+	variables["TemplateVersion"] = c.config.Version
 	variables["Values"] = values
 
 	return variables
 }
 
-// copyFile copies a file from source to destination
+// copyFile copies a file from source to destination.
 func (c *Cloner) copyFile(srcPath, targetPath string) error {
 	// Check if source is a symlink
-	srcInfo, _, err := c.tempFs.LstatIfPossible(srcPath)
+	tempBasePathFs, ok := c.tempFs.(*afero.BasePathFs)
+	if !ok {
+		return errors.Errorf("Unexpected filesystem type")
+	}
+	srcInfo, _, err := tempBasePathFs.LstatIfPossible(srcPath)
 	if err != nil {
 		return err
 	}
@@ -485,7 +488,7 @@ func (c *Cloner) copyFile(srcPath, targetPath string) error {
 		}
 
 		// Create target directory if it doesn't exist
-		if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return err
 		}
 
@@ -498,10 +501,10 @@ func (c *Cloner) copyFile(srcPath, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer srcFile.Close() //nolint:errcheck // nothing to do here
 
 	// Create target directory
-	if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err := c.fs.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return err
 	}
 
@@ -509,66 +512,66 @@ func (c *Cloner) copyFile(srcPath, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer targetFile.Close()
+	defer targetFile.Close() //nolint:errcheck // nothing to do here
 
 	_, err = io.Copy(targetFile, srcFile)
 	return err
 }
 
-// cleanup removes the temporary directory
+// cleanup removes the temporary directory.
 func (c *Cloner) cleanup() {
 	if c.tempDir != "" {
-		os.RemoveAll(c.tempDir)
+		os.RemoveAll(c.tempDir) //nolint:errcheck // nothing to do here
 	}
 }
 
-func (c *Cloner) Debugf(format string, a ...interface{}) {
+func (c *Cloner) debugf(format string, a ...interface{}) {
 	if c.debug {
 		c.printer.Printfln(format, a...)
 	}
 }
 
-// TemplateURL contains both the repository URL and its reference
-type TemplateURL struct {
+// RepoURL contains both the repository URL and its reference.
+type RepoURL struct {
 	URL string
 	Ref string
 }
 
-// ResolveTemplateURL converts template names to full URLs and extracts the
-// reference if specified in repo@ref format
-func ResolveTemplateURL(templateName string) TemplateURL {
+// ResolveTemplateURL parses the repository url reference if specified in repo@ref format.
+func ResolveTemplateURL(templateName string) RepoURL {
 	// Split on @ to get repo and ref if present
-	parts := strings.Split(templateName, "@")
-	repo := parts[0]
+	repo := templateName
 	ref := "main"
-	if len(parts) > 1 {
-		ref = parts[1]
+	sep := strings.LastIndex(templateName, "@")
+	if sep > -1 {
+		repo = templateName[:sep]
+		ref = templateName[sep+1:]
 	}
 
 	switch {
 	case strings.HasPrefix(repo, ".") || strings.HasPrefix(repo, "/"):
-		if len(parts) == 1 {
+		if sep == -1 {
 			ref = "HEAD"
 		}
 
 		// Local git repo - return a file URL.
 		path, _ := filepath.Abs(repo)
-		return TemplateURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
+		return RepoURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
 
-	case strings.HasPrefix(repo, "http"):
+	case strings.HasPrefix(repo, "http") || strings.HasPrefix(repo, "git@"):
 		// Already a full URL, return as-is.
-		return TemplateURL{URL: repo, Ref: ref}
+		return RepoURL{URL: repo, Ref: ref}
 
 	case strings.Contains(repo, "/"):
 		// Partially-qualified: assume github.com/org/repo.
-		return TemplateURL{
+		return RepoURL{
 			URL: fmt.Sprintf("https://github.com/%s.git", repo),
 			Ref: ref,
 		}
 
 	default:
 		// Default to upbound organization.
-		return TemplateURL{
+		return RepoURL{
 			URL: fmt.Sprintf("https://github.com/upbound/%s.git", repo),
 			Ref: ref,
 		}

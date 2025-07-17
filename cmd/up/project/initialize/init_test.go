@@ -5,7 +5,6 @@
 package initialize
 
 import (
-	"context"
 	"embed"
 	"net/url"
 	"os"
@@ -255,7 +254,7 @@ func TestRun_Scratch(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(context.Background(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return
@@ -297,7 +296,7 @@ func TestRun_Example(t *testing.T) {
 		SSHKey       string
 		Name         string
 		Organization string
-		Example      string
+		Template     string
 		Language     string
 		TestLanguage string
 		Values       map[string]string
@@ -315,7 +314,7 @@ func TestRun_Example(t *testing.T) {
 				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "go",
 				TestLanguage: "go",
 				Project: &v1alpha1.Project{
@@ -359,7 +358,7 @@ func TestRun_Example(t *testing.T) {
 				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "python",
 				Project: &v1alpha1.Project{
@@ -389,7 +388,7 @@ func TestRun_Example(t *testing.T) {
 				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "go",
 				Project: &v1alpha1.Project{
@@ -419,7 +418,7 @@ func TestRun_Example(t *testing.T) {
 				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "python",
 				Values: map[string]string{
@@ -468,7 +467,7 @@ func TestRun_Example(t *testing.T) {
 				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "non-existent-example",
+				Template:     "non-existent-example",
 			},
 			expectedError: "failed to clone repository: boom",
 			mockCloner: &CopyMockGitCloner{
@@ -492,7 +491,7 @@ func TestRun_Example(t *testing.T) {
 				Method:          tc.args.Method,
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
-				Example:         tc.args.Example,
+				Template:        tc.args.Template,
 				Language:        tc.args.Language,
 				TestLanguage:    tc.args.TestLanguage,
 				Values:          tc.args.Values,
@@ -511,7 +510,7 @@ func TestRun_Example(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(context.Background(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return

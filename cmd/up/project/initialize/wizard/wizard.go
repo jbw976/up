@@ -56,7 +56,7 @@ func (w *Wizard) Run() (State, error) {
 	}
 
 	// if an example was selected, don't generate resources
-	if state.Example != "" {
+	if state.Template != "" {
 		deleteState(w.StatePath)
 		return state, nil
 	}
