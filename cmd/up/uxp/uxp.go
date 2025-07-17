@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/cmd/up/uxp/license"
+	"github.com/upbound/up/cmd/up/uxp/webui"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -79,6 +80,8 @@ type Cmd struct {
 	Uninstall uninstallCmd `cmd:"" help:"Uninstall UXP."`
 	Upgrade   upgradeCmd   `cmd:"" help:"Upgrade UXP."`
 	License   license.Cmd  `cmd:"" help:"Manage UXP licenses."`
+
+	WebUI webui.Cmd `cmd:"" help:"Manage the UXP web UI."`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
