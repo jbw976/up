@@ -19,10 +19,12 @@ import (
 )
 
 var (
-	//go:embed testdata/fake-project-gemini/**
-	projectGemini embed.FS
 	//go:embed testdata/fake-project-claude/**
 	projectClaude embed.FS
+	//go:embed testdata/fake-project-codex/**
+	projectCodex embed.FS
+	//go:embed testdata/fake-project-gemini/**
+	projectGemini embed.FS
 )
 
 // TestRuleCmd_Run tests the Run method of the ruleCmd struct.
@@ -32,6 +34,7 @@ func TestRuleCmd_Run(t *testing.T) {
 	tcs := map[string]struct {
 		gemini        bool
 		claude        bool
+		codex         bool
 		fs            embed.FS
 		path          string
 		expectedFiles []string
@@ -42,6 +45,13 @@ func TestRuleCmd_Run(t *testing.T) {
 			path:          "testdata/fake-project-gemini",
 			gemini:        true,
 			expectedFiles: []string{"GEMINI.md", ".gemini", "upbound.yaml"},
+			err:           nil,
+		},
+		"Codex": {
+			fs:            projectCodex,
+			path:          "testdata/fake-project-codex",
+			codex:         true,
+			expectedFiles: []string{".codex", "upbound.yaml"},
 			err:           nil,
 		},
 		"Claude": {
