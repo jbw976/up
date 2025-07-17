@@ -43,7 +43,7 @@ require (
 	github.com/radovskyb/watcher v1.0.7
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	github.com/sourcegraph/go-lsp v0.0.0-20240223163137-f80c5dd31dfd
-	github.com/sourcegraph/jsonrpc2 v0.2.0
+	github.com/sourcegraph/jsonrpc2 v0.2.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250708234619-3c37d25a68f7
