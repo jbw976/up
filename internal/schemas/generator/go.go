@@ -373,12 +373,13 @@ func goRenamePropertyTypes(baseName string, props map[string]spec.Schema) {
 }
 
 func goFixName(name string) string {
-	lastDot := strings.LastIndex(name, ".")
-	if lastDot == -1 {
-		return name
-	}
 	generateGoMutex.Lock()
 	defer generateGoMutex.Unlock()
+
+	lastDot := strings.LastIndex(name, ".")
+	if lastDot == -1 {
+		return codegen.ToCamelCaseWithInitialisms(name)
+	}
 	genName := codegen.SchemaNameToTypeName(name)
 	prefix := codegen.SchemaNameToTypeName(name[:lastDot])
 	return codegen.ToCamelCaseWithInitialisms(strings.TrimPrefix(genName, prefix))
