@@ -6,10 +6,9 @@ package ai
 import (
 	"context"
 	"embed"
-	"fmt"
+	"io/fs"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/alecthomas/kong"
@@ -36,14 +35,18 @@ Examples:
 `
 }
 
-//go:embed templates/claude/**
-var claudeTemplate embed.FS
+var (
+	//go:embed all:templates/claude
+	claudeTemplate embed.FS
+	//go:embed all:templates/codex
+	codexTemplate embed.FS
+	//go:embed all:templates/gemini
+	geminiTemplate embed.FS
 
-//go:embed templates/codex/**
-var codexTemplate embed.FS
-
-//go:embed templates/gemini/**
-var geminiTemplate embed.FS
+	claudeRoot = "templates/claude"
+	codexRoot  = "templates/codex"
+	geminiRoot = "templates/gemini"
+)
 
 type rulesCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
@@ -148,24 +151,19 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 	return nil
 }
 
-func renderTemplates(targetFS afero.Fs, templates *template.Template, data any) error {
-	for _, tmpl := range templates.Templates() {
-		fname := tmpl.Name()
-		if strings.HasPrefix(fname, "dot-") {
-			fname = convertDotFile(fname)
-		}
-		file, err := targetFS.Create(filepath.Clean(fname))
+func renderTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) error {
+	for path, tmpl := range tmpls {
+		file, err := targetFS.Create(filepath.Clean(path))
 		if err != nil {
-			return errors.Wrapf(err, "error creating file %v", fname)
+			return errors.Wrapf(err, "error creating file %v", path)
 		}
 		if err := tmpl.Execute(file, data); err != nil {
-			return errors.Wrapf(err, "error writing template to file %v", fname)
+			return errors.Wrapf(err, "error writing template to file %v", path)
 		}
 		if err := file.Close(); err != nil {
-			return errors.Wrapf(err, "error closing file %v", fname)
+			return errors.Wrapf(err, "error closing file %v", path)
 		}
 	}
-
 	return nil
 }
 
@@ -182,13 +180,14 @@ func (c *rulesCmd) generateGeminiTemplates() (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to retrieve up config")
 	}
 
-	templates := template.Must(template.ParseFS(geminiTemplate, "templates/gemini/**"))
+	tmpls := ParseTemplates(geminiTemplate, geminiRoot)
+
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
 		UpConfigDir: cd,
 	}
 
-	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+	if err := renderTemplates(targetFS, tmpls, tmplData); err != nil {
 		return nil, err
 	}
 
@@ -202,13 +201,14 @@ func (c *rulesCmd) generateClaudeTemplates() (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to retrieve up config")
 	}
 
-	templates := template.Must(template.ParseFS(claudeTemplate, "templates/claude/**"))
+	tmpls := ParseTemplates(claudeTemplate, claudeRoot)
+
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
 		UpConfigDir: cd,
 	}
 
-	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+	if err := renderTemplates(targetFS, tmpls, tmplData); err != nil {
 		return nil, err
 	}
 
@@ -222,24 +222,48 @@ func (c *rulesCmd) generateCodexTemplates() (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to retrieve up config")
 	}
 
-	templates := template.Must(template.ParseFS(codexTemplate, "templates/codex/**"))
+	tmpls := ParseTemplates(codexTemplate, codexRoot)
+
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
 		UpConfigDir: cd,
 	}
 
-	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+	if err := renderTemplates(targetFS, tmpls, tmplData); err != nil {
 		return nil, err
 	}
 
 	return targetFS, nil
 }
 
-// convertDotFile takes a file name of the form dot-<directory-name>-<filename>
-// and returns a filepath of the form .directory-name/filename.
-func convertDotFile(name string) string {
-	spl := strings.Split(name, "-")
-	fname := spl[len(spl)-1]
-	dirname := fmt.Sprintf(".%s", spl[1])
-	return filepath.Join(dirname, fname)
+func ParseTemplates(f embed.FS, dir string) map[string]*template.Template {
+	tpls := map[string]*template.Template{}
+	err := fs.WalkDir(f, dir, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() {
+			// Use Rel to remove the "templates" directory from the path.
+			s, err := filepath.Rel(dir, path)
+			if err != nil {
+				return err
+			}
+			// Init a new template if we don't have one for this path yet.
+			t, ok := tpls[s]
+			if !ok {
+				t = template.New(filepath.Base(path))
+			}
+			// Parse files into the existing template.
+			_, err = t.ParseFS(f, path)
+			if err != nil {
+				return err
+			}
+			tpls[s] = t
+		}
+
+		return err
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return tpls
 }

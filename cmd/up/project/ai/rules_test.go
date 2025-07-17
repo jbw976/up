@@ -6,24 +6,28 @@ package ai
 import (
 	"context"
 	"embed"
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 var (
-	//go:embed testdata/fake-project-claude/**
+	//go:embed all:testdata/fake-project-claude
 	projectClaude embed.FS
-	//go:embed testdata/fake-project-codex/**
+	//go:embed all:testdata/fake-project-codex
 	projectCodex embed.FS
-	//go:embed testdata/fake-project-gemini/**
+	//go:embed all:testdata/fake-project-gemini
 	projectGemini embed.FS
 )
 
@@ -44,21 +48,21 @@ func TestRuleCmd_Run(t *testing.T) {
 			fs:            projectGemini,
 			path:          "testdata/fake-project-gemini",
 			gemini:        true,
-			expectedFiles: []string{"GEMINI.md", ".gemini", "upbound.yaml"},
+			expectedFiles: []string{"GEMINI.md", "settings.json", "upbound.yaml"},
 			err:           nil,
 		},
 		"Codex": {
 			fs:            projectCodex,
 			path:          "testdata/fake-project-codex",
 			codex:         true,
-			expectedFiles: []string{".codex", "upbound.yaml"},
+			expectedFiles: []string{"AGENTS.md", "config.toml", "upbound.yaml"},
 			err:           nil,
 		},
 		"Claude": {
 			fs:            projectClaude,
 			path:          "testdata/fake-project-claude",
 			claude:        true,
-			expectedFiles: []string{"CLAUDE.md", ".claude", ".mcp.json", "upbound.yaml"},
+			expectedFiles: []string{"CLAUDE.md", "settings.json", ".mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
 	}
@@ -91,7 +95,15 @@ func TestRuleCmd_Run(t *testing.T) {
 			err = c.Run(context.Background(), printer)
 
 			if tc.err == nil {
-				generatedFiles, err := afero.ReadDir(projFS, ".")
+				generatedFiles := []os.FileInfo{}
+				// recurse the directories and pull files
+				afero.Walk(projFS, ".", func(path string, info fs.FileInfo, err error) error {
+					if !info.IsDir() {
+						generatedFiles = append(generatedFiles, info)
+					}
+					return err
+				})
+
 				assert.NilError(t, err)
 				assert.Assert(t, cmp.Len(generatedFiles, len(tc.expectedFiles)))
 
@@ -111,4 +123,15 @@ func (w *TestWriter) Write(b []byte) (int, error) {
 	out := strings.TrimRight(string(b), "\n")
 	w.t.Log(out)
 	return len(b), nil
+}
+
+func TestGeminiTemplate(t *testing.T) {
+	r := &rulesCmd{
+		proj: &v1alpha1.Project{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "test",
+			},
+		},
+	}
+	r.generateGeminiTemplates()
 }
