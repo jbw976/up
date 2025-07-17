@@ -75,7 +75,7 @@ func TestFromUXPv2(t *testing.T) {
 			},
 		},
 		"LicenseNotFound": {
-			reason: "Should return ErrLicenseNotFound when license resource is not found.",
+			reason: "Should return ErrNotFound when license resource is not found.",
 			args: args{
 				cl: fake.NewClientBuilder().
 					WithScheme(func() *runtime.Scheme {
@@ -87,7 +87,7 @@ func TestFromUXPv2(t *testing.T) {
 			},
 			want: want{
 				license: nil,
-				err:     ErrLicenseNotFound,
+				err:     ErrNotFound,
 			},
 		},
 		"GetLicenseError": {
@@ -201,7 +201,7 @@ func TestFileFromUXPv2(t *testing.T) {
 			},
 		},
 		"LicenseNotFound": {
-			reason: "Should return ErrLicenseNotFound when license resource is not found.",
+			reason: "Should return ErrNotFound when license resource is not found.",
 			args: args{
 				cl: fake.NewClientBuilder().
 					WithScheme(func() *runtime.Scheme {
@@ -213,7 +213,7 @@ func TestFileFromUXPv2(t *testing.T) {
 			},
 			want: want{
 				file: nil,
-				err:  ErrLicenseNotFound,
+				err:  ErrNotFound,
 			},
 		},
 		"SecretNotFound": {

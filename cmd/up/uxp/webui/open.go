@@ -27,8 +27,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	ilicense "github.com/upbound/up/internal/license"
-	"github.com/upbound/uxp-licensing/pkg/license"
+	"github.com/upbound/up/internal/license"
 )
 
 const (
@@ -45,7 +44,6 @@ const (
 	errFmtServiceSelector  = "service %q has no selector"
 	errGetControllerClient = "failed to get controller-runtime client"
 	errGetKubeClient       = "failed to get kube client"
-	errGetLicense          = "failed to get license file"
 	errGetListenerAddr     = "failed to get listener addr"
 	errGetRoundTripper     = "failed to get roundtripper"
 	errGetServicePort      = "failed to get service port"
@@ -55,7 +53,6 @@ const (
 	errMakePortForwarder   = "failed to make port-forwarder"
 	errParseLabelSelector  = "failed to parse label selector"
 	errStartPortForward    = "failed to start port-forward"
-	errValidateLicense     = "failed to validate license"
 )
 
 // openCmd opens the UXP web UI in a browser.
@@ -71,7 +68,11 @@ func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 		return errors.Wrap(err, errCreateClient)
 	}
 
-	if err := c.checkLicense(ctx, cl); err != nil {
+	err = license.CheckUXPv2(ctx, cl, true)
+	if errors.Is(err, license.ErrNotFound) {
+		return errors.New(errLicenseNotFound)
+	}
+	if err != nil {
 		return err
 	}
 
@@ -105,25 +106,6 @@ func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 
 	<-ctx.Done()
 	return nil
-}
-
-// checkLicense returns nil if the UXPv2 deployment has a valid paid license or
-// community license, otherwise it returns an error.
-func (c *openCmd) checkLicense(ctx context.Context, cl client.Client) error {
-	l, err := ilicense.BytesFromUXPv2(ctx, cl)
-	if err == nil {
-		// Paid license, validate it.
-		_, err = license.NewValidator().Validate(l)
-		return errors.Wrap(err, errValidateLicense)
-	}
-	if errors.Is(err, ilicense.ErrCommunity) {
-		// Community license is OK.
-		return nil
-	}
-	if errors.Is(err, ilicense.ErrLicenseNotFound) {
-		return errors.New(errLicenseNotFound)
-	}
-	return errors.Wrap(err, errGetLicense)
 }
 
 // portForwarder returns a *portforward.PortForwarder to a web-ui pod, the

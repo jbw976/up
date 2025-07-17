@@ -16,6 +16,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
+	"github.com/upbound/uxp-licensing/pkg/license"
 )
 
 const (
@@ -23,15 +24,16 @@ const (
 	errFmtGetLicense          = "failed to get license %q"
 	errFmtGetLicenseSecret    = "failed to get license secret %q"
 	errFmtGetLicenseSecretKey = "license secret %q is missing key: %s"
+	errValidateLicense        = "failed to validate license"
 )
 
 var (
 	// ErrCommunity is returned when attempting to get a license file from a
 	// community license.
 	ErrCommunity = errors.New("community license")
-	// ErrLicenseNotFound is returned when a license resource with the default
+	// ErrNotFound is returned when a license resource with the default
 	// name is not found.
-	ErrLicenseNotFound = errors.New("license not found")
+	ErrNotFound = errors.New("license not found")
 )
 
 // FromUXPv2 returns a *v1alpha1.License from a controller-runtime client for a
@@ -44,7 +46,7 @@ func FromUXPv2(ctx context.Context, cl client.Client) (*v1alpha1.License, error)
 	var l v1alpha1.License
 	if err := cl.Get(ctx, types.NamespacedName{Name: v1alpha1.LicenseName}, &l); err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, ErrLicenseNotFound
+			return nil, ErrNotFound
 		}
 		return nil, errors.Wrap(err, fmt.Sprintf(errFmtGetLicense, v1alpha1.LicenseName))
 	}
@@ -76,4 +78,20 @@ func BytesFromUXPv2(ctx context.Context, cl client.Client) ([]byte, error) {
 	}
 
 	return f, nil
+}
+
+// CheckUXPv2 returns an error if the cluster for the provided client does not
+// have a valid license. Set allowCommunity to true to allow a community
+// license.
+func CheckUXPv2(ctx context.Context, cl client.Client, allowCommunity bool) error {
+	l, err := BytesFromUXPv2(ctx, cl)
+	if err == nil {
+		// Paid license, validate it.
+		_, err = license.NewValidator().Validate(l)
+		return errors.Wrap(err, errValidateLicense)
+	}
+	if allowCommunity && errors.Is(err, ErrCommunity) {
+		return nil
+	}
+	return err
 }
