@@ -14,19 +14,17 @@ import (
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
 var (
 	//go:embed all:testdata/fake-project-claude
 	projectClaude embed.FS
-	//go:embed all:testdata/fake-project-codex
-	projectCodex embed.FS
+	//go:embed all:testdata/fake-project-cursor
+	projectCursor embed.FS
 	//go:embed all:testdata/fake-project-gemini
 	projectGemini embed.FS
 )
@@ -56,6 +54,13 @@ func TestRuleCmd_Run(t *testing.T) {
 			path:          "testdata/fake-project-claude",
 			claude:        true,
 			expectedFiles: []string{"CLAUDE.md", "settings.json", ".mcp.json", "upbound.yaml"},
+			err:           nil,
+		},
+		"Cursor": {
+			fs:            projectCursor,
+			path:          "testdata/fake-project-cursor",
+			claude:        true,
+			expectedFiles: []string{"project.mdc", "mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
 	}
@@ -118,13 +123,13 @@ func (w *TestWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func TestGeminiTemplate(t *testing.T) {
-	r := &rulesCmd{
-		proj: &v1alpha1.Project{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "test",
-			},
-		},
-	}
-	r.generateGeminiTemplates()
-}
+// func TestGeminiTemplate(t *testing.T) {
+// 	r := &rulesCmd{
+// 		proj: &v1alpha1.Project{
+// 			ObjectMeta: v1.ObjectMeta{
+// 				Name: "test",
+// 			},
+// 		},
+// 	}
+// 	r.generateGeminiTemplates()
+// }

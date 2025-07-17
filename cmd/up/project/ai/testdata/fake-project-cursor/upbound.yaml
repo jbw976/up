@@ -2,7 +2,7 @@
 apiVersion: meta.dev.upbound.io/v1alpha1
 kind: Project
 metadata:
-  name: fake-project-codex
+  name: fake-project-cursor
 spec:
   maintainer: Upbound <support@upbound.io>
   source: github.com/upbound/project-getting-started

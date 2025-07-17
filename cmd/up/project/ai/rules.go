@@ -38,10 +38,14 @@ Examples:
 var (
 	//go:embed all:templates/claude
 	claudeTemplate embed.FS
+	//go:embed all:templates/cursor
+	cursorTemplate embed.FS
 	//go:embed all:templates/gemini
 	geminiTemplate embed.FS
 
+	// filepath roots for the various tool configuration sub directories.
 	claudeRoot = "templates/claude"
+	cursorRoot = "templates/cursor"
 	geminiRoot = "templates/gemini"
 )
 
@@ -50,13 +54,13 @@ type rulesCmd struct {
 
 	Gemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."`
 	Claude bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations."`
-
-	Flags upbound.Flags `embed:""`
+	Cursor bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."`
 
 	projFS afero.Fs
 	proj   *v1alpha1.Project
+	user   *user.User
 
-	user *user.User
+	Flags upbound.Flags `embed:""`
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
@@ -104,15 +108,21 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 
 	switch {
 	case c.Gemini:
-		fs, err := c.generateGeminiTemplates()
+		fs, err := c.generateTemplates(geminiTemplate, geminiRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle gemini templates")
 		}
 		cfgFS = append(cfgFS, fs)
 	case c.Claude:
-		fs, err := c.generateClaudeTemplates()
+		fs, err := c.generateTemplates(claudeTemplate, claudeRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle claude templates")
+		}
+		cfgFS = append(cfgFS, fs)
+	case c.Cursor:
+		fs, err := c.generateTemplates(cursorTemplate, cursorRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to handle cursor templates")
 		}
 		cfgFS = append(cfgFS, fs)
 	}
@@ -123,7 +133,7 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 		func() error {
 			for _, fs := range cfgFS {
 				if err := filesystem.CopyFilesBetweenFs(fs, c.projFS); err != nil {
-					return errors.Wrap(err, "failed to copy files to function target")
+					return errors.Wrap(err, "failed to copy files to target directories")
 				}
 
 				projFS, ok := c.projFS.(*afero.BasePathFs)
@@ -137,75 +147,43 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 		return err
 	}
 
-	pterm.Printfln("successfully created configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
+	pterm.Printfln("successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
 	return nil
 }
 
-func renderTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) error {
-	for path, tmpl := range tmpls {
-		file, err := targetFS.Create(filepath.Clean(path))
-		if err != nil {
-			return errors.Wrapf(err, "error creating file %v", path)
-		}
-		if err := tmpl.Execute(file, data); err != nil {
-			return errors.Wrapf(err, "error writing template to file %v", path)
-		}
-		if err := file.Close(); err != nil {
-			return errors.Wrapf(err, "error closing file %v", path)
-		}
-	}
-	return nil
-}
-
+// templateData provides values for the go-templated files.
 type templateData struct {
 	ProjectName string
 	// Path for .up/config.json
 	UpConfigDir string
 }
 
-func (c *rulesCmd) generateGeminiTemplates() (afero.Fs, error) {
+// generateTemplates from the rootDir of the given filesystem, or errors.
+func (c *rulesCmd) generateTemplates(fs embed.FS, rootDir string) (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 	cd, err := config.GetUpConfigDir()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to retrieve up config")
 	}
 
-	tmpls := ParseTemplates(geminiTemplate, geminiRoot)
+	// determine the target locations for each of the template files.
+	tmpls := parseTemplates(fs, rootDir)
 
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
 		UpConfigDir: cd,
 	}
 
-	if err := renderTemplates(targetFS, tmpls, tmplData); err != nil {
+	if err := writeTemplates(targetFS, tmpls, tmplData); err != nil {
 		return nil, err
 	}
 
 	return targetFS, nil
 }
 
-func (c *rulesCmd) generateClaudeTemplates() (afero.Fs, error) {
-	targetFS := afero.NewMemMapFs()
-	cd, err := config.GetUpConfigDir()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve up config")
-	}
-
-	tmpls := ParseTemplates(claudeTemplate, claudeRoot)
-
-	tmplData := templateData{
-		ProjectName: c.proj.Name,
-		UpConfigDir: cd,
-	}
-
-	if err := renderTemplates(targetFS, tmpls, tmplData); err != nil {
-		return nil, err
-	}
-
-	return targetFS, nil
-}
-
-func ParseTemplates(f embed.FS, dir string) map[string]*template.Template {
+// parseTemplates walks the supplied filesystem from the given dir, returning
+// a map of filepath to template.Template, or errors.
+func parseTemplates(f embed.FS, dir string) map[string]*template.Template {
 	tpls := map[string]*template.Template{}
 	err := fs.WalkDir(f, dir, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
@@ -235,4 +213,21 @@ func ParseTemplates(f embed.FS, dir string) map[string]*template.Template {
 	}
 
 	return tpls
+}
+
+// writeTemplates to the given filepaths in the supplied tmpls map.
+func writeTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) error {
+	for path, tmpl := range tmpls {
+		file, err := targetFS.Create(filepath.Clean(path))
+		if err != nil {
+			return errors.Wrapf(err, "error creating file %v", path)
+		}
+		if err := tmpl.Execute(file, data); err != nil {
+			return errors.Wrapf(err, "error writing template to file %v", path)
+		}
+		if err := file.Close(); err != nil {
+			return errors.Wrapf(err, "error closing file %v", path)
+		}
+	}
+	return nil
 }
