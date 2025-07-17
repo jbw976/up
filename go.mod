@@ -448,3 +448,6 @@ replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.20.4
 // # k8s.io/apiserver/pkg/storage/storagebackend/factory
 // ../../../.gvm/pkgsets/go1.24.4/global/pkg/mod/k8s.io/apiserver@v0.33.2/pkg/storage/storagebackend/factory/etcd3.go:328:39: undefined: otelgrpc.UnaryClientInterceptor
 replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0
+
+// Prevents using up-sdk-go with go workspaces.
+exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a

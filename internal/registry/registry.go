@@ -30,9 +30,9 @@ type Flags struct {
 type AuthorizedFlags struct {
 	Flags
 
-	TokenFile *os.File `help:"File containing authentication token. Expecting a JSON file with \"accessId\" and \"token\" keys." name:"token-file"`
-	Username  string   `help:"Set the registry username."                                                                        hidden:""         name:"registry-username"`
-	Password  string   `help:"Set the registry password."                                                                        hidden:""         name:"registry-password"`
+	TokenFile *os.File `help:"File containing authentication token. Expecting a JSON file. Example: {\"accessId\": \"<access-id>\", \"token\": \"<token>\"}"`
+	Username  string   `help:"Set the registry username."                                                                                                    hidden:"" name:"registry-username"`
+	Password  string   `help:"Set the registry password."                                                                                                    hidden:"" name:"registry-password"`
 }
 
 // AfterApply sets default values in AuthorizedFlags after assignment and

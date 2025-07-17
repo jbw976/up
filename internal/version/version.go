@@ -34,6 +34,9 @@ const (
 // Target will be used to ReleaseTarget.
 type Target string
 
+// Constants blocks are separated to make it easier to auto-rebase.
+// Else any version bump generated git conflicts.
+
 const (
 	// ReleaseTargetRelease used as release.
 	ReleaseTargetRelease Target = "release"
@@ -43,6 +46,10 @@ const (
 	mcpConnectorVersion        = "0.8.0"
 	gitCommit                  = "unknown-commit"
 	releaseTarget              = string(ReleaseTargetDebug)
+)
+
+const (
+	apiConnectorVersion = "0.0.1"
 )
 
 var version string
@@ -70,6 +77,11 @@ func AgentVersion() string {
 // MCPConnectorVersion returns the connector version.
 func MCPConnectorVersion() string {
 	return mcpConnectorVersion
+}
+
+// APIConnectorVersion returns the api connector version.
+func APIConnectorVersion() string {
+	return apiConnectorVersion
 }
 
 // ReleaseTarget returns the target type that the binary was built with.

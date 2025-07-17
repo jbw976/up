@@ -17,6 +17,7 @@ import (
 	xpcommonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	apiconnector "github.com/upbound/up/cmd/up/controlplane/api-connector"
 	"github.com/upbound/up/cmd/up/controlplane/connector"
 	"github.com/upbound/up/cmd/up/controlplane/oidcauth"
 	"github.com/upbound/up/cmd/up/controlplane/pkg"
@@ -107,7 +108,10 @@ type Cmd struct {
 
 	// Commands for managing the connector. These require a control plane
 	// context.
-	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a Spaces control plane."`
+	Connector connector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane using MCP Connector."`
+	// Command for managing the api connectors.These require a space
+	// context.
+	APIConnector apiconnector.Cmd `cmd:"" help:"Connect an App Cluster to a control plane using API Connector." maturity:"alpha"`
 
 	// Commands for managing control plane simulations. These require a space
 	// context.

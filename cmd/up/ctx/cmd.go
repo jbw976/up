@@ -25,6 +25,7 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/spaces"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -189,7 +190,7 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 }
 
 func withUpboundPrefix(s string) string {
-	return fmt.Sprintf("%s %s", upboundRootStyle.Render("Upbound"), s)
+	return fmt.Sprintf("%s %s", style.UpboundRootStyle.Render("Upbound"), s)
 }
 
 func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext string) (newConf *clientcmdapi.Config, newLastContext string, err error) { //nolint:gocognit // little long, but well tested
