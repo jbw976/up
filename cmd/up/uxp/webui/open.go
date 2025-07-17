@@ -60,8 +60,9 @@ const (
 
 // openCmd opens the UXP web UI in a browser.
 type openCmd struct {
-	Host string `default:"localhost" help:"Host to listen on for port-forward."`
-	Port int    `help:"Port to listen on for port-forward (0 for automatic selection)."`
+	Host    string `default:"localhost" help:"Host to listen on for port-forward."`
+	Port    int    `help:"Port to listen on for port-forward (0 for automatic selection)."`
+	Browser bool   `default:"true" help:"Open the web UI in a browser window."`
 }
 
 func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
@@ -91,13 +92,15 @@ func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 	}
 
 	pterm.Printfln("The web UI is available at: %s", url)
-	if err := browser.OpenURL(url); err != nil {
-		// Add a blank line to distinguish the error message from regular
-		// output.
-		pterm.Println()
-		pterm.Printfln("Error opening web UI in browser: %s", err)
-		// Continue executing. The port-forward is reachable from the URL
-		// printed earlier.
+	if c.Browser {
+		if err := browser.OpenURL(url); err != nil {
+			// Add a blank line to distinguish the error message from regular
+			// output.
+			pterm.Println()
+			pterm.Printfln("Error opening web UI in browser: %s", err)
+			// Continue executing. The port-forward is reachable from the URL
+			// printed earlier.
+		}
 	}
 
 	<-ctx.Done()
