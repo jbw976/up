@@ -51,13 +51,6 @@ func TestRuleCmd_Run(t *testing.T) {
 			expectedFiles: []string{"GEMINI.md", "settings.json", "upbound.yaml"},
 			err:           nil,
 		},
-		"Codex": {
-			fs:            projectCodex,
-			path:          "testdata/fake-project-codex",
-			codex:         true,
-			expectedFiles: []string{"AGENTS.md", "config.toml", "upbound.yaml"},
-			err:           nil,
-		},
 		"Claude": {
 			fs:            projectClaude,
 			path:          "testdata/fake-project-claude",
