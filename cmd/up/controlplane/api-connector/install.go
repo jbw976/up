@@ -65,11 +65,12 @@ type installCmd struct {
 	spaceClient      client.Client
 	sdkConfig        *up.Config
 
-	// name will be used to construct object names in the api layer and target cluster
-	name string
+	// All below will be used to construct secret, object names in the consumer
+	// cluster to connect to the control plane. These are derived from the exported variables
+	// below, so we don't loose the original values and have to pass them around.
 
-	// All below will be used to construct secret name in the target cluster
-	// to connect to the control plane.
+	// name will be used to construct object names in the api layer and consumer cluster.
+	name             string
 	group            string
 	space            string
 	organization     string
@@ -88,7 +89,7 @@ type installCmd struct {
 	UpboundToken                   string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 
 	// Installation flags
-	SkipConnection          bool   `help:"Skip connection creation to the control plane. If provided, the connector will be installed without connecting to the control plane."`
+	SkipConnection          bool   `help:"Skip secret and connection initialization to the control plane. If provided, the connector will be installed without connecting to the control plane."`
 	TargetKubeconfig        string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."`
 	TargetKubeconfigContext string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 

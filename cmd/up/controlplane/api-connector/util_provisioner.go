@@ -454,7 +454,7 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 			return err
 		}
 	default:
-		p.printer.Printfln("API Connector is already installed. But does not match the current known version. Skipping installation. Use --upgrade to upgrade the connector.")
+		p.printer.Printfln("API Connector is already installed, but does not match the current known version. Skipping installation. Use --upgrade to upgrade the connector.")
 		return nil
 	}
 
