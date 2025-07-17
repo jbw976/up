@@ -95,6 +95,11 @@ func (w *Wizard) GenerateResources(state State) error {
 			return err
 		}
 	}
+	if state.GenerateAITooling {
+		if err := w.GenerateAIToolingCfg(state); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -196,6 +201,24 @@ func (w *Wizard) GenerateExample(state State) error {
 	return nil
 }
 
+// GenerateAIToolingCfg generates the tooling configs in the project chosen by
+// the user.
+func (w *Wizard) GenerateAIToolingCfg(state State) error {
+	args := []string{
+		"project",
+		"ai",
+		"rules",
+		"--project-file", w.ProjectFile,
+		fmt.Sprintf("--%s", w.getAITool(state.AITooling)),
+	}
+
+	if err := w.Runner.RunCommand(args); err != nil {
+		return fmt.Errorf("failed to generate ai tooling config: %w", err)
+	}
+
+	return nil
+}
+
 func (w *Wizard) examplePath(state State) string {
 	return fmt.Sprintf("%s/%s.yaml", strings.ToLower(state.Kind), strings.ToLower(state.MetadataName))
 }
@@ -226,6 +249,18 @@ func (w *Wizard) getLanguage(lang FunctionLanguage) string {
 		return "go-templating"
 	case FunctionLanguagePython:
 		return "python"
+	}
+	return ""
+}
+
+func (w *Wizard) getAITool(tool AIToolingProvider) string {
+	switch tool {
+	case ToolGemini:
+		return "gemini-cli"
+	case ToolClaude:
+		return "claude-code"
+	case ToolCursor:
+		return "cursor"
 	}
 	return ""
 }

@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package function contains the `up ai` commands.
+// Package ai contains the `up project ai` commands.
 package ai
 
 // Cmd contains commands for ai cmd.

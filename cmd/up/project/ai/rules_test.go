@@ -4,11 +4,9 @@
 package ai
 
 import (
-	"context"
 	"embed"
 	"io/fs"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -30,13 +28,12 @@ var (
 )
 
 // TestRuleCmd_Run tests the Run method of the ruleCmd struct.
+// NOTE(tnthornton) this test currently validates the existence of the files.
+// TODO(tnthornton) add tests for file contents.
 func TestRuleCmd_Run(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		gemini        bool
-		claude        bool
-		codex         bool
 		fs            embed.FS
 		path          string
 		expectedFiles []string
@@ -45,21 +42,18 @@ func TestRuleCmd_Run(t *testing.T) {
 		"Gemini": {
 			fs:            projectGemini,
 			path:          "testdata/fake-project-gemini",
-			gemini:        true,
 			expectedFiles: []string{"GEMINI.md", "settings.json", "upbound.yaml"},
 			err:           nil,
 		},
 		"Claude": {
 			fs:            projectClaude,
 			path:          "testdata/fake-project-claude",
-			claude:        true,
 			expectedFiles: []string{"CLAUDE.md", "settings.json", ".mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
 		"Cursor": {
 			fs:            projectCursor,
 			path:          "testdata/fake-project-cursor",
-			claude:        true,
 			expectedFiles: []string{"project.mdc", "mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
@@ -90,12 +84,12 @@ func TestRuleCmd_Run(t *testing.T) {
 
 			printer := upterm.DefaultObjPrinter
 			printer.Quiet = true
-			err = c.Run(context.Background(), printer)
+			err = c.Run(t.Context(), printer)
 
 			if tc.err == nil {
 				generatedFiles := []os.FileInfo{}
 				// recurse the directories and pull files
-				afero.Walk(projFS, ".", func(path string, info fs.FileInfo, err error) error {
+				afero.Walk(projFS, ".", func(_ string, info fs.FileInfo, err error) error {
 					if !info.IsDir() {
 						generatedFiles = append(generatedFiles, info)
 					}
@@ -112,24 +106,3 @@ func TestRuleCmd_Run(t *testing.T) {
 		})
 	}
 }
-
-type TestWriter struct {
-	t *testing.T
-}
-
-func (w *TestWriter) Write(b []byte) (int, error) {
-	out := strings.TrimRight(string(b), "\n")
-	w.t.Log(out)
-	return len(b), nil
-}
-
-// func TestGeminiTemplate(t *testing.T) {
-// 	r := &rulesCmd{
-// 		proj: &v1alpha1.Project{
-// 			ObjectMeta: v1.ObjectMeta{
-// 				Name: "test",
-// 			},
-// 		},
-// 	}
-// 	r.generateGeminiTemplates()
-// }

@@ -27,7 +27,7 @@ import (
 
 func (c *rulesCmd) Help() string {
 	return `
-The 'generate' command creates an embedded function in the specified language.
+The 'rule' command generates configuration rules for the provided tool provider.
 
 Examples:
     project ai rules --gemini
@@ -42,19 +42,14 @@ var (
 	cursorTemplate embed.FS
 	//go:embed all:templates/gemini
 	geminiTemplate embed.FS
-
-	// filepath roots for the various tool configuration sub directories.
-	claudeRoot = "templates/claude"
-	cursorRoot = "templates/cursor"
-	geminiRoot = "templates/gemini"
 )
 
 type rulesCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
-	Gemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."`
-	Claude bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations."`
-	Cursor bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."`
+	UseGemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."      name:"gemini-cli"`
+	UseClaude bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations." name:"claude-code"`
+	UseCursor bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."          name:"cursor"`
 
 	projFS afero.Fs
 	proj   *v1alpha1.Project
@@ -65,9 +60,8 @@ type rulesCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *rulesCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *rulesCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
-	ctx := context.Background()
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
 	if err != nil {
@@ -98,28 +92,30 @@ func (c *rulesCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) err
 	proj.Default()
 	c.proj = proj
 
-	kongCtx.BindTo(ctx, (*context.Context)(nil))
-
 	return nil
 }
 
-func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err error) {
+func (c *rulesCmd) Run(_ context.Context, printer upterm.ObjectPrinter) (err error) {
 	cfgFS := []afero.Fs{}
+	// filepath roots for the various tool configuration sub directories.
+	claudeRoot := "templates/claude"
+	cursorRoot := "templates/cursor"
+	geminiRoot := "templates/gemini"
 
 	switch {
-	case c.Gemini:
+	case c.UseGemini:
 		fs, err := c.generateTemplates(geminiTemplate, geminiRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle gemini templates")
 		}
 		cfgFS = append(cfgFS, fs)
-	case c.Claude:
+	case c.UseClaude:
 		fs, err := c.generateTemplates(claudeTemplate, claudeRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle claude templates")
 		}
 		cfgFS = append(cfgFS, fs)
-	case c.Cursor:
+	case c.UseCursor:
 		fs, err := c.generateTemplates(cursorTemplate, cursorRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle cursor templates")
@@ -134,11 +130,6 @@ func (c *rulesCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) (err e
 			for _, fs := range cfgFS {
 				if err := filesystem.CopyFilesBetweenFs(fs, c.projFS); err != nil {
 					return errors.Wrap(err, "failed to copy files to target directories")
-				}
-
-				projFS, ok := c.projFS.(*afero.BasePathFs)
-				if !ok {
-					return errors.Errorf("unexpected filesystem type %T for project", projFS)
 				}
 			}
 			return nil
@@ -167,7 +158,10 @@ func (c *rulesCmd) generateTemplates(fs embed.FS, rootDir string) (afero.Fs, err
 	}
 
 	// determine the target locations for each of the template files.
-	tmpls := parseTemplates(fs, rootDir)
+	tmpls, err := parseTemplates(fs, rootDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse templates for the AI configurations")
+	}
 
 	tmplData := templateData{
 		ProjectName: c.proj.Name,
@@ -183,7 +177,7 @@ func (c *rulesCmd) generateTemplates(fs embed.FS, rootDir string) (afero.Fs, err
 
 // parseTemplates walks the supplied filesystem from the given dir, returning
 // a map of filepath to template.Template, or errors.
-func parseTemplates(f embed.FS, dir string) map[string]*template.Template {
+func parseTemplates(f embed.FS, dir string) (map[string]*template.Template, error) {
 	tpls := map[string]*template.Template{}
 	err := fs.WalkDir(f, dir, func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
@@ -207,26 +201,28 @@ func parseTemplates(f embed.FS, dir string) map[string]*template.Template {
 
 		return err
 	})
-
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return tpls
+	return tpls, nil
 }
 
 // writeTemplates to the given filepaths in the supplied tmpls map.
-func writeTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) error {
+func writeTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) (err error) {
 	for path, tmpl := range tmpls {
 		file, err := targetFS.Create(filepath.Clean(path))
 		if err != nil {
 			return errors.Wrapf(err, "error creating file %v", path)
 		}
+		defer func() {
+			if cerr := file.Close(); cerr != nil {
+				err = errors.Wrapf(err, "error closing file %v", path)
+			}
+		}()
+
 		if err := tmpl.Execute(file, data); err != nil {
 			return errors.Wrapf(err, "error writing template to file %v", path)
-		}
-		if err := file.Close(); err != nil {
-			return errors.Wrapf(err, "error closing file %v", path)
 		}
 	}
 	return nil
