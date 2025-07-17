@@ -25,16 +25,21 @@ const (
 	UpboundK8sResource = "k8s"
 )
 
-// GetKubeConfig constructs a Kubernetes REST config from the specified
+// GetKubeConfigWithContext constructs a Kubernetes REST config from the specified
 // kubeconfig, or falls back to same defaults as kubectl.
-func GetKubeConfig(path string, context ...string) (*rest.Config, error) {
+func GetKubeConfigWithContext(path string, context string) (*rest.Config, error) {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	rules.ExplicitPath = path
-	if len(context) > 0 && context[0] != "" {
-		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{
-			CurrentContext: context[0],
-		}).ClientConfig()
-	}
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{
+		CurrentContext: context,
+	}).ClientConfig()
+}
+
+// GetKubeConfig constructs a Kubernetes REST config from the specified
+// kubeconfig, or falls back to same defaults as kubectl.
+func GetKubeConfig(path string) (*rest.Config, error) {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	rules.ExplicitPath = path
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
 }
 

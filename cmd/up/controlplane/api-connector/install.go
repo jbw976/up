@@ -163,7 +163,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	var targetRestConfig *rest.Config
 	var err error
 	if c.TargetKubeconfig != "" {
-		targetRestConfig, err = kube.GetKubeConfig(c.TargetKubeconfig, c.TargetKubeconfigContext)
+		targetRestConfig, err = kube.GetKubeConfigWithContext(c.TargetKubeconfig, c.TargetKubeconfigContext)
 	} else {
 		targetRestConfig, err = upCtx.Kubecfg.ClientConfig()
 	}
