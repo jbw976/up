@@ -60,9 +60,9 @@ const (
 
 // openCmd opens the UXP web UI in a browser.
 type openCmd struct {
-	Host    string `default:"localhost" help:"Host to listen on for port-forward."`
+	Host    string `default:"localhost"                                                    help:"Host to listen on for port-forward."`
 	Port    int    `help:"Port to listen on for port-forward (0 for automatic selection)."`
-	Browser bool   `default:"true" help:"Open the web UI in a browser window."`
+	Browser bool   `default:"true"                                                         help:"Open the web UI in a browser window."`
 }
 
 func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
