@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 
 	"github.com/docker/docker/api/types/container"
@@ -188,11 +187,20 @@ func findLocalDevControlPlane(ctx context.Context, _ *upbound.Context, cfg *find
 		cid = cs[0].ID
 	}
 
+	// Figure out the registry directory from the container config.
+	var registryDir string
+	for _, m := range cs[0].Mounts {
+		if m.Destination == "/registry-data" {
+			registryDir = m.Source
+			break
+		}
+	}
+
 	return &localDevControlPlane{
 		name:                cfg.name,
 		kubeconfig:          kubeconfig,
 		client:              cl,
-		registryDir:         filepath.Join(os.TempDir(), "up-local-registry", cfg.name),
+		registryDir:         registryDir,
 		registryContainerID: cid,
 		registryHostname:    cfg.name + "-registry:5000",
 	}, true, nil

@@ -95,7 +95,7 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	}
 
 	// Start a new registry container.
-	if _, _, err := cli.ImageInspectWithRaw(ctx, regImage); err != nil {
+	if _, err := cli.ImageInspect(ctx, regImage); err != nil {
 		out, err := cli.ImagePull(ctx, regImage, image.PullOptions{})
 		if err != nil {
 			// Return the error encountered during image pull
@@ -126,6 +126,11 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "failed to start registry container")
 	}
+
+	// TODO(adamwg): Add a health/liveness check for the container to make sure
+	// it's ready to serve images. If it crashed on startup and never became
+	// ready, it will be dead now and Crossplane will be sad when we try to
+	// install packages from it. Unfortunately, docker doesn't make this easy.
 
 	// Connect to kind's network.
 	if err := cli.NetworkConnect(ctx, ns[0].ID, resp.ID, nil); err != nil {
