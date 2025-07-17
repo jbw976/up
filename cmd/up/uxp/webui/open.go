@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/pkg/browser"
 	"github.com/pterm/pterm"
@@ -58,7 +59,10 @@ const (
 )
 
 // openCmd opens the UXP web UI in a browser.
-type openCmd struct{}
+type openCmd struct {
+	Host string `default:"localhost" help:"Host to listen on for port-forward."`
+	Port int    `help:"Port to listen on for port-forward (0 for automatic selection)."`
+}
 
 func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 	cl, err := client.New(cfg, client.Options{})
@@ -165,8 +169,9 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 	}
 
 	readyCh := make(chan struct{})
-	pf, err := portforward.New(
+	pf, err := portforward.NewOnAddresses(
 		spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, req.URL()),
+		[]string{c.Host},
 		[]string{fmt.Sprintf("%d:%d", localPort, cPort)},
 		ctx.Done(),
 		readyCh,
@@ -177,12 +182,18 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 		return nil, "", nil, errors.Wrap(err, errMakePortForwarder)
 	}
 
-	return pf, fmt.Sprintf("http://localhost:%d", localPort), readyCh, nil
+	url := fmt.Sprintf("http://%s", net.JoinHostPort(c.Host, strconv.Itoa(localPort)))
+
+	return pf, url, readyCh, nil
 }
 
 // localPort returns an unused local port.
 func (c *openCmd) localPort() (int, error) {
-	listener, err := net.Listen("tcp", "localhost:0")
+	if c.Port != 0 {
+		return c.Port, nil
+	}
+
+	listener, err := net.Listen("tcp", net.JoinHostPort(c.Host, "0"))
 	if err != nil {
 		return 0, errors.Wrap(err, errListen)
 	}
