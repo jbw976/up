@@ -562,7 +562,7 @@ func ResolveTemplateURL(template string) RepoURL {
 		path, _ := filepath.Abs(repo)
 		return RepoURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
 
-	case strings.Contains(repo, "://") || IsScpLikeSshUrl(repo):
+	case strings.Contains(repo, "://") || IsSSHShortURL(repo):
 		// Already a full URL, return as-is.
 		return RepoURL{URL: repo, Ref: ref}
 
@@ -582,8 +582,9 @@ func ResolveTemplateURL(template string) RepoURL {
 	}
 }
 
+// IsSSHShortURL checks if the input url is an scp-style ssh url.
 // ssh urls can be structured as [<user>@]<host>:/<path-to-git-repo>, recognized as no slashes before the first colon.
-func IsScpLikeSshUrl(url string) bool {
+func IsSSHShortURL(url string) bool {
 	colon := strings.Index(url, ":")
 	slash := strings.Index(url, "/")
 

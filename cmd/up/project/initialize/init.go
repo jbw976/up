@@ -191,15 +191,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 
 // we support local file, https, and ssh transport protocols. Infer the protocol from the template url.
 func (c *Cmd) detectProtocol() error {
-	repoUrl := c.Template
+	repoURL := c.Template
 
-	if repoUrl == "" {
+	if repoURL == "" {
 		return nil
 	}
 
 	// if the repoUrl has an explicit protocol, use that.
-	if protocolSeparator := strings.Index(repoUrl, "://"); protocolSeparator > -1 {
-		protocol := repoUrl[:protocolSeparator]
+	if protocolSeparator := strings.Index(repoURL, "://"); protocolSeparator > -1 {
+		protocol := repoURL[:protocolSeparator]
 
 		// only support file, https, and ssh.
 		if protocol == "file" || protocol == "https" || protocol == "ssh" {
@@ -212,13 +212,13 @@ func (c *Cmd) detectProtocol() error {
 	}
 
 	// ssh urls can be structured as [<user>@]<host>:/<path-to-git-repo>, recognized as no slashes before the first colon.
-	if template.IsScpLikeSshUrl(repoUrl) {
+	if template.IsSSHShortURL(repoURL) {
 		c.protocol = "ssh"
 		return nil
 	}
 
 	// file urls are recognized as /path/to/repo.git/ or ./path/to/repo.git/ for relative paths.
-	if strings.HasPrefix(repoUrl, "/") || strings.HasPrefix(repoUrl, ".") {
+	if strings.HasPrefix(repoURL, "/") || strings.HasPrefix(repoURL, ".") {
 		c.protocol = "file"
 		return nil
 	}
