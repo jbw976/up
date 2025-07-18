@@ -103,23 +103,24 @@ type HomeDirFn func() (string, error)
 
 // Installer is a helm chart installer.
 type Installer struct {
-	repoURL         *url.URL
-	chartRef        string
-	chartFile       *os.File
-	chartName       string
-	releaseName     string
-	alternateChart  string
-	createNamespace bool
-	namespace       string
-	cacheDir        string
-	rollbackOnError bool
-	force           bool
-	wait            bool
-	noHooks         bool
-	home            HomeDirFn
-	fs              afero.Fs
-	tempDir         TempDirFn
-	log             logging.Logger
+	repoURL            *url.URL
+	chartRef           string
+	chartFile          *os.File
+	chartName          string
+	releaseName        string
+	alternateChart     string
+	createNamespace    bool
+	namespace          string
+	cacheDir           string
+	rollbackOnError    bool
+	force              bool
+	wait               bool
+	noHooks            bool
+	upgradeReuseValues bool
+	home               HomeDirFn
+	fs                 afero.Fs
+	tempDir            TempDirFn
+	log                logging.Logger
 
 	// Auth
 	username string
@@ -208,6 +209,13 @@ func Wait() InstallerModifierFn {
 func WithNoHooks() InstallerModifierFn {
 	return func(h *Installer) {
 		h.noHooks = true
+	}
+}
+
+// UpgradeReuseValues will reuse existing values during upgrade.
+func UpgradeReuseValues() InstallerModifierFn {
+	return func(h *Installer) {
+		h.upgradeReuseValues = true
 	}
 }
 
@@ -306,6 +314,7 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespac
 	uc.Wait = h.wait
 	uc.Timeout = waitTimeout
 	uc.DisableHooks = h.noHooks
+	uc.ReuseValues = h.upgradeReuseValues
 	h.upgradeClient = uc
 
 	// Uninstall Client
