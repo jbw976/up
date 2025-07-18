@@ -19,6 +19,7 @@ import (
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/internal/uxp"
 )
 
 const (
@@ -27,14 +28,14 @@ const (
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
-	repo := RepoURL
+	repo := uxp.RepoURL
 	if c.Unstable {
-		repo = uxpUnstableRepoURL
+		repo = uxp.UnstableRepoURL
 	}
 	ins, err := helm.NewManager(insCtx.Kubeconfig,
-		chartName,
+		uxp.ChartName,
 		*repo,
-		chartNamespace,
+		uxp.ChartNamespace,
 		helm.WithChart(c.Bundle),
 		helm.RollbackOnError(c.Rollback),
 		helm.Force(c.Force),
@@ -51,7 +52,7 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 	}
 	c.kClient = client
 
-	values := baseValues()
+	values := uxp.BaseValues()
 	if c.File != nil {
 		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
@@ -92,10 +93,10 @@ func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 	}
 
 	// TODO(branden): Remove this once UXP is public.
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, chartNamespace, c.Registry)
+	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, uxp.ImagePullSecret, uxp.ChartNamespace, c.Registry)
 
 	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", imagePullSecret), 1, 2),
+		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", uxp.ImagePullSecret), 1, 2),
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			return errors.Wrap(pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)

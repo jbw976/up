@@ -41,7 +41,6 @@ import (
 
 	licensev1alpha1 "github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	"github.com/upbound/up/cmd/up/uxp"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp/certs"
 	intctx "github.com/upbound/up/internal/ctx"
@@ -49,6 +48,7 @@ import (
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/uxp"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/uxp-licensing/pkg/license"

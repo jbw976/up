@@ -5,8 +5,6 @@
 package uxp
 
 import (
-	"net/url"
-
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/cmd/up/uxp/license"
@@ -15,47 +13,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-const (
-	chartName      = "crossplane"
-	chartNamespace = "crossplane-system"
-
-	imagePullSecret = "upbound-pull-secret"
-)
-
-// baseValues returns base values for the UXP chart.
-func baseValues() map[string]any {
-	return map[string]any{
-		// TODO(branden): Remove this once UXP is public.
-		"upbound": map[string]any{
-			"manager": map[string]any{
-				"imagePullSecrets": []map[string]any{{
-					"name": imagePullSecret,
-				}},
-			},
-		},
-		"webui": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": imagePullSecret,
-			}},
-		},
-		"apollo": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": imagePullSecret,
-			}},
-		},
-	}
-}
-
-var (
-	// RepoURL is the URL of the stable helm chart repository.
-	//
-	// TODO(adamwg): Change this to the public repo once UXPv2 is released.
-	//
-	//nolint:gochecknoglobals // Would make this a const if possible.
-	RepoURL, _ = url.Parse("oci://xpkg.upbound.io/upbound-dev")
-	//nolint:gochecknoglobals // Would make this a const if possible.
-	uxpUnstableRepoURL, _ = url.Parse("https://charts.upbound.io/main")
-)
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
