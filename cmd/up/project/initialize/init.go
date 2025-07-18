@@ -42,13 +42,13 @@ type Cmd struct {
 	Language     string            `default:""                                       help:"The language to use to initialize the new project." short:"l"`
 	TestLanguage string            `default:""                                       help:"The language to use for tests in the new project."`
 
-	Method   string `default:"https"                                                                                                                                                                  enum:"ssh,https" help:"Specify the method to access the repository: 'https' or 'ssh'."`
-	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when method is 'ssh'."`
-	Username string `help:"Optional. Specify a username for authentication. Used when the method is 'https' and an SSH key is not provided, or with an SSH key when the method is 'ssh'."`
-	Password string `help:"Optional. Specify a password for authentication. Used with the username when the method is 'https', or with an SSH key that requires a password when the method is 'ssh'."`
+	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when transport protocol is 'ssh'."`
+	Username string `help:"Optional. Specify a username for authentication. Used when transport protocol is 'https' and an SSH key is not provided, or with an SSH key when the transport protocol is 'ssh'."`
+	Password string `help:"Optional. Specify a password for authentication. Used with the username when the transport protocol is 'https', or with an SSH key that requires a passphrase when the transport protocol is 'ssh'."`
 
 	Flags upbound.Flags `embed:""`
 
+	protocol        string
 	gitAuthProvider git.AuthProvider
 	gitCloner       git.Cloner
 	projFS          afero.Fs
@@ -105,10 +105,13 @@ Examples:
 // AfterApply performs validation and setup after the command flags have been parsed.
 // It configures authentication, validates inputs, and sets up the project filesystem.
 func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) error {
-	switch c.Method {
+	if err := c.detectProtocol(); err != nil {
+		return err
+	}
+	switch c.protocol {
 	case "ssh":
 		if len(c.SSHKey) == 0 {
-			return errors.New("SSH key must be specified when using SSH method")
+			return errors.New("SSH key must be specified when using SSH protocol")
 		}
 		c.gitAuthProvider = &git.SSHAuthProvider{
 			Username:       c.Username,
@@ -118,7 +121,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 
 	case "https":
 		if len(c.SSHKey) > 0 {
-			return errors.New("cannot specify SSH key when using HTTPS method")
+			return errors.New("cannot specify SSH key when using HTTPS protocol")
 		}
 		c.gitAuthProvider = &git.HTTPSAuthProvider{
 			Username: c.Username,
@@ -135,7 +138,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 		c.Language = string(wizard.FunctionLanguageKCL)
 		c.TestLanguage = string(wizard.FunctionLanguageKCL)
 	} else if c.Template != "" && c.Language == "" {
-		return errors.New("language must be specified when using an template")
+		return errors.New("language must be specified when using a template")
 	}
 
 	// Validate and set test language
@@ -179,6 +182,45 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 	upCtx.SetupLogging()
 	kongCtx.Bind(upCtx)
 
+	return nil
+}
+
+// we support local file, https, and ssh transport protocols. Infer the protocol from the template url.
+func (c *Cmd) detectProtocol() error {
+	repoUrl := c.Template
+
+	if repoUrl == "" {
+		return nil
+	}
+
+	// if the repoUrl has an explicit protocol, use that.
+	if protocolSeparator := strings.Index(repoUrl, "://"); protocolSeparator > -1 {
+		protocol := repoUrl[:protocolSeparator]
+
+		// only support file, https, and ssh.
+		if protocol == "file" || protocol == "https" || protocol == "ssh" {
+			c.protocol = protocol
+			return nil
+		}
+
+		// unsupported protocol
+		return errors.Errorf("Unsupported protocol %s in template url", protocol)
+	}
+
+	// ssh urls can be structured as [<user>@]<host>:/<path-to-git-repo>, recognized as no slashes before the first colon.
+	if template.IsScpLikeSshUrl(repoUrl) {
+		c.protocol = "ssh"
+		return nil
+	}
+
+	// file urls are recognized as /path/to/repo.git/ or ./path/to/repo.git/ for relative paths.
+	if strings.HasPrefix(repoUrl, "/") || strings.HasPrefix(repoUrl, ".") {
+		c.protocol = "file"
+		return nil
+	}
+
+	// everything else is assumed to be https.
+	c.protocol = "https"
 	return nil
 }
 

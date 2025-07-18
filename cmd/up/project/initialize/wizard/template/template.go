@@ -538,18 +538,22 @@ type RepoURL struct {
 }
 
 // ResolveTemplateURL parses the repository url reference if specified in repo@ref format.
-func ResolveTemplateURL(templateName string) RepoURL {
-	// Split on @ to get repo and ref if present
-	repo := templateName
+func ResolveTemplateURL(template string) RepoURL {
+	repo := template
 	ref := "main"
-	sep := strings.LastIndex(templateName, "@")
-	if sep > -1 {
-		repo = templateName[:sep]
-		ref = templateName[sep+1:]
+
+	// the template might contain an @ if it's an ssh url.
+	// Split on the first @ after the last slash to detect if we have a ref.
+	lastSlash := strings.LastIndex(template, "/")
+	sep := strings.LastIndex(template, "@")
+	if sep > lastSlash {
+		repo = template[:sep]
+		ref = template[sep+1:]
 	}
 
 	switch {
 	case strings.HasPrefix(repo, ".") || strings.HasPrefix(repo, "/"):
+		// default to HEAD instead of main for local repos.
 		if sep == -1 {
 			ref = "HEAD"
 		}
@@ -558,7 +562,7 @@ func ResolveTemplateURL(templateName string) RepoURL {
 		path, _ := filepath.Abs(repo)
 		return RepoURL{URL: fmt.Sprintf("file://%s", path), Ref: ref}
 
-	case strings.HasPrefix(repo, "http") || strings.HasPrefix(repo, "git@"):
+	case strings.Contains(repo, "://") || IsScpLikeSshUrl(repo):
 		// Already a full URL, return as-is.
 		return RepoURL{URL: repo, Ref: ref}
 
@@ -576,4 +580,12 @@ func ResolveTemplateURL(templateName string) RepoURL {
 			Ref: ref,
 		}
 	}
+}
+
+// ssh urls can be structured as [<user>@]<host>:/<path-to-git-repo>, recognized as no slashes before the first colon.
+func IsScpLikeSshUrl(url string) bool {
+	colon := strings.Index(url, ":")
+	slash := strings.Index(url, "/")
+
+	return colon > -1 && slash > colon
 }

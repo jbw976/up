@@ -43,10 +43,10 @@ var _ runner.CommandRunner = &mockCommandRunner{}
 func TestAfterApply(t *testing.T) {
 	type args struct {
 		Flags     map[string]string
-		Method    string
 		Directory string
 		SSHKey    string
 		Name      string
+		Template  string
 	}
 
 	tcs := map[string]struct {
@@ -56,24 +56,30 @@ func TestAfterApply(t *testing.T) {
 	}{
 		"SSHWithoutKey": {
 			args: args{
-				Method: "ssh",
+				Template: "ssh://user@host/path/to/repo",
 			},
-			expectError: "SSH key must be specified when using SSH method",
+			expectError: "SSH key must be specified when using SSH protocol",
 		},
 		"HTTPSWithKey": {
 			args: args{
-				Method: "https",
-				SSHKey: "some-key",
+				Template: "https://path/to/repo",
+				SSHKey:   "some-key",
 			},
-			expectError: "cannot specify SSH key when using HTTPS method",
+			expectError: "cannot specify SSH key when using HTTPS protocol",
 		},
-		"ValidSSH": {
+		"UnsupportedProtocol": {
 			args: args{
-				Method: "ssh",
-				SSHKey: "valid-key",
-				Name:   "test",
+				Template: "git://path/to/repo",
 			},
-			expectedDir: "test",
+			expectError: "Unsupported protocol git in template url",
+		},
+		"MissingLanguage": {
+			args: args{
+				Template: "ssh://user@host/path/to/repo",
+				SSHKey:   "valid-key",
+				Name:     "test",
+			},
+			expectError: "language must be specified when using a template",
 		},
 	}
 
@@ -82,10 +88,10 @@ func TestAfterApply(t *testing.T) {
 			// Prepare Cmd
 			cmd := &Cmd{
 				Flags:     upbound.Flags{},
-				Method:    tc.args.Method,
 				Directory: tc.args.Directory,
 				SSHKey:    tc.args.SSHKey,
 				Name:      tc.args.Name,
+				Template:  tc.args.Template,
 			}
 
 			parser, err := kong.New(&struct{}{})
@@ -155,7 +161,6 @@ func TestRun_Scratch(t *testing.T) {
 	}
 
 	type args struct {
-		Method       string
 		SSHKey       string
 		Name         string
 		Organization string
@@ -169,7 +174,6 @@ func TestRun_Scratch(t *testing.T) {
 	}{
 		"Successful": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Project: &v1alpha1.Project{
@@ -196,7 +200,6 @@ func TestRun_Scratch(t *testing.T) {
 		},
 		"OtherOrg": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "up-test-org",
 				Project: &v1alpha1.Project{
@@ -236,7 +239,6 @@ func TestRun_Scratch(t *testing.T) {
 				Scratch:         true,
 				Language:        "kcl",
 				TestLanguage:    "kcl",
-				Method:          tc.args.Method,
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
 				Directory:       tempProjDir,
@@ -292,7 +294,6 @@ func TestRun_Example(t *testing.T) {
 
 	type args struct {
 		Flags        map[string]string
-		Method       string
 		SSHKey       string
 		Name         string
 		Organization string
@@ -311,7 +312,6 @@ func TestRun_Example(t *testing.T) {
 	}{
 		"SuccessfulExampleGo": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Template:     "example-1",
@@ -355,7 +355,6 @@ func TestRun_Example(t *testing.T) {
 		},
 		"SuccessfulExamplePython": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Template:     "example-1",
@@ -385,7 +384,6 @@ func TestRun_Example(t *testing.T) {
 		},
 		"DifferentTestLanguage": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Template:     "example-1",
@@ -415,7 +413,6 @@ func TestRun_Example(t *testing.T) {
 		},
 		"ProvidedValues": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Template:     "example-1",
@@ -464,7 +461,6 @@ func TestRun_Example(t *testing.T) {
 		},
 		"InvalidExample": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Template:     "non-existent-example",
@@ -488,7 +484,6 @@ func TestRun_Example(t *testing.T) {
 
 			cmd := &Cmd{
 				Flags:           upbound.Flags{},
-				Method:          tc.args.Method,
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
 				Template:        tc.args.Template,
