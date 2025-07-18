@@ -208,7 +208,7 @@ func (c *Cmd) detectProtocol() error {
 		}
 
 		// unsupported protocol
-		return errors.Errorf("Unsupported protocol %s in template url", protocol)
+		return errors.Errorf("unsupported protocol %s in template url", protocol)
 	}
 
 	// ssh urls can be structured as [<user>@]<host>:/<path-to-git-repo>, recognized as no slashes before the first colon.
