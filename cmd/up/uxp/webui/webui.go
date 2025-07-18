@@ -7,12 +7,14 @@ package webui
 import (
 	"github.com/alecthomas/kong"
 
+	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/upbound"
 )
 
 // Cmd contains commands for managing the UXP web UI.
 type Cmd struct {
-	Open openCmd `cmd:"" help:"Open the UXP web UI."`
+	Open   openCmd   `cmd:"" help:"Open the UXP web UI."`
+	Enable enableCmd `cmd:"" help:"Enable the UXP web UI."`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
@@ -31,5 +33,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 	kongCtx.Bind(cfg)
+
+	kongCtx.Bind(&install.Context{Kubeconfig: cfg})
+
 	return nil
 }
