@@ -178,21 +178,24 @@ func findLocalDevControlPlane(ctx context.Context, _ *upbound.Context, cfg *find
 	}
 	cs, err := cli.ContainerList(ctx, container.ListOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: registryName}),
+		All:     true,
 	})
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to list containers")
 	}
-	var cid string
+	var (
+		cid         string
+		registryDir string
+	)
 	if len(cs) > 0 {
 		cid = cs[0].ID
-	}
 
-	// Figure out the registry directory from the container config.
-	var registryDir string
-	for _, m := range cs[0].Mounts {
-		if m.Destination == "/registry-data" {
-			registryDir = m.Source
-			break
+		// Figure out the registry directory from the container config.
+		for _, m := range cs[0].Mounts {
+			if m.Destination == "/registry-data" {
+				registryDir = m.Source
+				break
+			}
 		}
 	}
 
