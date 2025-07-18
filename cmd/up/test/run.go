@@ -62,7 +62,7 @@ import (
 	"github.com/upbound/up/pkg/apis"
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // runCmd is the `up test run` command.
@@ -97,7 +97,7 @@ type runCmd struct {
 	r                  manager.ImageResolver
 	keychain           authn.Keychain
 	concurrency        uint
-	proj               *v1alpha1.Project
+	proj               *v2alpha1.Project
 
 	printer      upterm.ObjectPrinter
 	asyncWrapper async.WrapperFunc
@@ -552,12 +552,11 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 	return cleanup, nil
 }
 
-func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v1alpha1.Project, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v2alpha1.Project, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
 	}
-
 	var devCtp ctp.DevControlPlane
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		var err error

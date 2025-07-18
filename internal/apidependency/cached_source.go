@@ -11,18 +11,18 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/schemas/manager"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // CachedSource wraps a manager.Source with caching capabilities.
 type CachedSource struct {
 	source manager.Source
 	cache  Cache
-	dep    v1alpha1.APIDependencies
+	dep    v2alpha1.APIDependencies
 }
 
 // NewCachedSource creates a new cached source wrapper.
-func NewCachedSource(source manager.Source, cache Cache, dep v1alpha1.APIDependencies) manager.Source {
+func NewCachedSource(source manager.Source, cache Cache, dep v2alpha1.APIDependencies) manager.Source {
 	return &CachedSource{
 		source: source,
 		cache:  cache,

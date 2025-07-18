@@ -7,11 +7,11 @@ package imageutil
 import (
 	"strings"
 
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // RewriteImage applies imageConfig rules to rewrite the given image string.
-func RewriteImage(image string, configs []projectv1alpha1.ImageConfig) string {
+func RewriteImage(image string, configs []projectv2alpha1.ImageConfig) string {
 	var bestMatchPrefix, replacementPrefix string
 
 	for _, config := range configs {

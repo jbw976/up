@@ -28,7 +28,7 @@ import (
 // Move updates a project to use a new repository. The project metadata and any
 // compositions that reference embedded functions will be updated. The passed
 // project and filesystem will be updated in place.
-func Move(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, newRepository string) error {
+func Move(ctx context.Context, project *v2alpha1.Project, projectFS afero.Fs, newRepository string) error {
 	oldRepository := project.Spec.Repository
 	fnMap, err := buildFunctionMap(project, projectFS, oldRepository, newRepository)
 	if err != nil {
@@ -72,7 +72,7 @@ func Move(ctx context.Context, project *v1alpha1.Project, projectFS afero.Fs, ne
 	return nil
 }
 
-func buildFunctionMap(project *v1alpha1.Project, projectFS afero.Fs, oldRepository, newRepository string) (map[string]string, error) {
+func buildFunctionMap(project *v2alpha1.Project, projectFS afero.Fs, oldRepository, newRepository string) (map[string]string, error) {
 	infos, err := afero.ReadDir(projectFS, project.Spec.Paths.Functions)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list functions")

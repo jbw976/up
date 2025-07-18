@@ -30,7 +30,7 @@ import (
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/yaml"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // SourceType represents the type of source.
@@ -280,7 +280,7 @@ const maxCloneAttempts = 3
 
 // gitSource is a resource source that fetches directly from git repositories.
 type gitSource struct {
-	git          *v1alpha1.APIGitReference
+	git          *v2alpha1.APIGitReference
 	cloner       git.Cloner
 	authProvider git.AuthProvider
 	sourceType   SourceType
@@ -447,9 +447,9 @@ func isVersionTag(ref string) bool {
 }
 
 // NewGitSource returns a new git-backed resource source.
-func NewGitSource(dep v1alpha1.APIDependencies, cloner git.Cloner, authProvider git.AuthProvider) Source {
+func NewGitSource(dep v2alpha1.APIDependencies, cloner git.Cloner, authProvider git.AuthProvider) Source {
 	sourceType := SourceTypeCRD
-	if dep.Type == v1alpha1.APIDependencyTypeK8s {
+	if dep.Type == v2alpha1.APIDependencyTypeK8s {
 		sourceType = SourceTypeOpenAPI
 	}
 
@@ -469,8 +469,9 @@ const (
 )
 
 // httpSource is a resource source that fetches directly from HTTP/HTTPS URLs.
+// httpSource is a resource source that fetches directly from HTTP/HTTPS URLs.
 type httpSource struct {
-	http       *v1alpha1.APIHTTPReference
+	http       *v2alpha1.APIHTTPReference
 	client     *http.Client
 	sourceType SourceType
 	fs         afero.Fs // cached filesystem
@@ -598,9 +599,9 @@ func (h *httpSource) getFilename(u *url.URL) string {
 }
 
 // NewHTTPSource returns a new HTTP-backed resource source.
-func NewHTTPSource(dep v1alpha1.APIDependencies) Source {
+func NewHTTPSource(dep v2alpha1.APIDependencies) Source {
 	sourceType := SourceTypeCRD
-	if dep.Type == v1alpha1.APIDependencyTypeK8s {
+	if dep.Type == v2alpha1.APIDependencyTypeK8s {
 		sourceType = SourceTypeOpenAPI
 	}
 

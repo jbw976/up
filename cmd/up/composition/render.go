@@ -26,7 +26,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func (c *renderCmd) Help() string {
@@ -89,7 +89,7 @@ type renderCmd struct {
 	Flags upbound.Flags `embed:""`
 
 	projFS afero.Fs
-	proj   *projectv1alpha1.Project
+	proj   *projectv2alpha1.Project
 
 	functionIdentifier functions.Identifier
 	concurrency        uint

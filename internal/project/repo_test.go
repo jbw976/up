@@ -10,7 +10,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestDetermineRepository(t *testing.T) {
@@ -55,8 +55,8 @@ func TestDetermineRepository(t *testing.T) {
 				Organization: "my-org",
 			}
 
-			proj := &v1alpha1.Project{
-				Spec: &v1alpha1.ProjectSpec{
+			proj := &v2alpha1.Project{
+				Spec: &v2alpha1.ProjectSpec{
 					Repository: tc.projectRepo,
 				},
 			}

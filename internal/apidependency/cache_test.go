@@ -13,7 +13,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestNewLocalCache(t *testing.T) {
@@ -77,21 +77,21 @@ func TestLocalCacheGetNotFound(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		dep v1alpha1.APIDependencies
+		dep v2alpha1.APIDependencies
 	}{
 		"GitDependency": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
 			},
 		},
 		"HTTPDependency": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				HTTP: &v1alpha1.APIHTTPReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
 					URL: "https://example.com/crd.yaml",
 				},
 			},
@@ -116,13 +116,13 @@ func TestLocalCacheStoreAndGet(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		dep     v1alpha1.APIDependencies
+		dep     v2alpha1.APIDependencies
 		setupFS func() afero.Fs
 	}{
 		"GitDependencyWithFiles": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 					Path:       "apis",
@@ -136,9 +136,9 @@ func TestLocalCacheStoreAndGet(t *testing.T) {
 			},
 		},
 		"HTTPDependencyWithFile": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				HTTP: &v1alpha1.APIHTTPReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
 					URL: "https://example.com/crd.yaml",
 				},
 			},
@@ -149,9 +149,9 @@ func TestLocalCacheStoreAndGet(t *testing.T) {
 			},
 		},
 		"EmptyFilesystem": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/empty/repo.git",
 					Ref:        "main",
 				},
@@ -190,14 +190,14 @@ func TestLocalCacheStoreOverwrite(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		dep      v1alpha1.APIDependencies
+		dep      v2alpha1.APIDependencies
 		setupFS1 func() afero.Fs
 		setupFS2 func() afero.Fs
 	}{
 		"OverwriteWithDifferentContent": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -247,22 +247,22 @@ func TestLocalCacheCalculateKey(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		dep1     v1alpha1.APIDependencies
-		dep2     v1alpha1.APIDependencies
+		dep1     v2alpha1.APIDependencies
+		dep2     v2alpha1.APIDependencies
 		wantSame bool
 	}{
 		"SameGitDependency": {
-			dep1: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep1: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 					Path:       "apis",
 				},
 			},
-			dep2: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep2: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 					Path:       "apis",
@@ -271,16 +271,16 @@ func TestLocalCacheCalculateKey(t *testing.T) {
 			wantSame: true,
 		},
 		"DifferentGitRef": {
-			dep1: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep1: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
 			},
-			dep2: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep2: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "develop",
 				},
@@ -288,16 +288,16 @@ func TestLocalCacheCalculateKey(t *testing.T) {
 			wantSame: false,
 		},
 		"DifferentType": {
-			dep1: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep1: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
 			},
-			dep2: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeK8s,
-				Git: &v1alpha1.APIGitReference{
+			dep2: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -305,16 +305,16 @@ func TestLocalCacheCalculateKey(t *testing.T) {
 			wantSame: false,
 		},
 		"GitVsHTTP": {
-			dep1: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep1: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
 			},
-			dep2: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				HTTP: &v1alpha1.APIHTTPReference{
+			dep2: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
 					URL: "https://example.com/crd.yaml",
 				},
 			},

@@ -9,7 +9,7 @@ import (
 
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/schemas/manager"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Processor handles the complete lifecycle of API dependencies, creating
@@ -30,16 +30,16 @@ func NewProcessor(cloner git.Cloner, authProvider git.AuthProvider, cache Cache)
 }
 
 // Process creates the appropriate schema source based on the API dependency configuration.
-func (p *Processor) Process(dep v1alpha1.APIDependencies) (manager.Source, error) {
+func (p *Processor) Process(dep v2alpha1.APIDependencies) (manager.Source, error) {
 	// Handle K8s type which always uses git
-	if dep.Type == v1alpha1.APIDependencyTypeK8s {
+	if dep.Type == v2alpha1.APIDependencyTypeK8s {
 		if dep.K8s == nil {
 			return nil, errors.New("K8s configuration is required for K8s type")
 		}
 		// Convert K8s dependency to git dependency
-		gitDep := v1alpha1.APIDependencies{
-			Type: v1alpha1.APIDependencyTypeK8s,
-			Git: &v1alpha1.APIGitReference{
+		gitDep := v2alpha1.APIDependencies{
+			Type: v2alpha1.APIDependencyTypeK8s,
+			Git: &v2alpha1.APIGitReference{
 				Repository: "https://github.com/kubernetes/kubernetes",
 				Ref:        dep.K8s.Version,
 				Path:       "api/openapi-spec",
@@ -61,7 +61,7 @@ func (p *Processor) Process(dep v1alpha1.APIDependencies) (manager.Source, error
 }
 
 // createCachedSource wraps the appropriate source with caching.
-func (p *Processor) createCachedSource(dep v1alpha1.APIDependencies) (manager.Source, error) {
+func (p *Processor) createCachedSource(dep v2alpha1.APIDependencies) (manager.Source, error) {
 	var source manager.Source
 
 	switch {

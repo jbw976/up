@@ -15,37 +15,20 @@ import (
 
 // UpgradeToV2 upgrades a project file from v1alpha1 to v2alpha1.
 func UpgradeToV2(projFS afero.Fs, projFilePath string) error {
-	// Detect current version
-	version, err := project.DetectVersion(projFS, projFilePath)
+	vproj, err := project.ParseVersioned(projFS, projFilePath)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to parse project")
 	}
 
 	// Skip if already v2alpha1
-	if version == project.VersionV2Alpha1 {
+	if vproj.Version == project.VersionV2Alpha1 {
 		return errors.New("project is already v2alpha1")
-	}
-
-	// Parse the current project
-	versionedProject, err := project.ParseVersioned(projFS, projFilePath)
-	if err != nil {
-		return err
 	}
 
 	// Convert to v2alpha1
-	var v2Project *v2alpha1.Project
-	switch versionedProject.Version {
-	case project.VersionV1Alpha1:
-		v2Project, err = project.ConvertToV2(versionedProject.V1)
-		if err != nil {
-			return errors.Wrap(err, "failed to convert v1alpha1 to v2alpha1")
-		}
-	case project.VersionV2Alpha1:
-		// This case should not be reached due to the early return above,
-		// but included for exhaustive switch case compliance
-		return errors.New("project is already v2alpha1")
-	default:
-		return errors.Errorf("unsupported project version for upgrade: %s", versionedProject.Version)
+	v2Project, err := project.ConvertToV2WithoutDefaults(vproj.V1)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert v1alpha1 to v2alpha1")
 	}
 
 	// Set proper API version and kind

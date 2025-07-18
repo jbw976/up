@@ -12,6 +12,8 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
+
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	apiproject "github.com/upbound/up/pkg/apis/project"
@@ -66,15 +68,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 // Run executes the upgrade command.
 func (c *Cmd) Run(p pterm.TextPrinter) error {
-	currentVersion, err := apiproject.DetectVersion(c.projFS, c.ProjectFile)
+	vproj, err := apiproject.ParseVersioned(c.projFS, c.ProjectFile)
 	if err != nil {
-		return fmt.Errorf("failed to detect project version: %w", err)
+		return errors.Wrap(err, "failed to parse project")
 	}
 
-	p.Printfln("Current project version: %s", currentVersion)
+	p.Printfln("Current project version: %s", vproj.Version)
 
 	// Check if upgrade is needed
-	switch currentVersion {
+	switch vproj.Version {
 	case apiproject.VersionV1Alpha1:
 		pterm.Println("Upgrading project from v1alpha1 to v2alpha1...")
 
@@ -90,7 +92,7 @@ func (c *Cmd) Run(p pterm.TextPrinter) error {
 		return nil
 
 	default:
-		return fmt.Errorf("unsupported project version: %s", currentVersion)
+		return fmt.Errorf("unsupported project version: %s", vproj.Version)
 	}
 
 	return nil

@@ -25,14 +25,14 @@ import (
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Pusher is able to push a set of packages built from a project to a registry.
 type Pusher interface {
 	// Push pushes a set of packages built from a project to a registry and
 	// returns the tag to which the configuration package was pushed.
-	Push(ctx context.Context, project *v1alpha1.Project, imgMap ImageTagMap, opts ...PushOption) (name.Tag, error)
+	Push(ctx context.Context, project *v2alpha1.Project, imgMap ImageTagMap, opts ...PushOption) (name.Tag, error)
 }
 
 // PusherOption configures a pusher.
@@ -111,7 +111,7 @@ type realPusher struct {
 }
 
 // Push implements the Pusher interface.
-func (p *realPusher) Push(ctx context.Context, project *v1alpha1.Project, imgMap ImageTagMap, opts ...PushOption) (name.Tag, error) { //nolint:gocyclo // This isn't too complex.
+func (p *realPusher) Push(ctx context.Context, project *v2alpha1.Project, imgMap ImageTagMap, opts ...PushOption) (name.Tag, error) { //nolint:gocyclo // This isn't too complex.
 	os := &pushOptions{
 		// TODO(adamwg): Consider smarter tag generation using git metadata if
 		// the project lives in a git repository, or the package digest.

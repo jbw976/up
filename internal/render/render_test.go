@@ -4,24 +4,23 @@
 package render
 
 import (
-	"context"
 	"testing"
 
 	"gotest.tools/v3/assert"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
 	image "github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestLoadFunctions(t *testing.T) {
 	// Define mock data and behavior
 	type testCase struct {
-		proj                 *projectv1alpha1.Project
+		proj                 *projectv2alpha1.Project
 		expectedFunctions    []pkgv1.Function
 		expectedErrorMessage string
 		fetcher              image.Fetcher
@@ -29,9 +28,9 @@ func TestLoadFunctions(t *testing.T) {
 
 	tests := map[string]testCase{
 		"SuccessfulOneFunction": {
-			proj: &projectv1alpha1.Project{
-				Spec: &projectv1alpha1.ProjectSpec{
-					DependsOn: []metav1.Dependency{
+			proj: &projectv2alpha1.Project{
+				Spec: &projectv2alpha1.ProjectSpec{
+					DependsOn: []pkgmetav1.Dependency{
 						{
 							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
@@ -41,7 +40,7 @@ func TestLoadFunctions(t *testing.T) {
 			},
 			expectedFunctions: []pkgv1.Function{
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-1:v1.0.0",
@@ -58,9 +57,9 @@ func TestLoadFunctions(t *testing.T) {
 			),
 		},
 		"SuccessfulMultipleFunctions": {
-			proj: &projectv1alpha1.Project{
-				Spec: &projectv1alpha1.ProjectSpec{
-					DependsOn: []metav1.Dependency{
+			proj: &projectv2alpha1.Project{
+				Spec: &projectv2alpha1.ProjectSpec{
+					DependsOn: []pkgmetav1.Dependency{
 						{
 							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
@@ -74,7 +73,7 @@ func TestLoadFunctions(t *testing.T) {
 			},
 			expectedFunctions: []pkgv1.Function{
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-1:v2.0.0",
@@ -82,7 +81,7 @@ func TestLoadFunctions(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-2:v2.0.0",
@@ -100,9 +99,9 @@ func TestLoadFunctions(t *testing.T) {
 			),
 		},
 		"SuccessfulMultipleFunctionsAndProvider": {
-			proj: &projectv1alpha1.Project{
-				Spec: &projectv1alpha1.ProjectSpec{
-					DependsOn: []metav1.Dependency{
+			proj: &projectv2alpha1.Project{
+				Spec: &projectv2alpha1.ProjectSpec{
+					DependsOn: []pkgmetav1.Dependency{
 						{
 							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
@@ -120,7 +119,7 @@ func TestLoadFunctions(t *testing.T) {
 			},
 			expectedFunctions: []pkgv1.Function{
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-1:v2.0.0",
@@ -128,7 +127,7 @@ func TestLoadFunctions(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-2:v2.0.0",
@@ -146,9 +145,9 @@ func TestLoadFunctions(t *testing.T) {
 			),
 		},
 		"SuccessfulMultipleFunctionsAndConfiguration": {
-			proj: &projectv1alpha1.Project{
-				Spec: &projectv1alpha1.ProjectSpec{
-					DependsOn: []metav1.Dependency{
+			proj: &projectv2alpha1.Project{
+				Spec: &projectv2alpha1.ProjectSpec{
+					DependsOn: []pkgmetav1.Dependency{
 						{
 							Function: ptr.To("registry.example.com/library/function-1"),
 							Version:  ">=v0.0.0",
@@ -166,7 +165,7 @@ func TestLoadFunctions(t *testing.T) {
 			},
 			expectedFunctions: []pkgv1.Function{
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-1:v2.0.0",
@@ -174,7 +173,7 @@ func TestLoadFunctions(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-2:v2.0.0",
@@ -192,9 +191,9 @@ func TestLoadFunctions(t *testing.T) {
 			),
 		},
 		"SuccessfulNewStyleDependencies": {
-			proj: &projectv1alpha1.Project{
-				Spec: &projectv1alpha1.ProjectSpec{
-					DependsOn: []metav1.Dependency{
+			proj: &projectv2alpha1.Project{
+				Spec: &projectv2alpha1.ProjectSpec{
+					DependsOn: []pkgmetav1.Dependency{
 						{
 							APIVersion: ptr.To("pkg.crossplane.io/v1"),
 							Kind:       ptr.To("Function"),
@@ -218,7 +217,7 @@ func TestLoadFunctions(t *testing.T) {
 			},
 			expectedFunctions: []pkgv1.Function{
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-1"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-1:v2.0.0",
@@ -226,7 +225,7 @@ func TestLoadFunctions(t *testing.T) {
 					},
 				},
 				{
-					ObjectMeta: v1.ObjectMeta{Name: "library-function-2"},
+					ObjectMeta: metav1.ObjectMeta{Name: "library-function-2"},
 					Spec: pkgv1.FunctionSpec{
 						PackageSpec: pkgv1.PackageSpec{
 							Package: "registry.example.com/library/function-2:v2.0.0",
@@ -247,7 +246,7 @@ func TestLoadFunctions(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			functions, err := loadFunctions(context.Background(), tc.proj, image.NewResolver(image.WithFetcher(tc.fetcher)))
+			functions, err := loadFunctions(t.Context(), tc.proj, image.NewResolver(image.WithFetcher(tc.fetcher)))
 
 			if tc.expectedErrorMessage != "" {
 				assert.ErrorContains(t, err, tc.expectedErrorMessage)

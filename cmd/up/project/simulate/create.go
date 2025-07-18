@@ -41,7 +41,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // CreateCmd is the `up project simulate` command.
@@ -76,7 +76,7 @@ type CreateCmd struct {
 	quiet        config.QuietFlag
 	asyncWrapper async.WrapperFunc
 
-	proj *v1alpha1.Project
+	proj *v2alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.

@@ -22,7 +22,7 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/upbound"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // pythonBuilder builds functions written in python by injecting their code into a
@@ -31,7 +31,7 @@ type pythonBuilder struct {
 	baseImage    string
 	packagePath  string
 	transport    http.RoundTripper
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 	upCtx        *upbound.Context
 }
 
@@ -99,7 +99,7 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 	return images, eg.Wait()
 }
 
-func newPythonBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *pythonBuilder {
+func newPythonBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *pythonBuilder {
 	return &pythonBuilder{
 		// TODO(negz): Should this be hardcoded?
 		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.4.0",

@@ -416,7 +416,7 @@ func TestBuild(t *testing.T) {
 				})
 			} else {
 				assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
-					Version: ">=v1.18.0 || >= v2.0.0-rc.0",
+					Version: ">=v1.18.0 || >=v2.0.0-rc.0",
 				})
 			}
 

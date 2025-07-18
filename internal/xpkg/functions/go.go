@@ -19,14 +19,14 @@ import (
 
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/upbound"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // goBuilder builds functions written in Go using ko.
 type goBuilder struct {
 	baseImage    string
 	transport    http.RoundTripper
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 	upCtx        *upbound.Context
 }
 
@@ -113,7 +113,7 @@ func (b *goBuilder) Build(ctx context.Context, _ afero.Fs, architectures []strin
 	return imgs, nil
 }
 
-func newGoBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *goBuilder {
+func newGoBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *goBuilder {
 	return &goBuilder{
 		baseImage:    "xpkg.upbound.io/upbound/provider-base@sha256:d23697e028f65fcc35886fe9e875069c071f637a79d65821830d6bc71c975391",
 		transport:    http.DefaultTransport,

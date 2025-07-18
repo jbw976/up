@@ -1,4 +1,4 @@
-apiVersion: meta.dev.upbound.io/v1alpha1
+apiVersion: meta.dev.upbound.io/v2alpha1
 kind: Project
 metadata:
   name: unit-test-example

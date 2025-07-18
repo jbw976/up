@@ -31,7 +31,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func (c *generateCmd) Help() string {
@@ -107,7 +107,7 @@ type generateCmd struct {
 
 	projFS afero.Fs
 	apisFS afero.Fs
-	proj   *projectv1alpha1.Project
+	proj   *projectv2alpha1.Project
 
 	depManager *project.DependencyManager
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func (c *addCmd) Help() string {
@@ -48,7 +48,7 @@ type addCmd struct {
 	m        *project.DependencyManager
 	modelsFS afero.Fs
 	projFS   afero.Fs
-	proj     *v1alpha1.Project
+	proj     *v2alpha1.Project
 
 	Package     string `arg:""                 help:"Package to be added."`
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
@@ -83,7 +83,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 	// We don't want to call Default() here since we would end up writing out
 	// defaults to the project file. Just make sure spec is non-nil.
 	if c.proj.Spec == nil {
-		c.proj.Spec = &v1alpha1.ProjectSpec{}
+		c.proj.Spec = &v2alpha1.ProjectSpec{}
 	}
 
 	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,

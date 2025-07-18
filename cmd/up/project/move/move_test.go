@@ -4,7 +4,6 @@
 package move
 
 import (
-	"context"
 	"embed"
 	"io/fs"
 	"strings"
@@ -17,7 +16,7 @@ import (
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 //go:embed testdata/project-embedded-functions/**
@@ -40,11 +39,11 @@ func TestMove(t *testing.T) {
 		ProjectFile:   "upbound.yaml",
 	}
 
-	err := c.Run(context.Background())
+	err := c.Run(t.Context())
 	assert.NilError(t, err)
 
 	// Validate that the repository was updated in the project metadata.
-	var updatedProject v1alpha1.Project
+	var updatedProject v2alpha1.Project
 	projectBytes, err := afero.ReadFile(projFS, "upbound.yaml")
 	assert.NilError(t, err)
 	err = yaml.Unmarshal(projectBytes, &updatedProject)

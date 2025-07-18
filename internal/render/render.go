@@ -46,12 +46,12 @@ import (
 	"github.com/upbound/up/internal/xpkg/functions"
 	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Options defines the configuration for rendering.
 type Options struct {
-	Project *projectv1alpha1.Project
+	Project *projectv2alpha1.Project
 	ProjFS  afero.Fs
 
 	IncludeFullXR          bool
@@ -74,7 +74,7 @@ type Options struct {
 
 // FunctionOptions defines the configuration for building embedded functions.
 type FunctionOptions struct {
-	Project *projectv1alpha1.Project
+	Project *projectv2alpha1.Project
 	ProjFS  afero.Fs
 
 	Concurrency uint
@@ -361,7 +361,7 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Conte
 }
 
 // LoadFunctions loads functions from a project's DependsOn list.
-func loadFunctions(ctx context.Context, proj *projectv1alpha1.Project, r manager.ImageResolver) ([]pkgv1.Function, error) {
+func loadFunctions(ctx context.Context, proj *projectv2alpha1.Project, r manager.ImageResolver) ([]pkgv1.Function, error) {
 	functions := make([]pkgv1.Function, 0, len(proj.Spec.DependsOn))
 
 	for _, dep := range proj.Spec.DependsOn {

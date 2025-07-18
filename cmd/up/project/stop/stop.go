@@ -18,7 +18,7 @@ import (
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Cmd is the `up project stop` command.
@@ -32,7 +32,7 @@ type Cmd struct {
 
 	GlobalFlags upbound.Flags `embed:""`
 
-	proj *v1alpha1.Project
+	proj *v2alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.

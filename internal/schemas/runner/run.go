@@ -26,7 +26,7 @@ import (
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/imageutil"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // SchemaRunner defines an interface for schema generation.
@@ -36,7 +36,7 @@ type SchemaRunner interface {
 
 // RealSchemaRunner implements the SchemaRunner interface and calls runner.Generate.
 type RealSchemaRunner struct {
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 }
 
 // NewRealSchemaRunner for RealSchemaRunner with SchemaRunnerOption.
@@ -52,7 +52,7 @@ func NewRealSchemaRunner(opts ...ROption) *RealSchemaRunner {
 type ROption func(*RealSchemaRunner)
 
 // WithImageConfig adds image rewriting rules to the SchemaRunner.
-func WithImageConfig(cfgs []projectv1alpha1.ImageConfig) ROption {
+func WithImageConfig(cfgs []projectv2alpha1.ImageConfig) ROption {
 	return func(r *RealSchemaRunner) {
 		r.imageConfigs = cfgs
 	}
@@ -115,7 +115,7 @@ func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFol
 		return errors.Wrapf(err, "failed to use the docker client")
 	}
 
-	if _, _, err := cli.ImageInspectWithRaw(ctx, imageName); err != nil {
+	if _, err := cli.ImageInspect(ctx, imageName); err != nil {
 		authStr, err := defaultRegistryAuth(imageName)
 		if err != nil {
 			return errors.Wrap(err, "failed to get default auth")

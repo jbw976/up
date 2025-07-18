@@ -15,7 +15,7 @@ import (
 
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/schemas/manager"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // mockCloner implements git.Cloner for testing.
@@ -70,7 +70,7 @@ func newMockCache() *mockCache {
 	}
 }
 
-func (m *mockCache) Get(dep v1alpha1.APIDependencies) (afero.Fs, error) {
+func (m *mockCache) Get(dep v2alpha1.APIDependencies) (afero.Fs, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -81,7 +81,7 @@ func (m *mockCache) Get(dep v1alpha1.APIDependencies) (afero.Fs, error) {
 	return nil, afero.ErrFileNotFound
 }
 
-func (m *mockCache) Store(dep v1alpha1.APIDependencies, fs afero.Fs) error {
+func (m *mockCache) Store(dep v2alpha1.APIDependencies, fs afero.Fs) error {
 	if m.storeErr != nil {
 		return m.storeErr
 	}
@@ -90,7 +90,7 @@ func (m *mockCache) Store(dep v1alpha1.APIDependencies, fs afero.Fs) error {
 	return nil
 }
 
-func (m *mockCache) calculateKey(dep v1alpha1.APIDependencies) string {
+func (m *mockCache) calculateKey(dep v2alpha1.APIDependencies) string {
 	// Simple key calculation for testing.
 	if dep.Git != nil {
 		return "git:" + dep.Git.Repository
@@ -111,15 +111,15 @@ func TestProcessorProcess(t *testing.T) {
 	mockRef := plumbing.NewHashReference("refs/heads/main", commitHash)
 
 	tcs := map[string]struct {
-		dep       v1alpha1.APIDependencies
+		dep       v2alpha1.APIDependencies
 		processor *Processor
 		wantErr   bool
 		wantType  manager.SourceType
 	}{
 		"GitDependencyCRD": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 					Path:       "apis",
@@ -134,9 +134,9 @@ func TestProcessorProcess(t *testing.T) {
 			wantType: manager.SourceTypeCRD,
 		},
 		"K8sDependency": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeK8s,
-				K8s: &v1alpha1.APIK8sReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
 					Version: "v1.28.0",
 				},
 			},
@@ -149,8 +149,8 @@ func TestProcessorProcess(t *testing.T) {
 			wantType: manager.SourceTypeOpenAPI,
 		},
 		"K8sDependencyMissingConfig": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeK8s,
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
 			},
 			processor: NewProcessor(
 				&mockCloner{ref: mockRef},
@@ -160,8 +160,8 @@ func TestProcessorProcess(t *testing.T) {
 			wantErr: true,
 		},
 		"NoSourceConfigured": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
 			},
 			processor: NewProcessor(
 				&mockCloner{ref: mockRef},
@@ -171,9 +171,9 @@ func TestProcessorProcess(t *testing.T) {
 			wantErr: true,
 		},
 		"ProcessorWithoutCache": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -230,9 +230,9 @@ func TestProcessorK8sConversion(t *testing.T) {
 		newMockCache(),
 	)
 
-	dep := v1alpha1.APIDependencies{
-		Type: v1alpha1.APIDependencyTypeK8s,
-		K8s: &v1alpha1.APIK8sReference{
+	dep := v2alpha1.APIDependencies{
+		Type: v2alpha1.APIDependencyTypeK8s,
+		K8s: &v2alpha1.APIK8sReference{
 			Version: "v1.28.0",
 		},
 	}
@@ -256,13 +256,13 @@ func TestProcessorCacheIntegration(t *testing.T) {
 	mockRef := plumbing.NewHashReference("refs/heads/main", commitHash)
 
 	tcs := map[string]struct {
-		dep       v1alpha1.APIDependencies
+		dep       v2alpha1.APIDependencies
 		processor *Processor
 	}{
 		"CacheHitAndMiss": {
-			dep: v1alpha1.APIDependencies{
-				Type: v1alpha1.APIDependencyTypeCRD,
-				Git: &v1alpha1.APIGitReference{
+			dep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
