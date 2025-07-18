@@ -597,7 +597,7 @@ jobs:
           contains: e2e-test
           expected_result: FAILED
 
-  e2e-project-example-aws:
+  e2e-project-template-aws-s3:
     # ToDo(haarchri): Download artifacts is too slow with blacksmith
     runs-on: ubuntu-24.04
     needs: publish-artifacts
@@ -654,28 +654,28 @@ jobs:
         run: |
           up version
 
-      - name: up project init project-example-aws
+      - name: up project init project-template-aws-s3
         run: |
-          up project init --organization=upbound -e upbound/project-example-aws --language ${{ matrix.language }} --test-language ${{ matrix.test-language }} project-example-aws
-          cd project-example-aws
+          up project init --organization=upbound -t upbound/project-template-aws-s3 --language ${{ matrix.language }} --test-language ${{ matrix.test-language }} project-template-aws-s3
+          cd project-template-aws-s3
           up project build
 
-      - name: up composition render project-example-aws
+      - name: up composition render project-template-aws-s3
         run: |
-          cd project-example-aws
+          cd project-template-aws-s3
           up composition render apis/xstoragebucket/composition.yaml examples/xstoragebuckets/example.yaml --xrd apis/xstoragebucket/definition.yaml -q >> render.yaml
 
       - name: assert up composition render
         uses: GuillaumeFalourd/assert-command-line-output@main
         with:
-          command_line: cat project-example-aws/render.yaml
+          command_line: cat project-template-aws-s3/render.yaml
           assert_file_path: e2e/render-${{ matrix.language }}.yaml
           expected_result: PASSED
 
-      - name: up test run example-project-aws
+      - name: up test run project-template-aws-s3
         if: matrix.test-language == 'kcl' || matrix.test-language == 'python'
         run: |
-          cd project-example-aws
+          cd project-template-aws-s3
           up test run tests/*
 
       - name: up login with robot
@@ -699,7 +699,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: up test run --e2e example-project-aws
+      - name: up test run --e2e project-template-aws-s3
         # Only run e2e tests for kcl and python, since the other languages don't have e2e tests.
         if: (matrix.language == 'kcl' && matrix.test-language == 'kcl') || (matrix.language == 'python' && matrix.test-language == 'python')
         env:
@@ -707,5 +707,5 @@ jobs:
           UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           UP_AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: |
-          cd project-example-aws
+          cd project-template-aws-s3
           up test run tests/e2etest-xstoragebucket --e2e

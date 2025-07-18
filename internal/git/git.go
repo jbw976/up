@@ -24,7 +24,6 @@ type CloneOptions struct {
 	Repo      string
 	RefName   string
 	Directory string
-	Method    string
 	Path      string // Optional path for sparse checkout
 }
 

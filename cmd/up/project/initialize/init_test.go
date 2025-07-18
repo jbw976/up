@@ -5,7 +5,6 @@
 package initialize
 
 import (
-	"context"
 	"embed"
 	"net/url"
 	"os"
@@ -44,10 +43,10 @@ var _ runner.CommandRunner = &mockCommandRunner{}
 func TestAfterApply(t *testing.T) {
 	type args struct {
 		Flags     map[string]string
-		Method    string
 		Directory string
 		SSHKey    string
 		Name      string
+		Template  string
 	}
 
 	tcs := map[string]struct {
@@ -57,24 +56,30 @@ func TestAfterApply(t *testing.T) {
 	}{
 		"SSHWithoutKey": {
 			args: args{
-				Method: "ssh",
+				Template: "ssh://user@host/path/to/repo",
 			},
-			expectError: "SSH key must be specified when using SSH method",
+			expectError: "SSH key must be specified when using SSH protocol",
 		},
 		"HTTPSWithKey": {
 			args: args{
-				Method: "https",
-				SSHKey: "some-key",
+				Template: "https://path/to/repo",
+				SSHKey:   "some-key",
 			},
-			expectError: "cannot specify SSH key when using HTTPS method",
+			expectError: "cannot specify SSH key when using HTTPS protocol",
 		},
-		"ValidSSH": {
+		"UnsupportedProtocol": {
 			args: args{
-				Method: "ssh",
-				SSHKey: "valid-key",
-				Name:   "test",
+				Template: "git://path/to/repo",
 			},
-			expectedDir: "test",
+			expectError: "unsupported protocol git in template url",
+		},
+		"MissingLanguage": {
+			args: args{
+				Template: "ssh://user@host/path/to/repo",
+				SSHKey:   "valid-key",
+				Name:     "test",
+			},
+			expectError: "language must be specified when using a template",
 		},
 	}
 
@@ -83,10 +88,10 @@ func TestAfterApply(t *testing.T) {
 			// Prepare Cmd
 			cmd := &Cmd{
 				Flags:     upbound.Flags{},
-				Method:    tc.args.Method,
 				Directory: tc.args.Directory,
 				SSHKey:    tc.args.SSHKey,
 				Name:      tc.args.Name,
+				Template:  tc.args.Template,
 			}
 
 			parser, err := kong.New(&struct{}{})
@@ -156,7 +161,6 @@ func TestRun_Scratch(t *testing.T) {
 	}
 
 	type args struct {
-		Method       string
 		SSHKey       string
 		Name         string
 		Organization string
@@ -170,7 +174,6 @@ func TestRun_Scratch(t *testing.T) {
 	}{
 		"Successful": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
 				Project: &v1alpha1.Project{
@@ -197,7 +200,6 @@ func TestRun_Scratch(t *testing.T) {
 		},
 		"OtherOrg": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "up-test-org",
 				Project: &v1alpha1.Project{
@@ -237,7 +239,6 @@ func TestRun_Scratch(t *testing.T) {
 				Scratch:         true,
 				Language:        "kcl",
 				TestLanguage:    "kcl",
-				Method:          tc.args.Method,
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
 				Directory:       tempProjDir,
@@ -255,7 +256,7 @@ func TestRun_Scratch(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(context.Background(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return
@@ -293,11 +294,10 @@ func TestRun_Example(t *testing.T) {
 
 	type args struct {
 		Flags        map[string]string
-		Method       string
 		SSHKey       string
 		Name         string
 		Organization string
-		Example      string
+		Template     string
 		Language     string
 		TestLanguage string
 		Values       map[string]string
@@ -312,10 +312,9 @@ func TestRun_Example(t *testing.T) {
 	}{
 		"SuccessfulExampleGo": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "go",
 				TestLanguage: "go",
 				Project: &v1alpha1.Project{
@@ -356,10 +355,9 @@ func TestRun_Example(t *testing.T) {
 		},
 		"SuccessfulExamplePython": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "python",
 				Project: &v1alpha1.Project{
@@ -386,10 +384,9 @@ func TestRun_Example(t *testing.T) {
 		},
 		"DifferentTestLanguage": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "go",
 				Project: &v1alpha1.Project{
@@ -416,10 +413,9 @@ func TestRun_Example(t *testing.T) {
 		},
 		"ProvidedValues": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "example-1",
+				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "python",
 				Values: map[string]string{
@@ -465,10 +461,9 @@ func TestRun_Example(t *testing.T) {
 		},
 		"InvalidExample": {
 			args: args{
-				Method:       "ssh",
 				Name:         "test-project",
 				Organization: "unit-test",
-				Example:      "non-existent-example",
+				Template:     "non-existent-example",
 			},
 			expectedError: "failed to clone repository: boom",
 			mockCloner: &CopyMockGitCloner{
@@ -489,10 +484,9 @@ func TestRun_Example(t *testing.T) {
 
 			cmd := &Cmd{
 				Flags:           upbound.Flags{},
-				Method:          tc.args.Method,
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
-				Example:         tc.args.Example,
+				Template:        tc.args.Template,
 				Language:        tc.args.Language,
 				TestLanguage:    tc.args.TestLanguage,
 				Values:          tc.args.Values,
@@ -511,7 +505,7 @@ func TestRun_Example(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(context.Background(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return

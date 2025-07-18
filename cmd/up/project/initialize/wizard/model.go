@@ -54,24 +54,24 @@ var SupportedTestLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknog
 	"Python": FunctionLanguagePython,
 }
 
-// ExampleProjectBlank is the URL of the blank project template.
-const ExampleProjectBlank = "https://github.com/upbound/project-example-scratch"
+// BlankProjectTemplate is the URL of the blank project template.
+const BlankProjectTemplate = "https://github.com/upbound/project-template-scratch"
 
-// availableExamples maps example names to their repository URLs.
-var availableExamples = map[string]string{ //nolint:gochecknoglobals // this is a constant
-	"AWS Bucket":         "https://github.com/upbound/project-example-aws",
-	"Start from scratch": ExampleProjectBlank,
+// availableTemplates maps template names to their repository URLs.
+var availableTemplates = map[string]string{ //nolint:gochecknoglobals // this is a constant
+	"AWS Bucket":         "https://github.com/upbound/project-template-aws-s3",
+	"Start from scratch": BlankProjectTemplate,
 }
 
 const (
 	// StepContinue indicates the wizard should continue to the next step.
 	StepContinue = iota
-	// StepUseExample indicates the wizard is asking about using an example.
-	StepUseExample
-	// StepChooseExampleLanguage indicates the wizard is asking for example language.
-	StepChooseExampleLanguage
-	// StepChooseExampleTestLanguage indicates the wizard is asking for example test language.
-	StepChooseExampleTestLanguage
+	// StepUseTemplate indicates the wizard is asking about using an template.
+	StepUseTemplate
+	// StepChooseTemplateLanguage indicates the wizard is asking for template language.
+	StepChooseTemplateLanguage
+	// StepChooseTemplateTestLanguage indicates the wizard is asking for template test language.
+	StepChooseTemplateTestLanguage
 	// StepUseXR indicates the wizard is asking about creating an XR or a Claim.
 	StepUseXR
 	// StepKind indicates the wizard is asking for the kind of the resource.
@@ -98,9 +98,9 @@ const (
 
 // State stores the progress and inputs of the wizard.
 type State struct {
-	Step    int    `json:"step"`
-	Example string `json:"example"`
-	UseXR   bool   `json:"useXr"`
+	Step     int    `json:"step"`
+	Template string `json:"template"`
+	UseXR    bool   `json:"useXr"`
 
 	Kind       string `json:"kind"`
 	APIGroup   string `json:"apiGroup"`
@@ -174,22 +174,22 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 
 		var err error
 		switch state.Step {
-		case StepUseExample:
+		case StepUseTemplate:
 			options := []string{}
-			for name := range availableExamples {
+			for name := range availableTemplates {
 				options = append(options, name)
 			}
-			choice, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Would you like to use an existing example?")
+			choice, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Would you like to use an existing template?")
 			if err != nil {
 				return err
 			}
-			example := availableExamples[choice]
-			state.Example = example
-			if example == ExampleProjectBlank {
+			template := availableTemplates[choice]
+			state.Template = template
+			if template == BlankProjectTemplate {
 				state.Step = StepUseXR
 				navigated = true
 			}
-		case StepChooseExampleLanguage:
+		case StepChooseTemplateLanguage:
 			options := []string{}
 			for name := range SupportedLanguagesMap {
 				options = append(options, name)
@@ -199,7 +199,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.FuncLang = SupportedLanguagesMap[result]
-		case StepChooseExampleTestLanguage:
+		case StepChooseTemplateTestLanguage:
 			options := []string{}
 			for name := range SupportedTestLanguagesMap {
 				options = append(options, name)
