@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/browser"
 	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +54,7 @@ const (
 	errMakePortForwarder   = "failed to make port-forwarder"
 	errParseLabelSelector  = "failed to parse label selector"
 	errStartPortForward    = "failed to start port-forward"
+	errFmtServiceNotFound  = "Service %q not found. Verify your kubeconfig is pointing at a UXP control plane and the web UI is enabled."
 )
 
 // openCmd opens the UXP web UI in a browser.
@@ -119,6 +121,9 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 
 	svc := &corev1.Service{}
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, svc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, "", nil, fmt.Errorf(errFmtServiceNotFound, svcName) //nolint:stylecheck // Error message intentionally has punctuation and is capitalized
+		}
 		return nil, "", nil, errors.Wrap(err, fmt.Sprintf(errFmtGetService, svcName))
 	}
 
