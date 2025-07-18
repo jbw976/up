@@ -108,6 +108,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 	if err := c.detectProtocol(); err != nil {
 		return err
 	}
+
+	// set up the auth method based on the protocol
 	switch c.protocol {
 	case "ssh":
 		if len(c.SSHKey) == 0 {
@@ -127,6 +129,8 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 			Username: c.Username,
 			Password: c.Password,
 		}
+	default:
+		c.gitAuthProvider = &git.HTTPSAuthProvider{}
 	}
 
 	if c.Scratch {
