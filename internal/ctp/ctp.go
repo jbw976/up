@@ -435,6 +435,18 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
 
+	// Check that we have a working Docker-compatible runtime, since everything
+	// else will fail if we don't.
+	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
+	if err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "failed to create docker client")
+	}
+	if _, err := cli.Ping(ctx); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, errors.New("failed to connect to Docker; local dev control planes require a Docker-compatible container runtime")
+	}
+
 	// kind creates a docker container named <name>-control-plane, and uses the
 	// name as the container's hostname. Hostnames can be at most 63
 	// characters. Truncate the name if needed.
