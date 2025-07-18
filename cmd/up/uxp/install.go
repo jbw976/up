@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
@@ -26,6 +27,7 @@ const (
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
+	errSetChartValues         = "failed to set chart values"
 )
 
 // AfterApply sets default values in command after assignment and validation.
@@ -50,7 +52,15 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		return err
 	}
 	c.kClient = client
+
 	values := uxp.BaseValues()
+	if c.DisableWebUI {
+		paved := fieldpath.Pave(values)
+		if err := paved.SetBool("webui.enabled", false); err != nil {
+			return errors.Wrap(err, errSetChartValues)
+		}
+		values = paved.UnstructuredContent()
+	}
 	if c.File != nil {
 		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
@@ -65,6 +75,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		}
 	}
 	c.parser = helm.NewParser(values, c.Set)
+
 	return nil
 }
 
@@ -74,8 +85,9 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version  string `arg:""                                     help:"UXP version to install." optional:""`
-	Unstable bool   `help:"Allow installing unstable versions."`
+	Version      string `arg:""                                     help:"UXP version to install." optional:""`
+	Unstable     bool   `help:"Allow installing unstable versions."`
+	DisableWebUI bool   `help:"Disable the UXP web UI."             optional:""`
 
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
