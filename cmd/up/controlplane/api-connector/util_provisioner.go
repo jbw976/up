@@ -52,7 +52,6 @@ type provisionerResults struct {
 
 	// These will be used to setup access.
 	Robot            organizations.Robot
-	Team             organizations.Team
 	OrganizationName string
 	Token            string
 }
@@ -144,7 +143,8 @@ func (p *provisioner) seedRobots(ctx context.Context, clusterName string) error 
 			return errors.Wrap(err, "failed to create robot")
 		}
 		p.results.Robot = organizations.Robot{
-			ID: robot.ID,
+			ID:   robot.ID,
+			Name: clusterName,
 		}
 	}
 	return nil
@@ -183,8 +183,8 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 }
 
 func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, namespace string) error {
-	if p.results.Team.ID.String() == "" {
-		return errors.New("programmer error: seedTeams should have been called first")
+	if p.results.Robot.Name == "" {
+		return errors.New("programmer error: seedRobots should have been called first")
 	}
 
 	currentControllerRoleBinding := rbacv1.ClusterRoleBinding{

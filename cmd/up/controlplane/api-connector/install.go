@@ -156,7 +156,8 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	if !strings.HasPrefix(c.space, "upbound-") {
 		return errors.New("space name must start with 'upbound-'")
 	}
-	c.spacesHostname = c.space + spacesHostnameSuffix
+
+	c.spacesHostname = "https://" + c.space + spacesHostnameSuffix
 
 	c.installationNamespace = defaultInstallationNamespace
 
