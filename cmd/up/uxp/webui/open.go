@@ -61,7 +61,7 @@ const (
 type openCmd struct {
 	Host    string `default:"localhost"                                                    help:"Host to listen on for port-forward."`
 	Port    int    `help:"Port to listen on for port-forward (0 for automatic selection)."`
-	Browser bool   `default:"true"                                                         help:"Open the web UI in a browser window."`
+	Browser bool   `default:"true"                                                         help:"Open the web UI in a browser window." negatable:""`
 }
 
 func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
