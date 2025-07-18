@@ -6,6 +6,7 @@ package apiconnector
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -13,12 +14,12 @@ import (
 	"github.com/pterm/pterm"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -320,21 +321,22 @@ func (p *provisioner) seedConnection(ctx context.Context, targetClient client.Cl
 		},
 	}
 
-	err := targetClient.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, &connection)
+	currentConnection, err := p.getConnection(ctx, targetClient, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			connection.Object["spec"] = body
-			return targetClient.Create(ctx, &connection)
+			err := targetClient.Create(ctx, &connection)
+			if err != nil {
+				return errors.Wrap(err, "failed to create connection")
+			}
+			return nil
 		}
 		return errors.Wrap(err, "failed to get connection")
 	}
 
 	// Its an update
-	connection.Object["spec"] = body
-	return targetClient.Update(ctx, &connection)
+	currentConnection.Object["spec"] = body
+	return targetClient.Update(ctx, currentConnection)
 }
 
 func (p *provisioner) getConnection(ctx context.Context, targetClient client.Client, name string) (*unstructured.Unstructured, error) {
@@ -351,16 +353,14 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 	err := targetClient.Get(ctx, client.ObjectKey{
 		Name: name,
 	}, &connection)
-	if apierrors.IsNotFound(err) {
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("rror getting connection: %s. This is expected if the connectors CRDs are not installed. Please install the CRDs and try again", err.Error())
+		}
+
 		return nil, err
 	}
-	// This happens when crds are not installed.
-	if errors.Is(err, &apiutil.ErrResourceDiscoveryFailed{}) {
-		return nil, apierrors.NewNotFound(schema.GroupResource{ // create sintetic error.
-			Group:    "connect.upbound.io",
-			Resource: "ClusterConnection",
-		}, name)
-	}
+
 	return &connection, nil
 }
 

@@ -157,6 +157,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 		return errors.New("space name must start with 'upbound-'")
 	}
 
+	// TODO(mjudeikis): Once "spaces" arg is configurable this will need to be updated.
 	c.spacesHostname = "https://" + c.space + spacesHostnameSuffix
 
 	c.installationNamespace = defaultInstallationNamespace
