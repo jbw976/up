@@ -6,15 +6,14 @@ package apiconnector
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pterm/pterm"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -354,10 +353,14 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 		Name: name,
 	}, &connection)
 	if err != nil {
-		if meta.IsNoMatchError(err) {
-			return nil, fmt.Errorf("rror getting connection: %s. This is expected if the connectors CRDs are not installed. Please install the CRDs and try again", err.Error())
+		// Original error is from ctrl runtime client and does not quite implement errors.Is/As
+		// so here we are...
+		if strings.Contains(err.Error(), "unable to retrieve the complete list of server") {
+			return nil, apierrors.NewNotFound(schema.GroupResource{
+				Group:    "connect.upbound.io",
+				Resource: "ClusterConnection",
+			}, name)
 		}
-
 		return nil, err
 	}
 
