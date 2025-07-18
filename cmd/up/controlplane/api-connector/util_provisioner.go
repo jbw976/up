@@ -355,7 +355,7 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 		return nil, err
 	}
 	// This happens when crds are not installed.
-	if errors.As(err, &apiutil.ErrResourceDiscoveryFailed{}) {
+	if errors.Is(err, &apiutil.ErrResourceDiscoveryFailed{}) {
 		return nil, apierrors.NewNotFound(schema.GroupResource{ // create sintetic error.
 			Group:    "connect.upbound.io",
 			Resource: "ClusterConnection",
