@@ -15,7 +15,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	"github.com/upbound/up/internal/git"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // mockCloner is a mock implementation of git.Cloner for testing.
@@ -72,7 +72,7 @@ func TestGitSourceVersion(t *testing.T) {
 	}{
 		"ReturnsCommitSHA": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -87,7 +87,7 @@ func TestGitSourceVersion(t *testing.T) {
 		},
 		"CachedCommitSHA": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -131,7 +131,7 @@ func TestGitSourceResources(t *testing.T) {
 	}{
 		"StoresCommitSHA": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 				},
@@ -146,7 +146,7 @@ func TestGitSourceResources(t *testing.T) {
 		},
 		"WithPath": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Ref:        "main",
 					Path:       "apis",
@@ -197,7 +197,7 @@ func TestGitSourceID(t *testing.T) {
 	}{
 		"BasicRepository": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 				},
 			},
@@ -205,7 +205,7 @@ func TestGitSourceID(t *testing.T) {
 		},
 		"RepositoryWithPath": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "https://github.com/example/repo.git",
 					Path:       "apis/crds",
 				},
@@ -214,7 +214,7 @@ func TestGitSourceID(t *testing.T) {
 		},
 		"EmptyRepository": {
 			source: &gitSource{
-				git: &v1alpha1.APIGitReference{
+				git: &v2alpha1.APIGitReference{
 					Repository: "",
 				},
 			},

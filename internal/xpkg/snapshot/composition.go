@@ -29,6 +29,7 @@ import (
 	mxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -147,21 +148,37 @@ func (c *CompositionValidator) validatePipelineFunctionRefs(comp *xpextv1.Compos
 }
 
 func (c *CompositionValidator) collectFunctionDeps() ([]v1beta1.Dependency, error) {
-	proj, isProj := c.s.wsview.Meta().Object().(*projectv1alpha1.Project)
-	if !isProj {
+	var (
+		functionsDir = "functions"
+		projRepo     name.Repository
+		err          error
+	)
+
+	switch proj := c.s.wsview.Meta().Object().(type) {
+	case *projectv1alpha1.Project:
+		if proj.Spec.Paths != nil && proj.Spec.Paths.Functions != "" {
+			functionsDir = proj.Spec.Paths.Functions
+		}
+		projRepo, err = name.NewRepository(proj.Spec.Repository, name.StrictValidation)
+		if err != nil {
+			return nil, err
+		}
+
+	case *projectv2alpha1.Project:
+		if proj.Spec.Paths != nil && proj.Spec.Paths.Functions != "" {
+			functionsDir = proj.Spec.Paths.Functions
+		}
+		projRepo, err = name.NewRepository(proj.Spec.Repository, name.StrictValidation)
+		if err != nil {
+			return nil, err
+		}
+
+	default:
+		// Not a project - no function deps to collect.
 		return nil, nil
 	}
 
-	functionsDir := "functions"
-	if proj.Spec.Paths != nil && proj.Spec.Paths.Functions != "" {
-		functionsDir = proj.Spec.Paths.Functions
-	}
 	functionsPath := filepath.Join(c.s.wsview.MetaLocation(), functionsDir)
-	projRepo, err := name.NewRepository(proj.Spec.Repository)
-	if err != nil {
-		return nil, err
-	}
-
 	infos, err := afero.ReadDir(c.s.w.Filesystem(), functionsPath)
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -28,7 +28,7 @@ import (
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 var (
@@ -167,7 +167,7 @@ type mockPusher struct {
 	tag         name.Tag
 }
 
-func (m mockPusher) Push(_ context.Context, _ *v1alpha1.Project, imgMap project.ImageTagMap, _ ...project.PushOption) (name.Tag, error) {
+func (m mockPusher) Push(_ context.Context, _ *v2alpha1.Project, imgMap project.ImageTagMap, _ ...project.PushOption) (name.Tag, error) {
 	if _, ok := imgMap[m.expectedTag]; !ok {
 		gotKeys := slices.Collect(maps.Keys(imgMap))
 		return name.Tag{}, errors.Errorf("did not find image %q to push, got %v", m.expectedTag.String(), gotKeys)

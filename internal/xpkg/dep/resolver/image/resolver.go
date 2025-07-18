@@ -19,7 +19,7 @@ import (
 
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/xpkg/dep/utils"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -38,7 +38,7 @@ const (
 // Resolver --.
 type Resolver struct {
 	f            Fetcher
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 }
 
 // Fetcher defines how we expect to intract with the Image repository.
@@ -71,7 +71,7 @@ func WithFetcher(f Fetcher) ResolverOption {
 }
 
 // WithImageConfig sets image rewriting rules for the resolver.
-func WithImageConfig(cfgs []projectv1alpha1.ImageConfig) ResolverOption {
+func WithImageConfig(cfgs []projectv2alpha1.ImageConfig) ResolverOption {
 	return func(r *Resolver) {
 		r.imageConfigs = cfgs
 	}

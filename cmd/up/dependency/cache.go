@@ -18,14 +18,14 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // updateCacheCmd updates the cache.
 type updateCacheCmd struct {
 	m      *project.DependencyManager
 	projFS afero.Fs
-	proj   *v1alpha1.Project
+	proj   *v2alpha1.Project
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag

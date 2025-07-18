@@ -27,7 +27,7 @@ import (
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/yaml"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 var errBoom = errors.New("boom")
@@ -164,7 +164,7 @@ func TestRun_Scratch(t *testing.T) {
 		SSHKey       string
 		Name         string
 		Organization string
-		Project      *v1alpha1.Project
+		Project      *v2alpha1.Project
 	}
 
 	tcs := map[string]struct {
@@ -176,16 +176,16 @@ func TestRun_Scratch(t *testing.T) {
 			args: args{
 				Name:         "test-project",
 				Organization: "unit-test",
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -202,16 +202,16 @@ func TestRun_Scratch(t *testing.T) {
 			args: args{
 				Name:         "test-project",
 				Organization: "up-test-org",
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -267,7 +267,7 @@ func TestRun_Scratch(t *testing.T) {
 			projectFile, err := afero.ReadFile(projFS, "./upbound.yaml")
 			assert.NilError(t, err)
 
-			var parsedProject v1alpha1.Project
+			var parsedProject v2alpha1.Project
 			err = yaml.Unmarshal(projectFile, &parsedProject)
 			assert.NilError(t, err)
 
@@ -301,7 +301,7 @@ func TestRun_Example(t *testing.T) {
 		Language     string
 		TestLanguage string
 		Values       map[string]string
-		Project      *v1alpha1.Project
+		Project      *v2alpha1.Project
 	}
 
 	tcs := map[string]struct {
@@ -317,16 +317,16 @@ func TestRun_Example(t *testing.T) {
 				Template:     "example-1",
 				Language:     "go",
 				TestLanguage: "go",
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -360,16 +360,16 @@ func TestRun_Example(t *testing.T) {
 				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "python",
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -389,16 +389,16 @@ func TestRun_Example(t *testing.T) {
 				Template:     "example-1",
 				Language:     "python",
 				TestLanguage: "go",
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -422,16 +422,16 @@ func TestRun_Example(t *testing.T) {
 					"UserValue":       "user-value",
 					"OverriddenValue": "overridden-value",
 				},
-				Project: &v1alpha1.Project{
+				Project: &v2alpha1.Project{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "meta.dev.upbound.io/v1alpha1",
+						APIVersion: "meta.dev.upbound.io/v2alpha1",
 						Kind:       "Project",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "test-project",
 					},
-					Spec: &v1alpha1.ProjectSpec{
-						ProjectPackageMetadata: v1alpha1.ProjectPackageMetadata{
+					Spec: &v2alpha1.ProjectSpec{
+						ProjectPackageMetadata: v2alpha1.ProjectPackageMetadata{
 							Description: "A template for unit testing project examples",
 							License:     "Apache-2.0",
 							Maintainer:  "Upbound User <user@example.com>",
@@ -516,7 +516,7 @@ func TestRun_Example(t *testing.T) {
 			projectFile, err := afero.ReadFile(projFS, "./upbound.yaml")
 			assert.NilError(t, err)
 
-			var parsedProject v1alpha1.Project
+			var parsedProject v2alpha1.Project
 			err = yaml.Unmarshal(projectFile, &parsedProject)
 			assert.NilError(t, err)
 

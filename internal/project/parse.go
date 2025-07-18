@@ -9,12 +9,12 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/pkg/apis/project"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // WithVersion wraps a project with version information.
 type WithVersion struct {
-	*v1alpha1.Project
+	*v2alpha1.Project
 	version project.Version
 }
 
@@ -29,7 +29,7 @@ func (p *WithVersion) IsV2() bool {
 }
 
 // Parse parses and validates the project file, returning a v1alpha1 project.
-func Parse(projFS afero.Fs, projFilePath string) (*v1alpha1.Project, error) {
+func Parse(projFS afero.Fs, projFilePath string) (*v2alpha1.Project, error) {
 	projectWithVersion, err := ParseWithVersion(projFS, projFilePath)
 	if err != nil {
 		return nil, err
@@ -48,13 +48,13 @@ func ParseWithVersion(projFS afero.Fs, projFilePath string) (*WithVersion, error
 
 	switch versionedProject.Version {
 	case project.VersionV1Alpha1:
-		result.Project = versionedProject.V1
-	case project.VersionV2Alpha1:
-		v1, err := project.ConvertToV1(versionedProject.V2)
+		v2, err := project.ConvertToV2(versionedProject.V1)
 		if err != nil {
 			return nil, err
 		}
-		result.Project = v1
+		result.Project = v2
+	case project.VersionV2Alpha1:
+		result.Project = versionedProject.V2
 	default:
 		return nil, errors.Errorf("unsupported project version: %s", versionedProject.Version)
 	}

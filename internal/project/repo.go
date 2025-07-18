@@ -11,12 +11,12 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // DetermineRepository returns the repository to use when running a project
 // based on the user's current configuration.
-func DetermineRepository(upCtx *upbound.Context, proj *v1alpha1.Project, override string) (string, error) {
+func DetermineRepository(upCtx *upbound.Context, proj *v2alpha1.Project, override string) (string, error) {
 	defaultRegistry := upCtx.RegistryEndpoint.Host
 
 	// If the user explicitly set the repository, use it, but if it's in the

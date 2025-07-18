@@ -15,7 +15,7 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/yaml"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestUpsertDependency(t *testing.T) {
@@ -239,15 +239,15 @@ func TestUpsertDependency(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			proj := &v1alpha1.Project{
+			proj := &v2alpha1.Project{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1alpha1.ProjectGroupVersionKind.GroupVersion().String(),
-					Kind:       v1alpha1.ProjectKind,
+					APIVersion: v2alpha1.ProjectGroupVersionKind.GroupVersion().String(),
+					Kind:       v2alpha1.ProjectKind,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "my-project",
 				},
-				Spec: &v1alpha1.ProjectSpec{
+				Spec: &v2alpha1.ProjectSpec{
 					DependsOn: tc.inputDeps,
 				},
 			}
@@ -263,15 +263,15 @@ func TestUpdate(t *testing.T) {
 	t.Parallel()
 
 	// Write the original project.
-	proj := &v1alpha1.Project{
+	proj := &v2alpha1.Project{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.ProjectGroupVersionKind.GroupVersion().String(),
-			Kind:       v1alpha1.ProjectKind,
+			APIVersion: v2alpha1.ProjectGroupVersionKind.GroupVersion().String(),
+			Kind:       v2alpha1.ProjectKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "my-project",
 		},
-		Spec: &v1alpha1.ProjectSpec{
+		Spec: &v2alpha1.ProjectSpec{
 			Repository: "xpkg.upbound.io/foo/bar",
 		},
 	}
@@ -282,10 +282,10 @@ func TestUpdate(t *testing.T) {
 
 	// Update!
 	var want []byte
-	err = Update(projFS, "upbound.yaml", func(p *v1alpha1.Project) {
+	err = Update(projFS, "upbound.yaml", func(p *v2alpha1.Project) {
 		// Update the project and marshal it so we know what to expect on disk.
 		p.Spec.Architectures = []string{"arch1", "arch2"}
-		p.Spec.Paths = &v1alpha1.ProjectPaths{
+		p.Spec.Paths = &v2alpha1.ProjectPaths{
 			APIs:      "my-cool-apis",
 			Functions: "my-cool-functions",
 			Examples:  "my-cool-examples",

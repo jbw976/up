@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/upbound/up/cmd/up/runner"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Wizard handles the interactive project initialization process, managing state
@@ -23,7 +23,7 @@ import (
 type Wizard struct {
 	StatePath   string
 	Runner      runner.CommandRunner
-	Paths       *v1alpha1.ProjectPaths
+	Paths       *v2alpha1.ProjectPaths
 	ProjectFile string
 	ProjectFS   afero.Fs
 }

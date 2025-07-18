@@ -26,7 +26,7 @@ import (
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Cmd represents the command for initializing a new project. It handles the creation
@@ -55,7 +55,7 @@ type Cmd struct {
 	projFile        string
 
 	projDirPath string
-	paths       *v1alpha1.ProjectPaths
+	paths       *v2alpha1.ProjectPaths
 	statePath   string
 	runner      runner.CommandRunner
 }
@@ -172,7 +172,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 	c.projDirPath = filepath.Dir(projFilePath)
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), c.projDirPath)
 
-	defaults := &v1alpha1.Project{}
+	defaults := &v2alpha1.Project{}
 	defaults.Default()
 	c.paths = defaults.Spec.Paths
 
@@ -344,7 +344,7 @@ func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 		newRepo = fmt.Sprintf("%s/<organization>/%s", upCtx.RegistryEndpoint.Hostname(), c.Name)
 	}
 
-	if err := project.Update(c.projFS, c.projFile, func(proj *v1alpha1.Project) {
+	if err := project.Update(c.projFS, c.projFile, func(proj *v2alpha1.Project) {
 		proj.ObjectMeta.Name = c.Name
 	}); err != nil {
 		return errors.Wrap(err, "failed to update project metadata")

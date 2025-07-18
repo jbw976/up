@@ -9,35 +9,35 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestRewriteImage(t *testing.T) {
 	type args struct {
 		image   string
-		configs []projectv1alpha1.ImageConfig
+		configs []projectv2alpha1.ImageConfig
 	}
 
-	imageConfigs := []projectv1alpha1.ImageConfig{
+	imageConfigs := []projectv2alpha1.ImageConfig{
 		{
-			MatchImages: []projectv1alpha1.ImageMatch{
+			MatchImages: []projectv2alpha1.ImageMatch{
 				{
 					Prefix: "xpkg.upbound.io",
 					Type:   "Prefix",
 				},
 			},
-			RewriteImage: projectv1alpha1.ImageRewrite{
+			RewriteImage: projectv2alpha1.ImageRewrite{
 				Prefix: "609897127049.dkr.ecr.eu-central-1.amazonaws.com",
 			},
 		},
 		{
-			MatchImages: []projectv1alpha1.ImageMatch{
+			MatchImages: []projectv2alpha1.ImageMatch{
 				{
 					Prefix: "xpkg.upbound.io/upbound/function-kcl-base:v0.11.2-up.1",
 					Type:   "Prefix",
 				},
 			},
-			RewriteImage: projectv1alpha1.ImageRewrite{
+			RewriteImage: projectv2alpha1.ImageRewrite{
 				Prefix: "docker.io/haarchri/function-kcl-base:v0.11.2-up.1",
 			},
 		},

@@ -24,7 +24,7 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/upbound"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // goTemplatingBuilder builds "functions" written in go templating by injecting
@@ -32,7 +32,7 @@ import (
 type goTemplatingBuilder struct {
 	baseImage    string
 	transport    http.RoundTripper
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 	upCtx        *upbound.Context
 }
 
@@ -138,7 +138,7 @@ func (b *goTemplatingBuilder) Build(ctx context.Context, fromFS afero.Fs, archit
 	return images, eg.Wait()
 }
 
-func newGoTemplatingBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *goTemplatingBuilder {
+func newGoTemplatingBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *goTemplatingBuilder {
 	return &goTemplatingBuilder{
 		// TODO(adamwg): Upstream changes and switch to the official function.
 		transport:    http.DefaultTransport,

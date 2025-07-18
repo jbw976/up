@@ -27,7 +27,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // Cmd is the `up project build` command.
@@ -53,7 +53,7 @@ type Cmd struct {
 	asyncWrapper async.WrapperFunc
 	printer      upterm.ObjectPrinter
 
-	proj *v1alpha1.Project
+	proj *v2alpha1.Project
 }
 
 // AfterApply parses flags and applies defaults.

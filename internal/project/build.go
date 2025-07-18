@@ -32,7 +32,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/functions"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -50,7 +50,7 @@ type Builder interface {
 	// containing images that were built from the project. The returned map will
 	// always include one image with the ConfigurationTag, which is the
 	// configuration package built from the APIs found in the project.
-	Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error)
+	Build(ctx context.Context, upCtx *upbound.Context, project *v2alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error)
 }
 
 // BuilderOption configures a builder.
@@ -122,7 +122,7 @@ type realBuilder struct {
 }
 
 // Build implements the Builder interface.
-func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v1alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) {
+func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project *v2alpha1.Project, projectFS afero.Fs, opts ...BuildOption) (ImageTagMap, error) {
 	os := &buildOptions{}
 	for _, opt := range opts {
 		opt(os)
@@ -144,16 +144,12 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		},
 	}
 
-	// v1alpha1 projects:
-	// If the user didn't specify a version constraint for their project, use
-	// v1.18 as the default, since our configurations require v1.18 or newer for
-	// digest support in the package manager.
-	// v2alpha1 projects:
-	// If the user didn't specify a version constraint for their project, use
-	// v2.0.0 as the default (pkg/apis/project/conversion/ConvertToV1()),
+	// If there's no Crossplane constraint specified, default to v2. This is the
+	// default for v2 projects; if we're dealing with a v1 project on-disk, we
+	// will have filled in the crossplane constraint before converting it to v2.
 	if cfg.Spec.Crossplane == nil || cfg.Spec.Crossplane.Version == "" {
 		cfg.Spec.Crossplane = &xpmetav1.CrossplaneConstraints{
-			Version: ">=v1.18.0 || >= v2.0.0-rc.0",
+			Version: ">=v2.0.0-rc.0",
 		}
 	}
 
@@ -277,7 +273,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 // level of the provided filesystem. The resulting images are returned in a map
 // where the keys are their tags, suitable for writing to a file with
 // go-containerregistry's `tarball.MultiWrite`.
-func (b *realBuilder) buildFunctions(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v1alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) {
+func (b *realBuilder) buildFunctions(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v2alpha1.Project, basePath string) (ImageTagMap, []xpmetav1.Dependency, error) {
 	var (
 		imgMap = make(map[name.Tag]v1.Image)
 		imgMu  sync.Mutex
@@ -368,7 +364,7 @@ func (b *realBuilder) buildFunctions(ctx context.Context, upCtx *upbound.Context
 // buildFunction builds images for a single function whose source resides in the
 // given filesystem. One image will be returned for each architecture specified
 // in the project.
-func (b *realBuilder) buildFunction(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v1alpha1.Project, fnName string, basePath string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
+func (b *realBuilder) buildFunction(ctx context.Context, upCtx *upbound.Context, fromFS afero.Fs, project *v2alpha1.Project, fnName string, basePath string) ([]v1.Image, error) { //nolint:gocyclo // Factoring anything out here would be unnatural.
 	fn := &xpmetav1.Function{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: xpmetav1.SchemeGroupVersion.String(),
@@ -498,7 +494,7 @@ func collectComposites(fromFS afero.Fs, exclude []string) (afero.Fs, error) { //
 	})
 }
 
-func cfgMetaFromProject(proj *v1alpha1.Project) metav1.ObjectMeta {
+func cfgMetaFromProject(proj *v2alpha1.Project) metav1.ObjectMeta {
 	meta := proj.ObjectMeta.DeepCopy()
 
 	if meta.Annotations == nil {
@@ -514,7 +510,7 @@ func cfgMetaFromProject(proj *v1alpha1.Project) metav1.ObjectMeta {
 	return *meta
 }
 
-func fnMetaFromProject(proj *v1alpha1.Project, fnName string) metav1.ObjectMeta {
+func fnMetaFromProject(proj *v2alpha1.Project, fnName string) metav1.ObjectMeta {
 	meta := proj.ObjectMeta.DeepCopy()
 
 	meta.Name = fmt.Sprintf("%s-%s", meta.Name, fnName)

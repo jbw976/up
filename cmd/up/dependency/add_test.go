@@ -23,7 +23,7 @@ import (
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 //go:embed testdata/packages/*
@@ -323,15 +323,15 @@ func TestAdd(t *testing.T) {
 
 func (tc *addTestCase) Run(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	inputProj := &v1alpha1.Project{
+	inputProj := &v2alpha1.Project{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.ProjectGroupVersionKind.GroupVersion().String(),
-			Kind:       v1alpha1.ProjectKind,
+			APIVersion: v2alpha1.ProjectGroupVersionKind.GroupVersion().String(),
+			Kind:       v2alpha1.ProjectKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "my-project",
 		},
-		Spec: &v1alpha1.ProjectSpec{
+		Spec: &v2alpha1.ProjectSpec{
 			Repository: "xpkg.upbound.io/test/test",
 			DependsOn:  tc.inputDeps,
 		},
@@ -380,7 +380,7 @@ func (tc *addTestCase) Run(t *testing.T) {
 	updatedBytes, err := afero.ReadFile(fs, "upbound.yaml")
 	assert.NilError(t, err)
 
-	var updatedProj v1alpha1.Project
+	var updatedProj v2alpha1.Project
 	err = yaml.Unmarshal(updatedBytes, &updatedProj)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, tc.expectedDeps, updatedProj.Spec.DependsOn)

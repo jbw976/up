@@ -27,13 +27,13 @@ import (
 	dmanager "github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // DependencyManager manages dependencies for a project, including both the xpkg
 // cache and schemas.
 type DependencyManager struct {
-	proj            *v1alpha1.Project
+	proj            *v2alpha1.Project
 	projFS          afero.Fs
 	projFile        string
 	deps            *dmanager.Manager
@@ -79,7 +79,7 @@ func (m *DependencyManager) Add(ctx context.Context, d pkgmetav1.Dependency) err
 	if err := UpsertDependency(m.proj, d); err != nil {
 		return errors.Wrap(err, "failed to add dependency to project")
 	}
-	if err := Update(m.projFS, m.projFile, func(p *v1alpha1.Project) {
+	if err := Update(m.projFS, m.projFile, func(p *v2alpha1.Project) {
 		p.Spec.DependsOn = m.proj.Spec.DependsOn
 	}); err != nil {
 		return errors.Wrap(err, "failed to update project metadata")
@@ -152,7 +152,7 @@ func (m *DependencyManager) GetParsedPackage(ctx context.Context, dep pkgmetav1.
 
 // AddAPIDependency adds a single API dependency to the project, fetching and generating
 // schemas for it.
-func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v1alpha1.APIDependencies) error {
+func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v2alpha1.APIDependencies) error {
 	// Process the API dependency to get the schema source
 	source, err := m.apiDepProcessor.Process(dep)
 	if err != nil {
@@ -168,7 +168,7 @@ func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v1alpha1.A
 }
 
 // AddAllAPIDependencies adds all the API dependencies configured in the project.
-func (m *DependencyManager) AddAllAPIDependencies(ctx context.Context, apiDep []v1alpha1.APIDependencies) error {
+func (m *DependencyManager) AddAllAPIDependencies(ctx context.Context, apiDep []v2alpha1.APIDependencies) error {
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, dep := range apiDep {
 		apiDep := dep
@@ -185,7 +185,7 @@ func (m *DependencyManager) AddAllAPIDependencies(ctx context.Context, apiDep []
 
 // GetProcessedAPIDependencies returns information about all processed API dependencies
 // including their source IDs and versions.
-func (m *DependencyManager) GetProcessedAPIDependencies(ctx context.Context, apiDeps []v1alpha1.APIDependencies) ([]ProcessedAPIDependency, error) {
+func (m *DependencyManager) GetProcessedAPIDependencies(ctx context.Context, apiDeps []v2alpha1.APIDependencies) ([]ProcessedAPIDependency, error) {
 	processed := make([]ProcessedAPIDependency, 0, len(apiDeps))
 	for _, dep := range apiDeps {
 		// Process the API dependency to get the schema source
@@ -211,7 +211,7 @@ func (m *DependencyManager) GetProcessedAPIDependencies(ctx context.Context, api
 }
 
 // getSourceDescription returns a human-readable description of the API dependency source.
-func getSourceDescription(dep v1alpha1.APIDependencies) string {
+func getSourceDescription(dep v2alpha1.APIDependencies) string {
 	switch {
 	case dep.Git != nil:
 		desc := dep.Git.Repository
@@ -237,7 +237,7 @@ func (m *DependencyManager) SchemaManager() *smanager.Manager {
 }
 
 // NewDependencyManager returns an initialized dependency manager.
-func NewDependencyManager(upCtx *upbound.Context, proj *v1alpha1.Project, projFS afero.Fs, opts ...ManagerOption) (*DependencyManager, error) {
+func NewDependencyManager(upCtx *upbound.Context, proj *v2alpha1.Project, projFS afero.Fs, opts ...ManagerOption) (*DependencyManager, error) {
 	options := &managerOptions{
 		projFile: "upbound.yaml",
 		fetcher:  image.NewLocalFetcher(image.WithKeychain(upCtx.RegistryKeychain())),

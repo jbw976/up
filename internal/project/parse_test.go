@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func TestParse(t *testing.T) {
@@ -19,13 +19,13 @@ func TestParse(t *testing.T) {
 		setupFs       func(fs afero.Fs)
 		projectFile   string
 		expectErr     bool
-		expectedPaths *v1alpha1.ProjectPaths
+		expectedPaths *v2alpha1.ProjectPaths
 	}{
 		{
 			name: "ValidProjectFileAllPaths",
 			setupFs: func(fs afero.Fs) {
 				yamlContent := `
-apiVersion: v1alpha1
+apiVersion: meta.dev.upbound.io/v2alpha1
 kind: Project
 metadata:
   name: ValidProjectFileAllPaths
@@ -40,7 +40,7 @@ spec:
 			},
 			projectFile: "/project.yaml",
 			expectErr:   false,
-			expectedPaths: &v1alpha1.ProjectPaths{
+			expectedPaths: &v2alpha1.ProjectPaths{
 				APIs:      "test",
 				Examples:  "example",
 				Functions: "funcs",
@@ -50,7 +50,7 @@ spec:
 			name: "ValidProjectFileSomePaths",
 			setupFs: func(fs afero.Fs) {
 				yamlContent := `
-apiVersion: v1alpha1
+apiVersion: meta.dev.upbound.io/v2alpha1
 kind: Project
 metadata:
   name: ValidProjectFileSomePaths
@@ -63,7 +63,7 @@ spec:
 			},
 			projectFile: "/project.yaml",
 			expectErr:   false,
-			expectedPaths: &v1alpha1.ProjectPaths{
+			expectedPaths: &v2alpha1.ProjectPaths{
 				Functions: "funcs",
 			},
 		},
@@ -80,7 +80,7 @@ spec:
 			name: "ProjectFileWithNoPaths",
 			setupFs: func(fs afero.Fs) {
 				yamlContent := `
-apiVersion: v1alpha1
+apiVersion: meta.dev.upbound.io/v2alpha1
 kind: Project
 metadata:
   name: ProjectFileWithNoPaths

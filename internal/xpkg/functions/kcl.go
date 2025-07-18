@@ -26,7 +26,7 @@ import (
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
-	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
+	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 type kclBuilder struct {
 	baseImage    string
 	transport    http.RoundTripper
-	imageConfigs []projectv1alpha1.ImageConfig
+	imageConfigs []projectv2alpha1.ImageConfig
 	upCtx        *upbound.Context
 }
 
@@ -194,7 +194,7 @@ func setImageEnvvars(image v1.Image, envVars map[string]string) (v1.Image, error
 	return image, nil
 }
 
-func newKCLBuilder(imageConfigs []projectv1alpha1.ImageConfig, upCtx *upbound.Context) *kclBuilder {
+func newKCLBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *kclBuilder {
 	return &kclBuilder{
 		baseImage:    "xpkg.upbound.io/upbound/function-kcl-base:v0.11.2-up.1",
 		transport:    http.DefaultTransport,

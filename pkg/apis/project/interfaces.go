@@ -19,29 +19,11 @@ const (
 	VersionV2Alpha1 Version = v2alpha1.GroupVersion
 )
 
-// Interface represents common methods across project versions.
-type Interface interface {
-	Validate() error
-	Default()
-}
-
 // Versioned wraps a project with version information.
 type Versioned struct {
 	Version Version
 	V1      *v1alpha1.Project
 	V2      *v2alpha1.Project
-}
-
-// GetProject returns the underlying project interface.
-func (p *Versioned) GetProject() Interface {
-	switch p.Version {
-	case VersionV1Alpha1:
-		return p.V1
-	case VersionV2Alpha1:
-		return p.V2
-	default:
-		return nil
-	}
 }
 
 // IsV1 returns true if the project is v1alpha1.

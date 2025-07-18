@@ -17,7 +17,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 
 	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 const (
@@ -29,10 +29,10 @@ const (
 // Cache provides caching capabilities for API dependencies.
 type Cache interface {
 	// Get retrieves a cached API dependency filesystem
-	Get(dep v1alpha1.APIDependencies) (afero.Fs, error)
+	Get(dep v2alpha1.APIDependencies) (afero.Fs, error)
 
 	// Store saves an API dependency filesystem to the cache.
-	Store(dep v1alpha1.APIDependencies, fs afero.Fs) error
+	Store(dep v2alpha1.APIDependencies, fs afero.Fs) error
 }
 
 // LocalCache implements a filesystem-based cache for API dependencies.
@@ -81,7 +81,7 @@ func NewLocalCache(root string, opts ...LocalCacheOption) (*LocalCache, error) {
 }
 
 // Get retrieves a cached API dependency filesystem.
-func (c *LocalCache) Get(dep v1alpha1.APIDependencies) (afero.Fs, error) {
+func (c *LocalCache) Get(dep v2alpha1.APIDependencies) (afero.Fs, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -105,7 +105,7 @@ func (c *LocalCache) Get(dep v1alpha1.APIDependencies) (afero.Fs, error) {
 }
 
 // Store saves an API dependency filesystem to the cache.
-func (c *LocalCache) Store(dep v1alpha1.APIDependencies, srcFS afero.Fs) error {
+func (c *LocalCache) Store(dep v2alpha1.APIDependencies, srcFS afero.Fs) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -136,7 +136,7 @@ func (c *LocalCache) Store(dep v1alpha1.APIDependencies, srcFS afero.Fs) error {
 }
 
 // calculateKey generates a cache key for the given dependency.
-func (c *LocalCache) calculateKey(dep v1alpha1.APIDependencies) string {
+func (c *LocalCache) calculateKey(dep v2alpha1.APIDependencies) string {
 	h := sha256.New()
 
 	// Include cache version
