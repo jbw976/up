@@ -63,6 +63,25 @@ var availableTemplates = map[string]string{ //nolint:gochecknoglobals // this is
 	"Start from scratch": BlankProjectTemplate,
 }
 
+// AIToolingProvider represents the AI tooling providers supported for generation.
+type AIToolingProvider string
+
+const (
+	// ToolGemini represents the gemini-cli.
+	ToolGemini AIToolingProvider = "gemini-cli"
+	// ToolClaude represents claude-code.
+	ToolClaude AIToolingProvider = "claude-code"
+	// ToolCursor represents cursor.
+	ToolCursor AIToolingProvider = "cursor"
+)
+
+// SupportedAIToolingProvidersMap contains tools supported for projects.
+var SupportedAIToolingProvidersMap = map[string]AIToolingProvider{ //nolint:gochecknoglobals // this is a constant
+	"gemini-cli":  ToolGemini,
+	"claude-code": ToolClaude,
+	"cursor":      ToolCursor,
+}
+
 const (
 	// StepContinue indicates the wizard should continue to the next step.
 	StepContinue = iota
@@ -92,6 +111,11 @@ const (
 	StepGenerateTest
 	// StepTestLang indicates the wizard is asking for test language.
 	StepTestLang
+	// StepAITooling indicates the wizard is asking for AI tooling.
+	StepAITooling
+	// StepAIToolingChoice indicates the wizard is asking for which provider
+	// (gemini, etc).
+	StepAIToolingChoice
 	// StepFinished indicates the wizard has completed all steps.
 	StepFinished
 )
@@ -109,13 +133,16 @@ type State struct {
 	MetadataName      string `json:"metadataName"`
 	MetadataNamespace string `json:"metadataNamespace"`
 
-	GenerateXRD      bool `json:"generateXrd"`
-	GenerateComp     bool `json:"generateComp"`
-	GenerateFunction bool `json:"generateFunction"`
-	GenerateTest     bool `json:"generateTest"`
+	GenerateXRD       bool `json:"generateXrd"`
+	GenerateComp      bool `json:"generateComp"`
+	GenerateFunction  bool `json:"generateFunction"`
+	GenerateTest      bool `json:"generateTest"`
+	GenerateAITooling bool `json:"generateAiTooling"`
 
 	FuncLang FunctionLanguage `json:"funcLang"`
 	TestLang FunctionLanguage `json:"testLang"`
+
+	AITooling []AIToolingProvider `json:"aiTooling"`
 }
 
 // defaultState returns a new State with default values.
@@ -209,8 +236,6 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.TestLang = SupportedTestLanguagesMap[result]
-			state.Step = StepFinished
-			navigated = true
 		case StepUseXR:
 			result, err := pterm.DefaultInteractiveSelect.WithOptions([]string{"Claim", "XR"}).Show("Which type of resource do you want to create?")
 			if err != nil {
@@ -294,6 +319,31 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.TestLang = SupportedTestLanguagesMap[result]
+		case StepAITooling:
+			state.GenerateAITooling, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate AI Tooling Configurations?")
+			if err != nil {
+				return err
+			}
+			if !state.GenerateAITooling {
+				state.Step = StepFinished
+				navigated = true
+			}
+		case StepAIToolingChoice:
+			options := []string{}
+			for name := range SupportedAIToolingProvidersMap {
+				options = append(options, name)
+			}
+			result, err := pterm.DefaultInteractiveMultiselect.WithOptions(options).Show("Select the tooling provider(s)")
+			if err != nil {
+				return err
+			}
+
+			for _, r := range result {
+				state.AITooling = append(state.AITooling, SupportedAIToolingProvidersMap[r])
+			}
+
+			state.Step = StepFinished
+			navigated = true
 		}
 
 		if !navigated {
