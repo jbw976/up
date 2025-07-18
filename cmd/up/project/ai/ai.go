@@ -4,7 +4,7 @@
 // Package ai contains the `up project ai` commands.
 package ai
 
-// Cmd contains commands for ai cmd.
+// Cmd contains commands for the ai subcommand.
 type Cmd struct {
-	Rules rulesCmd `cmd:"" help:"Generate an AI tooling configurations for the project."`
+	ConfigureTools configureToolsCmd `cmd:"" help:"Generate AI tooling configurations for the project."`
 }

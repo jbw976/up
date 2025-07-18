@@ -207,7 +207,7 @@ func (w *Wizard) GenerateAIToolingCfg(state State) error {
 	args := []string{
 		"project",
 		"ai",
-		"rules",
+		"configure-tools",
 		"--project-file", w.ProjectFile,
 		fmt.Sprintf("--%s", w.getAITool(state.AITooling)),
 	}

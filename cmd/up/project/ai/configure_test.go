@@ -76,7 +76,7 @@ func TestRuleCmd_Run(t *testing.T) {
 			assert.NilError(t, err)
 
 			// Setup the rulesCmd with mock dependencies
-			c := &rulesCmd{
+			c := &configureToolsCmd{
 				ProjectFile: "upbound.yaml",
 				projFS:      projFS,
 				proj:        proj,

@@ -25,12 +25,12 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"
 )
 
-func (c *rulesCmd) Help() string {
+func (c *configureToolsCmd) Help() string {
 	return `
-The 'rule' command generates configuration rules for the provided tool provider.
+The 'configure-tools' command generates configurations for the specified tool provider.
 
 Examples:
-    project ai rules --gemini
+    project ai configure-tools --gemini-cli
         Creates a GEMINI.md and places a settings.json under the .gemini directory.'.
 `
 }
@@ -44,7 +44,7 @@ var (
 	geminiTemplate embed.FS
 )
 
-type rulesCmd struct {
+type configureToolsCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
 	UseGemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."      name:"gemini-cli"`
@@ -60,7 +60,7 @@ type rulesCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *rulesCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 
 	upCtx, err := upbound.NewFromFlags(c.Flags)
@@ -69,11 +69,6 @@ func (c *rulesCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	upCtx.SetupLogging()
 	kongCtx.Bind(upCtx)
-
-	c.user, err = user.Current()
-	if err != nil {
-		return errors.Wrap(err, "error retrieving current user")
-	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -95,7 +90,7 @@ func (c *rulesCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *rulesCmd) Run(_ context.Context, printer upterm.ObjectPrinter) (err error) {
+func (c *configureToolsCmd) Run(_ context.Context, printer upterm.ObjectPrinter) (err error) {
 	cfgFS := []afero.Fs{}
 	// filepath roots for the various tool configuration sub directories.
 	claudeRoot := "templates/claude"
@@ -124,7 +119,7 @@ func (c *rulesCmd) Run(_ context.Context, printer upterm.ObjectPrinter) (err err
 	}
 
 	err = upterm.WrapWithSuccessSpinner(
-		"Generating AI Rules Configurations",
+		"Generating AI Tool Configurations",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			for _, fs := range cfgFS {
@@ -150,7 +145,7 @@ type templateData struct {
 }
 
 // generateTemplates from the rootDir of the given filesystem, or errors.
-func (c *rulesCmd) generateTemplates(fs embed.FS, rootDir string) (afero.Fs, error) {
+func (c *configureToolsCmd) generateTemplates(fs embed.FS, rootDir string) (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 	cd, err := config.GetUpConfigDir()
 	if err != nil {
@@ -209,20 +204,22 @@ func parseTemplates(f embed.FS, dir string) (map[string]*template.Template, erro
 }
 
 // writeTemplates to the given filepaths in the supplied tmpls map.
-func writeTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) (err error) {
+func writeTemplates(targetFS afero.Fs, tmpls map[string]*template.Template, data any) error {
 	for path, tmpl := range tmpls {
 		file, err := targetFS.Create(filepath.Clean(path))
 		if err != nil {
 			return errors.Wrapf(err, "error creating file %v", path)
 		}
-		defer func() {
-			if cerr := file.Close(); cerr != nil {
-				err = errors.Wrapf(err, "error closing file %v", path)
-			}
-		}()
 
 		if err := tmpl.Execute(file, data); err != nil {
+			if ferr := file.Close(); ferr != nil {
+				return errors.Wrap(ferr, "failed to close file")
+			}
 			return errors.Wrapf(err, "error writing template to file %v", path)
+		}
+
+		if ferr := file.Close(); ferr != nil {
+			return errors.Wrap(ferr, "failed to close file")
 		}
 	}
 	return nil
