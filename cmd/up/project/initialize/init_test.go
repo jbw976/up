@@ -71,7 +71,7 @@ func TestAfterApply(t *testing.T) {
 			args: args{
 				Template: "git://path/to/repo",
 			},
-			expectError: "Unsupported protocol git in template url",
+			expectError: "unsupported protocol git in template url",
 		},
 		"MissingLanguage": {
 			args: args{
