@@ -17,9 +17,9 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/cmd/up/uxp"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/uxp"
 )
 
 const (

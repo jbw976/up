@@ -13,30 +13,33 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/internal/uxp"
 )
 
 const (
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
+	errSetChartValues         = "failed to set chart values"
 )
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *installCmd) AfterApply(insCtx *install.Context) error {
-	repo := RepoURL
+	repo := uxp.RepoURL
 	if c.Unstable {
-		repo = uxpUnstableRepoURL
+		repo = uxp.UnstableRepoURL
 	}
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
-		chartName,
+		uxp.ChartName,
 		*repo,
-		chartNamespace,
+		uxp.ChartNamespace,
 		helm.WithChart(c.Bundle),
 		helm.Wait(),
 	)
@@ -49,7 +52,15 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		return err
 	}
 	c.kClient = client
-	values := baseValues()
+
+	values := uxp.BaseValues()
+	if c.DisableWebUI {
+		paved := fieldpath.Pave(values)
+		if err := paved.SetBool("webui.enabled", false); err != nil {
+			return errors.Wrap(err, errSetChartValues)
+		}
+		values = paved.UnstructuredContent()
+	}
 	if c.File != nil {
 		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
@@ -64,6 +75,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		}
 	}
 	c.parser = helm.NewParser(values, c.Set)
+
 	return nil
 }
 
@@ -73,8 +85,9 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version  string `arg:""                                     help:"UXP version to install." optional:""`
-	Unstable bool   `help:"Allow installing unstable versions."`
+	Version      string `arg:""                                     help:"UXP version to install." optional:""`
+	Unstable     bool   `help:"Allow installing unstable versions."`
+	DisableWebUI bool   `help:"Disable the UXP web UI."             optional:""`
 
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
@@ -87,10 +100,10 @@ func (c *installCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 	}
 
 	// TODO(branden): Remove this once UXP is public.
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, imagePullSecret, chartNamespace, c.Registry)
+	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, uxp.ImagePullSecret, uxp.ChartNamespace, c.Registry)
 
 	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", imagePullSecret), 1, 2),
+		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", uxp.ImagePullSecret), 1, 2),
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			return errors.Wrap(pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
