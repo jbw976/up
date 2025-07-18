@@ -13,7 +13,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
