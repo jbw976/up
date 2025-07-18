@@ -4,10 +4,8 @@
 package ai
 
 import (
-	"context"
 	"embed"
 	"io/fs"
-	"os/user"
 	"path/filepath"
 	"text/template"
 
@@ -22,7 +20,7 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/pkg/apis/project/v1alpha1"
+	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func (c *configureToolsCmd) Help() string {
@@ -52,8 +50,7 @@ type configureToolsCmd struct {
 	UseCursor bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."          name:"cursor"`
 
 	projFS afero.Fs
-	proj   *v1alpha1.Project
-	user   *user.User
+	proj   *v2alpha1.Project
 
 	Flags upbound.Flags `embed:""`
 }
@@ -90,27 +87,30 @@ func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *configureToolsCmd) Run(_ context.Context, printer upterm.ObjectPrinter) (err error) {
+func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 	cfgFS := []afero.Fs{}
 	// filepath roots for the various tool configuration sub directories.
 	claudeRoot := "templates/claude"
 	cursorRoot := "templates/cursor"
 	geminiRoot := "templates/gemini"
 
-	switch {
-	case c.UseGemini:
+	if c.UseGemini {
 		fs, err := c.generateTemplates(geminiTemplate, geminiRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle gemini templates")
 		}
 		cfgFS = append(cfgFS, fs)
-	case c.UseClaude:
+	}
+
+	if c.UseClaude {
 		fs, err := c.generateTemplates(claudeTemplate, claudeRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle claude templates")
 		}
 		cfgFS = append(cfgFS, fs)
-	case c.UseCursor:
+	}
+
+	if c.UseCursor {
 		fs, err := c.generateTemplates(cursorTemplate, cursorRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle cursor templates")

@@ -84,7 +84,7 @@ func TestRuleCmd_Run(t *testing.T) {
 
 			printer := upterm.DefaultObjPrinter
 			printer.Quiet = true
-			err = c.Run(t.Context(), printer)
+			err = c.Run(printer)
 
 			if tc.err == nil {
 				generatedFiles := []os.FileInfo{}

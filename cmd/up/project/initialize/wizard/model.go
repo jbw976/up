@@ -142,7 +142,7 @@ type State struct {
 	FuncLang FunctionLanguage `json:"funcLang"`
 	TestLang FunctionLanguage `json:"testLang"`
 
-	AITooling AIToolingProvider `json:"aiTooling"`
+	AITooling []AIToolingProvider `json:"aiTooling"`
 }
 
 // defaultState returns a new State with default values.
@@ -333,11 +333,15 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 			for name := range SupportedAIToolingProvidersMap {
 				options = append(options, name)
 			}
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select the tooling provider")
+			result, err := pterm.DefaultInteractiveMultiselect.WithOptions(options).Show("Select the tooling provider(s)")
 			if err != nil {
 				return err
 			}
-			state.AITooling = SupportedAIToolingProvidersMap[result]
+
+			for _, r := range result {
+				state.AITooling = append(state.AITooling, SupportedAIToolingProvidersMap[r])
+			}
+
 			state.Step = StepFinished
 			navigated = true
 		}

@@ -204,13 +204,19 @@ func (w *Wizard) GenerateExample(state State) error {
 // GenerateAIToolingCfg generates the tooling configs in the project chosen by
 // the user.
 func (w *Wizard) GenerateAIToolingCfg(state State) error {
+	tools := []string{}
+	for _, t := range state.AITooling {
+		tools = append(tools, fmt.Sprintf("--%s", w.getAITool(t)))
+	}
+
 	args := []string{
 		"project",
 		"ai",
 		"configure-tools",
 		"--project-file", w.ProjectFile,
-		fmt.Sprintf("--%s", w.getAITool(state.AITooling)),
 	}
+	// append selected tools
+	args = append(args, tools...)
 
 	if err := w.Runner.RunCommand(args); err != nil {
 		return fmt.Errorf("failed to generate ai tooling config: %w", err)
