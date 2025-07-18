@@ -80,13 +80,13 @@ Examples:
   up project init --template="https://github.com/upbound/project-template-aws@main" --language="kcl" my-new-project
 
   # Initialize a new project from a template using Git token authentication:
-  up project init --template="https://github.com/template/project-template-private.git" --language="kcl" --method=https --username="<username>" --password="<token>" my-new-project
+  up project init --template="https://github.com/template/project-template-private.git" --language="kcl" --username="<username>" --password="<token>" my-new-project
 
   # Initialize a new project from a template using SSH authentication:
-  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa my-new-project
+  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --ssh-key=/Users/username/.ssh/id_rsa my-new-project
 
   # Initialize a new project from a private template using SSH authentication with an SSH key password:
-  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --method=ssh --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
+  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
 `
 
 	languages := strings.Builder{}
