@@ -55,11 +55,11 @@ var SupportedTestLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknog
 }
 
 // BlankProjectTemplate is the URL of the blank project template.
-const BlankProjectTemplate = "https://github.com/upbound/project-example-scratch"
+const BlankProjectTemplate = "https://github.com/upbound/project-template-scratch"
 
 // availableTemplates maps template names to their repository URLs.
 var availableTemplates = map[string]string{ //nolint:gochecknoglobals // this is a constant
-	"AWS Bucket":         "https://github.com/upbound/project-example-aws",
+	"AWS Bucket":         "https://github.com/upbound/project-template-aws-s3",
 	"Start from scratch": BlankProjectTemplate,
 }
 
