@@ -13,8 +13,9 @@ import (
 
 // Cmd contains commands for managing the UXP web UI.
 type Cmd struct {
-	Open   openCmd   `cmd:"" help:"Open the UXP web UI."`
-	Enable enableCmd `cmd:"" help:"Enable the UXP web UI."`
+	Open    openCmd    `cmd:"" help:"Open the UXP web UI."`
+	Enable  enableCmd  `cmd:"" help:"Enable the UXP web UI."`
+	Disable disableCmd `cmd:"" help:"Disable the UXP web UI."`
 
 	// Common Upbound API configuration
 	Flags upbound.Flags `embed:""`
