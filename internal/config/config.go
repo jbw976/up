@@ -72,7 +72,7 @@ func GetDefaultPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(h, ConfigDir, ConfigFile), nil
+	return filepath.Join(h, ConfigFile), nil
 }
 
 // GetUpConfigDir returns the default up configurations dir or error.
