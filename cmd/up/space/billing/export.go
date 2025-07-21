@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/pterm/pterm"
 	gcpopt "google.golang.org/api/option"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -54,8 +55,7 @@ func (d *dateRange) Decode(ctx *kong.DecodeContext) error {
 
 	parts := strings.SplitN(value, "/", 2)
 	if len(parts) != 2 {
-		fmt.Printf("%s\n", parts)
-		return fmt.Errorf("invalid format")
+		return fmt.Errorf("invalid format: expected YYYY-MM-DD/YYYY-MM-DD, got %s", value)
 	}
 
 	start, err := time.Parse(time.DateOnly, parts[0])
@@ -191,19 +191,19 @@ func (c *exportCmd) Validate() error {
 	return nil
 }
 
-func (c *exportCmd) Run() error {
-	fmt.Printf(
-		"Exporting billing report for Upbound account %s from %s to %s.\n",
+func (c *exportCmd) Run(p pterm.TextPrinter) error {
+	p.Printfln(
+		"Exporting billing report for Upbound account %s from %s to %s.",
 		c.Account,
 		formatTimestamp(c.billingPeriod.Start),
 		formatTimestamp(c.billingPeriod.End),
 	)
-	fmt.Printf("\n")
-	fmt.Printf("Reading usage data from storage...\n")
-	fmt.Printf("Provider: %s\n", c.Provider)
-	fmt.Printf("Bucket: %s\n", c.Bucket)
+	p.Println()
+	p.Println("Reading usage data from storage...")
+	p.Printfln("Provider: %s", c.Provider)
+	p.Printfln("Bucket: %s", c.Bucket)
 	if c.Endpoint != "" {
-		fmt.Printf("Endpoint: %s\n", c.Endpoint)
+		p.Printfln("Endpoint: %s", c.Endpoint)
 	}
 
 	if err := c.collectReport(); err != nil {
@@ -211,14 +211,14 @@ func (c *exportCmd) Run() error {
 		return err
 	}
 
-	fmt.Printf("\n")
-	fmt.Printf("Billing report saved to %s\n", c.outAbs)
+	p.Println()
+	p.Printfln("Billing report saved to %s", c.outAbs)
 	return nil
 }
 
 func (c *exportCmd) cleanupOnError() {
 	if err := os.Remove(c.outAbs); err != nil {
-		fmt.Fprintf(os.Stderr, "error cleaning up: %s", err)
+		pterm.Error.Printfln("error cleaning up: %s", err)
 	}
 }
 
@@ -249,7 +249,7 @@ func (c *exportCmd) collectReport() error {
 	if err != nil {
 		return errors.Wrap(err, "error creating report")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck // We're writing to a file, close errors are not critical here
 	gw := gzip.NewWriter(f)
 	tw := tar.NewWriter(gw)
 	rw, err := reporttar.NewWriter(tw, report.Meta{

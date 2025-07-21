@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package group contains commands for working with groups in spaces.
+// Package group handles group commands
 package group
 
 import (
@@ -20,8 +20,6 @@ import (
 	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
-
-var fieldNames = []string{"NAME", "PROTECTED"} //nolint:gochecknoglobals // Const used by list and get.
 
 func init() {
 	runtime.Must(spacesv1beta1.AddToScheme(scheme.Scheme))
@@ -62,7 +60,7 @@ type Cmd struct {
 	Get    getCmd    `cmd:"" help:"Get a group."`
 }
 
-// Help returns help text.
+// Help prints help.
 func (c *Cmd) Help() string {
 	return style.RenderHelp(`
 The <group> command interacts with groups within the current space. Both Upbound profiles and

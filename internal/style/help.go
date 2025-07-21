@@ -42,7 +42,7 @@ var (
 			Foreground(UpboundBrandColor)
 )
 
-// - Bullet points: Lines starting with "- ".
+// FormatHelp formats a help string with styling applied to various markdown-like elements.
 func FormatHelp(help string) string {
 	lines := strings.Split(strings.TrimSpace(help), "\n")
 	result := make([]string, 0, len(lines))

@@ -12,7 +12,6 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
@@ -27,9 +26,13 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client ctrlclient.Client, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client ctrlclient.Client) error {
 	// list groups
-	var nss corev1.NamespaceList
+	var (
+		nss        corev1.NamespaceList
+		fieldNames = []string{"NAME", "PROTECTED"}
+	)
+
 	if err := client.List(ctx, &nss, ctrlclient.MatchingLabels(map[string]string{spacesv1beta1.ControlPlaneGroupLabelKey: "true"})); err != nil {
 		return err
 	}

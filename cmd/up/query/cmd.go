@@ -13,8 +13,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-var printFlags = get.NewGetPrintFlags()
-
 // QueryCmd contains commands for querying control plane objects.
 type cmd struct {
 	// general printer flags
@@ -41,12 +39,15 @@ type cmd struct {
 	namespace  string // inside the control plane
 }
 
+// NotFound print Message NotFound.
 type NotFound interface {
 	PrintMessage() error
 }
 
+// NotFoundFunc is a function type that implements the NotFound interface.
 type NotFoundFunc func() error
 
+// PrintMessage print a message.
 func (f NotFoundFunc) PrintMessage() error {
 	return f()
 }

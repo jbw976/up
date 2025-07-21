@@ -24,6 +24,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
+// GetCmd is used for query.
 type GetCmd struct {
 	cmd
 
@@ -31,6 +32,7 @@ type GetCmd struct {
 	AllNamespaces bool   `help:"If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with --namespace." name:"all-namespaces" short:"A"`
 }
 
+// BeforeReset is the first hook to run.
 func (c *GetCmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 	return feature.HideMaturity(p, maturity)
 }
@@ -58,7 +60,7 @@ func (c *GetCmd) AfterApply(kongCtx *kong.Context) error {
 	// example: https://host/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp-kine/k8s
 	base, controlPlane, found := profile.ParseSpacesK8sURL(ctpConfig.Host)
 	if !found {
-		return errors.New("You are not connected to a control plane.")
+		return errors.New("you are not connected to a control plane")
 	}
 
 	// create Spaces API kubeconfig
@@ -104,6 +106,7 @@ func (c *GetCmd) AfterApply(kongCtx *kong.Context) error {
 	return c.afterApply()
 }
 
+// Help prints help.
 func (c *GetCmd) Help() string {
 	return style.RenderHelp(`
 The <get> command retrieves resources from a control plane.
