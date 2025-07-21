@@ -39,7 +39,7 @@ import (
 
 const (
 	labelConnectorOwned        = "connect.upbound.io/connector-secret"
-	controllersRoleBindingName = "controlplane-controller"
+	controllersRoleBindingName = "controlplane-controller-api-connector"
 )
 
 type provisionerResults struct {
@@ -191,12 +191,27 @@ func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client
 		ObjectMeta: metav1.ObjectMeta{
 			Name: controllersRoleBindingName,
 		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "User",
+				Name:     "upbound:robot:" + p.results.Robot.Name,
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     "controlplane-controller",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
 	}
 
 	err := spacesClient.Get(ctx, client.ObjectKey{
 		Name: controllersRoleBindingName,
 	}, &currentControllerRoleBinding)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return spacesClient.Create(ctx, &currentControllerRoleBinding)
+		}
 		return errors.Wrap(err, "failed to get current controller role binding")
 	}
 
