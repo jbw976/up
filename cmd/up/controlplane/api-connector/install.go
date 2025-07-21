@@ -108,7 +108,7 @@ func (c *installCmd) Help() string {
 	return `
 The 'install' command installs the API Connector into a cluster.
 
-Note: API Connector is alpha feature.
+Note: API Connector is an alpha feature.
 
 Examples:
     up controlplane api-connector install <` +
@@ -143,7 +143,7 @@ Examples:
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
-	// Check if we match current contexst:
+	// Check if we match current context:
 	po := clientcmd.NewDefaultPathOptions()
 	conf, err := po.GetStartingConfig()
 	if err != nil {
