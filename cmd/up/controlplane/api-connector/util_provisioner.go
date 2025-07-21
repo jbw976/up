@@ -221,13 +221,13 @@ func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client
 	var found bool
 	for _, subject := range currentControllerRoleBinding.Subjects {
 		if subject.Kind == "User" && subject.Name == "upbound:robot:"+p.results.Robot.Name {
-			p.printer.Printfln("\nRobot %s already has access to the namespace %s.", nice(p.results.Robot.Name), nice(namespace))
+			p.printer.Printfln("\nRobot %s already has access to the provider control plane %s.", nice(p.results.Robot.Name), nice(namespace))
 			found = true
 			break
 		}
 	}
 	if !found {
-		p.printer.Printfln("Robot %s does not have access to the namespace %s. Will add it.", p.results.Robot.Name, namespace)
+		p.printer.Printfln("Robot %s does not have access to the provider control plane %s. Will add it.", p.results.Robot.Name, namespace)
 		currentControllerRoleBinding.Subjects = append(currentControllerRoleBinding.Subjects, rbacv1.Subject{
 			Kind:     "User",
 			Name:     "upbound:robot:" + p.results.Robot.Name,
@@ -464,7 +464,7 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 	// We already have the connector installed. Moving into the upgrade logic.
 	switch {
 	case cliDesiredVersion == currentVersion:
-		p.printer.Printfln("API Connector is already installed. And matches the current known version. Skipping installation. Use --version to install a different version.")
+		p.printer.Printfln("API Connector is already installed. And matches the current known version %s. Skipping installation. Use --version to install a different version.", nice(currentVersion))
 		return nil
 	case cliDesiredVersion != currentVersion && o.upgrade:
 		p.printer.Printfln("Upgrading API Connector from %s to %s.", nice(currentVersion), nice(cliDesiredVersion))
@@ -472,7 +472,7 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 			return err
 		}
 	default:
-		p.printer.Printfln("API Connector is already installed, but does not match the current known version. Skipping installation. Use --upgrade to upgrade the connector.")
+		p.printer.Printfln("API Connector is already installed, but does not match the current known version %s. Skipping installation. Use --upgrade to upgrade the connector.", nice(currentVersion))
 		return nil
 	}
 

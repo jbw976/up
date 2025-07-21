@@ -180,19 +180,17 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 
 	// validate if user by mistake provided upbound context for consumer cluster
 	var consumerRestConfig *rest.Config
-	if c.ConsumerKubeconfig != "" {
-		po := clientcmd.ClientConfigLoadingRules{
-			ExplicitPath: c.ConsumerKubeconfig,
-		}
+	consumerConfigLoader := clientcmd.ClientConfigLoadingRules{
+		ExplicitPath: c.ConsumerKubeconfig,
+	}
 
-		cfg, err := po.Load()
-		if err != nil {
-			return fmt.Errorf("failed to load kubeconfig: %w", err)
-		}
+	consumerConfig, err := consumerConfigLoader.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
 
-		if cfg.CurrentContext == "upbound" {
-			return errors.New("cannot use upbound context for consumer cluster")
-		}
+	if consumerConfig.CurrentContext == "upbound" {
+		return errors.New("cannot use upbound context for consumer cluster")
 	}
 
 	consumerRestConfig, err = kube.GetKubeConfigWithContext(c.ConsumerKubeconfig, c.ConsumerContext)
