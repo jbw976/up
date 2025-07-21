@@ -18,6 +18,7 @@ import (
 
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/migration"
 	"github.com/upbound/up/pkg/migration/importer"
@@ -43,25 +44,26 @@ type importCmd struct {
 }
 
 func (c *importCmd) Help() string {
-	return `
+	return style.RenderHelp(`
 By default, all managed resources will be paused during the import process for possible manual inspection/validation.
 You can use the --unpause-after-import flag to automatically unpause all claim,composite,managed resources after the import process completes.
 
-Examples:
-    migration import --input=my-export.tar.gz
+## Usage Examples:
+
+    up migration import --input=<my-export.tar.gz>
         Automatically imports the control plane state from my-export.tar.gz.
         Claim and composite resources that were paused during export will remain paused.
         Managed resources will be paused. If they were already paused during export, the annotation migration.upbound.io/already-paused: "true" will be added to preserve their paused state.
 
-    migration import --unpause-after-import
+    up migration import --unpause-after-import
         Automatically imports and unpauses claim,composite,managed resources after the import.
-		Resources with the annotation migration.upbound.io/already-paused: "true" will remain paused.
+        Resources with the annotation migration.upbound.io/already-paused: "true" will remain paused.
 
-	migration import --unpause-after-import --mcp-connector-claim-namespace=default --mcp-connector-cluster-id=my-cluster-id
-		Automatically imports and unpauses claims, composites, and managed resources after the import process.
-		The metadata.name of claims will be adjusted for MCP Connector compatibility, and the corresponding composite's claimRef will also be updated.
-		Resources annotated with migration.upbound.io/already-paused: "true" will remain paused.
-`
+    up migration import --unpause-after-import --mcp-connector-claim-namespace=<default> --mcp-connector-cluster-id=<my-cluster-id>
+        Automatically imports and unpauses claims, composites, and managed resources after the import process.
+        The metadata.name of claims will be adjusted for MCP Connector compatibility, and the corresponding composite's claimRef will also be updated.
+        Resources annotated with migration.upbound.io/already-paused: "true" will remain paused.
+`)
 }
 
 // BeforeApply sets default values for the delete command, before assignment and validation.

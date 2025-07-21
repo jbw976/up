@@ -15,6 +15,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/style"
 	apiproject "github.com/upbound/up/pkg/apis/project"
 )
 
@@ -26,19 +27,21 @@ type Cmd struct {
 
 // Help returns help text for the upgrade command.
 func (c *Cmd) Help() string {
-	return `
-The 'upgrade' command upgrades a project to a newer API version.
+	return style.RenderHelp(`
+The <upgrade> command upgrades a project to a newer API version.
 
-Usage Examples:
-    project upgrade
+## Usage Examples:
+
+    up project upgrade
         Upgrades the project in the current directory to the latest supported version.
 
-    project upgrade --project-file custom-project.yaml
+    up project upgrade --project-file <custom-project.yaml>
         Upgrades a project with a custom file name.
 
-Currently supported upgrades:
-- v1alpha1 → v2alpha1: Adds Crossplane v2 features
-`
+## Currently Supported Upgrades:
+
+- *v1alpha1 → v2alpha1*: Adds Crossplane v2 features
+`)
 }
 
 // AfterApply constructs and binds Upbound-specific context.

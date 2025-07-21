@@ -99,33 +99,32 @@ type installCmd struct {
 }
 
 func (c *installCmd) Help() string {
-	return `
-The 'install' command installs the API Connector into a consumer cluster.
+	return style.RenderHelp(`
+The <install> command installs the API Connector into a consumer cluster.
 
 Note: API Connector is a preview feature. The feature is under active development and subject to breaking changes. Use for testing and evaluation purposes only.
 
-Examples:
-    up controlplane api-connector install ` +
-		`--consumer-kubeconfig <` +
-		nice("kubeconfig-path-for-consumer-cluster") +
-		`>
+## Usage Examples:
+
+    up controlplane api-connector install --consumer-kubeconfig <kubeconfig-path-for-consumer-cluster>
         Installs the API Connector into the consumer cluster and connects it to the control plane which 'up ctx' is set to.
 
-    up controlplane api-connector install ` +
-		`--consumer-kubeconfig <` +
-		nice("kubeconfig-path-for-consumer-cluster") +
-		`> --robot-name <` +
-		nice("upbound-robot-name") +
-		`>
+    up controlplane api-connector install --consumer-kubeconfig <kubeconfig-path-for-consumer-cluster> --robot-name <upbound-robot-name>
         Installs the API Connector into the cluster, connects it to the control plane which 'up ctx' is set to, and uses the provided robot name for authentication.
 
-	up controlplane api-connector install ` +
-		`--consumer-kubeconfig <` +
-		nice("kubeconfig-path-for-consumer-cluster") +
-		`> --skip-connection
-
+    up controlplane api-connector install --consumer-kubeconfig <kubeconfig-path-for-consumer-cluster> --skip-connection
         Installs the API Connector into the cluster, but does not provision any ClusterConnection resource, nor create any robot.
-`
+
+## Parameters:
+
+    <kubeconfig-path-for-consumer-cluster>
+        Path to the kubeconfig file for the target Kubernetes cluster where the API Connector will be installed.
+        Example: ~/.kube/config or /path/to/cluster.kubeconfig
+
+    <connection-resources-name>
+        Optional custom name for the connection resources.
+        If not specified, defaults to the control plane name.
+`)
 }
 
 // AfterApply sets default values in command after assignment and validation.

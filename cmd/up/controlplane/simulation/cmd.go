@@ -21,6 +21,7 @@ import (
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/feature"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -63,11 +64,25 @@ type Cmd struct {
 
 // Help prints help.
 func (c *Cmd) Help() string {
-	return `
-Manage control plane simulations. Simulations allow you to "simulate" what
-happens on the control plane and see what would changes after the changes are
+	return style.RenderHelp(`
+The <simulation> command manages control plane simulations. Simulations allow you to "simulate" what
+happens on the control plane and see what changes would occur after the changes are
 applied.
-`
+
+## Usage Examples:
+
+    up controlplane simulation create <control-plane-name>
+        Creates a new simulation for the specified control plane.
+        Waits for the simulation to complete and shows results.
+
+    up controlplane simulation list
+        Lists all simulations for the current account.
+        Shows simulation status and age.
+
+    up controlplane simulation delete <simulation-name>
+        Deletes the specified simulation.
+        Removes simulation results and resources.
+`)
 }
 
 func extractFields(obj any) []string {

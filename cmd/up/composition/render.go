@@ -21,6 +21,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
@@ -30,38 +31,45 @@ import (
 )
 
 func (c *renderCmd) Help() string {
-	return `
-The 'render' command shows you what composed resources Crossplane would create by
+	return style.RenderHelp(`
+The <render> command shows you what composed resources Crossplane would create by
 printing them to stdout. It also prints any changes that would be made to the
 status of the XR. It doesn't talk to Crossplane. Instead it runs the Composition
 Function pipeline specified by the Composition locally, and uses that to render
 the XR.
 
-Use the standard DOCKER_HOST, DOCKER_API_VERSION, DOCKER_CERT_PATH, and
-DOCKER_TLS_VERIFY environment variables to configure how this command connects
-to the Docker daemon.
+## Usage Examples:
 
-Examples:
+    up composition render <composition.yaml> <xr.yaml>
+        Simulate creating a new XR.
 
-  # Simulate creating a new XR.
-  composition render composition.yaml xr.yaml
+    up composition render <composition.yaml> <xr.yaml> \
+        --observed-resources=<existing-observed-resources.yaml>
+        Simulate updating an XR that already exists.
 
-  # Simulate updating an XR that already exists.
-  composition render composition.yaml xr.yaml \
-    --observed-resources=existing-observed-resources.yaml
+    up composition render <composition.yaml> <xr.yaml> \
+        --context-values=<apiextensions.crossplane.io/environment='{"key": "value"}'>
+        Pass context values to the Function pipeline.
 
-  # Pass context values to the Function pipeline.
-  composition render composition.yaml xr.yaml \
-    --context-values=apiextensions.crossplane.io/environment='{"key": "value"}'
+    up composition render <composition.yaml> <xr.yaml> \
+        --extra-resources=<extra-resources.yaml>
+        Pass extra resources Functions in the pipeline can request.
 
-  # Pass extra resources Functions in the pipeline can request.
-  composition render composition.yaml xr.yaml \
-	--extra-resources=extra-resources.yaml
+    up composition render <composition.yaml> <xr.yaml> \
+        --function-credentials=<credentials.yaml>
+        Pass credentials to Functions in the pipeline that need them.
 
-  # Pass credentials to Functions in the pipeline that need them.
-  composition render composition.yaml xr.yaml \
-	--function-credentials=credentials.yaml
-`
+## Docker Configuration:
+
+The render command uses Docker to run Composition Functions. Configure the Docker
+connection using these standard environment variables:
+
+    <DOCKER_HOST>                 Docker daemon socket (e.g., unix:///var/run/docker.sock)
+    <DOCKER_API_VERSION>          Docker API version to use
+    <DOCKER_CERT_PATH>            Path to Docker TLS certificates
+    <DOCKER_TLS_VERIFY>           Enable TLS verification (1 or 0)
+
+`)
 }
 
 type renderCmd struct {

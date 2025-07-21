@@ -11,29 +11,31 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
 type viewCmd struct{}
 
 func (c *viewCmd) Help() string {
-	return `
-The 'view' command displays all configured Upbound profiles in JSON format.
+	return style.RenderHelp(`
+The <view> command displays all configured Upbound profiles in JSON format.
 
 This command outputs detailed information about all profiles, including:
-  - Profile names as keys
-  - Profile configuration details (with sensitive data redacted)
-  - Profile type, organization, domain, and other settings
+- Profile names as keys
+- Profile configuration details (with sensitive data redacted)
+- Profile type, organization, domain, and other settings
 
 The output is formatted as indented JSON for easy reading and processing.
 
-Usage Examples:
+## Usage Examples:
+
     up profile view
         Shows all profiles in JSON format.
 
     up profile view | jq '.["my-profile"]'
         Shows only the "my-profile" configuration using jq.
-`
+`)
 }
 
 // Run executes the list command.

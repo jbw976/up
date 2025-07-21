@@ -18,6 +18,7 @@ import (
 	queryv1alpha2 "github.com/upbound/up-sdk-go/apis/query/v1alpha2"
 	"github.com/upbound/up/cmd/up/query"
 	"github.com/upbound/up/cmd/up/query/resource"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -36,22 +37,31 @@ type Cmd struct {
 
 // Help returns help for the trace command.
 func (c *Cmd) Help() string {
-	return `Examples:
-  # Trace all buckets.
-  up alpha trace buckets
-        
-  # Trace all Crossplane claims.
-  up alpha trace claims
+	return style.RenderHelp(`
+The <trace> command traces the relationship between resources in a control plane.
 
-  # Trace buckets and vpcs.
-  up alpha trace buckets,vpc
+## Usage Examples:
 
-  # Trace the buckets prod and staging.
-  up alpha trace buckets prod staging
+    up alpha trace buckets
+        Trace all buckets.
+        Shows relationships and dependencies.
 
-  # Trace the bucket prod and the vpc default.
-  up alpha trace bucket/prod vpc/default 
-`
+    up alpha trace claims
+        Trace all Crossplane claims.
+        Displays claim to composite resource relationships.
+
+    up alpha trace buckets,vpc
+        Trace buckets and vpcs.
+        Shows relationships between multiple resource types.
+
+    up alpha trace buckets <prod> <staging>
+        Trace the buckets prod and staging.
+        Focuses on specific named resources.
+
+    up alpha trace bucket/<prod> vpc/<default>
+        Trace the bucket prod and the vpc default.
+        Traces specific resources by type and name.
+`)
 }
 
 // Run is the implementation of the command.

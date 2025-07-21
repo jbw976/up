@@ -8,14 +8,7 @@
 package query
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
-	"text/template"
-
 	"k8s.io/kubectl/pkg/cmd/get"
-
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
 )
@@ -46,55 +39,6 @@ type cmd struct {
 
 	printFlags *get.PrintFlags
 	namespace  string // inside the control plane
-}
-
-func help(cmdName string) (string, error) {
-	t, err := template.New("help").Parse(`Examples:
-  # List all S3 buckets in ps output format
-  {{.CmdName}} buckets
-
-  # List all buckets in ps output format with more information (such as node name)
-  {{.CmdName}} buckets -o wide
-
-  # List a single S3 bucket with specified NAME in ps output format
-  {{.CmdName}} bucket web-bucket-13je7
-
-  # List S3 buckets in JSON output format, in the "v1" version of the "s3.aws.upbound.io" API group
-  {{.CmdName}} buckets.v1.s3.aws.upbound.io -o json
-
-  # List a single bucket in JSON output format
-  {{.CmdName}} -o json bucket web-bucket-13je7
-
-  # Return only the external-name value of the specified bucket
-  {{.CmdName}} -o template bucket/web-bucket-13je7 --template={{"{{.metadata.annotations.external-name}}"}}
-
-  # List resource information in custom columns
-  {{.CmdName}} bucket test-bucket -o custom-columns=NAME:.spec.forProvider.name,SIZE:.status.atProvider.size
-
-  # List all replication controllers and services together in ps output format
-  {{.CmdName}} buckets,vpcs
-
-  # List one or more resources by their type and names
-  {{.CmdName}} vpc/prod bucket/backup providerconfig/kube
-`)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to create help template")
-	}
-
-	type Data struct {
-		CmdName string
-		Formats string
-	}
-
-	output := new(bytes.Buffer)
-	if err := t.Execute(output, Data{
-		CmdName: cmdName,
-		Formats: strings.Join(printFlags.AllowedFormats(), "|"),
-	}); err != nil {
-		return "", fmt.Errorf("error executing template: %w", err)
-	}
-
-	return output.String(), nil
 }
 
 type NotFound interface {
