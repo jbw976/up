@@ -73,7 +73,7 @@ type uninstallCmd struct {
 	targetClient     client.Client
 	targetRestConfig *rest.Config
 
-	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."                                required:"true"`
+	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used." required:"true"`
 	ConsumerContext    string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 
 	All bool `help:"Uninstall all resources including the connectors and secrets. If not provided, only the connector will be uninstalled."`
