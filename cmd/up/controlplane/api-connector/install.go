@@ -87,7 +87,7 @@ type installCmd struct {
 	Version string `help:"Version of the API Connector to install. If not provided, the latest, known to CLI, will be installed."`
 
 	// Identity flags
-	Name         string `help:"Name of the related objects for named connection. If not provided, last segment of the full qualified name will be used."`
+	Name         string `help:"Name of the related objects for named connection. If not provided, control plane name will be used."`
 	UpboundToken string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 
 	// Installation flags
