@@ -7,15 +7,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	docker "github.com/docker/docker/client"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +20,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/ctp/certs"
+	"github.com/upbound/up/internal/docker"
 )
 
 func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir string, certSecret *corev1.Secret) (string, error) {
@@ -33,22 +28,12 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	const regImage = "xpkg.upbound.io/upbound/olareg:v0.1.2"
 	certDir := filepath.Join(dir, ".certs")
 
-	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to create docker client")
-	}
-
 	// Check for existing registry container.
-	cs, err := cli.ContainerList(ctx, container.ListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: regName}),
-		// Include non-running containers, so we don't end up with a naming
-		// conflict.
-		All: true,
-	})
+	existing, found, err := docker.GetContainerIDByName(ctx, regName, true)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to list containers")
+		return "", errors.Wrap(err, "failed to look up existing registry container")
 	}
-	if len(cs) > 0 {
+	if found {
 		// Registry container exists. Check whether it has the right certificate
 		// data; if not, delete and re-create it. If we fail to read the file it
 		// probably was deleted, so re-create.
@@ -57,27 +42,16 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 		caData, err := os.ReadFile(filepath.Join(certDir, "ca.crt"))
 		if err == nil && bytes.Equal(caData, certSecret.Data[certs.SecretKeyCACert]) {
 			// Make sure the container is running.
-			if err := cli.ContainerStart(ctx, cs[0].ID, container.StartOptions{}); err != nil {
-				return "", errors.Wrap(err, "failed to start registry container")
+			if err := docker.StartContainerByID(ctx, existing); err != nil {
+				return "", errors.Wrap(err, "failed to start existing registry container")
 			}
 
-			return cs[0].ID, nil
+			return existing, nil
 		}
 
-		if err := teardownLocalRegistry(ctx, cli, cs[0].ID); err != nil {
+		if err := teardownLocalRegistry(ctx, existing); err != nil {
 			return "", errors.Wrap(err, "failed to tear down outdated registry")
 		}
-	}
-
-	// Find kind's network so we can attach the registry to it.
-	ns, err := cli.NetworkList(ctx, network.ListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: "kind"}),
-	})
-	if err != nil {
-		return "", errors.Wrap(err, "failed to list networks")
-	}
-	if len(ns) < 1 {
-		return "", errors.New("missing kind network")
 	}
 
 	// Write the TLS cert and key files.
@@ -94,36 +68,22 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 		return "", errors.New("failed to write tls key")
 	}
 
-	// Start a new registry container.
-	if _, err := cli.ImageInspect(ctx, regImage); err != nil {
-		out, err := cli.ImagePull(ctx, regImage, image.PullOptions{})
-		if err != nil {
-			// Return the error encountered during image pull
-			return "", errors.Wrapf(err, "failed to pull image %q", regImage)
-		}
-
-		// Ensure the image pull is complete by reading the output stream
-		if _, err := io.Copy(io.Discard, out); err != nil {
-			return "", errors.Wrapf(err, "failed to read image pull output for %s", regImage)
-		}
-	}
-
-	resp, err := cli.ContainerCreate(ctx,
-		&container.Config{
-			Image: regImage,
-			Cmd:   []string{"serve", "--dir=/registry-data", "--api-push=false", "--store-ro", "--tls-cert=/registry-data/.certs/tls.crt", "--tls-key=/registry-data/.certs/tls.key"},
-		},
-		&container.HostConfig{
-			Binds: []string{
-				dir + ":/registry-data",
-			},
-		},
-		nil, nil, regName)
+	// Find kind's network so we can attach the registry to it.
+	nid, found, err := docker.GetNetworkIDByName(ctx, "kind")
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create registry container")
+		return "", errors.Wrap(err, "failed to get kind network ID")
+	}
+	if !found {
+		return "", errors.New("missing kind network")
 	}
 
-	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	// Start the registry container.
+	cid, err := docker.StartContainer(ctx, regName, regImage,
+		docker.StartWithCommand([]string{"serve", "--dir=/registry-data", "--api-push=false", "--store-ro", "--tls-cert=/registry-data/.certs/tls.crt", "--tls-key=/registry-data/.certs/tls.key"}),
+		docker.StartWithBindMount(dir, "/registry-data"),
+		docker.StartWithNetworkID(nid),
+	)
+	if err != nil {
 		return "", errors.Wrap(err, "failed to start registry container")
 	}
 
@@ -132,26 +92,18 @@ func ensureLocalRegistry(ctx context.Context, cl client.Client, regName, dir str
 	// ready, it will be dead now and Crossplane will be sad when we try to
 	// install packages from it. Unfortunately, docker doesn't make this easy.
 
-	// Connect to kind's network.
-	if err := cli.NetworkConnect(ctx, ns[0].ID, resp.ID, nil); err != nil {
-		return "", errors.Wrap(err, "failed to connect registry to network")
-	}
-
 	// Configure containerd in the cluster to accept the local registry's CA
 	// certificate.
 	if err := configureContainerdLocalRegistry(ctx, cl, regName, string(certSecret.Data[certs.SecretKeyCACert])); err != nil {
 		return "", errors.Wrap(err, "failed to configure registry in kind cluster")
 	}
 
-	return resp.ID, nil
+	return cid, nil
 }
 
-func teardownLocalRegistry(ctx context.Context, cli *docker.Client, cid string) error {
-	if err := cli.ContainerStop(ctx, cid, container.StopOptions{}); err != nil {
+func teardownLocalRegistry(ctx context.Context, cid string) error {
+	if err := docker.StopContainerByID(ctx, cid); err != nil {
 		return errors.Wrap(err, "failed to stop registry container")
-	}
-	if err := cli.ContainerRemove(ctx, cid, container.RemoveOptions{Force: true}); err != nil {
-		return errors.Wrap(err, "failed to remove registry container")
 	}
 
 	return nil
