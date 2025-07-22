@@ -828,7 +828,7 @@ func processSchemaDefaults(schema *spec.Schema) {
 	apiVersion := constructAPIVersion(group, version)
 
 	// Add defaults to properties
-	addSchemaPropertyDefaults(schema, apiVersion, kind)
+	addSchemaPropertyDefaultsGo(schema, apiVersion, kind)
 }
 
 func extractGVKList(rawExt any) []map[string]any {
@@ -866,7 +866,7 @@ func constructAPIVersion(group, version string) string {
 	return version
 }
 
-func addSchemaPropertyDefaults(schema *spec.Schema, apiVersion, kind string) {
+func addSchemaPropertyDefaultsGo(schema *spec.Schema, apiVersion, kind string) {
 	if schema.Properties == nil {
 		return
 	}
