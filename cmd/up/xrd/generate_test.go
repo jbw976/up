@@ -16,7 +16,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 )
 
 // TestNewXRDv1 tests the newXRD function.
@@ -711,7 +711,7 @@ spec:
 // TestNewXRDv2 tests the newXRDv2 function.
 func TestNewXRDv2(t *testing.T) {
 	type want struct {
-		xrd *v2alpha1.CompositeResourceDefinition
+		xrd *v2.CompositeResourceDefinition
 		err error
 	}
 
@@ -733,28 +733,28 @@ spec:
 `,
 			customPlural: "xeks",
 			want: want{
-				xrd: &v2alpha1.CompositeResourceDefinition{
+				xrd: &v2.CompositeResourceDefinition{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						APIVersion: "apiextensions.crossplane.io/v2",
 						Kind:       "CompositeResourceDefinition",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "xeks.aws.u5d.io",
 					},
-					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+					Spec: v2.CompositeResourceDefinitionSpec{
 						Group: "aws.u5d.io",
-						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Scope: v2.CompositeResourceScopeCluster,
 						Names: extv1.CustomResourceDefinitionNames{
 							Categories: []string{"crossplane"},
 							Kind:       "XEKS",
 							Plural:     "xeks",
 						},
-						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+						Versions: []v2.CompositeResourceDefinitionVersion{
 							{
 								Name:          "v1",
 								Referenceable: true,
 								Served:        true,
-								Schema: &v2alpha1.CompositeResourceValidation{
+								Schema: &v2.CompositeResourceValidation{
 									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
 										Description: "XEKS is the Schema for the XEKS API.",
 										Type:        "object",
@@ -805,28 +805,28 @@ spec:
 `,
 			customPlural: "eks",
 			want: want{
-				xrd: &v2alpha1.CompositeResourceDefinition{
+				xrd: &v2.CompositeResourceDefinition{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						APIVersion: "apiextensions.crossplane.io/v2",
 						Kind:       "CompositeResourceDefinition",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "eks.aws.u5d.io",
 					},
-					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+					Spec: v2.CompositeResourceDefinitionSpec{
 						Group: "aws.u5d.io",
-						Scope: v2alpha1.CompositeResourceScopeNamespaced,
+						Scope: v2.CompositeResourceScopeNamespaced,
 						Names: extv1.CustomResourceDefinitionNames{
 							Categories: []string{"crossplane"},
 							Kind:       "EKS",
 							Plural:     "eks",
 						},
-						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+						Versions: []v2.CompositeResourceDefinitionVersion{
 							{
 								Name:          "v1",
 								Referenceable: true,
 								Served:        true,
-								Schema: &v2alpha1.CompositeResourceValidation{
+								Schema: &v2.CompositeResourceValidation{
 									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
 										Description: "EKS is the Schema for the EKS API.",
 										Type:        "object",
@@ -875,28 +875,28 @@ spec:
 `,
 			customPlural: "postgreses",
 			want: want{
-				xrd: &v2alpha1.CompositeResourceDefinition{
+				xrd: &v2.CompositeResourceDefinition{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						APIVersion: "apiextensions.crossplane.io/v2",
 						Kind:       "CompositeResourceDefinition",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "postgreses.database.u5d.io",
 					},
-					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+					Spec: v2.CompositeResourceDefinitionSpec{
 						Group: "database.u5d.io",
-						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Scope: v2.CompositeResourceScopeCluster,
 						Names: extv1.CustomResourceDefinitionNames{
 							Categories: []string{"crossplane"},
 							Kind:       "Postgres",
 							Plural:     "postgreses",
 						},
-						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+						Versions: []v2.CompositeResourceDefinitionVersion{
 							{
 								Name:          "v1",
 								Referenceable: true,
 								Served:        true,
-								Schema: &v2alpha1.CompositeResourceValidation{
+								Schema: &v2.CompositeResourceValidation{
 									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
 										Description: "Postgres is the Schema for the Postgres API.",
 										Type:        "object",
@@ -943,28 +943,28 @@ status:
   bucketName: test
 `,
 			want: want{
-				xrd: &v2alpha1.CompositeResourceDefinition{
+				xrd: &v2.CompositeResourceDefinition{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						APIVersion: "apiextensions.crossplane.io/v2",
 						Kind:       "CompositeResourceDefinition",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "buckets.storage.u5d.io",
 					},
-					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+					Spec: v2.CompositeResourceDefinitionSpec{
 						Group: "storage.u5d.io",
-						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Scope: v2.CompositeResourceScopeCluster,
 						Names: extv1.CustomResourceDefinitionNames{
 							Categories: []string{"crossplane"},
 							Kind:       "Bucket",
 							Plural:     "buckets",
 						},
-						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+						Versions: []v2.CompositeResourceDefinitionVersion{
 							{
 								Name:          "v1",
 								Referenceable: true,
 								Served:        true,
-								Schema: &v2alpha1.CompositeResourceValidation{
+								Schema: &v2.CompositeResourceValidation{
 									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
 										Description: "Bucket is the Schema for the Bucket API.",
 										Type:        "object",
@@ -1027,28 +1027,28 @@ spec:
 `,
 			customPlural: "xeks",
 			want: want{
-				xrd: &v2alpha1.CompositeResourceDefinition{
+				xrd: &v2.CompositeResourceDefinition{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "apiextensions.crossplane.io/v2alpha1",
+						APIVersion: "apiextensions.crossplane.io/v2",
 						Kind:       "CompositeResourceDefinition",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "xeks.aws.u5d.io",
 					},
-					Spec: v2alpha1.CompositeResourceDefinitionSpec{
+					Spec: v2.CompositeResourceDefinitionSpec{
 						Group: "aws.u5d.io",
-						Scope: v2alpha1.CompositeResourceScopeCluster,
+						Scope: v2.CompositeResourceScopeCluster,
 						Names: extv1.CustomResourceDefinitionNames{
 							Categories: []string{"crossplane"},
 							Kind:       "XEKS",
 							Plural:     "xeks",
 						},
-						Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+						Versions: []v2.CompositeResourceDefinitionVersion{
 							{
 								Name:          "v1",
 								Referenceable: true,
 								Served:        true,
-								Schema: &v2alpha1.CompositeResourceValidation{
+								Schema: &v2.CompositeResourceValidation{
 									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
 										Description: "XEKS is the Schema for the XEKS API.",
 										Type:        "object",

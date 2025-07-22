@@ -14,7 +14,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
@@ -189,7 +189,7 @@ func IsValidatingWebhookConfiguration(o runtime.Object) error {
 // IsXRD checks that an object is a CompositeResourceDefinition.
 func IsXRD(o runtime.Object) error {
 	switch o.(type) {
-	case *v1.CompositeResourceDefinition, *v2alpha1.CompositeResourceDefinition:
+	case *v1.CompositeResourceDefinition, *v2.CompositeResourceDefinition:
 		return nil
 	default:
 		return fmt.Errorf(errNotXRD, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind)

@@ -18,7 +18,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	"github.com/crossplane/crossplane/xcrd"
 
 	icrd "github.com/upbound/up/internal/crd"
@@ -182,7 +182,7 @@ func (c *generateCmd) processXRDFile() error {
 	return c.outputResource(resource)
 }
 
-// readXRDFile reads and unmarshals the XRD file, returning either v1 or v2alpha1 XRD.
+// readXRDFile reads and unmarshals the XRD file, returning either v1 or v2 XRD.
 func (c *generateCmd) readXRDFile() (interface{}, error) {
 	xrdRaw, err := afero.ReadFile(c.projFS, c.relXrdFilePath)
 	if err != nil {
@@ -204,11 +204,11 @@ func (c *generateCmd) readXRDFile() (interface{}, error) {
 			return nil, errors.Wrapf(err, "failed to unmarshal v1 XRD file")
 		}
 		return xrd, nil
-	case v2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
-		var xrd v2alpha1.CompositeResourceDefinition
+	case v2.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		var xrd v2.CompositeResourceDefinition
 		err = yaml.Unmarshal(xrdRaw, &xrd)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal v2alpha1 XRD file")
+			return nil, errors.Wrapf(err, "failed to unmarshal v2 XRD file")
 		}
 		return xrd, nil
 	default:
@@ -216,7 +216,7 @@ func (c *generateCmd) readXRDFile() (interface{}, error) {
 	}
 }
 
-// createCRDFromXRD creates a CRD from the XRD (supports both v1 and v2alpha1).
+// createCRDFromXRD creates a CRD from the XRD (supports both v1 and v2).
 func (c *generateCmd) createCRDFromXRD(xrd interface{}) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
@@ -237,19 +237,19 @@ func (c *generateCmd) createCRDFromXRD(xrd interface{}) (*apiextensionsv1.Custom
 				return nil, errors.Wrapf(err, "cannot derive composite CRD from v1 XRD %q for Composite Resource", xrdName)
 			}
 		}
-	case v2alpha1.CompositeResourceDefinition:
+	case v2.CompositeResourceDefinition:
 		xrdName = x.GetName()
-		// For v2alpha1 XRDs, we only support XRs (no XRCs)
+		// For v2 XRDs, we only support XRs (no XRCs)
 		switch c.Type {
 		case xrString:
-			// Convert v2alpha1 XRD to v1 format for xcrd processing
-			v1XRD := ixrd.ConvertV2Alpha1ToV1(&x)
+			// Convert v2 XRD to v1 format for xcrd processing
+			v1XRD := ixrd.ConvertV2ToV1(&x)
 			crd, err = xcrd.ForCompositeResource(v1XRD)
 			if err != nil {
-				return nil, errors.Wrapf(err, "cannot derive composite CRD from v2alpha1 XRD %q for Composite Resource", xrdName)
+				return nil, errors.Wrapf(err, "cannot derive composite CRD from v2 XRD %q for Composite Resource", xrdName)
 			}
 		default:
-			return nil, errors.New("v2alpha1 XRDs only support Composite Resources (XRs), not Composite Resource Claims (XRCs)")
+			return nil, errors.New("v2 XRDs only support Composite Resources (XRs), not Composite Resource Claims (XRCs)")
 		}
 	default:
 		return nil, errors.New("unsupported XRD type")

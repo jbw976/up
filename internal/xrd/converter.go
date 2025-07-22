@@ -8,11 +8,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 )
 
-// ConvertV2Alpha1ToV1 converts a v2alpha1 XRD to v1 XRD format for compatibility with existing xcrd functions.
-func ConvertV2Alpha1ToV1(v2XRD *v2alpha1.CompositeResourceDefinition) *v1.CompositeResourceDefinition {
+// ConvertV2ToV1 converts a v2 XRD to v1 XRD format for compatibility with existing xcrd functions.
+func ConvertV2ToV1(v2XRD *v2.CompositeResourceDefinition) *v1.CompositeResourceDefinition {
 	v1XRD := &v1.CompositeResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
@@ -27,12 +27,12 @@ func ConvertV2Alpha1ToV1(v2XRD *v2alpha1.CompositeResourceDefinition) *v1.Compos
 		},
 	}
 
-	// Convert scope from v2alpha1 to v1
+	// Convert scope from v2 to v1
 	switch v2XRD.Spec.Scope {
-	case v2alpha1.CompositeResourceScopeNamespaced:
+	case v2.CompositeResourceScopeNamespaced:
 		scope := v1.CompositeResourceScopeNamespaced
 		v1XRD.Spec.Scope = &scope
-	case v2alpha1.CompositeResourceScopeCluster:
+	case v2.CompositeResourceScopeCluster:
 		scope := v1.CompositeResourceScopeCluster
 		v1XRD.Spec.Scope = &scope
 	default:
