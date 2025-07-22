@@ -16,6 +16,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -25,6 +26,7 @@ import (
 	"github.com/upbound/up-sdk-go"
 	authorizationv1alpha1 "github.com/upbound/up-sdk-go/apis/authorization/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
@@ -59,11 +61,12 @@ const (
 // installCmd connects the current cluster to a control plane in an account on
 // Upbound.
 type installCmd struct {
-	parser           install.ParameterParser
-	targetClient     client.Client
-	targetRestConfig *rest.Config
-	spaceClient      client.Client
-	sdkConfig        *up.Config
+	parser             install.ParameterParser
+	consumerClient     client.Client
+	consumerRestConfig *rest.Config
+
+	spaceClient client.Client
+	sdkConfig   *up.Config
 
 	// All below will be used to construct secret, object names in the consumer
 	// cluster to connect to the control plane. These are derived from the exported variables
@@ -84,14 +87,13 @@ type installCmd struct {
 	Version string `help:"Version of the API Connector to install. If not provided, the latest, known to CLI, will be installed."`
 
 	// Identity flags
-	FullyQualifiedControlPlaneName string `arg:""                                                                                                                          help:"Full qualified name of the control plane. If not provided, the name argument value will be used. Example: organization-name/upbound-gcp-us-west-1/default/my-control-plane"`
-	Name                           string `help:"Name of the related objects for named connection. If not provided, last segment of the full qualified name will be used."`
-	UpboundToken                   string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
+	Name         string `help:"Name of the related objects for named connection. If not provided, control plane name will be used."`
+	UpboundToken string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 
 	// Installation flags
-	SkipConnection          bool   `help:"Skip secret and connection initialization to the control plane. If provided, the connector will be installed without connecting to the control plane."`
-	TargetKubeconfig        string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."`
-	TargetKubeconfigContext string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
+	SkipConnection     bool   `help:"Skip secret and connection initialization to the control plane. If provided, the connector will be installed without connecting to the control plane."`
+	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."                                required:"true"`
+	ConsumerContext    string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 
 	ControlPlaneSecretNamespace string `default:"upbound-system"                                                    help:"Namespace of the secret that contains the kubeconfig for a control plane."`
 	ControlPlaneSecretName      string `help:"Name of the secret that contains the kubeconfig for a control plane."`
@@ -105,6 +107,8 @@ type installCmd struct {
 func (c *installCmd) Help() string {
 	return `
 The 'install' command installs the API Connector into a cluster.
+
+Note: API Connector is an alpha feature.
 
 Examples:
     up controlplane api-connector install <` +
@@ -139,10 +143,22 @@ Examples:
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
-	parts := strings.Split(c.FullyQualifiedControlPlaneName, "/")
-	if len(parts) != 4 {
-		return errors.New("control plane name must be in the format: " + nice("organization-name/upbound-gcp-us-west-1/default/my-control-plane"))
+	// Check if we match current context:
+	po := clientcmd.NewDefaultPathOptions()
+	conf, err := po.GetStartingConfig()
+	if err != nil {
+		return err
 	}
+	initialState, err := ctxcmd.DeriveState(context.Background(), upCtx, conf, kube.GetIngressHost)
+	if err != nil {
+		return err
+	}
+
+	parts := strings.Split(initialState.Breadcrumbs().String(), "/")
+	if len(parts) != 4 {
+		return errors.New("current context must be set to a control plane (expected format: organization/space/group/controlplane)")
+	}
+
 	c.organization = parts[0]
 	c.space = parts[1]
 	c.group = parts[2]
@@ -156,29 +172,40 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	if !strings.HasPrefix(c.space, "upbound-") {
 		return errors.New("space name must start with 'upbound-'")
 	}
-	c.spacesHostname = c.space + spacesHostnameSuffix
+
+	// TODO(mjudeikis): Once "spaces" arg is configurable this will need to be updated.
+	c.spacesHostname = "https://" + c.space + spacesHostnameSuffix
 
 	c.installationNamespace = defaultInstallationNamespace
 
-	var targetRestConfig *rest.Config
-	var err error
-	if c.TargetKubeconfig != "" {
-		targetRestConfig, err = kube.GetKubeConfigWithContext(c.TargetKubeconfig, c.TargetKubeconfigContext)
-	} else {
-		targetRestConfig, err = upCtx.Kubecfg.ClientConfig()
+	// validate if user by mistake provided upbound context for consumer cluster
+	var consumerRestConfig *rest.Config
+	consumerConfigLoader := clientcmd.ClientConfigLoadingRules{
+		ExplicitPath: c.ConsumerKubeconfig,
 	}
+
+	consumerConfig, err := consumerConfigLoader.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load kubeconfig: %w", err)
+	}
+
+	if consumerConfig.CurrentContext == "upbound" {
+		return errors.New("cannot use upbound context for consumer cluster")
+	}
+
+	consumerRestConfig, err = kube.GetKubeConfigWithContext(c.ConsumerKubeconfig, c.ConsumerContext)
 	if err != nil {
 		return fmt.Errorf("failed to get target kubeconfig: %w", err)
 	}
-	c.targetRestConfig = targetRestConfig
+	c.consumerRestConfig = consumerRestConfig
 
-	targetKubeClient, err := client.New(targetRestConfig, client.Options{
+	consumerKubeClient, err := client.New(consumerRestConfig, client.Options{
 		Scheme: scheme.Scheme,
 	})
 	if err != nil {
 		return err
 	}
-	c.targetClient = targetKubeClient
+	c.consumerClient = consumerKubeClient
 
 	spaceRestConfig, err := upCtx.Kubecfg.ClientConfig()
 	if err != nil {
@@ -240,7 +267,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		func() error {
 			// First and foremost - check if we have a connection with same name already as
 			// further action will bork if we have a connection with same name.
-			_, err = provisioner.getConnection(ctx, c.targetClient, c.name)
+			_, err = provisioner.getConnection(ctx, c.consumerClient, c.name)
 			if err != nil && !apierrors.IsNotFound(err) {
 				return errors.Wrap(err, "failed to get connection")
 			}
@@ -309,11 +336,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
 			stepSpinner,
 			func() error {
-				namespace, err := upCtx.GetCurrentContextNamespace()
-				if err != nil {
-					return errors.Wrap(err, "failed to get current context namespace")
-				}
-				return provisioner.seedAccess(ctx, c.spaceClient, namespace)
+				return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
 			},
 			printer,
 		); err != nil {
@@ -335,7 +358,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 				upgrade:   c.Upgrade,
 			}
 
-			if err := provisioner.installOrUpgradeConnector(ctx, c.targetRestConfig, installOptions); err != nil {
+			if err := provisioner.installOrUpgradeConnector(ctx, c.consumerRestConfig, installOptions); err != nil {
 				return errors.Wrap(err, "failed to install or upgrade")
 			}
 			return nil
@@ -355,7 +378,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		upterm.StepCounter("Creating connection secret", 5, totalSteps),
 		stepSpinner,
 		func() error {
-			return provisioner.seedConnectionSecret(ctx, c.targetClient, c.name, c.installationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
+			return provisioner.seedConnectionSecret(ctx, c.consumerClient, c.name, c.installationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
 		},
 		printer,
 	); err != nil {
@@ -367,7 +390,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		upterm.StepCounter("Creating connection", 5, totalSteps),
 		stepSpinner,
 		func() error {
-			return provisioner.seedConnection(ctx, c.targetClient, c.name, c.installationNamespace)
+			return provisioner.seedConnection(ctx, c.consumerClient, c.name, c.installationNamespace)
 		},
 		printer,
 	); err != nil {

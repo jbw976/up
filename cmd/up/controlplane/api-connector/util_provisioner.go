@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pterm/pterm"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -39,7 +39,7 @@ import (
 
 const (
 	labelConnectorOwned        = "connect.upbound.io/connector-secret"
-	controllersRoleBindingName = "controlplane-controller"
+	controllersRoleBindingName = "controlplane-controller-api-connector"
 )
 
 type provisionerResults struct {
@@ -52,7 +52,6 @@ type provisionerResults struct {
 
 	// These will be used to setup access.
 	Robot            organizations.Robot
-	Team             organizations.Team
 	OrganizationName string
 	Token            string
 }
@@ -144,7 +143,8 @@ func (p *provisioner) seedRobots(ctx context.Context, clusterName string) error 
 			return errors.Wrap(err, "failed to create robot")
 		}
 		p.results.Robot = organizations.Robot{
-			ID: robot.ID,
+			ID:   robot.ID,
+			Name: clusterName,
 		}
 	}
 	return nil
@@ -182,14 +182,26 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 	return nil
 }
 
-func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, namespace string) error {
-	if p.results.Team.ID.String() == "" {
-		return errors.New("programmer error: seedTeams should have been called first")
+func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, name string) error {
+	if p.results.Robot.Name == "" {
+		return errors.New("programmer error: seedRobots should have been called first")
 	}
 
 	currentControllerRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: controllersRoleBindingName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "User",
+				Name:     "upbound:robot:" + p.results.Robot.Name,
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     "controlplane-controller",
+			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
 
@@ -197,6 +209,9 @@ func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client
 		Name: controllersRoleBindingName,
 	}, &currentControllerRoleBinding)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return spacesClient.Create(ctx, &currentControllerRoleBinding)
+		}
 		return errors.Wrap(err, "failed to get current controller role binding")
 	}
 
@@ -206,13 +221,13 @@ func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client
 	var found bool
 	for _, subject := range currentControllerRoleBinding.Subjects {
 		if subject.Kind == "User" && subject.Name == "upbound:robot:"+p.results.Robot.Name {
-			p.printer.Printfln("\nRobot %s already has access to the namespace %s.", nice(p.results.Robot.Name), nice(namespace))
+			p.printer.Printfln("\nRobot %s already has access to the provider control plane %s.", nice(p.results.Robot.Name), nice(name))
 			found = true
 			break
 		}
 	}
 	if !found {
-		p.printer.Printfln("Robot %s does not have access to the namespace %s. Will add it.", p.results.Robot.Name, namespace)
+		p.printer.Printfln("Robot %s does not have access to the provider control plane %s. Will add it.", p.results.Robot.Name, name)
 		currentControllerRoleBinding.Subjects = append(currentControllerRoleBinding.Subjects, rbacv1.Subject{
 			Kind:     "User",
 			Name:     "upbound:robot:" + p.results.Robot.Name,
@@ -320,21 +335,22 @@ func (p *provisioner) seedConnection(ctx context.Context, targetClient client.Cl
 		},
 	}
 
-	err := targetClient.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, &connection)
+	currentConnection, err := p.getConnection(ctx, targetClient, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			connection.Object["spec"] = body
-			return targetClient.Create(ctx, &connection)
+			err := targetClient.Create(ctx, &connection)
+			if err != nil {
+				return errors.Wrap(err, "failed to create connection")
+			}
+			return nil
 		}
 		return errors.Wrap(err, "failed to get connection")
 	}
 
 	// Its an update
-	connection.Object["spec"] = body
-	return targetClient.Update(ctx, &connection)
+	currentConnection.Object["spec"] = body
+	return targetClient.Update(ctx, currentConnection)
 }
 
 func (p *provisioner) getConnection(ctx context.Context, targetClient client.Client, name string) (*unstructured.Unstructured, error) {
@@ -351,16 +367,18 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 	err := targetClient.Get(ctx, client.ObjectKey{
 		Name: name,
 	}, &connection)
-	if apierrors.IsNotFound(err) {
+	if err != nil {
+		// Original error is from ctrl runtime client and does not quite implement errors.Is/As
+		// so here we are...
+		if strings.Contains(err.Error(), "unable to retrieve the complete list of server") {
+			return nil, apierrors.NewNotFound(schema.GroupResource{
+				Group:    "connect.upbound.io",
+				Resource: "ClusterConnection",
+			}, name)
+		}
 		return nil, err
 	}
-	// This happens when crds are not installed.
-	if errors.As(err, &apiutil.ErrResourceDiscoveryFailed{}) {
-		return nil, apierrors.NewNotFound(schema.GroupResource{ // create sintetic error.
-			Group:    "connect.upbound.io",
-			Resource: "ClusterConnection",
-		}, name)
-	}
+
 	return &connection, nil
 }
 
@@ -446,7 +464,7 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 	// We already have the connector installed. Moving into the upgrade logic.
 	switch {
 	case cliDesiredVersion == currentVersion:
-		p.printer.Printfln("API Connector is already installed. And matches the current known version. Skipping installation. Use --version to install a different version.")
+		p.printer.Printfln("API Connector is already installed. And matches the current known version %s. Skipping installation. Use --version to install a different version.", nice(currentVersion))
 		return nil
 	case cliDesiredVersion != currentVersion && o.upgrade:
 		p.printer.Printfln("Upgrading API Connector from %s to %s.", nice(currentVersion), nice(cliDesiredVersion))
@@ -454,7 +472,7 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 			return err
 		}
 	default:
-		p.printer.Printfln("API Connector is already installed, but does not match the current known version. Skipping installation. Use --upgrade to upgrade the connector.")
+		p.printer.Printfln("API Connector is already installed, but does not match the current known version %s. Skipping installation. Use --upgrade to upgrade the connector.", nice(currentVersion))
 		return nil
 	}
 

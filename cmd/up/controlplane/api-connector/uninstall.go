@@ -38,19 +38,19 @@ Examples:
 
 // AfterApply sets default values in command after assignment and validation.
 func (c *uninstallCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
-	var targetRestConfig *rest.Config
+	var consumerRestConfig *rest.Config
 	var err error
-	if c.TargetKubeconfig != "" {
-		targetRestConfig, err = kube.GetKubeConfigWithContext(c.TargetKubeconfig, c.TargetKubeconfigContext)
-	} else {
-		targetRestConfig, err = upCtx.Kubecfg.ClientConfig()
-	}
+	consumerRestConfig, err = kube.GetKubeConfigWithContext(c.ConsumerKubeconfig, c.ConsumerContext)
 	if err != nil {
 		return err
 	}
-	c.targetRestConfig = targetRestConfig
 
-	targetKubeClient, err := client.New(targetRestConfig, client.Options{
+	if err != nil {
+		return err
+	}
+	c.targetRestConfig = consumerRestConfig
+
+	targetKubeClient, err := client.New(consumerRestConfig, client.Options{
 		Scheme: scheme.Scheme,
 	})
 	if err != nil {
@@ -73,8 +73,8 @@ type uninstallCmd struct {
 	targetClient     client.Client
 	targetRestConfig *rest.Config
 
-	TargetKubeconfig        string `help:"Path to the kubeconfig file for the cluster. If not provided, the current context will be used."`
-	TargetKubeconfigContext string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
+	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used." required:"true"`
+	ConsumerContext    string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 
 	All bool `help:"Uninstall all resources including the connectors and secrets. If not provided, only the connector will be uninstalled."`
 }
