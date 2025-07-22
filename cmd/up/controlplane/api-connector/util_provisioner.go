@@ -182,7 +182,7 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 	return nil
 }
 
-func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, namespace string) error {
+func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client, name string) error {
 	if p.results.Robot.Name == "" {
 		return errors.New("programmer error: seedRobots should have been called first")
 	}
@@ -221,13 +221,13 @@ func (p *provisioner) seedAccess(ctx context.Context, spacesClient client.Client
 	var found bool
 	for _, subject := range currentControllerRoleBinding.Subjects {
 		if subject.Kind == "User" && subject.Name == "upbound:robot:"+p.results.Robot.Name {
-			p.printer.Printfln("\nRobot %s already has access to the provider control plane %s.", nice(p.results.Robot.Name), nice(namespace))
+			p.printer.Printfln("\nRobot %s already has access to the provider control plane %s.", nice(p.results.Robot.Name), nice(name))
 			found = true
 			break
 		}
 	}
 	if !found {
-		p.printer.Printfln("Robot %s does not have access to the provider control plane %s. Will add it.", p.results.Robot.Name, namespace)
+		p.printer.Printfln("Robot %s does not have access to the provider control plane %s. Will add it.", p.results.Robot.Name, name)
 		currentControllerRoleBinding.Subjects = append(currentControllerRoleBinding.Subjects, rbacv1.Subject{
 			Kind:     "User",
 			Name:     "upbound:robot:" + p.results.Robot.Name,

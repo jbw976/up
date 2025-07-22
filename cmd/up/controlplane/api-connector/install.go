@@ -336,11 +336,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
 			stepSpinner,
 			func() error {
-				namespace, err := upCtx.GetCurrentContextNamespace()
-				if err != nil {
-					return errors.Wrap(err, "failed to get current context namespace")
-				}
-				return provisioner.seedAccess(ctx, c.spaceClient, namespace)
+				return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
 			},
 			printer,
 		); err != nil {
