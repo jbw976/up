@@ -18,7 +18,7 @@ import (
 //go:embed testdata/*.yaml
 var testdataFS embed.FS
 
-func TestGenerateGo(t *testing.T) {
+func TestGenerateFromCRDGo(t *testing.T) {
 	inputFS := afero.NewBasePathFs(afero.FromIOFS{FS: testdataFS}, "testdata")
 	schemaFS, err := goGenerator{}.GenerateFromCRD(t.Context(), inputFS, nil)
 	assert.NilError(t, err)
@@ -29,6 +29,49 @@ func TestGenerateGo(t *testing.T) {
 		"models/co/acme/platform/v1alpha1/accountscaffold.go",
 		"models/co/acme/platform/v1alpha1/xaccountscaffold.go",
 		"models/io/upbound/azure/web/v1beta1/linuxfunctionapp.go",
+	}
+
+	files := token.NewFileSet()
+	for _, path := range expectedFiles {
+		exists, err := afero.Exists(schemaFS, path)
+		assert.NilError(t, err)
+		assert.Assert(t, exists, "expected model file %s does not exist", path)
+
+		contents, err := afero.ReadFile(schemaFS, path)
+		assert.NilError(t, err)
+
+		// Basic validation of file contents - we're not going to make sure they
+		// contain exactly the right stuff, just that they're syntactially OK
+		// and have the right module and package names.
+		switch filepath.Ext(path) {
+		case ".go":
+			f, err := parser.ParseFile(files, path, contents, parser.ParseComments)
+			assert.NilError(t, err)
+			expectedPackage := filepath.Base(filepath.Dir(path))
+			assert.Equal(t, f.Name.Name, expectedPackage)
+
+		case ".mod":
+			mod, err := modfile.Parse(path, contents, nil)
+			assert.NilError(t, err)
+			assert.Equal(t, mod.Module.Mod.Path, "dev.upbound.io/models")
+		}
+	}
+}
+
+func TestGenerateFromOpenAPIGo(t *testing.T) {
+	inputFS := afero.NewBasePathFs(afero.FromIOFS{FS: testdataJSONFS}, "testdata")
+	schemaFS, err := goGenerator{}.GenerateFromOpenAPI(t.Context(), inputFS, nil)
+	assert.NilError(t, err)
+
+	expectedFiles := []string{
+		"models/go.mod",
+		"models/io/k8s/util/v1/intstr.go",
+		"models/io/k8s/runtime/v1/runtime.go",
+		"models/io/k8s/core/v1/core.go",
+		"models/policy/v1/policy.go",
+		"models/autoscaling/v1/autoscaling.go",
+		"models/io/k8s/resource/v1/resource.go",
+		"models/io/k8s/authentication/v1/authentication.go",
 	}
 
 	files := token.NewFileSet()
