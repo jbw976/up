@@ -259,7 +259,7 @@ func buildSchema(s runtime.RawExtension) (*extv1.JSONSchemaProps, error) {
 	for k, v := range p {
 		specProps.Properties[k] = v
 	}
-	for k, v := range xcrd.CompositeResourceClaimSpecProps() {
+	for k, v := range xcrd.CompositeResourceClaimSpecProps(nil) {
 		specProps.Properties[k] = v
 	}
 
@@ -274,7 +274,7 @@ func buildSchema(s runtime.RawExtension) (*extv1.JSONSchemaProps, error) {
 	for k, v := range statusP {
 		statusProps.Properties[k] = v
 	}
-	for k, v := range xcrd.CompositeResourceStatusProps() {
+	for k, v := range xcrd.CompositeResourceStatusProps(xpextv1.CompositeResourceScopeLegacyCluster) {
 		statusProps.Properties[k] = v
 	}
 

@@ -11,7 +11,6 @@ package xcrd
 
 import (
 	"encoding/json"
-	"fmt"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,14 +40,8 @@ const (
 // ForCompositeResource derives the CustomResourceDefinition for a composite
 // resource from the supplied CompositeResourceDefinition.
 func ForCompositeResource(xrd *v1.CompositeResourceDefinition) (*extv1.CustomResourceDefinition, error) {
-	scope := extv1.ClusterScoped
-	if xrd.Spec.Scope != nil {
-		scope = extv1.ResourceScope(*xrd.Spec.Scope)
-	}
-
 	crd := &extv1.CustomResourceDefinition{
 		Spec: extv1.CustomResourceDefinitionSpec{
-			Scope:      scope,
 			Group:      xrd.Spec.Group,
 			Names:      xrd.Spec.Names,
 			Versions:   make([]extv1.CustomResourceDefinitionVersion, len(xrd.Spec.Versions)),
@@ -62,6 +55,16 @@ func ForCompositeResource(xrd *v1.CompositeResourceDefinition) (*extv1.CustomRes
 		meta.TypedReferenceTo(xrd, v1.CompositeResourceDefinitionGroupVersionKind),
 	)})
 
+	scope := ptr.Deref(xrd.Spec.Scope, v1.CompositeResourceScopeLegacyCluster)
+	switch scope {
+	case v1.CompositeResourceScopeNamespaced:
+		crd.Spec.Scope = extv1.NamespaceScoped
+	case v1.CompositeResourceScopeCluster:
+		crd.Spec.Scope = extv1.ClusterScoped
+	case v1.CompositeResourceScopeLegacyCluster:
+		crd.Spec.Scope = extv1.ClusterScoped
+	}
+
 	crd.Spec.Names.Categories = append(crd.Spec.Names.Categories, CategoryComposite)
 
 	// The composite name is used as a label value, so we must ensure it is not
@@ -73,16 +76,19 @@ func ForCompositeResource(xrd *v1.CompositeResourceDefinition) (*extv1.CustomRes
 		if err != nil {
 			return nil, errors.Wrapf(err, errFmtGenCrd, "Composite Resource", xrd.Name)
 		}
-		crdv.AdditionalPrinterColumns = append(crdv.AdditionalPrinterColumns, CompositeResourcePrinterColumns()...)
-		props := CompositeResourceSpecProps()
-		if xrd.Spec.DefaultCompositionUpdatePolicy != nil {
-			cup := props["compositionUpdatePolicy"]
-			cup.Default = &extv1.JSON{Raw: []byte(fmt.Sprintf("\"%s\"", *xrd.Spec.DefaultCompositionUpdatePolicy))}
-			props["compositionUpdatePolicy"] = cup
-		}
+
+		crdv.AdditionalPrinterColumns = append(crdv.AdditionalPrinterColumns, CompositeResourcePrinterColumns(scope)...)
+
+		props := CompositeResourceSpecProps(scope, xrd.Spec.DefaultCompositionUpdatePolicy)
 		for k, v := range props {
 			crdv.Schema.OpenAPIV3Schema.Properties["spec"].Properties[k] = v
 		}
+
+		props = CompositeResourceStatusProps(scope)
+		for k, v := range props {
+			crdv.Schema.OpenAPIV3Schema.Properties["status"].Properties[k] = v
+		}
+
 		crd.Spec.Versions[i] = *crdv
 	}
 
@@ -124,16 +130,20 @@ func ForCompositeResourceClaim(xrd *v1.CompositeResourceDefinition) (*extv1.Cust
 		if err != nil {
 			return nil, errors.Wrapf(err, errFmtGenCrd, "Composite Resource Claim", xrd.Name)
 		}
+
 		crdv.AdditionalPrinterColumns = append(crdv.AdditionalPrinterColumns, CompositeResourceClaimPrinterColumns()...)
-		props := CompositeResourceClaimSpecProps()
-		if xrd.Spec.DefaultCompositeDeletePolicy != nil {
-			cdp := props["compositeDeletePolicy"]
-			cdp.Default = &extv1.JSON{Raw: []byte(fmt.Sprintf("\"%s\"", *xrd.Spec.DefaultCompositeDeletePolicy))}
-			props["compositeDeletePolicy"] = cdp
-		}
+
+		props := CompositeResourceClaimSpecProps(xrd.Spec.DefaultCompositeDeletePolicy)
 		for k, v := range props {
 			crdv.Schema.OpenAPIV3Schema.Properties["spec"].Properties[k] = v
 		}
+		// TODO(negz): This means claims will have status.claimConditionTypes.
+		// I think that's a bug - only XRs should have that field.
+		props = CompositeResourceStatusProps(v1.CompositeResourceScopeLegacyCluster)
+		for k, v := range props {
+			crdv.Schema.OpenAPIV3Schema.Properties["status"].Properties[k] = v
+		}
+
 		crd.Spec.Versions[i] = *crdv
 	}
 
@@ -155,6 +165,7 @@ func genCrdVersion(vr v1.CompositeResourceDefinitionVersion, maxNameLength int64
 			Status: &extv1.CustomResourceSubresourceStatus{},
 		},
 	}
+
 	s, err := parseSchema(vr.Schema)
 	if err != nil {
 		return nil, errors.Wrapf(err, errParseValidation)
@@ -170,6 +181,7 @@ func genCrdVersion(vr v1.CompositeResourceDefinitionVersion, maxNameLength int64
 	if old := s.Properties["metadata"].Properties["name"].MaxLength; old != nil && *old < maxLength {
 		maxLength = *old
 	}
+
 	xName := crdv.Schema.OpenAPIV3Schema.Properties["metadata"].Properties["name"]
 	xName.MaxLength = ptr.To(maxLength)
 	xName.Type = "string"
@@ -183,10 +195,12 @@ func genCrdVersion(vr v1.CompositeResourceDefinitionVersion, maxNameLength int64
 	cSpec.XPreserveUnknownFields = xSpec.XPreserveUnknownFields
 	cSpec.XValidations = append(cSpec.XValidations, xSpec.XValidations...)
 	cSpec.OneOf = append(cSpec.OneOf, xSpec.OneOf...)
+
 	cSpec.Description = xSpec.Description
 	for k, v := range xSpec.Properties {
 		cSpec.Properties[k] = v
 	}
+
 	crdv.Schema.OpenAPIV3Schema.Properties["spec"] = cSpec
 
 	xStatus := s.Properties["status"]
@@ -194,14 +208,14 @@ func genCrdVersion(vr v1.CompositeResourceDefinitionVersion, maxNameLength int64
 	cStatus.Required = xStatus.Required
 	cStatus.XValidations = xStatus.XValidations
 	cStatus.Description = xStatus.Description
+
 	cStatus.OneOf = xStatus.OneOf
 	for k, v := range xStatus.Properties {
 		cStatus.Properties[k] = v
 	}
-	for k, v := range CompositeResourceStatusProps() {
-		cStatus.Properties[k] = v
-	}
+
 	crdv.Schema.OpenAPIV3Schema.Properties["status"] = cStatus
+
 	return &crdv, nil
 }
 
@@ -238,27 +252,33 @@ func parseSchema(v *v1.CompositeResourceValidation) (*extv1.JSONSchemaProps, err
 	if err := json.Unmarshal(v.OpenAPIV3Schema.Raw, s); err != nil {
 		return nil, errors.Wrap(err, errParseValidation)
 	}
+
 	return s, nil
 }
 
 // setCrdMetadata sets the labels and annotations on the CRD.
 func setCrdMetadata(crd *extv1.CustomResourceDefinition, xrd *v1.CompositeResourceDefinition) *extv1.CustomResourceDefinition {
 	crd.SetLabels(xrd.GetLabels())
+
 	if xrd.Spec.Metadata != nil {
 		if xrd.Spec.Metadata.Labels != nil {
 			inheritedLabels := crd.GetLabels()
 			if inheritedLabels == nil {
 				inheritedLabels = map[string]string{}
 			}
+
 			for k, v := range xrd.Spec.Metadata.Labels {
 				inheritedLabels[k] = v
 			}
+
 			crd.SetLabels(inheritedLabels)
 		}
+
 		if xrd.Spec.Metadata.Annotations != nil {
 			crd.SetAnnotations(xrd.Spec.Metadata.Annotations)
 		}
 	}
+
 	return crd
 }
 
@@ -270,5 +290,6 @@ func IsEstablished(s extv1.CustomResourceDefinitionStatus) bool {
 			return c.Status == extv1.ConditionTrue
 		}
 	}
+
 	return false
 }
