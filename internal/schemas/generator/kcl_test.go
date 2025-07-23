@@ -233,6 +233,26 @@ func TestProcessSchemaReference(t *testing.T) {
 			currentSchemaName: "io.k8s.api.core.v1.Pod",
 			expected:          "CustomResource",
 		},
+		"QuantityReference": {
+			ref:               "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity",
+			currentSchemaName: "io.k8s.api.core.v1.ResourceRequirements",
+			expected:          "str",
+		},
+		"QuantityReferenceWithDifferentPath": {
+			ref:               "#/components/schemas/io.k8s.apimachinery.pkg.api.resource.Quantity",
+			currentSchemaName: "io.k8s.api.apps.v1.Deployment",
+			expected:          "str",
+		},
+		"TimeReference": {
+			ref:               "#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.Time",
+			currentSchemaName: "io.k8s.api.core.v1.Pod",
+			expected:          "str",
+		},
+		"TimeReferenceWithDifferentPath": {
+			ref:               "#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.Time",
+			currentSchemaName: "io.k8s.api.apps.v1.Deployment",
+			expected:          "str",
+		},
 	}
 
 	for name, tc := range tests {

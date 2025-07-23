@@ -429,6 +429,14 @@ func processSchemaReference(ref string, currentSchemaName string) string {
 	if strings.HasSuffix(refName, "IntOrString") {
 		return "int | str"
 	}
+	// Special case for Quantity - convert to string type
+	if strings.HasSuffix(refName, "Quantity") {
+		return "str"
+	}
+	// Special case for Time - convert to string type
+	if strings.HasSuffix(refName, "Time") {
+		return "str"
+	}
 	// Special case for RawExtension - convert to any
 	if strings.HasSuffix(refName, "RawExtension") {
 		return "any"
@@ -916,7 +924,7 @@ func checkForImports(schema *spec.Schema, imports map[string]bool, visited map[*
 			if allOfSchema.Ref.String() != "" {
 				refName := extractSchemaName(allOfSchema.Ref.String())
 				// Skip imports for types that are converted to native types
-				if !strings.HasSuffix(refName, "IntOrString") && !strings.HasSuffix(refName, "RawExtension") {
+				if !strings.HasSuffix(refName, "IntOrString") && !strings.HasSuffix(refName, "RawExtension") && !strings.HasSuffix(refName, "Quantity") && !strings.HasSuffix(refName, "Time") {
 					addImportIfNeeded(refName, imports)
 				}
 				// Don't recurse into references - we only need the import
@@ -928,7 +936,7 @@ func checkForImports(schema *spec.Schema, imports map[string]bool, visited map[*
 	if schema.Ref.String() != "" {
 		refName := extractSchemaName(schema.Ref.String())
 		// Skip imports for types that are converted to native types
-		if !strings.HasSuffix(refName, "IntOrString") && !strings.HasSuffix(refName, "RawExtension") {
+		if !strings.HasSuffix(refName, "IntOrString") && !strings.HasSuffix(refName, "RawExtension") && !strings.HasSuffix(refName, "Quantity") && !strings.HasSuffix(refName, "Time") {
 			addImportIfNeeded(refName, imports)
 		}
 		// Don't recurse into references - we only need the import
