@@ -5,7 +5,9 @@ package wizard
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
+	"slices"
 
 	"github.com/pterm/pterm"
 )
@@ -193,6 +195,12 @@ func deleteState(statePath string) {
 	_ = os.Remove(statePath)
 }
 
+func collectOptions[T any](from map[string]T) []string {
+	options := slices.Collect(maps.Keys(from))
+	slices.Sort(options)
+	return options
+}
+
 // askUser is the main function that runs the wizard. It handles the user's
 // input and updates the state accordingly.
 func askUser(state *State, statePath string) error { //nolint:gocognit // this is a state machine
@@ -202,11 +210,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 		var err error
 		switch state.Step {
 		case StepUseTemplate:
-			options := []string{}
-			for name := range availableTemplates {
-				options = append(options, name)
-			}
-			choice, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Would you like to use an existing template?")
+			choice, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(availableTemplates)).Show("Would you like to use an existing template?")
 			if err != nil {
 				return err
 			}
@@ -217,21 +221,13 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepChooseTemplateLanguage:
-			options := []string{}
-			for name := range SupportedLanguagesMap {
-				options = append(options, name)
-			}
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select language used for composition functions")
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select language used for composition functions")
 			if err != nil {
 				return err
 			}
 			state.FuncLang = SupportedLanguagesMap[result]
 		case StepChooseTemplateTestLanguage:
-			options := []string{}
-			for name := range SupportedTestLanguagesMap {
-				options = append(options, name)
-			}
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select language used for tests")
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedTestLanguagesMap)).Show("Select language used for tests")
 			if err != nil {
 				return err
 			}
@@ -291,11 +287,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepFuncLang:
-			options := []string{}
-			for name := range SupportedLanguagesMap {
-				options = append(options, name)
-			}
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select composition function language")
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select composition function language")
 			if err != nil {
 				return err
 			}
@@ -310,11 +302,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepTestLang:
-			options := []string{}
-			for name := range SupportedTestLanguagesMap {
-				options = append(options, name)
-			}
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(options).Show("Select test language")
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedTestLanguagesMap)).Show("Select test language")
 			if err != nil {
 				return err
 			}
@@ -329,11 +317,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepAIToolingChoice:
-			options := []string{}
-			for name := range SupportedAIToolingProvidersMap {
-				options = append(options, name)
-			}
-			result, err := pterm.DefaultInteractiveMultiselect.WithOptions(options).Show("Select the tooling provider(s)")
+			result, err := pterm.DefaultInteractiveMultiselect.WithOptions(collectOptions(SupportedAIToolingProvidersMap)).Show("Select the tooling provider(s)")
 			if err != nil {
 				return err
 			}
