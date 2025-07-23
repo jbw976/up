@@ -19,11 +19,13 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpextv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	"github.com/crossplane/crossplane/xcrd"
 
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
+	"github.com/upbound/up/internal/xrd"
 	projectv1alpha1 "github.com/upbound/up/pkg/apis/project/v1alpha1"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
@@ -54,6 +56,14 @@ func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[s
 			s.log.Debug(errFailedToGetValidatorsXRD, "info", err)
 		}
 		if err := validatorsForV1XRD(rd, validators); err != nil {
+			return nil, err
+		}
+	case *xpextv2alpha1.CompositeResourceDefinition:
+		if err := validatorsFromV2XRD(ctx, rd, validators); err != nil {
+			// XR validators failed we should log this and move on
+			s.log.Debug(errFailedToGetValidatorsXRD, "info", err)
+		}
+		if err := validatorsForV2XRD(rd, validators); err != nil {
 			return nil, err
 		}
 	case *xpextv1.Composition:
@@ -166,6 +176,49 @@ func validatorsFromV1XRD(ctx context.Context, x *xpextv1.CompositeResourceDefini
 }
 
 func validatorsForV1XRD(x *xpextv1.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
+	v, err := DefaultXRDValidators()
+	if err != nil {
+		return err
+	}
+	appendToValidators(schema.FromAPIVersionAndKind(x.APIVersion, x.Kind), acc, v)
+	return nil
+}
+
+func validatorsFromV2XRD(ctx context.Context, x *xpextv2alpha1.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
+	y := xrd.ConvertV2Alpha1ToV1(x)
+	errs := validateOpenAPIV3Schema(ctx, y)
+	if len(errs) != 0 {
+		// NOTE (@tnthornton) we're using this as a mechanism to ensure we don't
+		// cause upstream validators to panic while evaluating a broken schema.
+		// The error contents are meaningless, hence specifically grabbing the
+		// first in the slice.
+		return errs[0]
+	}
+
+	for _, v := range y.Spec.Versions {
+		// NOTE(tnthornton) if the version does not have a schema, do not
+		// attempt to create a validator.
+		if v.Schema != nil {
+			schema, err := buildSchema(v.Schema.OpenAPIV3Schema)
+			if err != nil {
+				return err
+			}
+
+			sv, _, err := newV1SchemaValidator(*schema)
+			if err != nil {
+				return err
+			}
+
+			if y.Spec.ClaimNames != nil {
+				appendToValidators(gvk(y.Spec.Group, v.Name, y.Spec.ClaimNames.Kind), acc, validator.NewUsingContext(sv))
+			}
+			appendToValidators(gvk(y.Spec.Group, v.Name, y.Spec.Names.Kind), acc, validator.NewUsingContext(sv))
+		}
+	}
+	return nil
+}
+
+func validatorsForV2XRD(x *xpextv2alpha1.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
 	v, err := DefaultXRDValidators()
 	if err != nil {
 		return err
