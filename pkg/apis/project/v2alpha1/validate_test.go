@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package v1alpha1
+package v2alpha1
 
 import (
 	"testing"
@@ -53,10 +53,11 @@ func TestValidate(t *testing.T) {
 						Version:  ">=0.2.1",
 					}},
 					Paths: &ProjectPaths{
-						APIs:      "apis/",
-						Functions: "functions/",
-						Examples:  "examples/",
-						Tests:     "tests/",
+						APIs:       "apis/",
+						Functions:  "functions/",
+						Examples:   "examples/",
+						Tests:      "tests/",
+						Operations: "operations/",
 					},
 					Architectures: []string{"arch1"},
 				},
@@ -102,10 +103,11 @@ func TestValidate(t *testing.T) {
 				Spec: &ProjectSpec{
 					Repository: "xpkg.upbound.io/acmeco/my-project",
 					Paths: &ProjectPaths{
-						APIs:      "/tmp/apis",
-						Functions: "/tmp/functions",
-						Examples:  "/tmp/examples",
-						Tests:     "/tmp/tests",
+						APIs:       "/tmp/apis",
+						Functions:  "/tmp/functions",
+						Examples:   "/tmp/examples",
+						Tests:      "/tmp/tests",
+						Operations: "/tmp/operations",
 					},
 				},
 			},
@@ -114,6 +116,7 @@ func TestValidate(t *testing.T) {
 				"functions path must be relative",
 				"examples path must be relative",
 				"tests path must be relative",
+				"operations path must be relative",
 			},
 		},
 		"EmptyArchitectures": {
@@ -322,10 +325,11 @@ func TestDefault(t *testing.T) {
 						Version:  ">=0.2.1",
 					}},
 					Paths: &ProjectPaths{
-						APIs:      "not-default-apis/",
-						Functions: "not-default-functions/",
-						Examples:  "not-default-examples/",
-						Tests:     "not-default-tests/",
+						APIs:       "not-default-apis/",
+						Functions:  "not-default-functions/",
+						Examples:   "not-default-examples/",
+						Tests:      "not-default-tests/",
+						Operations: "not-default-operations/",
 					},
 					Architectures: []string{"arch1"},
 				},
@@ -351,10 +355,11 @@ func TestDefault(t *testing.T) {
 						Version:  ">=0.2.1",
 					}},
 					Paths: &ProjectPaths{
-						APIs:      "not-default-apis/",
-						Functions: "not-default-functions/",
-						Examples:  "not-default-examples/",
-						Tests:     "not-default-tests/",
+						APIs:       "not-default-apis/",
+						Functions:  "not-default-functions/",
+						Examples:   "not-default-examples/",
+						Tests:      "not-default-tests/",
+						Operations: "not-default-operations/",
 					},
 					Architectures: []string{"arch1"},
 				},
@@ -376,12 +381,16 @@ func TestDefault(t *testing.T) {
 				Spec: &ProjectSpec{
 					Repository: "xpkg.upbound.io/acmeco/my-project",
 					Paths: &ProjectPaths{
-						APIs:      "apis",
-						Examples:  "examples",
-						Functions: "functions",
-						Tests:     "tests",
+						APIs:       "apis",
+						Examples:   "examples",
+						Functions:  "functions",
+						Tests:      "tests",
+						Operations: "operations",
 					},
 					Architectures: []string{"amd64", "arm64"},
+					Crossplane: &pkgmetav1.CrossplaneConstraints{
+						Version: ">=v2.0.0-rc.0",
+					},
 				},
 			},
 		},

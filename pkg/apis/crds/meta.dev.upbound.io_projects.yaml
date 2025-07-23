@@ -470,6 +470,11 @@ spec:
                       Functions is the directory holding the project's functions. If not
                       specified, it defaults to `functions/`.
                     type: string
+                  operations:
+                    description: |-
+                      Operations is the directory holding the project's operations. If not
+                      specified, it defaults to `operations/`.
+                    type: string
                   tests:
                     description: |-
                       Tests is the directory holding the project's tests. If not

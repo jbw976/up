@@ -63,6 +63,9 @@ type ProjectPaths struct {
 	// Tests is the directory holding the project's tests. If not
 	// specified, it defaults to `tests/`.
 	Tests string `json:"tests,omitempty"`
+	// Operations is the directory holding the project's operations. If not
+	// specified, it defaults to `operations/`.
+	Operations string `json:"operations,omitempty"`
 }
 
 // ImageMatch defines a rule for matching image.
