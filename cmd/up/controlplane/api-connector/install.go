@@ -92,7 +92,7 @@ type installCmd struct {
 
 	// Installation flags
 	SkipConnection     bool   `help:"Skip secret and connection initialization to the control plane. If provided, the connector will be installed without connecting to the control plane."`
-	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."                                required:"true"`
+	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."`
 	ConsumerContext    string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
 
 	ControlPlaneSecretNamespace string `default:"upbound-system"                                                    help:"Namespace of the secret that contains the kubeconfig for a control plane."`
@@ -189,7 +189,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 		return fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
-	if consumerConfig.CurrentContext == "upbound" {
+	if consumerConfig.CurrentContext == "upbound" && c.ConsumerContext == "" {
 		return errors.New("cannot use upbound context for consumer cluster")
 	}
 
