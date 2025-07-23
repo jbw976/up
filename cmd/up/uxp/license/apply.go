@@ -5,7 +5,6 @@ package license
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 
 	"github.com/pterm/pterm"
@@ -21,7 +20,7 @@ import (
 )
 
 type applyCmd struct {
-	LicenseFile string `arg:"" help:"File containing the base64-encoded license key." type:"filepath"`
+	LicenseFile string `arg:"" help:"File containing the license key." type:"filepath"`
 
 	Namespace string `default:"crossplane-system" help:"Namespace in which to create the license key secret."`
 
@@ -49,10 +48,9 @@ func (c *applyCmd) Run(cl client.Client) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	rd := base64.NewDecoder(base64.StdEncoding, f)
-	licenseBytes, err := io.ReadAll(rd)
+	licenseBytes, err := io.ReadAll(f)
 	if err != nil {
-		return errors.Wrap(err, "failed to decode license")
+		return errors.Wrap(err, "failed to read license")
 	}
 
 	s := &corev1.Secret{
