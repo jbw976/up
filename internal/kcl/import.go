@@ -16,6 +16,8 @@ func FormatKclImportPath(path string, existingAliases map[string]bool) (string, 
 
 	// Trim before "models" and replace slashes with dots
 	importPath := strings.ReplaceAll(path[modelsIndex:], "/", ".")
+	// Replace hyphens with underscores as hyphens are not valid in import identifiers
+	importPath = strings.ReplaceAll(importPath, "-", "_")
 
 	// Split path into components
 	parts := strings.Split(importPath, ".")
