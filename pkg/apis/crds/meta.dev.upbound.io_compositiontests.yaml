@@ -66,7 +66,7 @@ spec:
                 type: string
               context:
                 description: |-
-                  Context specifies context for the Function Pipeline inline or path.
+                  Context specifies context for the Function Pipeline inline.
                   Optional.
                 items:
                   type: object
@@ -74,7 +74,7 @@ spec:
                 type: array
               extraResources:
                 description: |-
-                  ExtraResources specifies additional resources inline or path.
+                  ExtraResources specifies additional resources inline.
                   Optional.
                 items:
                   type: object
@@ -87,7 +87,7 @@ spec:
                 type: string
               observedResources:
                 description: |-
-                  ObservedResources specifies additional observed resources inline or path.
+                  ObservedResources specifies additional observed resources inline.
                   Optional.
                 items:
                   type: object

@@ -60,12 +60,12 @@ type CompositionTestSpec struct {
 	// Optional.
 	CompositionPath string `json:"compositionPath,omitempty"`
 
-	// ObservedResources specifies additional observed resources inline or path.
+	// ObservedResources specifies additional observed resources inline.
 	// Optional.
 	// +kubebuilder:validation:Optional
 	ObservedResources []runtime.RawExtension `json:"observedResources,omitempty"`
 
-	// ExtraResources specifies additional resources inline or path.
+	// ExtraResources specifies additional resources inline.
 	// Optional.
 	// +kubebuilder:validation:Optional
 	ExtraResources []runtime.RawExtension `json:"extraResources,omitempty"`
@@ -75,7 +75,7 @@ type CompositionTestSpec struct {
 	// +kubebuilder:validation:Optional
 	FunctionCredentialsPath string `json:"functionCredentialsPath,omitempty"`
 
-	// Context specifies context for the Function Pipeline inline or path.
+	// Context specifies context for the Function Pipeline inline.
 	// Optional.
 	// +kubebuilder:validation:Optional
 	Context []runtime.RawExtension `json:"context,omitempty"`
