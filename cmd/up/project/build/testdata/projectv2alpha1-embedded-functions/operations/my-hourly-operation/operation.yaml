@@ -1,0 +1,11 @@
+apiVersion: ops.crossplane.io/v1alpha1
+kind: CronOperation
+metadata:
+  name: my-hourly-operation
+spec:
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline: []
+      retryLimit: 3
+  schedule: 0 * * * *
