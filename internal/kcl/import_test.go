@@ -47,6 +47,12 @@ func TestFormatKclImportPath(t *testing.T) {
 			expectedAlias:   "",
 			existingAliases: map[string]bool{},
 		},
+		"PathWithHyphens": {
+			inputPath:       "models/io/k8s/kube-aggregator/pkg/apis/apiregistration/v1",
+			expectedImport:  "models.io.k8s.kube_aggregator.pkg.apis.apiregistration.v1",
+			expectedAlias:   "apiregistrationv1",
+			existingAliases: map[string]bool{},
+		},
 	}
 
 	for name, tc := range tcs {
