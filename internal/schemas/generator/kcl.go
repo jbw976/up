@@ -770,15 +770,11 @@ func generatePropertyField(sb *strings.Builder, propName string, prop *spec.Sche
 	sb.WriteString(": ")
 	propType := convertOpenAPITypeToKCL(prop, allSchemas, currentSchemaName)
 
-	// Handle special cases for apiVersion and kind
-	if (propName == "apiVersion" || propName == "kind") && prop.Default != nil {
-		sb.WriteString(formatDefaultValue(prop.Default))
-	} else {
-		sb.WriteString(propType)
-	}
+	// Always write the property type first
+	sb.WriteString(propType)
 
 	// Add default value
-	if prop.Default != nil && propName != "apiVersion" && propName != "kind" {
+	if prop.Default != nil {
 		sb.WriteString(" = ")
 		sb.WriteString(formatDefaultValue(prop.Default))
 	}
