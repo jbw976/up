@@ -11,6 +11,8 @@ import (
 	"runtime"
 
 	"github.com/alecthomas/kong"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/upbound/up/internal/upbound"
@@ -153,8 +155,28 @@ func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 }
 
 // Run is the implementation of the command.
-func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.Printer) error {
+func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.Printer, span trace.Span) error {
+	// Add command attributes
+	span.SetAttributes(
+		attribute.String("command.name", "version"),
+		attribute.Bool("command.client_only", c.Client),
+	)
+
 	v := c.buildVersionInfo(ctx, kongCtx, upCtx)
+
+	span.AddEvent("version.build", trace.WithAttributes(
+		attribute.String("version.client", v.Client.Version),
+		attribute.String("version.go", v.Client.GoVersion),
+		attribute.String("version.os", v.Client.OS),
+		attribute.String("version.arch", v.Client.Arch),
+	))
+
+	if v.Server != nil {
+		span.AddEvent("version.server", trace.WithAttributes(
+			attribute.String("version.crossplane", v.Server.CrossplaneVersion),
+			attribute.String("version.spaces", v.Server.SpacesControllerVersion),
+		))
+	}
 
 	return printer.PrintTemplate(v, versionTemplate)
 }
