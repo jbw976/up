@@ -7,6 +7,7 @@ package initialize
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,6 +29,8 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
+
+const projectNotesPath = "NOTES.txt"
 
 // Cmd represents the command for initializing a new project. It handles the creation
 // of new projects from templates or scratch.
@@ -269,8 +272,17 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		c.Name, filesystem.FullPath(c.projFS, ""), repoURL, ref.Name().Short())
 
 	// if we got here from the wizard, we need to print the next steps
-	if wiz != nil {
+	if wiz != nil && c.Scratch {
 		wiz.wizard.PrintNextSteps(wiz.state)
+	}
+
+	if !c.Scratch {
+		notes, err := c.getProjectNotes()
+		if err != nil {
+			return err
+		}
+		pterm.Info.Println("Notes:")
+		pterm.Info.Println(notes)
 	}
 
 	return nil
@@ -361,4 +373,18 @@ func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 	}
 
 	return nil
+}
+
+func (c *Cmd) getProjectNotes() (string, error) {
+	notes, err := c.projFS.Open(projectNotesPath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to open project notes")
+	}
+	defer notes.Close() //nolint:errcheck // we don't care about the error here since we're just reading the file
+
+	notesContent, err := io.ReadAll(notes)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to read project notes")
+	}
+	return string(notesContent), nil
 }
