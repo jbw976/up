@@ -84,7 +84,7 @@ var validConfigurationFlags = map[string]ConfigurationFlag{
 		Internal:    true,
 		Description: "Endpoint to send telemetry to.",
 		Name:        ConfigurationTelemetryEndpoint,
-		Default:     "api.upbound.io:5556",
+		Default:     DefaultTelemetryEndpoint,
 	},
 	ConfigurationTelemetryDebug: {
 		Internal:    true,
@@ -346,6 +346,11 @@ func (c *Config) GetBaseConfiguration() (map[string]string, error) {
 func (c *Config) SetBaseConfiguration(key, value string) error {
 	if c.Upbound.Configuration == nil {
 		c.Upbound.Configuration = make(map[string]string)
+	}
+
+	if value == "" {
+		delete(c.Upbound.Configuration, key)
+		return nil
 	}
 
 	c.Upbound.Configuration[key] = value
