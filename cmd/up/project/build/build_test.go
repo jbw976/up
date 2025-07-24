@@ -77,6 +77,7 @@ func TestBuild(t *testing.T) {
 			expectedAnnotatedLayers: map[string]bool{
 				xpkg.PackageAnnotation:  true,
 				xpkg.ExamplesAnnotation: true,
+				"schema.mock":           true,
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -140,6 +141,7 @@ func TestBuild(t *testing.T) {
 			expectedAnnotatedLayers: map[string]bool{
 				xpkg.PackageAnnotation:  true,
 				xpkg.ExamplesAnnotation: false, // no-examples expected
+				"schema.mock":           true,
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -203,6 +205,7 @@ func TestBuild(t *testing.T) {
 			expectedAnnotatedLayers: map[string]bool{
 				xpkg.PackageAnnotation:  true,
 				xpkg.ExamplesAnnotation: false, // no-examples expected
+				"schema.mock":           true,
 			},
 			expectedLabels: func(c *Cmd) map[string]string {
 				return common.ImageLabels(c)
@@ -296,6 +299,8 @@ func TestBuild(t *testing.T) {
 					foundLayers := map[string]bool{
 						xpkg.PackageAnnotation:  false,
 						xpkg.ExamplesAnnotation: false,
+						// Schema lyer from our mock generator.
+						"schema.mock": false,
 					}
 
 					// Iterate over manifest layers to find annotations
