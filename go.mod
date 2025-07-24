@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
-	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250707185840-fdc0c3a142a4
+	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76
 	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250620185748-0d81d3f7c2d8
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.4.0

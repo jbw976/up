@@ -30,7 +30,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	xparser "github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpextv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	xpextv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/xpkg"
@@ -465,8 +465,8 @@ func (v *View) parseXRD(ctx parseContext) error {
 		}
 		v.xrClaimRefs[xrd.GetCompositeGroupVersionKind()] = xrd.GetClaimGroupVersionKind()
 		return nil
-	case xpextv2alpha1.CompositeResourceDefinitionGroupVersionKind:
-		var xrd xpextv2alpha1.CompositeResourceDefinition
+	case xpextv2.CompositeResourceDefinitionGroupVersionKind:
+		var xrd xpextv2.CompositeResourceDefinition
 		if err := k8syaml.Unmarshal(ctx.docBytes, &xrd); err != nil {
 			return err
 		}

@@ -922,8 +922,8 @@ github.com/cpuguy83/go-md2man/v2 v2.0.7/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6N
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/creack/pty v1.1.20 h1:VIPb/a2s17qNeQgDnkfZC35RScx+blkKF8GV68n80J4=
 github.com/creack/pty v1.1.20/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
-github.com/crossplane/crossplane v1.21.0-rc.0.0.20250707185840-fdc0c3a142a4 h1:W25Oeh4aOCbzFBvsxkFtHzQ++ASTumSau470kASH3WI=
-github.com/crossplane/crossplane v1.21.0-rc.0.0.20250707185840-fdc0c3a142a4/go.mod h1:fhgGxEG/07UAg1wrIaQoAmfHdJoj12Sa9USLETJZmxk=
+github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76 h1:P3ZQMwhQR5SNOORxiGpw+ICby/z2QQN286c5zvVMYEU=
+github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76/go.mod h1:SlUwMSW4yRwlxiOcwyJg/zvk1X6oG60bc46BWklr/tA=
 github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250620185748-0d81d3f7c2d8 h1:QuaMjrEZ97NfoMlTSwZdpLW5IKK3rWZlzvBGk6eAm3Y=
 github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250620185748-0d81d3f7c2d8/go.mod h1:0xIxmt+gYC/LACBVThD4SmN2HDz7o1REjz6ua1qKTdE=
 github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 h1:2Dx4IHfC1yHWI12AxQDJM1QbRCDfk6M+blLzlZCXdrc=

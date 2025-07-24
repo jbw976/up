@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 
 	_ "embed"
 )
@@ -215,14 +215,14 @@ func TestCreateCRDAndGenerateResource(t *testing.T) {
 	err := yaml.Unmarshal(xeksXRDYAML, &v1XRD)
 	assert.NilError(t, err, "Failed to unmarshal v1 sample XRD")
 
-	// Unmarshal the v2alpha1 Namespaced XRD
-	var v2XRDNamespaced v2alpha1.CompositeResourceDefinition
+	// Unmarshal the v2 Namespaced XRD
+	var v2XRDNamespaced v2.CompositeResourceDefinition
 	err = yaml.Unmarshal(v2XRDNamespacedYAML, &v2XRDNamespaced)
-	assert.NilError(t, err, "Failed to unmarshal v2alpha1 sample XRD")
+	assert.NilError(t, err, "Failed to unmarshal v2 sample XRD")
 
-	var v2XRDCluster v2alpha1.CompositeResourceDefinition
+	var v2XRDCluster v2.CompositeResourceDefinition
 	err = yaml.Unmarshal(v2XRDClusterYAML, &v2XRDCluster)
-	assert.NilError(t, err, "Failed to unmarshal v2alpha1 sample XRD")
+	assert.NilError(t, err, "Failed to unmarshal v2 sample XRD")
 
 	cases := map[string]struct {
 		xrd          interface{}
@@ -268,7 +268,7 @@ func TestCreateCRDAndGenerateResource(t *testing.T) {
 			xrd:          v2XRDNamespaced,
 			resourceType: "xrc",
 			want: want{
-				err: "v2alpha1 XRDs only support Composite Resources",
+				err: "v2 XRDs only support Composite Resources",
 			},
 		},
 		"V2XRNamespacedGeneration": {

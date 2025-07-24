@@ -21,7 +21,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 
 	"github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
@@ -176,7 +176,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	switch x := xrd.(type) {
 	case *v1.CompositeResourceDefinition:
 		pluralName = x.Spec.Names.Plural
-	case *v2alpha1.CompositeResourceDefinition:
+	case *v2.CompositeResourceDefinition:
 		pluralName = x.Spec.Names.Plural
 	}
 
@@ -438,7 +438,7 @@ func newXRDv1(yamlData []byte, customPlural string) (*v1.CompositeResourceDefini
 }
 
 // newXRDv2 creates a new CompositeResourceDefinition v2.
-func newXRDv2(yamlData []byte, customPlural string) (*v2alpha1.CompositeResourceDefinition, error) {
+func newXRDv2(yamlData []byte, customPlural string) (*v2.CompositeResourceDefinition, error) {
 	// Parse and validate common XRD data
 	parsed, err := parseAndValidateXRD(yamlData, customPlural)
 	if err != nil {
@@ -446,21 +446,21 @@ func newXRDv2(yamlData []byte, customPlural string) (*v2alpha1.CompositeResource
 	}
 
 	// For v2: Handle scope based on namespace
-	scope := v2alpha1.CompositeResourceScopeCluster
+	scope := v2.CompositeResourceScopeCluster
 	if parsed.hasNamespace {
-		scope = v2alpha1.CompositeResourceScopeNamespaced
+		scope = v2.CompositeResourceScopeNamespaced
 	}
 
 	// Construct the XRD v2
-	xrd := &v2alpha1.CompositeResourceDefinition{
+	xrd := &v2.CompositeResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
-			Kind:       v2alpha1.CompositeResourceDefinitionGroupVersionKind.Kind,
+			APIVersion: v2.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
+			Kind:       v2.CompositeResourceDefinitionGroupVersionKind.Kind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: strings.ToLower(fmt.Sprintf("%s.%s", parsed.plural, parsed.group)),
 		},
-		Spec: v2alpha1.CompositeResourceDefinitionSpec{
+		Spec: v2.CompositeResourceDefinitionSpec{
 			Group: parsed.group,
 			Scope: scope,
 			Names: extv1.CustomResourceDefinitionNames{
@@ -468,12 +468,12 @@ func newXRDv2(yamlData []byte, customPlural string) (*v2alpha1.CompositeResource
 				Kind:       flect.Capitalize(parsed.kind),
 				Plural:     strings.ToLower(parsed.plural),
 			},
-			Versions: []v2alpha1.CompositeResourceDefinitionVersion{
+			Versions: []v2.CompositeResourceDefinitionVersion{
 				{
 					Name:          parsed.version,
 					Referenceable: true,
 					Served:        true,
-					Schema: &v2alpha1.CompositeResourceValidation{
+					Schema: &v2.CompositeResourceValidation{
 						OpenAPIV3Schema: *parsed.rawSchema,
 					},
 				},

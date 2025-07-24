@@ -28,7 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/pkg/resource/unstructured/composed"
 	apiextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	apiextensionsv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	apiextensionsv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/cmd/crank/render"
@@ -144,7 +144,7 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 
 	var ers []unstructured.Unstructured
 	if opts.ExtraResources != "" {
-		ers, err = xprender.LoadExtraResources(opts.ProjFS, opts.ExtraResources)
+		ers, err = xprender.LoadRequiredResources(opts.ProjFS, opts.ExtraResources)
 		if err != nil {
 			return "", errors.Wrapf(err, "cannot load extra resources from %q", opts.ExtraResources)
 		}
@@ -182,7 +182,7 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		Functions:           fns,
 		FunctionCredentials: fcreds,
 		ObservedResources:   ors,
-		ExtraResources:      ers,
+		RequiredResources:   ers,
 		Context:             fctx,
 	})
 	if err != nil {
@@ -276,12 +276,12 @@ func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefini
 			return nil, errors.Wrap(err, "cannot convert unstructured to v1 XRD")
 		}
 		return xrd, nil
-	case apiextensionsv2alpha1.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
-		v2xrd := &apiextensionsv2alpha1.CompositeResourceDefinition{}
+	case apiextensionsv2.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String():
+		v2xrd := &apiextensionsv2.CompositeResourceDefinition{}
 		if err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), v2xrd); err != nil {
-			return nil, errors.Wrap(err, "cannot convert unstructured to v2alpha1 XRD")
+			return nil, errors.Wrap(err, "cannot convert unstructured to v2 XRD")
 		}
-		return ixrd.ConvertV2Alpha1ToV1(v2xrd), nil
+		return ixrd.ConvertV2ToV1(v2xrd), nil
 	default:
 		return nil, errors.Errorf("unsupported XRD API version: %s", apiVersion)
 	}

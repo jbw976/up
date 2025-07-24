@@ -19,7 +19,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpextv2alpha1 "github.com/crossplane/crossplane/apis/apiextensions/v2alpha1"
+	xpextv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
 	"github.com/crossplane/crossplane/xcrd"
@@ -58,7 +58,7 @@ func ValidatorsForObj(ctx context.Context, o runtime.Object, s *Snapshot) (map[s
 		if err := validatorsForV1XRD(rd, validators); err != nil {
 			return nil, err
 		}
-	case *xpextv2alpha1.CompositeResourceDefinition:
+	case *xpextv2.CompositeResourceDefinition:
 		if err := validatorsFromV2XRD(ctx, rd, validators); err != nil {
 			// XR validators failed we should log this and move on
 			s.log.Debug(errFailedToGetValidatorsXRD, "info", err)
@@ -184,8 +184,8 @@ func validatorsForV1XRD(x *xpextv1.CompositeResourceDefinition, acc map[schema.G
 	return nil
 }
 
-func validatorsFromV2XRD(ctx context.Context, x *xpextv2alpha1.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
-	y := xrd.ConvertV2Alpha1ToV1(x)
+func validatorsFromV2XRD(ctx context.Context, x *xpextv2.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
+	y := xrd.ConvertV2ToV1(x)
 	errs := validateOpenAPIV3Schema(ctx, y)
 	if len(errs) != 0 {
 		// NOTE (@tnthornton) we're using this as a mechanism to ensure we don't
@@ -218,7 +218,7 @@ func validatorsFromV2XRD(ctx context.Context, x *xpextv2alpha1.CompositeResource
 	return nil
 }
 
-func validatorsForV2XRD(x *xpextv2alpha1.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
+func validatorsForV2XRD(x *xpextv2.CompositeResourceDefinition, acc map[schema.GroupVersionKind]*validator.ObjectValidator) error {
 	v, err := DefaultXRDValidators()
 	if err != nil {
 		return err
