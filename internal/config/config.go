@@ -60,8 +60,8 @@ const (
 	ConfigurationTelemetryInsecure = "telemetry.insecure"
 )
 
-// ConfigrationFlag is a struct that contains the information about a global configuration flag.
-type ConfigrationFlag struct {
+// ConfigurationFlag is a struct that contains the information about a global configuration flag.
+type ConfigurationFlag struct {
 	Internal    bool
 	Description string
 	Name        string
@@ -73,7 +73,7 @@ type ConfigrationFlag struct {
 // If set to true, it will be user exposed.
 //
 //nolint:gochecknoglobals // Its not global, its local to the package :shrug:
-var validConfigurationFlags = map[string]ConfigrationFlag{
+var validConfigurationFlags = map[string]ConfigurationFlag{
 	ConfigurationTelemetryDisabled: {
 		Internal:    false,
 		Description: "Set to true to disable telemetry.",
@@ -361,8 +361,8 @@ func IsConfigurationFlag(flag string) bool {
 }
 
 // GetValidUserExposedConfigurationFlags returns a slice of valid configuration flags.
-func GetValidUserExposedConfigurationFlags() (map[string]ConfigrationFlag, error) {
-	flags := make(map[string]ConfigrationFlag, len(validConfigurationFlags))
+func GetValidUserExposedConfigurationFlags() (map[string]ConfigurationFlag, error) {
+	flags := make(map[string]ConfigurationFlag, len(validConfigurationFlags))
 	for _, val := range validConfigurationFlags {
 		if !val.Internal {
 			flags[val.Name] = val
