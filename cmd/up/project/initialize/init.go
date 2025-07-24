@@ -281,8 +281,10 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 		if err != nil {
 			return err
 		}
-		pterm.Info.Println("Notes:")
-		pterm.Info.Println(notes)
+		if notes != "" {
+			pterm.Info.Println("Notes:")
+			pterm.Info.Println(notes)
+		}
 	}
 
 	return nil
@@ -378,6 +380,9 @@ func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 func (c *Cmd) getProjectNotes() (string, error) {
 	notes, err := c.projFS.Open(projectNotesPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
 		return "", errors.Wrap(err, "failed to open project notes")
 	}
 	defer notes.Close() //nolint:errcheck // we don't care about the error here since we're just reading the file
