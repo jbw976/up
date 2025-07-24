@@ -44,7 +44,8 @@ func NewClient(config Config) (*Client, error) {
 		config: config,
 	}
 
-	if config.Disabled {
+	// https://consoledonottrack.com/
+	if config.Disabled || os.Getenv("DO_NOT_TRACK") != "" {
 		client.tracer = noop.NewTracerProvider().Tracer(config.ServiceName)
 		return client, nil
 	}
