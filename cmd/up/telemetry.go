@@ -39,7 +39,9 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 
 	otelDisabled, ok := values[config.ConfigurationTelemetryDisabled]
 	if !ok {
-		otelDisabled = "false"
+		// TODO(mjudeikis): Swap this to false once we have backend and we can confirm
+		// it works. Else we will be sending data to nowhere.
+		otelDisabled = "true"
 	}
 	otelDisabledBool, err := strconv.ParseBool(otelDisabled)
 	if err != nil {
@@ -193,5 +195,7 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 	}
 
 	// Create span that will remain open during command execution
+	// Note: This span will be ended in main() after ctx.Run()
+	//nolint:spancheck // Span lifecycle managed globally
 	return tracer.Start(ctx, spanName, attrs...)
 }
