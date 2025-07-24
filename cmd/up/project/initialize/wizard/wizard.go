@@ -184,12 +184,11 @@ func (w *Wizard) GenerateExample(state State) error {
 		"--api-version", state.APIVersion,
 		"--kind", state.Kind,
 		"--name", state.MetadataName,
+		"--type", "xr",
 	}
 
-	if state.UseXR {
-		args = append(args, "--type", "xr")
-	} else {
-		args = append(args, "--type", "claim", "--namespace", state.MetadataNamespace)
+	if !state.ClusterScoped {
+		args = append(args, "--namespace", state.MetadataNamespace)
 	}
 
 	args = append(args, "--path", w.examplePath(state))

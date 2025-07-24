@@ -93,14 +93,14 @@ const (
 	StepChooseTemplateLanguage
 	// StepChooseTemplateTestLanguage indicates the wizard is asking for template test language.
 	StepChooseTemplateTestLanguage
-	// StepUseXR indicates the wizard is asking about creating an XR or a Claim.
-	StepUseXR
 	// StepKind indicates the wizard is asking for the kind of the resource.
 	StepKind
 	// StepAPIGroup indicates the wizard is asking for API group.
 	StepAPIGroup
 	// StepAPIVersion indicates the wizard is asking for API version.
 	StepAPIVersion
+	// StepXRScope indicates the wizard is asking about the scope of the XR.
+	StepXRScope
 	// StepGenerateXRD indicates the wizard is asking about XRD generation.
 	StepGenerateXRD
 	// StepGenerateComp indicates the wizard is asking about composition generation.
@@ -126,11 +126,11 @@ const (
 type State struct {
 	Step     int    `json:"step"`
 	Template string `json:"template"`
-	UseXR    bool   `json:"useXr"`
 
-	Kind       string `json:"kind"`
-	APIGroup   string `json:"apiGroup"`
-	APIVersion string `json:"apiVersion"`
+	Kind          string `json:"kind"`
+	APIGroup      string `json:"apiGroup"`
+	APIVersion    string `json:"apiVersion"`
+	ClusterScoped bool   `json:"clusterScoped"`
 
 	MetadataName      string `json:"metadataName"`
 	MetadataNamespace string `json:"metadataNamespace"`
@@ -150,12 +150,12 @@ type State struct {
 // defaultState returns a new State with default values.
 func defaultState() State {
 	return State{
-		Step:  StepContinue,
-		UseXR: false,
+		Step: StepContinue,
 
-		Kind:       "Example",
-		APIGroup:   "example.upbound.io",
-		APIVersion: "v1alpha1",
+		Kind:          "Example",
+		APIGroup:      "example.upbound.io",
+		APIVersion:    "v1alpha1",
+		ClusterScoped: false,
 
 		MetadataName:      "example",
 		MetadataNamespace: "default",
@@ -217,7 +217,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 			template := availableTemplates[choice]
 			state.Template = template
 			if template == BlankProjectTemplate {
-				state.Step = StepUseXR
+				state.Step = StepKind
 				navigated = true
 			}
 		case StepChooseTemplateLanguage:
@@ -232,15 +232,6 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.TestLang = SupportedTestLanguagesMap[result]
-		case StepUseXR:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions([]string{"Claim", "XR"}).Show("Which type of resource do you want to create?")
-			if err != nil {
-				return err
-			}
-			state.UseXR = result == "XR"
-			if state.UseXR {
-				state.Kind = "XExample"
-			}
 		case StepKind:
 			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.Kind).Show("Kind of the resource")
 			if err != nil {
@@ -259,6 +250,12 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.APIVersion = val
+		case StepXRScope:
+			result, err := pterm.DefaultInteractiveSelect.WithOptions([]string{"Namespace", "Cluster"}).Show("Should the XRs be namespace- or cluster-scoped?")
+			if err != nil {
+				return err
+			}
+			state.ClusterScoped = result == "Cluster"
 		case StepGenerateXRD:
 			state.GenerateXRD, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate XRD?")
 			if err != nil {
