@@ -42,6 +42,18 @@ var (
 	geminiTemplate embed.FS
 )
 
+const (
+	kubectlaiWarningFmt = `
+mcp-server configurations for kubectl-ai were set up for this project. 
+If you do not have kubectl-ai installed and would like to use this mcp-server
+for working against your Control Plane, visit the following documents for
+installation steps:
+
+👉 %s
+`
+	kubectlaiLink = "https://github.com/GoogleCloudPlatform/kubectl-ai?tab=readme-ov-file#installation"
+)
+
 type configureToolsCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
@@ -133,7 +145,11 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 		return err
 	}
 
-	pterm.Printfln("successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
+	pterm.Println()
+	pterm.Info.WithPrefix(upterm.BotPrefix).Printfln("Successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
+	pterm.Println()
+	pterm.Info.WithPrefix(upterm.EyesPrefix).Println("NOTE: 👇")
+	pterm.Printfln(kubectlaiWarningFmt, kubectlaiLink)
 	return nil
 }
 

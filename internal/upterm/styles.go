@@ -25,6 +25,13 @@ var (
 		Text:  " 🙌",
 	}
 
+	// BotPrefix is a prefix used for bot output.
+	//nolint:gochecknoglobals // used anywhere
+	BotPrefix = pterm.Prefix{
+		Style: &pterm.Style{pterm.FgLightMagenta},
+		Text:  " 🤖",
+	}
+
 	//nolint:gochecknoglobals // used anywhere
 	spinnerStyle = &pterm.Style{pterm.FgDarkGray}
 	//nolint:gochecknoglobals // used anywhere
