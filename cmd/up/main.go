@@ -65,11 +65,11 @@ var (
 )
 
 // AfterApply configures global settings before executing commands.
-func (c *cli) AfterApply(ctx *kong.Context) error {
+func (c *cli) AfterApply(kongCtx *kong.Context) error {
 	if c.Quiet {
-		ctx.Stdout, ctx.Stderr = io.Discard, io.Discard
+		kongCtx.Stdout, kongCtx.Stderr = io.Discard, io.Discard
 	}
-	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
+	kongCtx.BindTo(pterm.DefaultBasicText.WithWriter(kongCtx.Stdout), (*pterm.TextPrinter)(nil))
 
 	var pretty bool
 	if c.Pretty != nil {
@@ -89,20 +89,21 @@ func (c *cli) AfterApply(ctx *kong.Context) error {
 	printer.Pretty = pretty
 	printer.Quiet = c.Quiet
 
-	ctx.Bind(printer)
-	ctx.BindTo(&printer, (*upterm.Printer)(nil))
-	ctx.Bind(c.Quiet)
-	ctx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
+	kongCtx.Bind(printer)
+	kongCtx.BindTo(&printer, (*upterm.Printer)(nil))
+	kongCtx.Bind(c.Quiet)
+	kongCtx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
 
 	// Initialize and bind OpenTelemetry client
 	f := sync.OnceFunc(func() {
-		if err := c.initOTEL(ctx); err != nil {
-			panic(err)
+		if err := c.initOTEL(kongCtx); err != nil {
+			pterm.Error.Printfln("Error initializing telemetry: %v", err)
+			os.Exit(1)
 		}
 	})
 	f()
 
-	if err := c.createCommandSpans(ctx); err != nil {
+	if err := c.createCommandSpans(context.Background(), kongCtx); err != nil {
 		return err
 	}
 
@@ -178,6 +179,10 @@ type cli struct {
 	Version    v.Cmd                        `cmd:"" group:"Configure up" help:"Show current version."`
 
 	Alpha alpha `cmd:"" group:"Alpha" help:"Alpha features. Commands may be removed in future releases."`
+
+	// We set this so we can print shutdown errors if otel is in debug mode.
+	// Bit of hack :/ sorry
+	otelDebug bool `kong:"-"`
 }
 
 type helpCmd struct{}
@@ -248,10 +253,15 @@ func main() {
 		}
 
 		if globalOTELClient != nil {
-			// We allow 5 seconds to export remaining spans
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			// We allow 1 seconds to export remaining spans. We might need to increase this.
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			_ = globalOTELClient.Shutdown(shutdownCtx)
+			err := globalOTELClient.Shutdown(shutdownCtx)
+			if err != nil {
+				if c.otelDebug {
+					pterm.Error.Printfln("Error shutting down OTEL client: %v", err)
+				}
+			}
 		}
 	}()
 

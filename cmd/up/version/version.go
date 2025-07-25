@@ -45,7 +45,7 @@ Server:
 {{- end}}{{- end}}`
 )
 
-type clientVersion struct {
+type ClientVersion struct {
 	Arch      string `json:"arch,omitempty"      yaml:"arch,omitempty"`
 	GitCommit string `json:"gitCommit,omitempty" yaml:"gitCommit,omitempty"`
 	GoVersion string `json:"goVersion,omitempty" yaml:"goVersion,omitempty"`
@@ -53,14 +53,14 @@ type clientVersion struct {
 	Version   string `json:"version,omitempty"   yaml:"version,omitempty"`
 }
 
-type serverVersion struct {
+type ServerVersion struct {
 	CrossplaneVersion       string `json:"crossplaneVersion,omitempty"       yaml:"crossplaneVersion,omitempty"`
 	SpacesControllerVersion string `json:"spacesControllerVersion,omitempty" yaml:"spacesControllerVersion,omitempty"`
 }
 
-type versionInfo struct {
-	Client clientVersion  `json:"client"           yaml:"client"`
-	Server *serverVersion `json:"server,omitempty" yaml:"server,omitempty"`
+type VersionInfo struct {
+	Client ClientVersion  `json:"client"           yaml:"client"`
+	Server *ServerVersion `json:"server,omitempty" yaml:"server,omitempty"`
 }
 
 // Cmd is the `up version` command.
@@ -103,8 +103,11 @@ Usage:
 `
 }
 
-func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v versionInfo) {
-	v.Client = clientVersion{
+// BuildVersionInfo builds the version info for the client and server.
+// Important: if you changing behaviour of this function, please update createCommandSpans
+// for telemetry to make sure we don't introduce silent breakage.
+func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v VersionInfo) {
+	v.Client = ClientVersion{
 		Version:   version.Version(),
 		Arch:      runtime.GOARCH,
 		OS:        runtime.GOOS,
@@ -134,7 +137,7 @@ func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 		return v
 	}
 
-	v.Server = &serverVersion{}
+	v.Server = &ServerVersion{}
 	v.Server.CrossplaneVersion, err = FetchCrossplaneVersion(ctx, *clientset)
 	if err != nil {
 		fmt.Fprintln(kongCtx.Stderr, errGetCrossplaneVersion) //nolint:errcheck // Debug logging.
@@ -156,21 +159,9 @@ func (c *Cmd) buildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx
 
 // Run is the implementation of the command.
 func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.Printer, span trace.Span) error {
-	// Add command attributes
-	span.SetAttributes(
-		attribute.String("command.name", "version"),
-		attribute.Bool("command.client_only", c.Client),
-	)
+	v := c.BuildVersionInfo(ctx, kongCtx, upCtx)
 
-	v := c.buildVersionInfo(ctx, kongCtx, upCtx)
-
-	span.AddEvent("version.build", trace.WithAttributes(
-		attribute.String("version.client", v.Client.Version),
-		attribute.String("version.go", v.Client.GoVersion),
-		attribute.String("version.os", v.Client.OS),
-		attribute.String("version.arch", v.Client.Arch),
-	))
-
+	// Client version is included by default in main.
 	if v.Server != nil {
 		span.AddEvent("version.server", trace.WithAttributes(
 			attribute.String("version.crossplane", v.Server.CrossplaneVersion),
