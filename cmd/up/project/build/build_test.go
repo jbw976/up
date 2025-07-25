@@ -299,7 +299,7 @@ func TestBuild(t *testing.T) {
 					foundLayers := map[string]bool{
 						xpkg.PackageAnnotation:  false,
 						xpkg.ExamplesAnnotation: false,
-						// Schema lyer from our mock generator.
+						// Schema layer from our mock generator.
 						"schema.mock": false,
 					}
 
