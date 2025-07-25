@@ -344,8 +344,8 @@ func (e *ControlPlaneStateExporter) shouldExport(in apiextensionsv1.CustomResour
 		}
 	}
 
-	if strings.HasSuffix(in.GetName(), ".crossplane.io") {
-		// Covering all built-in Crossplane CRDs.
+	if strings.HasSuffix(in.GetName(), ".crossplane.io") || strings.HasSuffix(in.GetName(), ".upbound.io") {
+		// Covering all built-in Crossplane and Upbound CRDs.
 		return true
 	}
 
