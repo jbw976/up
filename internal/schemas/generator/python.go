@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -33,6 +34,8 @@ const (
 	pythonGeneratedFolder      = "models/workdir"
 	pythonImage                = "xpkg.upbound.io/upbound/datamodel-code-generator:v0.31.2"
 )
+
+var importRE = regexp.MustCompile(`^(from\s+)(\.*)([^\s]+)(.*)`)
 
 type pythonGenerator struct{}
 
@@ -323,6 +326,7 @@ func adjustImportsInFile(fs afero.Fs, filePath string) error {
 		line := scanner.Text()
 		// Adjust imports that contain `k8s.apimachinery.pkg.apis.meta`
 		if strings.Contains(line, "k8s.apimachinery.pkg.apis.meta") {
+			// Use adjustLeadingDots for CRD context
 			line = adjustLeadingDots(line, depth)
 		}
 		modifiedContent = append(modifiedContent, line)
@@ -625,11 +629,21 @@ func postTransformOpenAPI(fs afero.Fs, sourceDir, targetDir string) error {
 
 		destPath, destDir := computeDestPath(targetDir, normalizedParts)
 
+		// Special handling for io/k8s/apimachinery/pkg/apis/meta/v1.py
+		if isMetaV1File(destPath) {
+			destPath, destDir = transformMetaV1Path(targetDir, destPath)
+		}
+
 		if err := copyFileWithInit(fs, path, destPath, destDir, createdInitDirs); err != nil {
 			return err
 		}
 
 		if err := postProcessFile(fs, destPath); err != nil {
+			return err
+		}
+
+		// Transform meta imports after postProcessFile
+		if err := transformMetaImportsInFile(fs, destPath); err != nil {
 			return err
 		}
 
@@ -735,4 +749,102 @@ func postProcessFile(fs afero.Fs, path string) error {
 		return errors.Wrapf(err, "fixing aliased types")
 	}
 	return nil
+}
+
+// isMetaV1File returns true if path ends in "apis/meta/v1.py"..
+func isMetaV1File(path string) bool {
+	// filepath.ToSlash makes sure we use "/" even on Windows
+	return strings.HasSuffix(filepath.ToSlash(path), "apis/meta/v1.py")
+}
+
+// transformMetaV1Path replaces "/apis/meta/v1.py" with "/apis/core/meta/v1.py".
+func transformMetaV1Path(targetDir, inPath string) (destPath, destDir string) {
+	// Get the relative part after targetDir
+	rel, _ := filepath.Rel(targetDir, inPath)
+	rel = filepath.ToSlash(rel)
+
+	// Replace apis/meta/v1.py with apis/core/meta/v1.py
+	newRel := strings.Replace(rel,
+		"apis/meta/v1.py",
+		"apis/core/meta/v1.py",
+		1,
+	)
+
+	// Build the full destination path
+	destPath = filepath.Join(targetDir, filepath.FromSlash(newRel))
+	destDir = filepath.Dir(destPath)
+	return
+}
+
+// transformMetaImport turns "apis.meta" → "apis.core.meta" in OpenAPI contexts.
+// otherwise meta schemas are overridden from crds which are different.
+func transformMetaImport(importLine string) string {
+	parts := importRE.FindStringSubmatch(importLine)
+	if parts == nil {
+		return importLine
+	}
+	prefix, dots, modPath, suffix := parts[1], parts[2], parts[3], parts[4]
+
+	// only tweak if it's actually a meta import
+	if !strings.Contains(modPath, "apis.meta") {
+		return importLine
+	}
+
+	newPath := strings.Replace(modPath, "apis.meta", "apis.core.meta", 1)
+	return prefix + dots + newPath + suffix
+}
+
+// transformMetaImportsInFile transforms imports of meta.v1 to core.meta.v1..
+func transformMetaImportsInFile(fs afero.Fs, filePath string) error {
+	// Read the file content
+	fileContent, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		return errors.Wrapf(err, "error reading file %s", filePath)
+	}
+
+	// Check if this is the core/meta/v1.py file
+	isCoreMeta := strings.HasSuffix(filepath.ToSlash(filePath), "core/meta/v1.py")
+
+	// Modify the file line by line to transform meta imports
+	modifiedContent := []string{}
+	scanner := bufio.NewScanner(strings.NewReader(string(fileContent)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Transform imports that contain apis.meta
+		if strings.Contains(line, "apis.meta") {
+			line = transformMetaImport(line)
+		}
+		// If this is the core/meta/v1.py file, add one more dot to relative imports
+		if isCoreMeta {
+			line = adjustRelativeImportsForCoreMeta(line)
+		}
+		modifiedContent = append(modifiedContent, line)
+	}
+
+	// Write back the modified file content
+	if err := afero.WriteFile(fs, filePath, []byte(strings.Join(modifiedContent, "\n")), os.ModePerm); err != nil {
+		return errors.Wrapf(err, "error writing modified file %s", filePath)
+	}
+
+	return nil
+}
+
+// adjustRelativeImportsForCoreMeta adds one more dot to relative imports in core/meta/v1.py..
+func adjustRelativeImportsForCoreMeta(line string) string {
+	// Use regex to match relative imports
+	matches := importRE.FindStringSubmatch(line)
+	if matches == nil {
+		return line
+	}
+
+	prefix, dots, modPath, suffix := matches[1], matches[2], matches[3], matches[4]
+
+	// Only adjust if it's a relative import (has dots)
+	if len(dots) > 0 {
+		// Add one more dot since we're one directory deeper
+		dots = "." + dots
+		return prefix + dots + modPath + suffix
+	}
+
+	return line
 }
