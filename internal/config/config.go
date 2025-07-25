@@ -8,8 +8,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -20,6 +22,8 @@ import (
 const (
 	ConfigDir  = ".up"
 	ConfigFile = "config.json"
+
+	DefaultTelemetryEndpoint = "api.upbound.io:5556"
 )
 
 const (
@@ -30,6 +34,77 @@ const (
 	errProfileAlreadyExistsFmt = "profile already exists with identifier: %s"
 	errNoProfilesFound         = "no profiles found"
 )
+
+// TelemetryAuthToken is the default auth token used to authenticate with the telemetry endpoint.
+// This will override the default key if set.
+//
+//	go build -ldflags "-X github.com/upbound/up/internal/config.TelemetryAuthToken=${AUTH_KEY}".
+//
+//nolint:gochecknoglobals // This so we can set it via build flag.
+var TelemetryAuthToken = "123456780"
+
+const (
+	// ConfigurationTelemetryDisabled is the key for the telemetry.disabled configuration.
+	ConfigurationTelemetryDisabled = "telemetry.disabled"
+	// ConfigurationTelemetryEndpoint is the key for the telemetry.endpoint configuration.
+	// This will override the default endpoint if set.
+	ConfigurationTelemetryEndpoint = "telemetry.endpoint"
+	// ConfigurationTelemetryDebug is the key for the telemetry.debug configuration.
+	// If set to true, the telemetry will be more verbose.
+	ConfigurationTelemetryDebug = "telemetry.debug"
+	// ConfigurationTelemetryKey is the key for the telemetry.key used to authenticate with the telemetry endpoint.
+	// This will override the default key if set.
+	ConfigurationTelemetryKey = "telemetry.key"
+	// ConfigurationTelemetryInsecure is the key for the telemetry.insecure configuration.
+	// If set to true, the telemetry will be sent over an insecure connection.
+	ConfigurationTelemetryInsecure = "telemetry.insecure"
+)
+
+// ConfigurationFlag is a struct that contains the information about a global configuration flag.
+type ConfigurationFlag struct {
+	Internal    bool
+	Description string
+	Name        string
+	Default     string
+}
+
+// validConfigurationFlags is a map of valid configuration flags.
+//
+// If set to true, it will be user exposed.
+//
+//nolint:gochecknoglobals // Its not global, its local to the package :shrug:
+var validConfigurationFlags = map[string]ConfigurationFlag{
+	ConfigurationTelemetryDisabled: {
+		Internal:    false,
+		Description: "Set to true to disable telemetry.",
+		Name:        ConfigurationTelemetryDisabled,
+		Default:     "false",
+	},
+	ConfigurationTelemetryEndpoint: {
+		Internal:    true,
+		Description: "Endpoint to send telemetry to.",
+		Name:        ConfigurationTelemetryEndpoint,
+		Default:     DefaultTelemetryEndpoint,
+	},
+	ConfigurationTelemetryDebug: {
+		Internal:    true,
+		Description: "Set to true to enable debug logging.",
+		Name:        ConfigurationTelemetryDebug,
+		Default:     "false",
+	},
+	ConfigurationTelemetryKey: {
+		Internal:    true,
+		Description: "Key to authenticate with the telemetry endpoint.",
+		Name:        ConfigurationTelemetryKey,
+		Default:     TelemetryAuthToken,
+	},
+	ConfigurationTelemetryInsecure: {
+		Internal:    true,
+		Description: "Set to true to use insecure mode for the telemetry endpoint.",
+		Name:        ConfigurationTelemetryInsecure,
+		Default:     "false",
+	},
+}
 
 const (
 	// DefaultDomain is the default Upbound domain used for constructing API
@@ -92,6 +167,11 @@ type Upbound struct {
 	// Profiles contain sets of credentials for communicating with Upbound. Key
 	// is name of the profile.
 	Profiles map[string]profile.Profile `json:"profiles,omitempty"`
+
+	// Configuration contains configuration for the CLI.
+	// Configuration are handled as key-value pairs.
+	// Example 'telemetry.disabled' is a key and 'true' is a value.
+	Configuration map[string]string `json:"configuration,omitempty"`
 }
 
 // AddOrUpdateUpboundProfile adds or updates an Upbound profile to the Config.
@@ -252,6 +332,53 @@ func (c *Config) RemoveFromBaseConfig(name, key string) error {
 	delete(profile.BaseConfig, key)
 	c.Upbound.Profiles[name] = profile
 	return nil
+}
+
+// GetBaseConfiguration returns the persisted base configuration associated with the CLI.
+func (c *Config) GetBaseConfiguration() (map[string]string, error) {
+	if c.Upbound.Configuration == nil {
+		c.Upbound.Configuration = make(map[string]string)
+	}
+	return c.Upbound.Configuration, nil
+}
+
+// SetBaseConfiguration sets the persisted base configuration key, value pair associated with the CLI.
+func (c *Config) SetBaseConfiguration(key, value string) error {
+	if c.Upbound.Configuration == nil {
+		c.Upbound.Configuration = make(map[string]string)
+	}
+
+	if value == "" {
+		delete(c.Upbound.Configuration, key)
+		return nil
+	}
+
+	c.Upbound.Configuration[key] = value
+	return nil
+}
+
+// IsConfigurationFlag checks if the flag is a valid configuration flag.
+func IsConfigurationFlag(flag string) bool {
+	if _, ok := validConfigurationFlags[flag]; ok {
+		return true
+	}
+	return false
+}
+
+// GetValidUserExposedConfigurationFlags returns a slice of valid configuration flags.
+func GetValidUserExposedConfigurationFlags() (map[string]ConfigurationFlag, error) {
+	flags := make(map[string]ConfigurationFlag, len(validConfigurationFlags))
+	for _, val := range validConfigurationFlags {
+		if !val.Internal {
+			flags[val.Name] = val
+		}
+	}
+	return flags, nil
+}
+
+// GetValidConfigurationFlags returns a slice of all valid configuration flags.
+func GetValidConfigurationFlags() []string {
+	return slices.Collect(maps.Keys(validConfigurationFlags))
 }
 
 // BaseToJSON converts the base config of the given Profile to JSON. If the

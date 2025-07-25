@@ -7,13 +7,18 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/term"
 
 	"github.com/upbound/up/cmd/up/composition"
+	configcmd "github.com/upbound/up/cmd/up/config"
 	"github.com/upbound/up/cmd/up/controlplane"
 	"github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/cmd/up/dependency"
@@ -33,7 +38,7 @@ import (
 	"github.com/upbound/up/cmd/up/team"
 	"github.com/upbound/up/cmd/up/test"
 	"github.com/upbound/up/cmd/up/token"
-	"github.com/upbound/up/cmd/up/trace"
+	tracecmd "github.com/upbound/up/cmd/up/trace"
 	"github.com/upbound/up/cmd/up/uxp"
 	v "github.com/upbound/up/cmd/up/version"
 	"github.com/upbound/up/cmd/up/xpkg"
@@ -41,6 +46,7 @@ import (
 	"github.com/upbound/up/cmd/up/xrd"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/feature"
+	"github.com/upbound/up/internal/otel"
 	"github.com/upbound/up/internal/upterm"
 
 	// TODO(epk): Remove this once we upgrade kubernetes deps to 1.25
@@ -50,12 +56,20 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
+// Global OTEL client and span for graceful shutdown.
+//
+//nolint:gochecknoglobals // We need this for graceful shutdown.
+var (
+	globalOTELClient  *otel.Client
+	globalCommandSpan trace.Span
+)
+
 // AfterApply configures global settings before executing commands.
-func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong requires an error return.
+func (c *cli) AfterApply(kongCtx *kong.Context) error {
 	if c.Quiet {
-		ctx.Stdout, ctx.Stderr = io.Discard, io.Discard
+		kongCtx.Stdout, kongCtx.Stderr = io.Discard, io.Discard
 	}
-	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
+	kongCtx.BindTo(pterm.DefaultBasicText.WithWriter(kongCtx.Stdout), (*pterm.TextPrinter)(nil))
 
 	var pretty bool
 	if c.Pretty != nil {
@@ -75,10 +89,24 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam // Kong req
 	printer.Pretty = pretty
 	printer.Quiet = c.Quiet
 
-	ctx.Bind(printer)
-	ctx.BindTo(&printer, (*upterm.Printer)(nil))
-	ctx.Bind(c.Quiet)
-	ctx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
+	kongCtx.Bind(printer)
+	kongCtx.BindTo(&printer, (*upterm.Printer)(nil))
+	kongCtx.Bind(c.Quiet)
+	kongCtx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
+
+	// Initialize and bind OpenTelemetry client
+	f := sync.OnceFunc(func() {
+		if err := c.initOTEL(kongCtx); err != nil {
+			pterm.Error.Printfln("Error initializing telemetry: %v", err)
+			os.Exit(1)
+		}
+	})
+	f()
+
+	if err := c.createCommandSpans(context.Background(), kongCtx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -141,6 +169,7 @@ type cli struct {
 
 	// Configure up
 	Completion kongplete.InstallCompletions `cmd:"" group:"Configure up" help:"Generate shell autocompletions"`
+	Config     configcmd.Cmd                `cmd:"" group:"Configure up" help:"Manage global configuration settings."`
 	Ctx        ctx.Cmd                      `cmd:"" group:"Configure up" help:"Select an Upbound kubeconfig context."`
 	Help       helpCmd                      `cmd:"" group:"Configure up" help:"Show help."`
 	License    licenseCmd                   `cmd:"" group:"Configure up" help:"Show license information."`
@@ -150,6 +179,10 @@ type cli struct {
 	Version    v.Cmd                        `cmd:"" group:"Configure up" help:"Show current version."`
 
 	Alpha alpha `cmd:"" group:"Alpha" help:"Alpha features. Commands may be removed in future releases."`
+
+	// We set this so we can print shutdown errors if otel is in debug mode.
+	// Bit of hack :/ sorry
+	otelDebug bool `kong:"-"`
 }
 
 type helpCmd struct{}
@@ -170,7 +203,7 @@ type alpha struct {
 	// ControlPlane has two alpha commands: `simulate` and `simulation`.
 	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                                                                                                          help:"Interact with control planes." hidden:""        name:"controlplane"`
 	Migration    migration.Cmd    `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes. Deprecated: use \"up controlplane migration\" command instead." hidden:""`
-	Trace        trace.Cmd        `cmd:""        help:"Trace a Crossplane resource."                                                                                             hidden:""                            maturity:"alpha"`
+	Trace        tracecmd.Cmd     `cmd:""        help:"Trace a Crossplane resource."                                                                                             hidden:""                            maturity:"alpha"`
 	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes."                                                                             hidden:""                            maturity:"alpha"`
 	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane."                                                                                hidden:""                            maturity:"alpha"`
 	// Xpkg has one alpha command: `append`.
@@ -211,5 +244,35 @@ func main() {
 	kongCtx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
 	kongCtx.BindTo(context.Background(), (*context.Context)(nil))
-	kongCtx.FatalIfErrorf(kongCtx.Run())
+
+	// Ensure OTEL client and spans are properly shut down
+	defer func() {
+		// End the command span first
+		if globalCommandSpan != nil {
+			globalCommandSpan.End()
+		}
+
+		if globalOTELClient != nil {
+			// We allow 1 seconds to export remaining spans. We might need to increase this.
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			err := globalOTELClient.Shutdown(shutdownCtx)
+			if err != nil {
+				if c.otelDebug {
+					pterm.Error.Printfln("Error shutting down OTEL client: %v", err)
+				}
+			}
+		}
+	}()
+
+	// Execute the command
+	err = kongCtx.Run()
+
+	// Record error in span if command failed
+	if err != nil && globalCommandSpan != nil {
+		globalCommandSpan.RecordError(err)
+		globalCommandSpan.SetStatus(codes.Error, err.Error())
+	}
+
+	kongCtx.FatalIfErrorf(err)
 }
