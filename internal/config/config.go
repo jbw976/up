@@ -23,7 +23,7 @@ const (
 	ConfigDir  = ".up"
 	ConfigFile = "config.json"
 
-	DefaultTelemetryEndpoint = "api.upbound.io:5556"
+	DefaultTelemetryEndpoint = "ingest.upbound.io:443"
 )
 
 const (
