@@ -13,6 +13,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
@@ -72,31 +73,24 @@ type installCmd struct {
 	// cluster to connect to the control plane. These are derived from the exported variables
 	// below, so we don't loose the original values and have to pass them around.
 
-	// name will be used to construct object names in the api layer and consumer cluster.
-	name             string
 	group            string
 	space            string
 	organization     string
 	spacesHostname   string
 	controlPlaneName string
 
-	installationNamespace string
-
 	// Lifecycle flags
-	Upgrade bool   `help:"Upgrade the API Connector if it is already installed."`
+	Upgrade bool   `help:"Upgrade or downgrade the API Connector to --version, even if it is already installed."`
 	Version string `help:"Version of the API Connector to install. If not provided, the latest, known to CLI, will be installed."`
 
 	// Identity flags
-	Name         string `help:"Name of the related objects for named connection. If not provided, control plane name will be used."`
-	UpboundToken string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
+	RobotName    string `help:"Name of the Upbound robot account to use for authenticating to the provider control plane. Defaults to the 'api-connector-<consumer-cluster-uid>. Mutually exclusive with --upbound-token."`
+	UpboundToken string `help:"API token used to authenticate to the provider control plane. Mutually exclusive with --robot-name."`
 
 	// Installation flags
 	SkipConnection     bool   `help:"Skip secret and connection initialization to the control plane. If provided, the connector will be installed without connecting to the control plane."`
 	ConsumerKubeconfig string `help:"Path to the kubeconfig file for the consumer cluster. If not provided, the default kubeconfig resolution will be used."`
 	ConsumerContext    string `help:"Context to use in the kubeconfig file. If not provided, the current context will be used."`
-
-	ControlPlaneSecretNamespace string `default:"upbound-system"                                                    help:"Namespace of the secret that contains the kubeconfig for a control plane."`
-	ControlPlaneSecretName      string `help:"Name of the secret that contains the kubeconfig for a control plane."`
 
 	// Advanced/Developer flags
 	HelmDirectory string `help:"Directory to store the Helm chart. If not provided, the default will be used." hidden:"true"`
@@ -106,38 +100,31 @@ type installCmd struct {
 
 func (c *installCmd) Help() string {
 	return `
-The 'install' command installs the API Connector into a cluster.
+The 'install' command installs the API Connector into a consumer cluster.
 
-Note: API Connector is an alpha feature.
+Note: API Connector is a preview feature. The feature is under active development and subject to breaking changes. Use for testing and evaluation purposes only.
 
 Examples:
-    up controlplane api-connector install <` +
-		nice("control-plane-name-full-qualified-path") +
-		`> --target-kubeconfig <` +
-		nice("kubeconfig-path-for-deployment-cluster") +
-		`> --token <` +
-		nice("api-token") +
+    up controlplane api-connector install ` +
+		`--consumer-kubeconfig <` +
+		nice("kubeconfig-path-for-consumer-cluster") +
 		`>
-        Installs the API Connector into the cluster and connects it to the control plane 'my-control-plane'.
-		Current context must be set to the organization that contains the control plane.
+        Installs the API Connector into the consumer cluster and connects it to the control plane which 'up ctx' is set to.
 
-    up controlplane api-connector install <` +
-		nice("control-plane-name-full-qualified-path") +
-		`> --name <` +
-		nice("connection-resources-name") +
-		`> --target-kubeconfig <` +
-		nice("kubeconfig-path-for-deployment-cluster") +
-		`> --token <` +
-		nice("api-token") +
+    up controlplane api-connector install ` +
+		`--consumer-kubeconfig <` +
+		nice("kubeconfig-path-for-consumer-cluster") +
+		`> --robot-name <` +
+		nice("upbound-robot-name") +
 		`>
-        Installs the API Connector into the cluster and connects it to the control plane 'my-control-plane' with a custom name for the connection resources.
-		Current context must be set to the organization that contains the control plane.
+        Installs the API Connector into the cluster, connects it to the control plane which 'up ctx' is set to, and uses the provided robot name for authentication.
 
-   where:
-   * ` + nice("control-plane-name-full-qualified-path") + ` is in the format from "up ctx ." command with controlplane name appended.
-    Example: ` + nice("organization-name/upbound-gcp-us-west-1/default/my-control-plane") + `
-   * ` + nice("kubeconfig-path-for-deployment-cluster") + ` is the path to the kubeconfig file for the cluster.
-   * ` + nice("connection-resources-name") + ` is the name of the connection resources to be created.
+	up controlplane api-connector install ` +
+		`--consumer-kubeconfig <` +
+		nice("kubeconfig-path-for-consumer-cluster") +
+		`> --skip-connection
+
+        Installs the API Connector into the cluster, but does not provision any ClusterConnection resource, nor create any robot.
 `
 }
 
@@ -162,12 +149,7 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	c.organization = parts[0]
 	c.space = parts[1]
 	c.group = parts[2]
-	c.name = parts[3] // this can be overridden by --name flag below.
 	c.controlPlaneName = parts[3]
-
-	if c.Name != "" {
-		c.name = c.Name
-	}
 
 	if !strings.HasPrefix(c.space, "upbound-") {
 		return errors.New("space name must start with 'upbound-'")
@@ -176,7 +158,13 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	// TODO(mjudeikis): Once "spaces" arg is configurable this will need to be updated.
 	c.spacesHostname = "https://" + c.space + spacesHostnameSuffix
 
-	c.installationNamespace = defaultInstallationNamespace
+	if c.RobotName != "" && c.UpboundToken != "" {
+		return errors.New("--robot-name and --upbound-token are mutually exclusive")
+	}
+
+	if c.SkipConnection && (c.UpboundToken != "" || c.RobotName != "") {
+		return errors.New("--skip-connection cannot be used with --upbound-token or --robot-name")
+	}
 
 	// validate if user by mistake provided upbound context for consumer cluster
 	var consumerRestConfig *rest.Config
@@ -260,87 +248,98 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 
 	totalSteps := 5
 
-	// Step 1: Check if connection already exists. Fail early if it does.
-	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter("Checking if connection already exists", 1, totalSteps),
-		stepSpinner,
-		func() error {
-			// First and foremost - check if we have a connection with same name already as
-			// further action will bork if we have a connection with same name.
-			_, err = provisioner.getConnection(ctx, c.consumerClient, c.name)
-			if err != nil && !apierrors.IsNotFound(err) {
-				return errors.Wrap(err, "failed to get connection")
+	if !c.SkipConnection {
+		// Step 1: Check if connection already exists. Fail early if it does.
+		if err := upterm.WrapWithSuccessSpinner(
+			upterm.StepCounter("Checking if connection already exists", 1, totalSteps),
+			stepSpinner,
+			func() error {
+				// First and foremost - check if we have a connection with same name already as
+				// further action will bork if we have a connection with same name.
+				_, err = provisioner.getConnection(ctx, c.consumerClient, c.controlPlaneName)
+				if err != nil && !apierrors.IsNotFound(err) {
+					return errors.Wrap(err, "failed to get connection")
+				}
+				return nil
+			},
+			printer,
+		); err != nil {
+			return err
+		}
+
+		// Step 2: If token is provided, we use it. Otherwise, we create a robot and a token, and wire things up.
+		if c.UpboundToken != "" {
+			if c.organization == "" {
+				return errors.New("organization is required when providing a token")
 			}
-			return nil
-		},
-		printer,
-	); err != nil {
-		return err
-	}
+			// Now this is where we stomp over the BYO permissions.
+			// This is not quite nice place for this, but code is bit tricky to get right now.
+			provisioner.results.Token = c.UpboundToken
+			provisioner.results.OrganizationName = c.organization
+		} else { // No token provided, so we need to create a robot and a token, and wire things up.
 
-	// Step 2: If token is provided, we use it. Otherwise, we create a robot and a token, and wire things up.
-	if c.UpboundToken != "" {
-		if c.organization == "" {
-			return errors.New("organization is required when providing a token")
-		}
-		// Now this is where we stomp over the BYO permissions.
-		// This is not quite nice place for this, but code is bit tricky to get right now.
-		provisioner.results.Token = c.UpboundToken
-		provisioner.results.OrganizationName = c.organization
-	} else { // No token provided, so we need to create a robot and a token, and wire things up.
-		// Step 2.1: Read organization configuration.
-		p.Printfln("Creating a robot & related resources for the cluster %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
-		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Reading organization configuration", 2, totalSteps),
-			stepSpinner,
-			func() error {
-				if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
-					return errors.Wrap(err, "failed to seed organizations")
+			if c.RobotName == "" {
+				kubeSystemNs := corev1.Namespace{}
+				if err := c.consumerClient.Get(ctx, client.ObjectKey{Name: "kube-system"}, &kubeSystemNs); err != nil {
+					return errors.Wrap(err, "failed to get kube-system namespace")
 				}
-				return nil
-			},
-			printer,
-		); err != nil {
-			return err
-		}
+				c.RobotName = fmt.Sprintf("api-connector-%s", kubeSystemNs.UID)
+			}
 
-		// Step 2.2: Create a robot and a token.
-		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Creating robot", 3, totalSteps),
-			stepSpinner,
-			func() error {
-				if err := provisioner.seedRobots(ctx, c.name); err != nil {
-					return errors.Wrap(err, "failed to seed robots")
-				}
-				return nil
-			},
-			printer,
-		); err != nil {
-			return err
-		}
+			// Step 2.1: Read organization configuration.
+			p.Printfln("Creating a robot named %s in the organization %s.", nice(c.RobotName), nice(upCtx.Profile.Organization))
+			if err := upterm.WrapWithSuccessSpinner(
+				upterm.StepCounter("Reading organization configuration", 2, totalSteps),
+				stepSpinner,
+				func() error {
+					if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
+						return errors.Wrap(err, "failed to seed organizations")
+					}
+					return nil
+				},
+				printer,
+			); err != nil {
+				return err
+			}
 
-		// Step 2.3: Create a token.
-		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Creating token", 3, totalSteps),
-			stepSpinner,
-			func() error {
-				return provisioner.seedToken(ctx)
-			},
-			printer,
-		); err != nil {
-			return err
-		}
+			// Step 2.2: Create a robot and a token.
+			if err := upterm.WrapWithSuccessSpinner(
+				upterm.StepCounter("Creating robot", 3, totalSteps),
+				stepSpinner,
+				func() error {
+					if err := provisioner.seedRobots(ctx, c.RobotName); err != nil {
+						return errors.Wrap(err, "failed to seed robots")
+					}
+					return nil
+				},
+				printer,
+			); err != nil {
+				return err
+			}
 
-		// Step 2.4: Seed access to the namespace.
-		if err := upterm.WrapWithSuccessSpinner(
-			upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
-			stepSpinner,
-			func() error {
-				return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
-			},
-			printer,
-		); err != nil {
-			return err
+			// Step 2.3: Create a token.
+			if err := upterm.WrapWithSuccessSpinner(
+				upterm.StepCounter("Creating token", 3, totalSteps),
+				stepSpinner,
+				func() error {
+					return provisioner.seedToken(ctx)
+				},
+				printer,
+			); err != nil {
+				return err
+			}
+
+			// Step 2.4: Seed access to the namespace.
+			if err := upterm.WrapWithSuccessSpinner(
+				upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
+				stepSpinner,
+				func() error {
+					return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
+				},
+				printer,
+			); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -350,8 +349,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		stepSpinner,
 		func() error {
 			installOptions := installOptions{
-				name:      c.name,
-				namespace: c.installationNamespace,
+				namespace: defaultInstallationNamespace,
 				version:   c.Version,
 				chartPath: c.HelmDirectory,
 				params:    params,
@@ -361,12 +359,15 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			if err := provisioner.installOrUpgradeConnector(ctx, c.consumerRestConfig, installOptions); err != nil {
 				return errors.Wrap(err, "failed to install or upgrade")
 			}
+
 			return nil
 		},
 		printer,
 	); err != nil {
 		return err
 	}
+
+	p.Printfln("API Connector installed")
 
 	// If skip connection is provided, we are done.
 	if c.SkipConnection {
@@ -378,7 +379,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		upterm.StepCounter("Creating connection secret", 5, totalSteps),
 		stepSpinner,
 		func() error {
-			return provisioner.seedConnectionSecret(ctx, c.consumerClient, c.name, c.installationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
+			return provisioner.seedConnectionSecret(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
 		},
 		printer,
 	); err != nil {
@@ -390,14 +391,16 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		upterm.StepCounter("Creating connection", 5, totalSteps),
 		stepSpinner,
 		func() error {
-			return provisioner.seedConnection(ctx, c.consumerClient, c.name, c.installationNamespace)
+			return provisioner.seedConnection(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace)
 		},
 		printer,
 	); err != nil {
 		return err
 	}
 
-	p.Printfln("API Connector installed")
+	p.Printfln("Connected to the control plane %s.", nice(c.controlPlaneName))
+	p.Println("See connection status with the following command: \n\n$ kubectl get clusterconnections")
+
 	return nil
 }
 

@@ -383,7 +383,6 @@ func (p *provisioner) getConnection(ctx context.Context, targetClient client.Cli
 }
 
 type installOptions struct {
-	name      string
 	namespace string
 	version   string
 	chartPath string
@@ -475,9 +474,6 @@ func (p *provisioner) installOrUpgradeConnector(_ context.Context, targetRestCon
 		p.printer.Printfln("API Connector is already installed, but does not match the current known version %s. Skipping installation. Use --upgrade to upgrade the connector.", nice(currentVersion))
 		return nil
 	}
-
-	p.printer.Printfln("Connected to the control plane %s.", nice(o.name))
-	p.printer.Println("See connection status with the following command: \n\n$ kubectl get clusterconnections")
 
 	return nil
 }
