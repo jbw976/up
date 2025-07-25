@@ -30,7 +30,9 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/functions"
+	"github.com/upbound/up/internal/xpkg/mutators"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
+	"github.com/upbound/up/internal/xpkg/parser/schema"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
@@ -176,7 +178,8 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	// Generate schemas for our APIs.
 	statusStage = "Generating language schemas"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	if err := os.depManager.SchemaManager().Add(ctx, manager.NewFSSource(apisSource)); err != nil {
+	schemas, err := os.depManager.SchemaManager().Generate(ctx, manager.NewFSSource(apisSource))
+	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, errors.Wrap(err, "failed to generate language schemas")
 	}
@@ -256,6 +259,11 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed add labels to package")
 		}
+	}
+
+	img, err = addSchemaLayers(img, schemas)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to add schema layers to package")
 	}
 
 	// Write out the packages to a file, which can be consumed by up project
@@ -548,6 +556,32 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 	}
 
 	return updatedImg, nil
+}
+
+func addSchemaLayers(img v1.Image, schemas map[string]afero.Fs) (v1.Image, error) {
+	// Add schema layers to the package.
+	imgCfgFile, err := img.ConfigFile()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read config file from image")
+	}
+	cfg := imgCfgFile.Config
+
+	for lang, schemaFS := range schemas {
+		p := schema.New(schemaFS, ".", xpkg.StreamFileMode)
+		mut := mutators.NewSchemaMutator(p, fmt.Sprintf("schema.%s", lang))
+
+		img, cfg, err = mut.Mutate(img, cfg)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to add schema layer for language %s", lang)
+		}
+	}
+
+	img, err = mutate.Config(img, cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to mutate config for image")
+	}
+
+	return img, nil
 }
 
 // NewBuilder returns a new project builder.

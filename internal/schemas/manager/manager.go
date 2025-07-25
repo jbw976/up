@@ -50,6 +50,20 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 		return nil
 	}
 
+	_, err = m.Generate(ctx, source)
+	return err
+}
+
+// Generate generates and returns schemas using the manager's generators, and
+// adds them to the manager. Unlike Add, Generate will always generate schemas,
+// regardless of whether they're already present in the manager. Callers should
+// prefer to use Add unless they require the schemas to be returned.
+func (m *Manager) Generate(ctx context.Context, source Source) (map[string]afero.Fs, error) {
+	version, err := source.Version(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// If we have pre-generated schemas, use them. Note that we never generate
 	// schemas for sources that *could* have pre-generated schemas, even if they
 	// do not have schemas packaged. This is intentional, since we don't want to
@@ -58,12 +72,12 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 	if ps, ok := source.(PackagedSource); ok {
 		schemas, err = ps.Schemas()
 		if err != nil {
-			return errors.Wrap(err, "failed to get packaged schemas")
+			return nil, errors.Wrap(err, "failed to get packaged schemas")
 		}
 	} else {
 		fromFS, err := source.Resources(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		eg, egCtx := errgroup.WithContext(ctx)
@@ -93,7 +107,7 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -101,15 +115,15 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 	for lang, fs := range schemas {
 		langFS := afero.NewBasePathFs(m.fs, lang)
 		if err := filesystem.CopyFilesBetweenFs(fs, langFS); err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := postProcessModelsForLanguage(lang, langFS); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return m.updateVersion(source.ID(), version)
+	return schemas, m.updateVersion(source.ID(), version)
 }
 
 // processModelsForLanguage does any language-specific work after adding models
