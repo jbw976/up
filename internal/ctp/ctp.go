@@ -16,7 +16,6 @@ import (
 	"slices"
 	"time"
 
-	docker "github.com/docker/docker/client"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -44,6 +43,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp/certs"
 	intctx "github.com/upbound/up/internal/ctx"
+	"github.com/upbound/up/internal/docker"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/project"
@@ -294,12 +294,7 @@ func (l *localDevControlPlane) Teardown(ctx context.Context, _ bool) error {
 		return errors.Wrap(err, "failed to delete the local control plane")
 	}
 
-	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
-	if err != nil {
-		return errors.Wrap(err, "failed to create docker client")
-	}
-
-	if err := teardownLocalRegistry(ctx, cli, l.registryContainerID); err != nil {
+	if err := teardownLocalRegistry(ctx, l.registryContainerID); err != nil {
 		return errors.Wrap(err, "failed to tear down registry")
 	}
 
@@ -434,6 +429,13 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig) (*localDevControlPlane, error) {
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
+
+	// Check that we have a working Docker-compatible runtime, since everything
+	// else will fail if we don't.
+	if err := docker.Check(ctx); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, errors.New("failed to connect to Docker; local dev control planes require a Docker-compatible container runtime")
+	}
 
 	// kind creates a docker container named <name>-control-plane, and uses the
 	// name as the container's hostname. Hostnames can be at most 63

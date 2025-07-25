@@ -9,9 +9,6 @@ import (
 	"os"
 	"slices"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	docker "github.com/docker/docker/client"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -22,6 +19,7 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	intctx "github.com/upbound/up/internal/ctx"
+	"github.com/upbound/up/internal/docker"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -171,27 +169,20 @@ func findLocalDevControlPlane(ctx context.Context, _ *upbound.Context, cfg *find
 
 	// Try to find the sideloading registry. If it doesn't exist, we may have
 	// failed to start it, or it may have been deleted out of band. That's fine.
-	registryName := cfg.name + "-registry"
-	cli, err := docker.NewClientWithOpts(docker.WithAPIVersionNegotiation(), docker.FromEnv)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to create docker client")
-	}
-	cs, err := cli.ContainerList(ctx, container.ListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: registryName}),
-		All:     true,
-	})
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to list containers")
-	}
 	var (
-		cid         string
-		registryDir string
+		registryName = cfg.name + "-registry"
+		registryDir  string
+		cid          string
 	)
-	if len(cs) > 0 {
-		cid = cs[0].ID
-
+	container, found, err := docker.GetContainerByName(ctx, registryName, true)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "failed to get registry container")
+	}
+	if found {
 		// Figure out the registry directory from the container config.
-		for _, m := range cs[0].Mounts {
+		cid = container.ID
+
+		for _, m := range container.Mounts {
 			if m.Destination == "/registry-data" {
 				registryDir = m.Source
 				break
