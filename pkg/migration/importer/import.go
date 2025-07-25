@@ -59,6 +59,11 @@ var (
 		"providers.pkg.crossplane.io",
 		"functions.pkg.crossplane.io",
 		"configurations.pkg.crossplane.io",
+		// Upbound resources
+		// Runtime
+		"upboundruntimeconfigs.pkg.upbound.io",
+		// Packages
+		"addons.pkg.upbound.io",
 	}
 )
 

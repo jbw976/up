@@ -123,11 +123,11 @@ func (e *UnstructuredFetcher) shouldSkip(r unstructured.Unstructured) bool { // 
 	}
 
 	if r.GetOwnerReferences() != nil {
-		// We don't want to export resources that are owned by Crossplane package manager.
+		// We don't want to export resources that are owned by Crossplane or Upbound package manager.
 		// They will be installed to the target cluster again using the package manager after the migration.
 		ownedByPackageManager := false
 		for _, or := range r.GetOwnerReferences() {
-			if strings.HasPrefix(or.APIVersion, "pkg.crossplane.io") {
+			if strings.HasPrefix(or.APIVersion, "pkg.crossplane.io") || strings.HasPrefix(or.APIVersion, "pkg.upbound.io") {
 				ownedByPackageManager = true
 				break
 			}
