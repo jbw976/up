@@ -45,6 +45,7 @@ Server:
 {{- end}}{{- end}}`
 )
 
+// ClientVersion is the version of the client.
 type ClientVersion struct {
 	Arch      string `json:"arch,omitempty"      yaml:"arch,omitempty"`
 	GitCommit string `json:"gitCommit,omitempty" yaml:"gitCommit,omitempty"`
@@ -53,12 +54,14 @@ type ClientVersion struct {
 	Version   string `json:"version,omitempty"   yaml:"version,omitempty"`
 }
 
+// ServerVersion is the version of the server.
 type ServerVersion struct {
 	CrossplaneVersion       string `json:"crossplaneVersion,omitempty"       yaml:"crossplaneVersion,omitempty"`
 	SpacesControllerVersion string `json:"spacesControllerVersion,omitempty" yaml:"spacesControllerVersion,omitempty"`
 }
 
-type VersionInfo struct {
+// Info is the version info for the client and server.
+type Info struct {
 	Client ClientVersion  `json:"client"           yaml:"client"`
 	Server *ServerVersion `json:"server,omitempty" yaml:"server,omitempty"`
 }
@@ -106,7 +109,7 @@ Usage:
 // BuildVersionInfo builds the version info for the client and server.
 // Important: if you changing behaviour of this function, please update createCommandSpans
 // for telemetry to make sure we don't introduce silent breakage.
-func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v VersionInfo) {
+func (c *Cmd) BuildVersionInfo(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) (v Info) {
 	v.Client = ClientVersion{
 		Version:   version.Version(),
 		Arch:      runtime.GOARCH,
