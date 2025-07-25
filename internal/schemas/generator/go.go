@@ -180,7 +180,7 @@ func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.
 			goRenameEnums,
 			goReplaceNumberWithInt,
 			goRemoveRequired,
-			goReferenceK8sTypes,
+			goReferenceK8sTypesForCRDs,
 			goRemoveK8s,
 			goKeepOnlyComponents,
 		)
@@ -420,6 +420,17 @@ func goSchemaPath(group, kind, version string) string {
 	//
 	// Example: Kind "Bucket" in group "platform.example.com/v1alpha1" becomes
 	// com/example/platform/v1alpha1/bucket.go.
+	// Special case: meta.core.k8s.io becomes io/k8s/core/meta/v1 for built-in K8s types
+	if group == "meta.core.k8s.io" {
+		return filepath.Join("io", "k8s", "core", "meta", version, strings.ToLower(kind)+".go")
+	}
+
+	// Handle specific K8s groups that should be under io/k8s/
+	switch group {
+	case "apps", "autoscaling", "batch", "policy":
+		return filepath.Join("io", "k8s", group, version, strings.ToLower(kind)+".go")
+	}
+
 	path := strings.Split(group, ".")
 	slices.Reverse(path)
 	path = append(path, version, strings.ToLower(kind)+".go")
@@ -584,7 +595,21 @@ func goReferenceK8sTypes(s *spec3.OpenAPI) {
 	}
 }
 
+// goReferenceK8sTypesForCRDs is like goReferenceK8sTypes but uses different
+// import paths appropriate for CRDs. For CRDs, we only need to handle meta.v1
+// differently since CRDs might use meta.k8s.io group.
+func goReferenceK8sTypesForCRDs(s *spec3.OpenAPI) {
+	for _, schema := range s.Components.Schemas {
+		goReferenceK8sTypeWithMetaPath(schema, false)
+		goReferenceK8sTypesPropertiesWithMetaPath(schema.Properties, false)
+	}
+}
+
 func goReferenceK8sType(schema *spec.Schema) {
+	goReferenceK8sTypeWithMetaPath(schema, true)
+}
+
+func goReferenceK8sTypeWithMetaPath(schema *spec.Schema, useCorePath bool) {
 	// Helper function to check if a reference is a k8s type
 	isK8sRef := func(ref string) bool {
 		return strings.Contains(ref, k8sPkgMetaV1) ||
@@ -597,7 +622,7 @@ func goReferenceK8sType(schema *spec.Schema) {
 	// Handle direct reference
 	ref := schema.Ref.String()
 	if isK8sRef(ref) {
-		tryReplaceK8sType(schema, ref)
+		tryReplaceK8sTypeWithMetaPath(schema, ref, useCorePath)
 		// Clear the original reference after replacement
 		schema.Ref = spec.Ref{}
 	}
@@ -614,47 +639,60 @@ func goReferenceK8sType(schema *spec.Schema) {
 	if allK8s && len(schema.AllOf) > 0 {
 		// Use the first AllOf ref for the replacement
 		ref := schema.AllOf[0].Ref.String()
-		tryReplaceK8sType(schema, ref)
+		tryReplaceK8sTypeWithMetaPath(schema, ref, useCorePath)
 		schema.AllOf = nil
 	} else {
 		// Process each AllOf individually
 		for i := range schema.AllOf {
-			goReferenceK8sType(&schema.AllOf[i])
+			goReferenceK8sTypeWithMetaPath(&schema.AllOf[i], useCorePath)
 		}
 	}
 
 	// Also check OneOf and AnyOf
 	for i := range schema.OneOf {
-		goReferenceK8sType(&schema.OneOf[i])
+		goReferenceK8sTypeWithMetaPath(&schema.OneOf[i], useCorePath)
 	}
 	for i := range schema.AnyOf {
-		goReferenceK8sType(&schema.AnyOf[i])
+		goReferenceK8sTypeWithMetaPath(&schema.AnyOf[i], useCorePath)
 	}
 }
 
 func goReferenceK8sTypesProperties(props map[string]spec.Schema) {
+	goReferenceK8sTypesPropertiesWithMetaPath(props, true)
+}
+
+func goReferenceK8sTypesPropertiesWithMetaPath(props map[string]spec.Schema, useCorePath bool) {
 	for name, prop := range props {
-		goReferenceK8sType(&prop)
-		goReferenceK8sTypesProperties(prop.Properties)
+		goReferenceK8sTypeWithMetaPath(&prop, useCorePath)
+		goReferenceK8sTypesPropertiesWithMetaPath(prop.Properties, useCorePath)
 		if prop.Items != nil {
-			goReferenceK8sType(prop.Items.Schema)
-			goReferenceK8sTypesProperties(prop.Items.Schema.Properties)
+			goReferenceK8sTypeWithMetaPath(prop.Items.Schema, useCorePath)
+			goReferenceK8sTypesPropertiesWithMetaPath(prop.Items.Schema.Properties, useCorePath)
 		}
 		if prop.AdditionalProperties != nil && prop.AdditionalProperties.Schema != nil {
-			goReferenceK8sType(prop.AdditionalProperties.Schema)
-			goReferenceK8sTypesProperties(prop.AdditionalProperties.Schema.Properties)
+			goReferenceK8sTypeWithMetaPath(prop.AdditionalProperties.Schema, useCorePath)
+			goReferenceK8sTypesPropertiesWithMetaPath(prop.AdditionalProperties.Schema.Properties, useCorePath)
 		}
 
 		props[name] = prop
 	}
 }
 
-func tryReplaceK8sType(schema *spec.Schema, ref string) {
+func tryReplaceK8sTypeWithMetaPath(schema *spec.Schema, ref string, useCorePath bool) {
 	lastDot := strings.LastIndex(ref, ".")
 	if lastDot == -1 {
 		return
 	}
 	t := ref[lastDot+1:]
+
+	// Determine the correct alias and path for meta.v1
+	metaAlias := "metacorev1"
+	metaPath := "dev.upbound.io/models/io/k8s/core/meta/v1"
+	if !useCorePath {
+		metaAlias = "metav1"
+		metaPath = "dev.upbound.io/models/io/k8s/meta/v1"
+	}
+
 	mapping := []struct {
 		contains   string
 		alias      string
@@ -662,8 +700,8 @@ func tryReplaceK8sType(schema *spec.Schema, ref string) {
 	}{
 		{
 			contains:   k8sPkgMetaV1,
-			alias:      "metav1",
-			importPath: "dev.upbound.io/models/io/k8s/meta/v1",
+			alias:      metaAlias,
+			importPath: metaPath,
 		},
 		{
 			contains:   k8sPkgCoreV1,
@@ -892,7 +930,7 @@ func removeSelfImports(code string, pkg string) (string, error) {
 	selfImports := map[string]struct {
 		Alias, Path string
 	}{
-		k8sPkgMetaV1:   {"metav1", "dev.upbound.io/models/io/k8s/meta/v1"},
+		k8sPkgMetaV1:   {"metacorev1", "dev.upbound.io/models/io/k8s/core/meta/v1"},
 		k8sPkgCoreV1:   {"corev1", "dev.upbound.io/models/io/k8s/core/v1"},
 		k8sPkgRuntime:  {"runtimev1", "dev.upbound.io/models/io/k8s/runtime/v1"},
 		k8sPkgIntStr:   {"intstrv1", "dev.upbound.io/models/io/k8s/util/v1"},
@@ -937,6 +975,7 @@ func removeSelfImports(code string, pkg string) (string, error) {
 func fixMissingImports(code string) (string, error) {
 	// 1. Define the k8s imports you might need
 	k8sImports := map[string]string{
+		"metacorev1": "dev.upbound.io/models/io/k8s/core/meta/v1",
 		"metav1":     "dev.upbound.io/models/io/k8s/meta/v1",
 		"corev1":     "dev.upbound.io/models/io/k8s/core/v1",
 		"resourcev1": "dev.upbound.io/models/io/k8s/resource/v1",
@@ -1180,7 +1219,7 @@ func generateK8sPackageCode(pkg string, schemas map[string]*spec.Schema, schemaF
 func getK8sPackageInfo(pkg string) (group, kind, version string) {
 	switch pkg {
 	case k8sPkgMetaV1:
-		return "meta.k8s.io", "meta", "v1"
+		return "meta.core.k8s.io", "meta", "v1"
 	case k8sPkgRuntime:
 		return "runtime.k8s.io", "runtime", "v1"
 	case k8sPkgCoreV1:

@@ -68,8 +68,8 @@ func TestGenerateFromOpenAPIGo(t *testing.T) {
 		"models/io/k8s/util/v1/intstr.go",
 		"models/io/k8s/runtime/v1/runtime.go",
 		"models/io/k8s/core/v1/core.go",
-		"models/policy/v1/policy.go",
-		"models/autoscaling/v1/autoscaling.go",
+		"models/io/k8s/policy/v1/policy.go",
+		"models/io/k8s/autoscaling/v1/autoscaling.go",
 		"models/io/k8s/resource/v1/resource.go",
 		"models/io/k8s/authentication/v1/authentication.go",
 	}
