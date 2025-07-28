@@ -104,6 +104,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/description": "Function xcluster from project project-embedded-functions",
 						},
 					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
+						},
+					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{
@@ -119,6 +127,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/description": "Function xnetwork from project project-embedded-functions",
 						},
 					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
+						},
+					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{
@@ -132,6 +148,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
 							"meta.crossplane.io/license":     "Apache-2.0",
 							"meta.crossplane.io/description": "Function xsubnetwork from project project-embedded-functions",
+						},
+					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
 						},
 					},
 				},
@@ -168,6 +192,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/description": "Function xcluster from project project-embedded-functions",
 						},
 					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
+						},
+					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{
@@ -183,6 +215,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/description": "Function xnetwork from project project-embedded-functions",
 						},
 					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
+						},
+					},
 				},
 				{
 					TypeMeta: metav1.TypeMeta{
@@ -196,6 +236,14 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
 							"meta.crossplane.io/license":     "Apache-2.0",
 							"meta.crossplane.io/description": "Function xsubnetwork from project project-embedded-functions",
+						},
+					},
+					Spec: xpmetav1.FunctionSpec{
+						MetaSpec: xpmetav1.MetaSpec{
+							Capabilities: []string{
+								xpmetav1.FunctionCapabilityComposition,
+								xpmetav1.FunctionCapabilityOperation,
+							},
 						},
 					},
 				},
