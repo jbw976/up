@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/async"
@@ -156,23 +158,53 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	}
 
 	functionsSource := afero.NewBasePathFs(projectFS, project.Spec.Paths.Functions)
-	// By default we search the whole project directory except the examples
-	// directory.
+	// By default we search the whole project directory except our specified
+	// paths.
 	apisSource := projectFS
-	apiExcludes := []string{project.Spec.Paths.Examples, project.Spec.Paths.Functions}
+	apiExcludes := []string{
+		project.Spec.Paths.Examples,
+		project.Spec.Paths.Functions,
+		project.Spec.Paths.Operations,
+	}
 	if project.Spec.Paths.APIs != "/" {
 		apisSource = afero.NewBasePathFs(projectFS, project.Spec.Paths.APIs)
 		apiExcludes = []string{}
 	}
 
-	// Collect APIs (composites).
-	statusStage := "Collecting composites"
-	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
-	packageFS, err := collectComposites(apisSource, apiExcludes)
+	// Not all projects have operations; ignore them if not present.
+	operationsSource := afero.NewMemMapFs()
+	opsExist, err := afero.DirExists(projectFS, project.Spec.Paths.Operations)
 	if err != nil {
+		return nil, err
+	}
+	if opsExist {
+		operationsSource = afero.NewBasePathFs(projectFS, project.Spec.Paths.Operations)
+	}
+
+	// Collect resources (XRDs, compositions, and operations).
+	packageFS := afero.NewMemMapFs()
+	statusStage := "Collecting resources"
+	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
+
+	apiGVKs := []string{
+		xpv1.CompositeResourceDefinitionGroupVersionKind.String(),
+		xpv1.CompositionGroupVersionKind.String(),
+	}
+	if err := collectResources(packageFS, apisSource, apiGVKs, apiExcludes); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, err
 	}
+
+	opsGVKs := []string{
+		xpv1alpha1.OperationGroupVersionKind.String(),
+		xpv1alpha1.WatchOperationGroupVersionKind.String(),
+		xpv1alpha1.CronOperationGroupVersionKind.String(),
+	}
+	if err := collectResources(packageFS, operationsSource, opsGVKs, nil); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, err
+	}
+
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 
 	// Generate schemas for our APIs.
@@ -451,9 +483,8 @@ func (b *realBuilder) buildFunction(ctx context.Context, upCtx *upbound.Context,
 	return pkgImages, nil
 }
 
-func collectComposites(fromFS afero.Fs, exclude []string) (afero.Fs, error) { //nolint:gocyclo // This is fine.
-	toFS := afero.NewMemMapFs()
-	return toFS, afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
+func collectResources(toFS afero.Fs, fromFS afero.Fs, gvks []string, exclude []string) error {
+	return afero.Walk(fromFS, "/", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -483,12 +514,7 @@ func collectComposites(fromFS afero.Fs, exclude []string) (afero.Fs, error) { //
 			return errors.Wrapf(err, "failed to parse file %q", path)
 		}
 
-		// Ignore anything that's not an XRD or Composition, since those are the
-		// only allowed types in a Configuration xpkg.
-		if u.GroupVersionKind().Group != xpv1.Group {
-			return nil
-		}
-		if u.Kind != xpv1.CompositeResourceDefinitionKind && u.Kind != xpv1.CompositionKind {
+		if !slices.Contains(gvks, u.GroupVersionKind().String()) {
 			return nil
 		}
 

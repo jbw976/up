@@ -48,6 +48,9 @@ func (s *ProjectSpec) Validate() error {
 		if s.Paths.Tests != "" && filepath.IsAbs(s.Paths.Tests) {
 			errs = append(errs, errors.New("tests path must be relative"))
 		}
+		if s.Paths.Operations != "" && filepath.IsAbs(s.Paths.Operations) {
+			errs = append(errs, errors.New("operations path must be relative"))
+		}
 	}
 
 	if s.Architectures != nil && len(s.Architectures) == 0 {
@@ -104,6 +107,9 @@ func (p *ProjectPaths) Default() {
 	}
 	if p.Tests == "" {
 		p.Tests = "tests"
+	}
+	if p.Operations == "" {
+		p.Operations = "operations"
 	}
 }
 

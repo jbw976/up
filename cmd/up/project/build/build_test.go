@@ -200,8 +200,8 @@ func TestBuild(t *testing.T) {
 					},
 				},
 			},
-			// 3 APIs = 3 XRDs + 3 compositions.
-			expectedObjectCount: 6,
+			// 3 XRDs + 3 compositions + 3 operations.
+			expectedObjectCount: 9,
 			expectedAnnotatedLayers: map[string]bool{
 				xpkg.PackageAnnotation:  true,
 				xpkg.ExamplesAnnotation: false, // no-examples expected

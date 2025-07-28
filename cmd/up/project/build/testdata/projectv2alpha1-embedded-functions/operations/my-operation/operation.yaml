@@ -1,0 +1,8 @@
+apiVersion: ops.crossplane.io/v1alpha1
+kind: Operation
+metadata:
+  name: my-operation
+spec:
+  mode: Pipeline
+  pipeline: []
+  retryLimit: 3

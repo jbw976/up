@@ -1,0 +1,13 @@
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: my-deployment-operation
+spec:
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline: []
+      retryLimit: 3
+  watch:
+    apiVersion: apps/v1
+    kind: Deployment
