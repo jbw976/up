@@ -1,0 +1,14 @@
+apiVersion: ops.crossplane.io/v1alpha1
+kind: CronOperation
+metadata:
+  name: my-operation
+spec:
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+      - functionRef:
+          name: upbound-example-project-awsmy-op-fn
+        step: my-op-fn
+      retryLimit: 3
+  schedule: '* * * * *'
