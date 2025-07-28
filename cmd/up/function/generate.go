@@ -21,10 +21,10 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
 	"golang.org/x/mod/module"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
@@ -48,9 +48,13 @@ Examples:
     function generate fn2 --language python
         Creates a function with Python language support in the folder 'functions/fn2'.
 
-    function generate xcluster /apis/xcluster/composition.yaml
-        Creates a function with the default language (KCL) in the folder 'functions/xcluster'
+    function generate compose-xcluster apis/xcluster/composition.yaml
+        Creates a function with the default language (KCL) in the folder 'functions/compose-xcluster'
         and adds a composition pipeline step with the function reference name specified in the given composition file.
+
+    function generate check-pod-logs operations/watch-pods/operation.yaml --language go
+        Creates a Go function in the folder 'functions/check-pod-logs' and adds a pipeline step for the function
+        to the operation in 'operations/watch-pods/operation.yaml'.
 `
 }
 
@@ -70,12 +74,13 @@ var (
 )
 
 type generateCmd struct {
-	ProjectFile     string `default:"upbound.yaml"                                                                           help:"Path to project definition file."     short:"f"`
-	Repository      string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
-	CacheDir        string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                             help:"Directory used for caching dependency images." type:"path"`
-	Language        string `default:"kcl"                                                                                    enum:"kcl,python,go,go-templating"          help:"Language for function."                        short:"l"`
-	Name            string `arg:""                                                                                           help:"Name for the new Function."           required:""`
-	CompositionPath string `arg:""                                                                                           help:"Path to Crossplane Composition file." optional:""`
+	Name         string `arg:"" help:"Name for the new Function."                                         required:""`
+	PipelinePath string `arg:"" help:"Path to a composition or operation that will use the new function." optional:""`
+
+	ProjectFile string `default:"upbound.yaml"                                                                           help:"Path to project definition file." short:"f"`
+	Repository  string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
+	CacheDir    string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
+	Language    string `default:"kcl"                                                                                    enum:"kcl,python,go,go-templating"      help:"Language for function."                        short:"l"`
 
 	Flags upbound.Flags `embed:""`
 
@@ -161,10 +166,10 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		return errors.Errorf("'%s' is not a valid function name. DNS-1035 constraints: %s", c.Name, strings.Join(errs, "; "))
 	}
 
-	if c.CompositionPath != "" {
-		exists, _ := afero.Exists(c.projFS, c.CompositionPath)
+	if c.PipelinePath != "" {
+		exists, _ := afero.Exists(c.projFS, c.PipelinePath)
 		if !exists {
-			return errors.Errorf("composition file %q does not exist", c.CompositionPath)
+			return errors.Errorf("file %q does not exist", c.PipelinePath)
 		}
 	}
 
@@ -257,19 +262,33 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		return err
 	}
 
-	if c.CompositionPath != "" {
+	if c.PipelinePath != "" {
 		err = upterm.WrapWithSuccessSpinner(
-			"Adding Pipeline Step in Composition",
+			"Adding Pipeline Step",
 			upterm.CheckmarkSuccessSpinner,
 			func() error {
-				comp, err := c.readAndUnmarshalComposition()
+				pipe, err := c.readAndUnmarshalPipeline()
 				if err != nil {
-					return errors.Wrapf(err, "failed to read composition")
+					return errors.Wrapf(err, "failed to read pipeline")
 				}
 
-				if err := c.addPipelineStep(comp); err != nil {
-					return errors.Wrap(err, "failed to add pipeline step to composition")
+				if err := c.addPipelineStep(pipe); err != nil {
+					return errors.Wrap(err, "failed to add pipeline step")
 				}
+
+				y, err := yaml.Marshal(pipe,
+					yaml.RemoveField("spec.operationTemplate.metadata"),
+					yaml.RemoveField("metadata.creationTimestamp"),
+					yaml.RemoveField("status"),
+				)
+				if err != nil {
+					return errors.Wrapf(err, "failed to marshal pipeline to yaml")
+				}
+
+				if err = afero.WriteFile(c.projFS, c.PipelinePath, y, 0o644); err != nil {
+					return errors.Wrapf(err, "failed to write pipeline to file")
+				}
+
 				return nil
 			},
 			printer,
@@ -455,57 +474,34 @@ func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
 	return targetFS, nil
 }
 
-func (c *generateCmd) addPipelineStep(comp *v1.Composition) error {
+func (c *generateCmd) addPipelineStep(pipe pipeline) error {
 	fnRepoStr := fmt.Sprintf("%s_%s", c.projectRepository, c.Name)
 	fnRepo, err := name.NewRepository(fnRepoStr, name.StrictValidation)
 	if err != nil {
 		return errors.Wrapf(err, "error unable to parse the function repo")
 	}
 
-	step := v1.PipelineStep{
-		Step: c.Name,
-		FunctionRef: v1.FunctionReference{
-			Name: xpkg.ToDNSLabel(fnRepo.RepositoryStr()),
-		},
-	}
-
-	// Check if the step already exists in the pipeline
-	for _, existingStep := range comp.Spec.Pipeline {
-		if existingStep.Step == step.Step && existingStep.FunctionRef.Name == step.FunctionRef.Name {
-			// Step already exists, no need to add it
-			return nil
-		}
-	}
-
-	comp.Spec.Pipeline = append([]v1.PipelineStep{step}, comp.Spec.Pipeline...)
-	compYAML, err := yaml.Marshal(comp)
-	if err != nil {
-		return errors.Wrapf(err, "failed to marshal composition to yaml")
-	}
-
-	if err = afero.WriteFile(c.projFS, c.CompositionPath, compYAML, 0o644); err != nil {
-		return errors.Wrapf(err, "failed to write composition to file")
-	}
+	pipe.addStep(c.Name, xpkg.ToDNSLabel(fnRepo.RepositoryStr()))
 
 	return nil
 }
 
-func (c *generateCmd) readAndUnmarshalComposition() (*v1.Composition, error) {
-	file, err := c.projFS.Open(c.CompositionPath)
+func (c *generateCmd) readAndUnmarshalPipeline() (pipeline, error) {
+	file, err := c.projFS.Open(c.PipelinePath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open composition file")
+		return nil, errors.Wrapf(err, "failed to open pipeline file")
 	}
 
 	compRaw, err := io.ReadAll(file)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read composition file")
+		return nil, errors.Wrapf(err, "failed to read pipeline file")
 	}
 
-	var comp v1.Composition
-	err = yaml.Unmarshal(compRaw, &comp)
+	var u unstructured.Unstructured
+	err = yaml.Unmarshal(compRaw, &u)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal to composition")
+		return nil, errors.Wrapf(err, "failed to unmarshal pipeline")
 	}
 
-	return &comp, nil
+	return convertToPipeline(&u)
 }
