@@ -178,6 +178,7 @@ func TestCmd_AfterApply(t *testing.T) {
 				organization:     "test-org",
 				space:            "upbound-gcp-us-west-1",
 				group:            "default",
+				name:             "api-connector-test-cp",
 				controlPlaneName: "test-cp",
 				spacesHostname:   "https://upbound-gcp-us-west-1.spaces.upbound.io",
 			},
@@ -185,13 +186,14 @@ func TestCmd_AfterApply(t *testing.T) {
 		"ValidContextWithCustomName": {
 			reason: "Should successfully parse context and use custom name",
 			input: installCmd{
-				RobotName: "custom-name",
+				Name: "custom-name",
 			},
 			expected: &installCmd{
 				organization:     "test-org",
 				space:            "upbound-gcp-us-west-1",
 				group:            "default",
-				RobotName:        "custom-name",
+				name:             "custom-name",
+				Name:             "custom-name",
 				controlPlaneName: "test-cp",
 				spacesHostname:   "https://upbound-gcp-us-west-1.spaces.upbound.io",
 			},

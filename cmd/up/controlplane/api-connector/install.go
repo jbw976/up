@@ -13,7 +13,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
@@ -73,6 +72,7 @@ type installCmd struct {
 	// cluster to connect to the control plane. These are derived from the exported variables
 	// below, so we don't loose the original values and have to pass them around.
 
+	name             string
 	group            string
 	space            string
 	organization     string
@@ -84,7 +84,7 @@ type installCmd struct {
 	Version string `help:"Version of the API Connector to install. If not provided, the latest, known to CLI, will be installed."`
 
 	// Identity flags
-	RobotName    string `help:"Name of the Upbound robot account to use for authenticating to the provider control plane. Defaults to the 'api-connector-<consumer-cluster-uid>. Mutually exclusive with --upbound-token."`
+	Name         string `help:"Name of the related objects for named connection. If not provided, control plane name will be used with api-connector prefix. "`
 	UpboundToken string `help:"API token used to authenticate to the provider control plane. Mutually exclusive with --robot-name."`
 
 	// Installation flags
@@ -151,20 +151,18 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 	c.group = parts[2]
 	c.controlPlaneName = parts[3]
 
+	if c.Name != "" {
+		c.name = c.Name
+	} else {
+		c.name = fmt.Sprintf("api-connector-%s", c.controlPlaneName)
+	}
+
 	if !strings.HasPrefix(c.space, "upbound-") {
 		return errors.New("space name must start with 'upbound-'")
 	}
 
 	// TODO(mjudeikis): Once "spaces" arg is configurable this will need to be updated.
 	c.spacesHostname = "https://" + c.space + spacesHostnameSuffix
-
-	if c.RobotName != "" && c.UpboundToken != "" {
-		return errors.New("--robot-name and --upbound-token are mutually exclusive")
-	}
-
-	if c.SkipConnection && (c.UpboundToken != "" || c.RobotName != "") {
-		return errors.New("--skip-connection cannot be used with --upbound-token or --robot-name")
-	}
 
 	// validate if user by mistake provided upbound context for consumer cluster
 	var consumerRestConfig *rest.Config
@@ -237,7 +235,7 @@ func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context, printer up
 	return c.deploy(ctx, p, upCtx, printer)
 }
 
-func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // its a state machine
 	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
 
 	provisioner := newProvisioner(c.sdkConfig, p, printer)
@@ -277,17 +275,8 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			provisioner.results.Token = c.UpboundToken
 			provisioner.results.OrganizationName = c.organization
 		} else { // No token provided, so we need to create a robot and a token, and wire things up.
-
-			if c.RobotName == "" {
-				kubeSystemNs := corev1.Namespace{}
-				if err := c.consumerClient.Get(ctx, client.ObjectKey{Name: "kube-system"}, &kubeSystemNs); err != nil {
-					return errors.Wrap(err, "failed to get kube-system namespace")
-				}
-				c.RobotName = fmt.Sprintf("api-connector-%s", kubeSystemNs.UID)
-			}
-
 			// Step 2.1: Read organization configuration.
-			p.Printfln("Creating a robot named %s in the organization %s.", nice(c.RobotName), nice(upCtx.Profile.Organization))
+			p.Printfln("Creating a robot named %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
 			if err := upterm.WrapWithSuccessSpinner(
 				upterm.StepCounter("Reading organization configuration", 2, totalSteps),
 				stepSpinner,
@@ -307,7 +296,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 				upterm.StepCounter("Creating robot", 3, totalSteps),
 				stepSpinner,
 				func() error {
-					if err := provisioner.seedRobots(ctx, c.RobotName); err != nil {
+					if err := provisioner.seedRobots(ctx, c.name); err != nil {
 						return errors.Wrap(err, "failed to seed robots")
 					}
 					return nil
