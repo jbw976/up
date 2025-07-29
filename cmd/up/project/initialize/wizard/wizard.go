@@ -237,7 +237,7 @@ func (w *Wizard) compPath(state State) string {
 }
 
 func (w *Wizard) functionName(state State) string {
-	return strings.ToLower(state.Kind)
+	return fmt.Sprintf("compose-%s", strings.ToLower(state.Kind))
 }
 
 func (w *Wizard) testName(state State) string {
@@ -286,9 +286,9 @@ func (w *Wizard) PrintNextSteps(state State) {
 	}
 
 	if state.GenerateFunction {
-		nextSteps = append(nextSteps, fmt.Sprintf("Edit the function files at %q", filepath.Join(w.Paths.Functions, w.functionName(state))))
+		nextSteps = append(nextSteps, fmt.Sprintf("Edit the function files inside %q", filepath.Join(w.Paths.Functions, w.functionName(state))))
 	} else {
-		nextSteps = append(nextSteps, fmt.Sprintf("Generate a function using `up function generate --path %s %s`", w.compPath(state), filepath.Join(w.Paths.APIs, w.xrdPath(state))))
+		nextSteps = append(nextSteps, fmt.Sprintf("Generate a function using `up function generate %s %s`", w.functionName(state), filepath.Join(w.Paths.APIs, w.compPath(state))))
 	}
 
 	nextSteps = append(nextSteps, "Build the project using `up project build` or run it using `up project run`")
