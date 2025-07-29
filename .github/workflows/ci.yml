@@ -476,6 +476,7 @@ jobs:
           cd e2e-test
           up example generate \
             --type xr \
+            --scope cluster \
             --api-group acme.comp \
             --api-version v1beta1 \
             --kind XCluster \

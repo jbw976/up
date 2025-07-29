@@ -1,4 +1,4 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
   name: xclusters.acme.comp
@@ -9,6 +9,7 @@ spec:
     - crossplane
     kind: XCluster
     plural: xclusters
+  scope: Cluster
   versions:
   - name: v1beta1
     referenceable: true
