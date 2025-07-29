@@ -312,3 +312,414 @@ func TestUpdate(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, st.Mode(), fs.FileMode(0o666))
 }
+
+func TestUpsertAPIDependency(t *testing.T) {
+	t.Parallel()
+
+	tcs := map[string]struct {
+		inputDeps    []v2alpha1.APIDependencies
+		newDep       v2alpha1.APIDependencies
+		expectedDeps []v2alpha1.APIDependencies
+	}{
+		"AddK8sDependency": {
+			inputDeps: nil,
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			}},
+		},
+		"AddCRDDependencyHTTP": {
+			inputDeps: nil,
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/crds.yaml",
+				},
+			}},
+		},
+		"AddCRDDependencyGit": {
+			inputDeps: nil,
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "main",
+					Path:       "crds/",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "main",
+					Path:       "crds/",
+				},
+			}},
+		},
+		"AddCRDDependencyGitDifferentHost": {
+			inputDeps: nil,
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://gitlab.com/example/repo.git",
+					Ref:        "v1.0.0",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://gitlab.com/example/repo.git",
+					Ref:        "v1.0.0",
+				},
+			}},
+		},
+		"UpdateK8sVersion": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.27.0",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			}},
+		},
+		"AddDifferentHTTPCRDURL": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/old-crds.yaml",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/new-crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/old-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/new-crds.yaml",
+					},
+				},
+			},
+		},
+		"UpdateCRDGitRef": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v1.0.0",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v2.0.0",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v2.0.0",
+				},
+			}},
+		},
+		"AddMultipleDependencies": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeK8s,
+					K8s: &v2alpha1.APIK8sReference{
+						Version: "v1.33.0",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/crds.yaml",
+					},
+				},
+			},
+		},
+		"NoOpIfExactDependencyExists": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				K8s: &v2alpha1.APIK8sReference{
+					Version: "v1.33.0",
+				},
+			}},
+		},
+		"AddDifferentCRDSourceType": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/crds.yaml",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "main",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					Git: &v2alpha1.APIGitReference{
+						Repository: "https://github.com/example/repo.git",
+						Ref:        "main",
+					},
+				},
+			},
+		},
+		"UpdateGitCRDWithSameRepository": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v1.0.0",
+					Path:       "old/path",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v2.0.0",
+					Path:       "new/path",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/example/repo.git",
+					Ref:        "v2.0.0",
+					Path:       "new/path",
+				},
+			}},
+		},
+		"AddMultipleHTTPCRDs": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/cert-manager-crds.yaml",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/prometheus-crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/cert-manager-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/prometheus-crds.yaml",
+					},
+				},
+			},
+		},
+		"AddThreeHTTPCRDs": {
+			inputDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/cert-manager-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/prometheus-crds.yaml",
+					},
+				},
+			},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/istio-crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/cert-manager-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/prometheus-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/istio-crds.yaml",
+					},
+				},
+			},
+		},
+		"UpdateExistingHTTPCRDSameURL": {
+			inputDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/cert-manager-crds.yaml",
+				},
+			}},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/cert-manager-crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/cert-manager-crds.yaml",
+				},
+			}},
+		},
+		"MixedCRDTypesWithMultipleHTTP": {
+			inputDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					Git: &v2alpha1.APIGitReference{
+						Repository: "https://github.com/crossplane/crossplane",
+						Ref:        "release-1.20",
+						Path:       "cluster/crds",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/cert-manager-crds.yaml",
+					},
+				},
+			},
+			newDep: v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeCRD,
+				HTTP: &v2alpha1.APIHTTPReference{
+					URL: "https://example.com/prometheus-crds.yaml",
+				},
+			},
+			expectedDeps: []v2alpha1.APIDependencies{
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					Git: &v2alpha1.APIGitReference{
+						Repository: "https://github.com/crossplane/crossplane",
+						Ref:        "release-1.20",
+						Path:       "cluster/crds",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/cert-manager-crds.yaml",
+					},
+				},
+				{
+					Type: v2alpha1.APIDependencyTypeCRD,
+					HTTP: &v2alpha1.APIHTTPReference{
+						URL: "https://example.com/prometheus-crds.yaml",
+					},
+				},
+			},
+		},
+	}
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			proj := &v2alpha1.Project{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: v2alpha1.ProjectGroupVersionKind.GroupVersion().String(),
+					Kind:       v2alpha1.ProjectKind,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &v2alpha1.ProjectSpec{
+					APIDependencies: tc.inputDeps,
+				},
+			}
+
+			err := UpsertAPIDependency(proj, tc.newDep)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, tc.expectedDeps, proj.Spec.APIDependencies)
+		})
+	}
+}

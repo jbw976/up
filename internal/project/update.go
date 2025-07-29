@@ -107,3 +107,64 @@ func UpsertDependency(proj *v2alpha1.Project, newDep pkgmetav1.Dependency) error
 
 	return nil
 }
+
+// UpsertAPIDependency adds or updates an API dependency in the project's metadata.
+func UpsertAPIDependency(proj *v2alpha1.Project, newDep v2alpha1.APIDependencies) error {
+	if proj.Spec.APIDependencies == nil {
+		proj.Spec.APIDependencies = []v2alpha1.APIDependencies{}
+	}
+
+	// Check if this dependency already exists
+	for i, existing := range proj.Spec.APIDependencies {
+		if apiDepsEqual(existing, newDep) {
+			return nil // Already exists with same config
+		}
+		// If same type but different config, update it
+		if existing.Type == newDep.Type {
+			switch existing.Type {
+			case v2alpha1.APIDependencyTypeK8s:
+				if existing.K8s != nil && newDep.K8s != nil {
+					proj.Spec.APIDependencies[i] = newDep
+					return nil
+				}
+			case v2alpha1.APIDependencyTypeCRD:
+				// For CRDs, check if it's the same source
+				if existing.HTTP != nil && newDep.HTTP != nil && existing.HTTP.URL == newDep.HTTP.URL {
+					proj.Spec.APIDependencies[i] = newDep
+					return nil
+				}
+				if existing.Git != nil && newDep.Git != nil && existing.Git.Repository == newDep.Git.Repository {
+					proj.Spec.APIDependencies[i] = newDep
+					return nil
+				}
+			}
+		}
+	}
+
+	// Add new dependency
+	proj.Spec.APIDependencies = append(proj.Spec.APIDependencies, newDep)
+	return nil
+}
+
+// apiDepsEqual checks if two API dependencies are equal.
+func apiDepsEqual(a, b v2alpha1.APIDependencies) bool {
+	if a.Type != b.Type {
+		return false
+	}
+
+	switch a.Type {
+	case v2alpha1.APIDependencyTypeK8s:
+		return a.K8s != nil && b.K8s != nil && a.K8s.Version == b.K8s.Version
+	case v2alpha1.APIDependencyTypeCRD:
+		if a.HTTP != nil && b.HTTP != nil {
+			return a.HTTP.URL == b.HTTP.URL
+		}
+		if a.Git != nil && b.Git != nil {
+			return a.Git.Repository == b.Git.Repository &&
+				a.Git.Ref == b.Git.Ref &&
+				a.Git.Path == b.Git.Path
+		}
+	}
+
+	return false
+}
