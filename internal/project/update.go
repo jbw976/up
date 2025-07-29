@@ -129,10 +129,6 @@ func UpsertAPIDependency(proj *v2alpha1.Project, newDep v2alpha1.APIDependencies
 				}
 			case v2alpha1.APIDependencyTypeCRD:
 				// For CRDs, check if it's the same source
-				if existing.HTTP != nil && newDep.HTTP != nil && existing.HTTP.URL == newDep.HTTP.URL {
-					proj.Spec.APIDependencies[i] = newDep
-					return nil
-				}
 				if existing.Git != nil && newDep.Git != nil && existing.Git.Repository == newDep.Git.Repository {
 					proj.Spec.APIDependencies[i] = newDep
 					return nil
