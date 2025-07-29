@@ -366,6 +366,7 @@ func (tc *addTestCase) Run(t *testing.T) {
 		projFS:      fs,
 		ProjectFile: "upbound.yaml",
 		Package:     tc.newPackage,
+		API:         false,
 	}
 	err = cmd.Run(t.Context(), printer)
 

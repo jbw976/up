@@ -164,6 +164,18 @@ func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v2alpha1.A
 		return errors.Wrapf(err, "failed to generate schemas for API dependency %s", dep.Type)
 	}
 
+	// Update the project with the new API dependency
+	if err := UpsertAPIDependency(m.proj, dep); err != nil {
+		return errors.Wrap(err, "failed to add API dependency to project")
+	}
+
+	// Persist the updated project to disk
+	if err := Update(m.projFS, m.projFile, func(p *v2alpha1.Project) {
+		p.Spec.APIDependencies = m.proj.Spec.APIDependencies
+	}); err != nil {
+		return errors.Wrap(err, "failed to update project metadata")
+	}
+
 	return nil
 }
 
