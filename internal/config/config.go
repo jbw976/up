@@ -35,13 +35,10 @@ const (
 	errNoProfilesFound         = "no profiles found"
 )
 
-// TelemetryAuthToken is the default auth token used to authenticate with the telemetry endpoint.
-// This will override the default key if set.
-//
-//	go build -ldflags "-X github.com/upbound/up/internal/config.TelemetryAuthToken=${AUTH_KEY}".
-//
-//nolint:gochecknoglobals // This so we can set it via build flag.
-var TelemetryAuthToken = "123456780"
+// TelemetryAuthToken is the default auth token used to authenticate with the
+// telemetry endpoint. We hard-code it here rather than injecting it as a build
+// arg since users can easily discover it regardless.
+const TelemetryAuthToken = "ab43c89b-2a3d-4c82-9ec7-59f3df8bd101"
 
 const (
 	// ConfigurationTelemetryDisabled is the key for the telemetry.disabled configuration.
