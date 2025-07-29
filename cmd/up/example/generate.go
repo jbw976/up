@@ -67,6 +67,8 @@ const (
 	xrcString        = "xrc"
 	claimString      = "claim"
 	defaultNamespace = "default"
+	scopeCluster     = "cluster"
+	scopeNamespace   = "namespace"
 )
 
 type resource struct {
@@ -79,7 +81,9 @@ type generateCmd struct {
 	Path   string `help:"Specifies the path to the output file where the  Composite Resource (XR) or Composite Resource Claim (XRC) will be saved." optional:""`
 	Output string `default:"file"                                                                                                                   enum:"file,yaml,json" help:"Specifies the output format for the results. Use 'file' to save to a file, 'yaml' to display the  Composite Resource (XR) or Composite Resource Claim (XRC) in YAML format, or 'json' to display in JSON format." short:"o"`
 
-	Type       string `default:""                                         enum:"xr,xrc,claim," help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)."`
+	Type string `default:"" enum:"xr,xrc,claim," help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)."`
+
+	Scope      string `default:""                                         enum:"cluster,namespace," help:"Specifies the XR scope (v2 only)."`
 	APIGroup   string `help:"Specifies the API group for the resource."`
 	APIVersion string `help:"Specifies the API version for the resource."`
 	Kind       string `help:"Specifies the Kind of the resource."`
@@ -152,6 +156,7 @@ func (c *generateCmd) Run() error {
 	// For v2 projects, we only have XRs (no XRCs), so set type to xr
 	if c.proj != nil && c.proj.IsV2() {
 		c.Type = xrString
+		c.Scope = c.getInteractiveScope()
 	} else if c.Type == "" {
 		// For v1 projects, get xr or xrc/claim as input otherwise ask interactive
 		c.Type = c.getInteractiveType()
@@ -353,6 +358,29 @@ func (c *generateCmd) getInteractiveType() string {
 	return cType
 }
 
+// getInteractiveScope asks whether XR should be cluster scoped or namespace
+// scoped.
+func (c *generateCmd) getInteractiveScope() string {
+	if c.Scope != "" {
+		return c.Scope
+	}
+
+	confirm := pterm.DefaultInteractiveConfirm.
+		WithDefaultText("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)").
+		WithDefaultValue(false)
+
+	wantClusterScoped, err := confirm.Show()
+	if err != nil {
+		pterm.Error.Println("An error occurred while getting scoping choice:", err)
+		return scopeNamespace // Default to namespace scoped.
+	}
+	if wantClusterScoped {
+		return scopeCluster
+	}
+
+	return scopeNamespace
+}
+
 // getInteractiveKind gets the resource kind interactively.
 func (c *generateCmd) getInteractiveKind(resourceType string) string {
 	if c.Kind != "" {
@@ -447,13 +475,9 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 		return c.Namespace
 	}
 
-	// For v2 projects, only XRs exist and we ask about namespace scoping
-	if c.proj != nil && c.proj.IsV2() {
-		return c.getInteractiveXRNamespace()
-	}
-
 	// For v1 projects: XRC/Claims always ask for namespace, XRs don't have namespace
-	if resourceType == xrcString || resourceType == claimString {
+	// For v2 projects: XRs ask for namespace if they are namespace scoped.
+	if resourceType == xrcString || resourceType == claimString || c.Scope == scopeNamespace {
 		input := *pterm.DefaultInteractiveTextInput.
 			WithDefaultText("What is the metadata namespace?").
 			WithDefaultValue(defaultNamespace)
@@ -467,37 +491,9 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 		return namespace
 	}
 
-	// For XR resources in v1 projects, no namespace
+	// For XR resources in v1 projects and cluster socped XRs in v2 projects, no
+	// namespace.
 	return ""
-}
-
-// getInteractiveXRNamespace asks whether XR should be cluster scoped or gets the namespace for namespace scoping.
-func (c *generateCmd) getInteractiveXRNamespace() string {
-	confirm := pterm.DefaultInteractiveConfirm.
-		WithDefaultText("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)").
-		WithDefaultValue(false)
-
-	wantClusterScoped, err := confirm.Show()
-	if err != nil {
-		pterm.Error.Println("An error occurred while getting scoping choice:", err)
-		return defaultNamespace // Default to namespace scoped with default namespace
-	}
-
-	if wantClusterScoped {
-		return ""
-	}
-
-	input := *pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the metadata namespace?").
-		WithDefaultValue(defaultNamespace)
-
-	namespace, err := input.Show()
-	if err != nil {
-		pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
-		return defaultNamespace
-	}
-
-	return namespace
 }
 
 // createResource creates a resource based on the collected input.
