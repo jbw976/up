@@ -16,6 +16,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/workspace"
@@ -65,7 +66,7 @@ func Move(ctx context.Context, project *v2alpha1.Project, projectFS afero.Fs, ne
 		return errors.Wrap(err, "failed to write project metadata")
 	}
 
-	if err := updateCompositions(ws, fnMap); err != nil {
+	if err := updatePipelines(ws, fnMap); err != nil {
 		return err
 	}
 
@@ -100,44 +101,112 @@ func buildFunctionMap(project *v2alpha1.Project, projectFS afero.Fs, oldReposito
 	return fnMap, nil
 }
 
-func updateCompositions(ws *workspace.Workspace, fnMap map[string]string) error {
+func updatePipelines(ws *workspace.Workspace, fnMap map[string]string) error {
 	projFS := ws.Filesystem()
 	for _, node := range ws.View().Nodes() {
-		var comp xpextv1.Composition
+		fname := node.GetFileName()
+
 		unst, ok := node.GetObject().(*unstructured.Unstructured)
 		if !ok {
-			return errors.Errorf("unexpected node type %T in workspace", node.GetObject())
+			return errors.Errorf("unexpected node type %T in file %q", node.GetObject(), fname)
 		}
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(unst.UnstructuredContent(), &comp)
+
+		newPipeline, updated, err := updatePipeline(unst, fnMap)
 		if err != nil {
+			return errors.Wrapf(err, "failed to convert pipeline %q", fname)
+		}
+		if !updated {
 			continue
 		}
 
-		newPipeline := make([]xpextv1.PipelineStep, len(comp.Spec.Pipeline))
-		rewritten := false
-		for i, step := range comp.Spec.Pipeline {
-			newRef, update := fnMap[step.FunctionRef.Name]
-			if update {
-				step.FunctionRef.Name = newRef
-				rewritten = true
-			}
-			newPipeline[i] = step
-		}
-		comp.Spec.Pipeline = newPipeline
-
-		if !rewritten {
-			continue
-		}
-
-		fname := node.GetFileName()
-		compYAML, err := yaml.Marshal(comp)
+		newYAML, err := yaml.Marshal(newPipeline,
+			yaml.RemoveField("status"),
+			yaml.RemoveField("metadata.creationTimestamp"),
+			yaml.RemoveField("spec.operationTemplate.metadata"),
+		)
 		if err != nil {
-			return errors.Wrapf(err, "failed to marshal updated composition %q", comp.Name)
+			return errors.Wrapf(err, "failed to marshal updated pipeline %q", fname)
 		}
-		if err := afero.WriteFile(projFS, fname, compYAML, 0o644); err != nil {
-			return errors.Wrapf(err, "failed to write updated composition %q", comp.Name)
+		if err := afero.WriteFile(projFS, fname, newYAML, 0o644); err != nil {
+			return errors.Wrapf(err, "failed to write updated pipeline %q", fname)
 		}
 	}
 
 	return nil
+}
+
+func updatePipeline(u *unstructured.Unstructured, fnMap map[string]string) (runtime.Object, bool, error) {
+	switch u.GroupVersionKind().String() {
+	case xpextv1.CompositionGroupVersionKind.String():
+		c := new(xpextv1.Composition)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, c); err != nil {
+			return nil, false, err
+		}
+
+		newPipeline := make([]xpextv1.PipelineStep, len(c.Spec.Pipeline))
+		updated := false
+		for i, step := range c.Spec.Pipeline {
+			newRef, update := fnMap[step.FunctionRef.Name]
+			if update {
+				step.FunctionRef.Name = newRef
+				updated = true
+			}
+			newPipeline[i] = step
+		}
+		c.Spec.Pipeline = newPipeline
+
+		return c, updated, nil
+
+	case opsv1alpha1.OperationGroupVersionKind.String():
+		o := new(opsv1alpha1.Operation)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, o); err != nil {
+			return nil, false, err
+		}
+
+		newPipeline, updated := updateOperationPipeline(o.Spec.Pipeline, fnMap)
+		o.Spec.Pipeline = newPipeline
+
+		return o, updated, nil
+
+	case opsv1alpha1.CronOperationGroupVersionKind.String():
+		o := new(opsv1alpha1.CronOperation)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, o); err != nil {
+			return nil, false, err
+		}
+
+		newPipeline, updated := updateOperationPipeline(o.Spec.OperationTemplate.Spec.Pipeline, fnMap)
+		o.Spec.OperationTemplate.Spec.Pipeline = newPipeline
+
+		return o, updated, nil
+
+	case opsv1alpha1.WatchOperationGroupVersionKind.String():
+		o := new(opsv1alpha1.WatchOperation)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, o); err != nil {
+			return nil, false, err
+		}
+
+		newPipeline, updated := updateOperationPipeline(o.Spec.OperationTemplate.Spec.Pipeline, fnMap)
+		o.Spec.OperationTemplate.Spec.Pipeline = newPipeline
+
+		return o, updated, nil
+
+	default:
+		// Not a pipeline type, this is fine.
+		return nil, false, nil
+	}
+}
+
+func updateOperationPipeline(p []opsv1alpha1.PipelineStep, fnMap map[string]string) ([]opsv1alpha1.PipelineStep, bool) {
+	newPipeline := make([]opsv1alpha1.PipelineStep, len(p))
+	updated := false
+	for i, step := range p {
+		newRef, update := fnMap[step.FunctionRef.Name]
+		if update {
+			step.FunctionRef.Name = newRef
+			updated = true
+		}
+		newPipeline[i] = step
+	}
+
+	return newPipeline, updated
 }

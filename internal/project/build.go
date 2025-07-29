@@ -411,6 +411,21 @@ func (b *realBuilder) buildFunction(ctx context.Context, upCtx *upbound.Context,
 			Kind:       xpmetav1.FunctionKind,
 		},
 		ObjectMeta: fnMetaFromProject(project, fnName),
+		Spec: xpmetav1.FunctionSpec{
+			MetaSpec: xpmetav1.MetaSpec{
+				// TODO(adamwg): Ideally, we'd know whether the function is
+				// being used as an operation function or a composition function
+				// and set the capabilities accordingly. We could figure this
+				// out by looking at all the operations and compositions in the
+				// project and mapping which embedded functions they call. For
+				// now, though, there's little harm in supporting both for all
+				// functions, and it's the simplest thing to implement.
+				Capabilities: []string{
+					xpmetav1.FunctionCapabilityComposition,
+					xpmetav1.FunctionCapabilityOperation,
+				},
+			},
+		},
 	}
 	metaFS := afero.NewMemMapFs()
 	y, err := yaml.Marshal(fn)

@@ -4,7 +4,6 @@
 package function
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"net/url"
@@ -12,20 +11,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
-	"sigs.k8s.io/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	apiextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
-	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
+	"github.com/upbound/up/internal/yaml"
 )
 
 var (
@@ -41,11 +42,13 @@ func TestGenerateCmd_Run(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		language        string
-		name            string
-		compositionPath string
-		expectedFiles   []string
-		err             error
+		language     string
+		name         string
+		pipelinePath string
+
+		expectedPipeline runtime.Object
+		expectedFiles    []string
+		err              error
 	}{
 		"LanguageKcl": {
 			name:          "fn1",
@@ -54,11 +57,74 @@ func TestGenerateCmd_Run(t *testing.T) {
 			err:           nil,
 		},
 		"WithCompositionPath": {
-			name:            "fn2",
-			language:        "kcl",
-			compositionPath: "apis/primitives/XNetwork/composition.yaml",
-			expectedFiles:   []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
-			err:             nil,
+			name:         "fn2",
+			language:     "kcl",
+			pipelinePath: "apis/primitives/XNetwork/composition.yaml",
+			expectedPipeline: &apiextv1.Composition{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: apiextv1.CompositionGroupVersionKind.GroupVersion().String(),
+					Kind:       apiextv1.CompositionKind,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "xnetworks.platform.acme.co",
+				},
+				Spec: apiextv1.CompositionSpec{
+					CompositeTypeRef: apiextv1.TypeReference{
+						APIVersion: "platform.acme.co/v1alpha1",
+						Kind:       "XNetwork",
+					},
+					Mode: apiextv1.CompositionModePipeline,
+					Pipeline: []apiextv1.PipelineStep{
+						{
+							Step: "fn2",
+							FunctionRef: apiextv1.FunctionReference{
+								Name: "awg-getting-startedfn2",
+							},
+						},
+						{
+							Step: "automatically-detect-ready-composed-resources",
+							FunctionRef: apiextv1.FunctionReference{
+								Name: "crossplane-contrib-function-auto-ready",
+							},
+						},
+					},
+				},
+			},
+			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
+			err:           nil,
+		},
+		"WithOperationPath": {
+			name:         "fn2",
+			language:     "kcl",
+			pipelinePath: "operations/my-operation/operation.yaml",
+			expectedPipeline: &opsv1alpha1.CronOperation{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: opsv1alpha1.CronOperationGroupVersionKind.GroupVersion().String(),
+					Kind:       opsv1alpha1.CronOperationKind,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-operation",
+				},
+				Spec: opsv1alpha1.CronOperationSpec{
+					Schedule: "0 * * * *",
+					OperationTemplate: opsv1alpha1.OperationTemplate{
+						Spec: opsv1alpha1.OperationSpec{
+							Mode: opsv1alpha1.OperationModePipeline,
+							// function-dummy step from the original pipeline
+							// should be removed.
+							Pipeline: []opsv1alpha1.PipelineStep{{
+								Step: "fn2",
+								FunctionRef: opsv1alpha1.FunctionReference{
+									Name: "awg-getting-startedfn2",
+								},
+							}},
+							RetryLimit: ptr.To(int64(3)),
+						},
+					},
+				},
+			},
+			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
+			err:           nil,
 		},
 		"LanguagePython": {
 			name:          "fn3",
@@ -133,7 +199,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				fsPath:            filepath.Join("/functions", tc.name),
 				functionFS:        functionFS,
 				Language:          tc.language,
-				CompositionPath:   tc.compositionPath,
+				PipelinePath:      tc.pipelinePath,
 				Name:              tc.name,
 				projectRepository: "xpkg.upbound.io/awg/getting-started",
 				m:                 mgr,
@@ -141,7 +207,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 
 			printer := upterm.DefaultObjPrinter
 			printer.Quiet = true
-			err = c.Run(context.Background(), printer)
+			err = c.Run(t.Context(), printer)
 
 			if tc.err == nil {
 				assert.NilError(t, err)
@@ -149,24 +215,17 @@ func TestGenerateCmd_Run(t *testing.T) {
 				assert.Assert(t, strings.Contains(err.Error(), "DNS-1035"), "expected error message to mention DNS-1035 constraints")
 			}
 
-			if tc.compositionPath != "" {
-				compYAML, err := afero.ReadFile(projFS, tc.compositionPath)
+			if tc.pipelinePath != "" {
+				gotYAML, err := afero.ReadFile(projFS, tc.pipelinePath)
 				assert.NilError(t, err)
 
-				var comp v1.Composition
-				err = yaml.Unmarshal(compYAML, &comp)
+				wantYAML, err := yaml.Marshal(tc.expectedPipeline,
+					yaml.RemoveField("spec.operationTemplate.metadata"),
+					yaml.RemoveField("metadata.creationTimestamp"),
+					yaml.RemoveField("status"),
+				)
 				assert.NilError(t, err)
-
-				if len(comp.Spec.Pipeline) > 0 {
-					step := comp.Spec.Pipeline[0]
-					fnRepoStr := fmt.Sprintf("%s_%s", c.projectRepository, strings.ToLower(c.Name))
-					fnRepo, err := name.NewRepository(fnRepoStr, name.StrictValidation)
-					assert.NilError(t, err)
-					assert.Equal(t, step.Step, c.Name, "expected pipeline step at index 0")
-					assert.Equal(t, step.FunctionRef.Name, xpkg.ToDNSLabel(fnRepo.RepositoryStr()), "unexpected function reference in pipeline step index 0")
-				} else {
-					t.Error("expected at least one pipeline step, but found none")
-				}
+				assert.DeepEqual(t, wantYAML, gotYAML)
 			}
 
 			if tc.err == nil {

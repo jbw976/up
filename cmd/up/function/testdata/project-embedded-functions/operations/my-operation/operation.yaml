@@ -1,0 +1,19 @@
+apiVersion: ops.crossplane.io/v1alpha1
+kind: CronOperation
+metadata:
+  name: my-operation
+spec:
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+      - functionRef:
+          name: crossplane-contrib-function-dummy
+        input:
+          apiVersion: dummy.fn.crossplane.io/v1beta1
+          kind: Response
+          metadata: {}
+          response: {}
+        step: crossplane-contrib-function-dummy
+      retryLimit: 3
+  schedule: 0 * * * *
