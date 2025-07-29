@@ -41,7 +41,7 @@ const (
 //	go build -ldflags "-X github.com/upbound/up/internal/config.TelemetryAuthToken=${AUTH_KEY}".
 //
 //nolint:gochecknoglobals // This so we can set it via build flag.
-var TelemetryAuthToken = "123456780"
+var TelemetryAuthToken = "ab43c89b-2a3d-4c82-9ec7-59f3df8bd101"
 
 const (
 	// ConfigurationTelemetryDisabled is the key for the telemetry.disabled configuration.
