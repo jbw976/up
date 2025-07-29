@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
@@ -26,7 +25,6 @@ import (
 
 const (
 	errReadParametersFile     = "unable to read parameters file"
-	errReadLicenseFile        = "unable to read license file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
 	errSetChartValues         = "failed to set chart values"
@@ -77,19 +75,6 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		}
 	}
 
-	if c.LicenseFile != "" {
-		licenseData, err := os.ReadFile(c.LicenseFile)
-		if err != nil {
-			return errors.Wrap(err, errReadLicenseFile)
-		}
-		// TODO(adamwg): We could validate the license here in the interest of
-		// failing fast when it's invalid.
-		if c.Set == nil {
-			c.Set = map[string]string{}
-		}
-		c.Set["upbound.licenseKey"] = string(licenseData)
-	}
-
 	c.parser = helm.NewParser(values, c.Set)
 
 	return nil
@@ -104,8 +89,6 @@ type installCmd struct {
 	Version      string `arg:""                                     help:"UXP version to install." optional:""`
 	Unstable     bool   `help:"Allow installing unstable versions."`
 	DisableWebUI bool   `help:"Disable the UXP web UI."             optional:""`
-
-	LicenseFile string `help:"Path to a file containing a UXP license." type:"existingfile"`
 
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
@@ -150,6 +133,9 @@ func (c *installCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
 	if err != nil {
 		return err
 	}
+
 	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("UXP %s installed", curVer)
+	pterm.Info.Println("If you have a UXP license, apply it now with `up uxp license apply`.")
+
 	return nil
 }
