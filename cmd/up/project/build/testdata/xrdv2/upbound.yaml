@@ -1,0 +1,9 @@
+apiVersion: meta.dev.upbound.io/v2alpha1
+kind: Project
+metadata:
+  name: xrd-v2
+spec:
+  maintainer: Upbound <support@upbound.io>
+  source: github.com/upbound/project-getting-started
+  license: Apache-2.0
+  repository: xpkg.upbound.io/xrdv2/getting-started

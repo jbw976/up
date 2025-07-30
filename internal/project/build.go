@@ -24,6 +24,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	xpv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
@@ -188,6 +189,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 
 	apiGVKs := []string{
 		xpv1.CompositeResourceDefinitionGroupVersionKind.String(),
+		xpv2.CompositeResourceDefinitionGroupVersionKind.String(),
 		xpv1.CompositionGroupVersionKind.String(),
 	}
 	if err := collectResources(packageFS, apisSource, apiGVKs, apiExcludes); err != nil {
