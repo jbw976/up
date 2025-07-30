@@ -17,25 +17,8 @@ import (
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/uxp"
 )
-
-// devLicense contains the embedded development license for single-node kind clusters.
-const devLicense = `{
-  "id": "ac1749b5-5f68-4da2-8c9e-e46ed6275a15",
-  "customerID": "dev",
-  "plan": "standard",
-  "capacity": {
-    "resourceHours": 72000,
-    "operations": 1000
-  },
-  "restrictions": {
-    "clusterType": "SingleNodeKind"
-  },
-  "createdAt": "2025-07-30T15:04:27.4842855Z",
-  "expiresAt": "2028-07-29T15:04:27.4842855Z",
-  "keyID": "2025-07-v1",
-  "signature": "zhPSCofowBAU8/8UFB2bDvEzcPQur3MUaskGddMoAjC8E4Rg8gxBJ1Rt3QLwgsAoH6yvcQrNjVhQq9PiMR6wCw=="
-}`
 
 type applyCmd struct {
 	LicenseFile string `arg:""                                                                   help:"File containing the license key (required unless using --dev)." optional:"" type:"filepath" xor:"license-source"`
@@ -72,7 +55,7 @@ func (c *applyCmd) Run(cl client.Client) error {
 	var licenseBytes []byte
 
 	if c.Dev {
-		licenseBytes = []byte(devLicense)
+		licenseBytes = []byte(uxp.DevLicense)
 	} else {
 		f, err := c.fs.Open(c.LicenseFile)
 		if err != nil {

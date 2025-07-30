@@ -507,6 +507,11 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
+	if err := ensureUXPDevLicense(ctx, cl); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+
 	if err := ensureUpboundImageConfig(ctx, upCtx, cl); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
@@ -642,6 +647,52 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 	}
 	if err = mgr.Install(version, values); err != nil {
 		return errors.Wrap(err, "failed to install crossplane")
+	}
+
+	return nil
+}
+
+func ensureUXPDevLicense(ctx context.Context, cl client.Client) error {
+	s := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: crossplaneNamespace,
+			Name:      licensev1alpha1.LicenseSecretName,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			licensev1alpha1.LicenseSecretKeyDefault: []byte(uxp.DevLicense),
+		},
+	}
+
+	l := &licensev1alpha1.License{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: licensev1alpha1.LicenseGroupVersionKind.GroupVersion().String(),
+			Kind:       licensev1alpha1.LicenseKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: licensev1alpha1.LicenseName,
+		},
+		Spec: licensev1alpha1.LicenseSpec{
+			SecretRef: &licensev1alpha1.LicenseSecretRef{
+				Namespace: s.GetNamespace(),
+				Name:      s.GetName(),
+				Key:       licensev1alpha1.LicenseSecretKeyDefault,
+			},
+		},
+	}
+
+	if err := licensev1alpha1.AddToScheme(cl.Scheme()); err != nil {
+		return errors.Wrap(err, "failed to add license types to scheme")
+	}
+	if err := cl.Patch(ctx, s, client.Apply, client.FieldOwner("up-cli"), client.ForceOwnership); err != nil {
+		return errors.Wrap(err, "failed to apply license secret")
+	}
+	if err := cl.Patch(ctx, l, client.Apply, client.FieldOwner("up-cli"), client.ForceOwnership); err != nil {
+		return errors.Wrap(err, "failed to apply license resource")
 	}
 
 	return nil
