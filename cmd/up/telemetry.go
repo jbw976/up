@@ -40,10 +40,9 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 
 	otelDisabled, ok := values[config.ConfigurationTelemetryDisabled]
 	if !ok {
-		// TODO(mjudeikis): Swap this to false once we have backend and we can confirm
-		// it works. Else we will be sending data to nowhere.
-		otelDisabled = "true"
+		otelDisabled = "false"
 	}
+
 	otelDisabledBool, err := strconv.ParseBool(otelDisabled)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse telemetry.disabled configuration")
