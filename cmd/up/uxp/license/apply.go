@@ -19,8 +19,27 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
+// devLicense contains the embedded development license for single-node kind clusters.
+const devLicense = `{
+  "id": "ac1749b5-5f68-4da2-8c9e-e46ed6275a15",
+  "customerID": "dev",
+  "plan": "standard",
+  "capacity": {
+    "resourceHours": 72000,
+    "operations": 1000
+  },
+  "restrictions": {
+    "clusterType": "SingleNodeKind"
+  },
+  "createdAt": "2025-07-30T15:04:27.4842855Z",
+  "expiresAt": "2028-07-29T15:04:27.4842855Z",
+  "keyID": "2025-07-v1",
+  "signature": "zhPSCofowBAU8/8UFB2bDvEzcPQur3MUaskGddMoAjC8E4Rg8gxBJ1Rt3QLwgsAoH6yvcQrNjVhQq9PiMR6wCw=="
+}`
+
 type applyCmd struct {
-	LicenseFile string `arg:"" help:"File containing the license key." type:"filepath"`
+	LicenseFile string `arg:""                                                                   help:"File containing the license key (required unless using --dev)." optional:"" type:"filepath" xor:"license-source"`
+	Dev         bool   `help:"Apply embedded development license for single-node kind clusters." xor:"license-source"`
 
 	Namespace string `default:"crossplane-system" help:"Namespace in which to create the license key secret."`
 
@@ -36,21 +55,35 @@ type applyCmd struct {
 func (c *applyCmd) AfterApply() error {
 	c.fs = afero.NewOsFs()
 
+	// Validate mutual exclusivity of --dev and license file
+	if c.Dev && c.LicenseFile != "" {
+		return errors.New("cannot specify both --dev flag and license file")
+	}
+	if !c.Dev && c.LicenseFile == "" {
+		return errors.New("must specify either --dev flag or license file")
+	}
+
 	return nil
 }
 
 func (c *applyCmd) Run(cl client.Client) error {
 	ctx := context.Background()
 
-	f, err := c.fs.Open(c.LicenseFile)
-	if err != nil {
-		return errors.Wrap(err, "cannot open license file")
-	}
-	defer func() { _ = f.Close() }()
+	var licenseBytes []byte
 
-	licenseBytes, err := io.ReadAll(f)
-	if err != nil {
-		return errors.Wrap(err, "failed to read license")
+	if c.Dev {
+		licenseBytes = []byte(devLicense)
+	} else {
+		f, err := c.fs.Open(c.LicenseFile)
+		if err != nil {
+			return errors.Wrap(err, "cannot open license file")
+		}
+		defer func() { _ = f.Close() }()
+
+		licenseBytes, err = io.ReadAll(f)
+		if err != nil {
+			return errors.Wrap(err, "failed to read license")
+		}
 	}
 
 	s := &corev1.Secret{

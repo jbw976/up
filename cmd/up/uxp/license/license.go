@@ -17,7 +17,7 @@ import (
 // Cmd is the `up uxp license` command.
 type Cmd struct {
 	Show   showCmd   `cmd:"" help:"Show the UXP license for a control plane."`
-	Apply  applyCmd  `cmd:"" help:"Apply a UXP license to a control plane."`
+	Apply  applyCmd  `cmd:"" help:"Apply a UXP license to a control plane. Specify either a license file or use --dev for development clusters."`
 	Remove removeCmd `cmd:"" help:"Remove the UXP license from a control plane."`
 
 	Flags upbound.Flags `embed:""`
