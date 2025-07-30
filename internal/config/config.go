@@ -55,6 +55,9 @@ const (
 	// ConfigurationTelemetryInsecure is the key for the telemetry.insecure configuration.
 	// If set to true, the telemetry will be sent over an insecure connection.
 	ConfigurationTelemetryInsecure = "telemetry.insecure"
+	// ConfigurationTelemetryIdentity is the key for the telemetry.identity configuration.
+	// If set, the telemetry will be sent with the identity.
+	ConfigurationTelemetryIdentity = "telemetry.identity"
 )
 
 // ConfigurationFlag is a struct that contains the information about a global configuration flag.
@@ -100,6 +103,12 @@ var validConfigurationFlags = map[string]ConfigurationFlag{
 		Description: "Set to true to use insecure mode for the telemetry endpoint.",
 		Name:        ConfigurationTelemetryInsecure,
 		Default:     "false",
+	},
+	ConfigurationTelemetryIdentity: {
+		Internal:    true,
+		Description: "Identity to send with the telemetry.",
+		Name:        ConfigurationTelemetryIdentity,
+		Default:     "",
 	},
 }
 

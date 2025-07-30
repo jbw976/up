@@ -88,8 +88,14 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 		return errors.Wrap(err, "failed to parse telemetry.insecure configuration")
 	}
 
+	otelIdentity, ok := values[config.ConfigurationTelemetryIdentity]
+	if !ok {
+		otelIdentity = ""
+	}
+
 	// Initialize OTEL client
 	otelClient, err := otel.NewClient(otel.Config{
+		Identity:    otelIdentity,
 		ServiceName: "up-cli",
 		Endpoint:    otelEndpoint,
 		Disabled:    otelDisabledBool,
