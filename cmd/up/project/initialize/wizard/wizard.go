@@ -188,7 +188,14 @@ func (w *Wizard) GenerateExample(state State) error {
 	}
 
 	if !state.ClusterScoped {
-		args = append(args, "--namespace", state.MetadataNamespace)
+		args = append(args,
+			"--namespace", state.MetadataNamespace,
+			"--scope", "namespace",
+		)
+	} else {
+		args = append(args,
+			"--scope", "cluster",
+		)
 	}
 
 	args = append(args, "--path", w.examplePath(state))
