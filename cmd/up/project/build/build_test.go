@@ -50,6 +50,9 @@ var (
 	//go:embed testdata/projectv2alpha1-embedded-functions/**
 	projectv2alpha1EmbeddedFunctions embed.FS
 
+	//go:embed testdata/xrdv2/**
+	xrdv2 embed.FS
+
 	//go:embed testdata/packages/*
 	packagesFS embed.FS
 )
@@ -65,6 +68,24 @@ func TestBuild(t *testing.T) {
 		expectedObjectCount     int
 		expectedLabels          func(c *Cmd) map[string]string
 	}{
+		"XRDV2": {
+			projFS: afero.NewBasePathFs(
+				afero.FromIOFS{FS: xrdv2},
+				"testdata/xrdv2",
+			),
+			outputFile:        "_output/xrd-v2.uppkg",
+			expectedFunctions: nil,
+			// 1 APIs = 1 XRDs + 1 compositions.
+			expectedObjectCount: 2,
+			expectedAnnotatedLayers: map[string]bool{
+				xpkg.PackageAnnotation:  true,
+				xpkg.ExamplesAnnotation: false,
+				"schema.mock":           true,
+			},
+			expectedLabels: func(c *Cmd) map[string]string {
+				return common.ImageLabels(c)
+			},
+		},
 		"ConfigurationOnly": {
 			projFS: afero.NewBasePathFs(
 				afero.FromIOFS{FS: configurationGettingStarted},
