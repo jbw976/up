@@ -233,6 +233,8 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				return err
 			}
 			state.TestLang = SupportedTestLanguagesMap[result]
+			state.Step = StepAITooling
+			navigated = true
 		case StepKind:
 			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.Kind).Show("Kind of the resource")
 			if err != nil {
