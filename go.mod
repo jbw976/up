@@ -17,7 +17,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76
-	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250620185748-0d81d3f7c2d8
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea
 	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
 	github.com/crossplane/uptest v1.4.0
 	github.com/docker/docker-credential-helpers v0.9.3
@@ -48,7 +48,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250708234619-3c37d25a68f7
 	github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732
-	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250709060333-d57afe1ea849
+	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf
 	github.com/upbound/up/pkg/migration v0.0.0-00010101000000-000000000000
 	github.com/upbound/uxp-licensing v0.0.0-20250710144301-1c82aaaac9f9
 	github.com/willabides/kongplete v0.4.0
@@ -64,7 +64,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59
+	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.21.0
@@ -232,7 +232,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
+	golang.org/x/tools/go/expect v0.1.0-deprecated // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	k8s.io/code-generator v0.33.3 // indirect
 	k8s.io/component-helpers v0.33.3 // indirect
@@ -452,3 +452,6 @@ replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelg
 
 // Prevents using up-sdk-go with go workspaces.
 exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b2c93a
+
+// Replace kube-openapi to use version compatible with structured-merge-diff v4
+replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59

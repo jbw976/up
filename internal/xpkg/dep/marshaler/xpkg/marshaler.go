@@ -25,6 +25,7 @@ import (
 	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
+	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/linter"
 	"github.com/upbound/up/internal/xpkg/parser/ndjson"
@@ -255,6 +256,8 @@ func processPackage(pkg linter.Package) (*ParsedPackage, error) {
 		linter = xpkg.NewFunctionLinter()
 	case upboundpkgmetav1alpha1.ControllerKind:
 		linter = xpkg.NewControllerLinter()
+	case upboundpkgmetav1beta1.AddOnKind:
+		linter = xpkg.NewAddOnLinter()
 	}
 	if err := linter.Lint(pkg); err != nil {
 		return nil, errors.Wrap(err, errLintPackage)
@@ -326,7 +329,7 @@ func finalizePkg(pkg *ParsedPackage) (*ParsedPackage, error) {
 }
 
 func determineDeps(o runtime.Object) ([]v1beta1.Dependency, error) {
-	pkg, ok := scheme.TryConvertToPkg(o, &xpmetav1.Provider{}, &xpmetav1.Configuration{}, &xpmetav1.Function{})
+	pkg, ok := scheme.TryConvertToPkg(o, &xpmetav1.Provider{}, &xpmetav1.Configuration{}, &xpmetav1.Function{}, &upboundpkgmetav1alpha1.Controller{}, &upboundpkgmetav1beta1.AddOn{})
 	if !ok {
 		return nil, errors.New(errFailedToConvertMetaToPackage)
 	}
