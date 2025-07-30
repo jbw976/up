@@ -20,8 +20,16 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+const (
+	// TelemetryAuthenticationHeader is the header used to authenticate with the telemetry endpoint.
+	TelemetryAuthenticationHeader = "x-upbound-authorization"
+	// TelemetryIdentityHeader is the header used to identify the user.
+	TelemetryIdentityHeader = "x-upbound-identity"
+)
+
 // Config holds configuration for OpenTelemetry.
 type Config struct {
+	Identity    string
 	ServiceName string
 	Endpoint    string
 	Headers     map[string]string
@@ -66,7 +74,13 @@ func (c *Client) initTracing() error {
 		headers = make(map[string]string)
 	}
 	if c.config.Key != "" {
-		headers["x-upbound-authorization"] = fmt.Sprintf("Bearer %s", c.config.Key)
+		headers[TelemetryAuthenticationHeader] = fmt.Sprintf("Bearer %s", c.config.Key)
+	}
+	if c.config.Identity != "" { // If user provided identity, use it.
+		headers[TelemetryIdentityHeader] = c.config.Identity
+	} else {
+		c.config.Identity = getIdentity()
+		headers[TelemetryIdentityHeader] = c.config.Identity
 	}
 
 	// Create OTLP exporter options
@@ -98,6 +112,7 @@ func (c *Client) initTracing() error {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(c.config.ServiceName),
+			semconv.ServiceInstanceIDKey.String(c.config.Identity),
 		),
 	)
 	if err != nil {

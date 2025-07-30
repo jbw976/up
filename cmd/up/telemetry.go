@@ -40,9 +40,7 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 
 	otelDisabled, ok := values[config.ConfigurationTelemetryDisabled]
 	if !ok {
-		// TODO(mjudeikis): Swap this to false once we have backend and we can confirm
-		// it works. Else we will be sending data to nowhere.
-		otelDisabled = "true"
+		otelDisabled = "false"
 	}
 	otelDisabledBool, err := strconv.ParseBool(otelDisabled)
 	if err != nil {
@@ -89,8 +87,14 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 		return errors.Wrap(err, "failed to parse telemetry.insecure configuration")
 	}
 
+	otelIdentity, ok := values[config.ConfigurationTelemetryIdentity]
+	if !ok {
+		otelIdentity = ""
+	}
+
 	// Initialize OTEL client
 	otelClient, err := otel.NewClient(otel.Config{
+		Identity:    otelIdentity,
 		ServiceName: "up-cli",
 		Endpoint:    otelEndpoint,
 		Disabled:    otelDisabledBool,
