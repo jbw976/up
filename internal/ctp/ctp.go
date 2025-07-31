@@ -41,6 +41,7 @@ import (
 	licensev1alpha1 "github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/async"
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctp/certs"
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/docker"
@@ -422,11 +423,13 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 		return ctp, errors.Wrap(err, "cannot create dev control plane in Spaces")
 	}
 
-	ctp, err := ensureLocalDevControlPlane(ctx, upCtx, cfg)
+	telemetryDisabled := upCtx.Cfg.Upbound.Configuration[config.ConfigurationTelemetryDisabled] == "true"
+
+	ctp, err := ensureLocalDevControlPlane(ctx, upCtx, cfg, telemetryDisabled)
 	return ctp, errors.Wrap(err, "cannot create local dev control plane")
 }
 
-func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig) (*localDevControlPlane, error) {
+func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig, telemetryDisabled bool) (*localDevControlPlane, error) {
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
 
@@ -502,7 +505,7 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
-	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name); err != nil {
+	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -595,7 +598,7 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 	return kubeconfig, nil
 }
 
-func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
+func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
@@ -632,6 +635,9 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string) error {
 				"imagePullSecrets": []map[string]any{{
 					"name": pullSecretName,
 				}},
+			},
+			"telemetry": map[string]any{
+				"disabled": telemetryDisabled,
 			},
 		},
 		"webui": map[string]any{
