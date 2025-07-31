@@ -25,6 +25,8 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 
+	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
+	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
 	"github.com/upbound/up/internal/async"
 )
 
@@ -259,6 +261,10 @@ func packageIsHealthy(ctx context.Context, cl client.Client, lpkg xpkgv1beta1.Lo
 			pkg = &xpkgv1.ProviderRevision{}
 		case xpkgv1.FunctionKind:
 			pkg = &xpkgv1.FunctionRevision{}
+		case upboundpkgv1beta1.AddOnKind:
+			pkg = &upboundpkgv1beta1.AddOnRevision{}
+		case upboundpkgv1alpha1.ControllerKind:
+			pkg = &upboundpkgv1alpha1.ControllerRevision{}
 		}
 	}
 

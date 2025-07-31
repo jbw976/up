@@ -43,6 +43,8 @@ import (
 	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
 	uptest "github.com/crossplane/uptest/pkg"
 
+	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
+	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
@@ -629,6 +631,8 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	ctpSchemeBuilders := []*scheme.Builder{
 		v1.SchemeBuilder,
 		xpkgv1beta1.SchemeBuilder,
+		upboundpkgv1alpha1.SchemeBuilder,
+		upboundpkgv1beta1.SchemeBuilder,
 	}
 	for _, bld := range ctpSchemeBuilders {
 		if err := bld.AddToScheme(devCtp.Client().Scheme()); err != nil {
