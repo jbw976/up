@@ -709,6 +709,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Robots can't create repositories, so we need to use our pre-created
+      # repository for testing.
+      - name: up project move
+        run: |
+          cd $PROJECT_NAME
+          up project move xpkg.upbound.io/upbound/project-template-aws-s3
+
       - name: up test run --e2e
         env:
           UP_AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
