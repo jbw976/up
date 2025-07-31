@@ -71,7 +71,7 @@ func ConvertToV2(v1Project *v1alpha1.Project) (*v2alpha1.Project, error) {
 	// necessary, since v2 has different defaults.
 	if v1Project.Spec.Crossplane == nil {
 		v1Project.Spec.Crossplane = &v1.CrossplaneConstraints{
-			Version: ">=v1.18.0 || >=v2.0.0-rc.0",
+			Version: ">=v1.19.0 || >=v2.0.0-rc.0",
 		}
 	}
 
