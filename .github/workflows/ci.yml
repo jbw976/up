@@ -710,8 +710,6 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: up test run --e2e
-        # Only run e2e tests for kcl and python, since the other languages don't have e2e tests.
-        if: (matrix.language == 'kcl' && matrix.test-language == 'kcl') || (matrix.language == 'python' && matrix.test-language == 'python')
         env:
           UP_AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
           UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
