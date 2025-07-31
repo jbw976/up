@@ -655,28 +655,37 @@ jobs:
         run: |
           up version
 
-      - name: up project init project-template-aws-s3
+      - name: generate project name
         run: |
-          up project init --organization=upbound -t upbound/project-template-aws-s3 --language ${{ matrix.language }} --test-language ${{ matrix.test-language }} project-template-aws-s3
-          cd project-template-aws-s3
+          echo "PROJECT_NAME=up-e2e-${{ matrix.language }}-${{ matrix.test-language }}-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: up project init
+        run: |
+          up project init \
+            --organization=upbound \
+            -t upbound/project-template-aws-s3 \
+            --language ${{ matrix.language }} \
+            --test-language ${{ matrix.test-language }} \
+            $PROJECT_NAME
+          cd $PROJECT_NAME
           up project build
 
-      - name: up composition render project-template-aws-s3
+      - name: up composition render
         run: |
-          cd project-template-aws-s3
+          cd $PROJECT_NAME
           up composition render apis/xstoragebucket/composition.yaml examples/xstoragebuckets/example.yaml --xrd apis/xstoragebucket/definition.yaml -q >> render.yaml
 
       - name: assert up composition render
         uses: GuillaumeFalourd/assert-command-line-output@main
         with:
-          command_line: cat project-template-aws-s3/render.yaml
+          command_line: cat $PROJECT_NAME/render.yaml
           assert_file_path: e2e/render-${{ matrix.language }}.yaml
           expected_result: PASSED
 
-      - name: up test run project-template-aws-s3
+      - name: up test run
         if: matrix.test-language == 'kcl' || matrix.test-language == 'python'
         run: |
-          cd project-template-aws-s3
+          cd $PROJECT_NAME
           up test run tests/*
 
       - name: up login with robot
@@ -685,7 +694,7 @@ jobs:
 
       - name: up ctx
         run: |
-          up ctx upbound/upbound-gcp-us-central-1/default
+          up ctx upbound/upbound-gcp-us-central-1/up-e2e
 
       - name: Login to xpkg with robot
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
@@ -700,7 +709,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: up test run --e2e project-template-aws-s3
+      - name: up test run --e2e
         # Only run e2e tests for kcl and python, since the other languages don't have e2e tests.
         if: (matrix.language == 'kcl' && matrix.test-language == 'kcl') || (matrix.language == 'python' && matrix.test-language == 'python')
         env:
@@ -708,5 +717,5 @@ jobs:
           UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           UP_AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
         run: |
-          cd project-template-aws-s3
+          cd $PROJECT_NAME
           up test run tests/e2etest-xstoragebucket --e2e
