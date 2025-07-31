@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
@@ -68,19 +67,6 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		}
 	}
 
-	if c.LicenseFile != "" {
-		licenseData, err := os.ReadFile(c.LicenseFile)
-		if err != nil {
-			return errors.Wrap(err, errReadLicenseFile)
-		}
-		// TODO(adamwg): We could validate the license here in the interest of
-		// failing fast when it's invalid.
-		if c.Set == nil {
-			c.Set = map[string]string{}
-		}
-		c.Set["upbound.licenseKey"] = string(licenseData)
-	}
-
 	c.parser = helm.NewParser(values, c.Set)
 	return nil
 }
@@ -96,8 +82,6 @@ type upgradeCmd struct {
 	Rollback bool `help:"Rollback to previously installed version on failed upgrade."`
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
 	Unstable bool `help:"Allow installing unstable versions."`
-
-	LicenseFile string `help:"Path to a file containing a UXP license." type:"existingfile"`
 
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
