@@ -611,12 +611,6 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 			}
 			os.Exit(1)
 		case <-retChan:
-			// Function returned normally, clean up quietly.
-			if !c.SkipControlPlaneCleanup {
-				if err := devCtp.Teardown(ctx, c.Force); err != nil {
-					log.Printf("error during control plane deletion %v", err)
-				}
-			}
 			return
 		}
 	}()
@@ -624,6 +618,15 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 	defer func() {
 		// Send signal to cleanup goroutine
 		close(retChan)
+
+		// Clean up the dev control plane. We do this here rather than in the
+		// goroutine above because we can't guarantee it completes before `up`
+		// exits, and we risk leaving the control plane behind.
+		if !c.SkipControlPlaneCleanup {
+			if err := devCtp.Teardown(ctx, c.Force); err != nil {
+				log.Printf("error during control plane deletion %v", err)
+			}
+		}
 	}()
 
 	ctpSchemeBuilders := []*scheme.Builder{
