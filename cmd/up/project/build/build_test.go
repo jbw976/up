@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
@@ -444,8 +445,10 @@ func TestBuild(t *testing.T) {
 				dgst, err := idx.Digest()
 				assert.NilError(t, err)
 				fnDeps = append(fnDeps, xpmetav1.Dependency{
-					Function: ptr.To(repo.String()),
-					Version:  dgst.String(),
+					APIVersion: ptr.To(xpkgv1.FunctionGroupVersionKind.GroupVersion().String()),
+					Kind:       ptr.To(xpkgv1.FunctionKind),
+					Package:    ptr.To(repo.String()),
+					Version:    dgst.String(),
 				})
 
 				fnMeta, ok := pkg.Meta().(*xpmetav1.Function)

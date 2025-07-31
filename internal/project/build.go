@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	xpv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
 	xpv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
 	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/schemas/manager"
@@ -371,8 +373,10 @@ func (b *realBuilder) buildFunctions(ctx context.Context, upCtx *upbound.Context
 				return errors.Wrapf(err, "failed to get index digest for function image %q", fnName)
 			}
 			deps[i] = xpmetav1.Dependency{
-				Function: &fnRepo,
-				Version:  dgst.String(),
+				APIVersion: ptr.To(xpkgv1.FunctionGroupVersionKind.GroupVersion().String()),
+				Kind:       ptr.To(xpkgv1.FunctionKind),
+				Package:    &fnRepo,
+				Version:    dgst.String(),
 			}
 
 			for _, img := range imgs {
