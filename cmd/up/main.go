@@ -104,7 +104,7 @@ func (c *cli) AfterApply(kongCtx *kong.Context) error {
 	})
 	f()
 
-	if err := c.createCommandSpans(context.Background(), kongCtx); err != nil {
+	if err := c.createCommandSpans(kongCtx); err != nil {
 		return err
 	}
 

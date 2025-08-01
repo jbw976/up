@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,9 +16,9 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/cmd/up/version"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/otel"
+	"github.com/upbound/up/internal/version"
 )
 
 // initOTEL initializes OpenTelemetry client and binds it to Kong context.
@@ -117,26 +118,21 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 	return nil
 }
 
-func (c *cli) createCommandSpans(ctx context.Context, kongCtx *kong.Context) error {
+func (c *cli) createCommandSpans(kongCtx *kong.Context) error {
 	// Skip telemetry if client is not available (disabled or failed to initialize)
 	if globalOTELClient == nil {
-		kongCtx.BindTo(context.Background(), (*context.Context)(nil))
 		return nil
 	}
-
-	// This will build only client version info. so no client calls.
-	v := version.Cmd{Client: true}
-	versionInfo := v.BuildVersionInfo(ctx, kongCtx, nil)
 
 	// Create span only for the selected command
 	rootCtx := context.Background()
 	_, span := createCommandSpan(rootCtx, globalOTELClient, kongCtx.Selected())
 
 	span.AddEvent("version.build", trace.WithAttributes(
-		attribute.String("version.client", versionInfo.Client.Version),
-		attribute.String("version.go", versionInfo.Client.GoVersion),
-		attribute.String("version.os", versionInfo.Client.OS),
-		attribute.String("version.arch", versionInfo.Client.Arch),
+		attribute.String("version.client", version.Version()),
+		attribute.String("version.go", runtime.Version()),
+		attribute.String("version.os", runtime.GOOS),
+		attribute.String("version.arch", runtime.GOARCH),
 	))
 
 	// Store span globally for cleanup in main()
