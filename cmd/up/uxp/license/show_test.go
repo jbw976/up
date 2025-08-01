@@ -47,7 +47,48 @@ func TestShowTemplate(t *testing.T) {
 			want: `Upbound Crossplane License Status: 	Valid (Community edition license is active.)
 
 Plan: 	community
+
 Enabled Features: 	None
+`,
+		},
+		"ValidDev": {
+			license: v1alpha1.License{
+				Status: v1alpha1.LicenseStatus{
+					Plan:              "standard",
+					CreatedAt:         &mockCreatedAt,
+					ExpiresAt:         &mockExpiresAt,
+					GracePeriodEndsAt: &mockExpiresAt,
+					EnabledFeatures: []string{
+						"Cool feature 1",
+						"Cool Feature 2",
+					},
+					Capacity: &v1alpha1.LicenseCapacity{
+						ResourceHours: 1000,
+						Operations:    1000,
+					},
+					Restrictions: &v1alpha1.LicenseRestrictions{
+						ClusterType: "SingleNodeKind",
+					},
+					ConditionedStatus: xpcommonv1.ConditionedStatus{
+						Conditions: []xpcommonv1.Condition{v1alpha1.LicenseValid()},
+					},
+				},
+			},
+			want: `Upbound Crossplane License Status: 	Valid (The license signature has been successfully verified.)
+Created: 	2023-02-15 09:15:00 +0000 UTC
+Expires: 	2025-07-29 21:45:00 +0000 UTC
+
+Plan: 	standard
+
+Restrictions:
+- Cluster Type: 	SingleNodeKind
+
+Resource Hour Limit: 	1000
+Operation Limit: 	1000
+
+Enabled Features:
+- Cool feature 1
+- Cool Feature 2
 `,
 		},
 		"ValidCommercial": {
@@ -75,8 +116,10 @@ Created: 	2023-02-15 09:15:00 +0000 UTC
 Expires: 	2025-07-29 21:45:00 +0000 UTC
 
 Plan: 	commercial
+
 Resource Hour Limit: 	1000
 Operation Limit: 	1000
+
 Enabled Features:
 - Cool feature 1
 - Cool Feature 2
@@ -107,8 +150,10 @@ Created: 	2023-02-15 09:15:00 +0000 UTC
 Expires: 	2025-07-29 21:45:00 +0000 UTC
 
 Plan: 	commercial
+
 Resource Hour Limit: 	1000
 Operation Limit: 	1000
+
 Enabled Features:
 - Cool feature 1
 - Cool Feature 2

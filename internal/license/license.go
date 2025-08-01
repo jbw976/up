@@ -87,7 +87,7 @@ func CheckUXPv2(ctx context.Context, cl client.Client, allowCommunity bool) erro
 	l, err := BytesFromUXPv2(ctx, cl)
 	if err == nil {
 		// Paid license, validate it.
-		_, err = license.NewValidator().Validate(l)
+		_, err = license.NewValidator(cl).Validate(ctx, l)
 		return errors.Wrap(err, errValidateLicense)
 	}
 	if allowCommunity && errors.Is(err, ErrCommunity) {

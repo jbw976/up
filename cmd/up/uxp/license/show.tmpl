@@ -18,10 +18,22 @@ Expires: 	{{ .ExpiresAt }}
 {{- end }}
 
 Plan: 	{{ .Plan }}
+{{- if .Restrictions }}
+
+Restrictions:
+{{- if .Restrictions.ClusterUUID }}
+- Cluster UUID: 	{{ .Restrictions.ClusterUUID }}
+{{- end}}
+{{- if .Restrictions.ClusterType }}
+- Cluster Type: 	{{ .Restrictions.ClusterType }}
+{{- end}}
+{{- end }}
 {{- if .Capacity }}
+
 Resource Hour Limit: 	{{ .Capacity.ResourceHours }}
 Operation Limit: 	{{ .Capacity.Operations }}
 {{- end }}
+
 Enabled Features: {{- if not .EnabledFeatures }} 	None {{- end}}
 {{- range .EnabledFeatures }}
 - {{ . }}
