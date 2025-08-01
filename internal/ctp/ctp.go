@@ -1052,8 +1052,8 @@ func checkUXPLicense(ctx context.Context, cl client.Client) error {
 		return errors.Wrap(err, "failed to get uxp license data")
 	}
 
-	val := license.NewValidator()
-	if lic, err := val.Validate(s.Data[secretKey]); err != nil || lic == nil {
+	val := license.NewValidator(cl)
+	if lic, err := val.Validate(ctx, s.Data[secretKey]); err != nil || lic == nil {
 		return errors.Wrap(err, "invalid uxp license")
 	}
 
