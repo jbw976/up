@@ -118,7 +118,7 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 	return nil
 }
 
-func (c *cli) createCommandSpans(kongCtx *kong.Context) error {
+func createCommandSpans(kongCtx *kong.Context) trace.Span {
 	// Skip telemetry if client is not available (disabled or failed to initialize)
 	if globalOTELClient == nil {
 		return nil
@@ -135,16 +135,7 @@ func (c *cli) createCommandSpans(kongCtx *kong.Context) error {
 		attribute.String("version.arch", runtime.GOARCH),
 	))
 
-	// Store span globally for cleanup in main()
-	globalCommandSpan = span
-
-	// Bind both context and span for commands to use
-	// Commands can now:
-	// 1. Run(...., span trace.Span) - to create child spans
-	// 2. Add events: span.AddEvent("event-name", trace.WithAttributes(...)). See version.go for example.
-	kongCtx.BindTo(span, (*trace.Span)(nil))
-
-	return nil
+	return span
 }
 
 // createCommandSpan creates a single telemetry span for the executed command.

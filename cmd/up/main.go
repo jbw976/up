@@ -13,9 +13,12 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/term"
+
+	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/composition"
 	configcmd "github.com/upbound/up/cmd/up/config"
@@ -48,6 +51,7 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/otel"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 
 	// TODO(epk): Remove this once we upgrade kubernetes deps to 1.25
@@ -104,8 +108,32 @@ func (c *cli) AfterApply(kongCtx *kong.Context) error {
 	})
 	f()
 
-	if err := c.createCommandSpans(kongCtx); err != nil {
-		return err
+	globalCommandSpan = createCommandSpans(kongCtx)
+
+	// Bind the span for commands to use.
+	//
+	// Commands can add custom telemetry attributes by:
+	// 1. Run(...., span trace.Span) - creating child spans
+	// 2. Adding events: span.AddEvent("event-name", trace.WithAttributes(...)). See version.go for example.
+	kongCtx.BindTo(globalCommandSpan, (*trace.Span)(nil))
+
+	// If the command (or any of its parents) requires an up context, construct
+	// it and bind it to the kongCtx.
+	for current := kongCtx.Selected(); current != nil; current = current.Parent {
+		if req, ok := current.Target.Interface().(upbound.ContextRequirer); ok {
+			upCtx, err := req.GetUpboundContext()
+			if err != nil {
+				return errors.Wrap(err, "failed to construct upbound context")
+			}
+			kongCtx.Bind(upCtx)
+
+			// Set a span attribute indicating whether the user is logged in.
+			globalCommandSpan.AddEvent("user", trace.WithAttributes(
+				attribute.Bool("authenticated", upCtx.Organization != ""),
+			))
+
+			break
+		}
 	}
 
 	return nil
