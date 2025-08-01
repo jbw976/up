@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -78,9 +77,10 @@ const (
 
 // initCmd installs Upbound Spaces.
 type initCmd struct {
+	upbound.RequiresContext
+
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
-	Upbound upbound.Flags `embed:""`
 
 	Version       string `arg:""                                           help:"Upbound Spaces version to install."`
 	Yes           bool   `help:"Answer yes to all questions"               name:"yes"                                type:"bool"`
@@ -111,18 +111,10 @@ func (c *initCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *initCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
+func (c *initCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
-
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
 
 	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {

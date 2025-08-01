@@ -62,7 +62,6 @@ type CreateCmd struct {
 	CacheDir          string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public            bool          `help:"Create new repositories with public visibility."`
 	Timeout           time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
-	GlobalFlags       upbound.Flags `embed:""`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -80,15 +79,8 @@ type CreateCmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *CreateCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *CreateCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
-
-	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

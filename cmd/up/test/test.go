@@ -4,8 +4,12 @@
 // Package test contains commands for working with tests project.
 package test
 
+import "github.com/upbound/up/internal/upbound"
+
 // Cmd is the top-level project command.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Run      runCmd      `cmd:"" help:"Run project tests."`
 	Generate generateCmd `cmd:"" help:"Generate a Test for a project."`
 }

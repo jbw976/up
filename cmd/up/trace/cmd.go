@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,6 +23,8 @@ import (
 
 // Cmd is the `up alpha trace` command.
 type Cmd struct {
+	upbound.RequiresContextAllowMissingProfile
+
 	ControlPlane string `description:"Controlplane to query"                                      env:"UPBOUND_CONTROLPLANE" long:"controlplane" short:"c"`
 	Group        string `description:"Group to query"                                             env:"UPBOUND_GROUP"        long:"group"        short:"g"`
 	Namespace    string `description:"Namespace of objects to query (defaults to all namespaces)" env:"UPBOUND_NAMESPACE"    long:"namespace"    short:"n"`
@@ -31,8 +32,6 @@ type Cmd struct {
 
 	// positional arguments
 	Resources []string `arg:"" help:"Type(s) (resource, singular or plural, category, short-name) and names: TYPE[.GROUP][,TYPE[.GROUP]...] [NAME ...] | TYPE[.GROUP]/NAME .... If no resource is specified, all resources are queried, but --all-resources must be specified."`
-
-	Flags upbound.Flags `embed:""`
 }
 
 // Help returns help for the trace command.
@@ -53,20 +52,6 @@ func (c *Cmd) Help() string {
   # Trace the bucket prod and the vpc default.
   up alpha trace bucket/prod vpc/default 
 `
-}
-
-// AfterApply constructs and binds Upbound-specific context to any subcommands
-// that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags, upbound.AllowMissingProfile())
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
-	return nil
 }
 
 // Run is the implementation of the command.

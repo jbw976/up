@@ -86,9 +86,8 @@ type runCmd struct {
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
-	Public bool          `help:"Create new repositories with public visibility."`
-	E2E    bool          `help:"Run E2E"                                         name:"e2e"`
-	Flags  upbound.Flags `embed:""`
+	Public bool `help:"Create new repositories with public visibility."`
+	E2E    bool `help:"Run E2E"                                         name:"e2e"`
 
 	projFS             afero.Fs
 	testFS             afero.Fs
@@ -122,15 +121,8 @@ Examples:
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

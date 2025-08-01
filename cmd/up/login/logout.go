@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -24,15 +23,7 @@ const (
 )
 
 // AfterApply sets default values in login after assignment and validation.
-func (c *LogoutCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
+func (c *LogoutCmd) AfterApply(upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
@@ -44,9 +35,6 @@ func (c *LogoutCmd) AfterApply(kongCtx *kong.Context) error {
 // LogoutCmd invalidates a stored session token for a given profile.
 type LogoutCmd struct {
 	client up.Client
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // Help returns help text for the logout command.

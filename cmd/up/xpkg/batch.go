@@ -13,7 +13,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -63,25 +62,19 @@ const (
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *batchCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *batchCmd) AfterApply() error {
 	c.fs = afero.NewOsFs()
 	// NOTE(aru): we currently only support fetching family base image from
 	// daemon, but may opt to support additional sources in the future.
 	c.fetch = daemonFetch
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
 
 	return nil
 }
 
 // batchCmd builds and pushes a family of Crossplane provider packages.
 type batchCmd struct {
+	upbound.RequiresContext
+
 	fs    afero.Fs
 	fetch fetchFn
 
@@ -113,9 +106,6 @@ type batchCmd struct {
 	BuildOnly    bool     `default:"false"                                             help:"Only build the smaller provider packages and do not attempt to push them to a package repository."`
 
 	ProviderNameSuffixForPush string `env:"PROVIDER_NAME_SUFFIX_FOR_PUSH" help:"Suffix for provider name during pushing the packages. This suffix is added to the end of the provider name. If there is a service name for the corresponded provider, then the suffix will be added to the base provider name and the service-scoped name will be after this suffix.  Examples: provider-family-aws-suffix, provider-aws-suffix-s3" optional:""`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // Run executes the batch command.

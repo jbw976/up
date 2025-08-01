@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/alecthomas/kong"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
@@ -48,8 +47,6 @@ type Cmd struct {
 	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when transport protocol is 'ssh'."`
 	Username string `help:"Optional. Specify a username for authentication. Used when transport protocol is 'https' and an SSH key is not provided, or with an SSH key when the transport protocol is 'ssh'."`
 	Password string `help:"Optional. Specify a password for authentication. Used with the username when the transport protocol is 'https', or with an SSH key that requires a passphrase when the transport protocol is 'ssh'."`
-
-	Flags upbound.Flags `embed:""`
 
 	protocol        string
 	gitAuthProvider git.AuthProvider
@@ -107,7 +104,7 @@ Examples:
 
 // AfterApply performs validation and setup after the command flags have been parsed.
 // It configures authentication, validates inputs, and sets up the project filesystem.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) error {
+func (c *Cmd) AfterApply(cmdRunner runner.CommandRunner) error {
 	if err := c.detectProtocol(); err != nil {
 		return err
 	}
@@ -182,13 +179,6 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, cmdRunner runner.CommandRunner) 
 	c.statePath = filepath.Join(c.projDirPath, ".up", c.StateFile)
 	c.runner = cmdRunner
 
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
 	return nil
 }
 
@@ -250,7 +240,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrint
 	}
 
 	pterm.Info.Printfln("Initializing project from template %q...", c.Template)
-	ref, err := c.initializeProjectFromTemplate(p)
+	ref, err := c.initializeProjectFromTemplate(upCtx, p)
 	if err != nil {
 		return err
 	}
@@ -314,7 +304,7 @@ func (c *Cmd) runWizard() (*wizardResult, error) {
 	return result, err
 }
 
-func (c *Cmd) initializeProjectFromTemplate(p pterm.TextPrinter) (*plumbing.Reference, error) {
+func (c *Cmd) initializeProjectFromTemplate(upCtx *upbound.Context, p pterm.TextPrinter) (*plumbing.Reference, error) {
 	// Resolve template URL
 	templateURL := template.ResolveTemplateURL(c.Template)
 
@@ -326,7 +316,7 @@ func (c *Cmd) initializeProjectFromTemplate(p pterm.TextPrinter) (*plumbing.Refe
 	// Clone and transform the template
 	p.Printfln("Initializing project from template %s for %s...", c.Template, c.Language)
 
-	cloner := template.NewCloner(templateURL, c.Directory, c.Language, c.TestLanguage, c.Values, c.gitCloner, c.gitAuthProvider, p, c.Flags.Debug > 0)
+	cloner := template.NewCloner(templateURL, c.Directory, c.Language, c.TestLanguage, c.Values, c.gitCloner, c.gitAuthProvider, p, upCtx.DebugLevel > 0)
 	return cloner.CloneAndTransform()
 }
 

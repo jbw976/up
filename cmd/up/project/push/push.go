@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -28,13 +27,12 @@ import (
 
 // Cmd is the `up project push` command.
 type Cmd struct {
-	ProjectFile    string        `default:"upbound.yaml"                                                                help:"Path to project definition file."                                            short:"f"`
-	Repository     string        `help:"Repository to push to. Overrides the repository specified in the project file." optional:""`
-	Tag            string        `default:""                                                                            help:"Tag for the built package. If not provided, a semver tag will be generated." short:"t"`
-	PackageFile    string        `help:"Package file to push. Discovered by default based on repository and tag."       optional:""`
-	MaxConcurrency uint          `default:"8"                                                                           env:"UP_MAX_CONCURRENCY"                                                           help:"Maximum number of functions to build at once."`
-	Public         bool          `help:"Create new repositories with public visibility."`
-	Flags          upbound.Flags `embed:""`
+	ProjectFile    string `default:"upbound.yaml"                                                                help:"Path to project definition file."                                            short:"f"`
+	Repository     string `help:"Repository to push to. Overrides the repository specified in the project file." optional:""`
+	Tag            string `default:""                                                                            help:"Tag for the built package. If not provided, a semver tag will be generated." short:"t"`
+	PackageFile    string `help:"Package file to push. Discovered by default based on repository and tag."       optional:""`
+	MaxConcurrency uint   `default:"8"                                                                           env:"UP_MAX_CONCURRENCY"                                                           help:"Maximum number of functions to build at once."`
+	Public         bool   `help:"Create new repositories with public visibility."`
 
 	projFS      afero.Fs
 	packageFS   afero.Fs
@@ -47,15 +45,8 @@ type Cmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
@@ -65,7 +64,6 @@ type Cmd struct {
 	CacheDir           string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public             bool          `help:"Create new repositories with public visibility."`
 	Timeout            time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
-	GlobalFlags        upbound.Flags `embed:""`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -83,19 +81,15 @@ type Cmd struct {
 	asyncWrapper async.WrapperFunc
 	printer      upterm.ObjectPrinter
 
+	kubeconfigPath string
+
 	proj *v2alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, flags upbound.Flags) error {
+	c.kubeconfigPath = flags.Kube.Kubeconfig
 	c.concurrency = max(1, c.MaxConcurrency)
-
-	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -283,7 +277,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			return err
 		}
 
-		w := kube.NewFileWriter(upCtx, c.GlobalFlags.Kube.Kubeconfig, ctpKubeconfig.CurrentContext)
+		w := kube.NewFileWriter(upCtx, c.kubeconfigPath, ctpKubeconfig.CurrentContext)
 		if err := w.Write(&ctpKubeconfig); err != nil {
 			return err
 		}

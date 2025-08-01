@@ -86,8 +86,6 @@ type renderCmd struct {
 	NoBuildCache  bool   `default:"false"             help:"Don't cache image layers while building."`
 	BuildCacheDir string `default:"~/.up/build-cache" help:"Path to the build cache directory."       type:"path"`
 
-	Flags upbound.Flags `embed:""`
-
 	projFS afero.Fs
 	proj   *projectv2alpha1.Project
 
@@ -110,19 +108,11 @@ type renderCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *renderCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *renderCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

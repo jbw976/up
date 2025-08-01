@@ -1,6 +1,8 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package organization contains commands for working with Upbound
+// Organizations.
 package organization
 
 import (
@@ -16,13 +18,7 @@ import (
 
 // AfterApply constructs and binds an organizations client to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
@@ -32,8 +28,9 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
+// PredictOrgs predicts orgs for autocompletion.
 func PredictOrgs() complete.Predictor {
-	return complete.PredictFunc(func(a complete.Args) (prediction []string) {
+	return complete.PredictFunc(func(_ complete.Args) (prediction []string) {
 		upCtx, err := upbound.NewFromFlags(upbound.Flags{})
 		if err != nil {
 			return nil
@@ -69,6 +66,8 @@ func PredictOrgs() complete.Predictor {
 
 // Cmd contains commands for interacting with organizations.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create createCmd `cmd:"" help:"Create an organization."`
 	Delete deleteCmd `cmd:"" help:"Delete an organization."`
 	List   listCmd   `cmd:"" help:"List organizations."`
@@ -77,7 +76,4 @@ type Cmd struct {
 	User user.Cmd `cmd:"" help:"Manage organization users."`
 
 	Token tokenCmd `cmd:"" help:"Generates an organization-scoped token to authenticate with a Cloud space."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }

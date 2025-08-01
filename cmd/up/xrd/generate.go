@@ -29,7 +29,6 @@ import (
 	"github.com/upbound/up/internal/schemas/generator"
 	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/schemas/runner"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/yaml"
 )
 
@@ -85,8 +84,6 @@ type generateCmd struct {
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
-	Flags upbound.Flags `embed:""`
-
 	projFS  afero.Fs
 	apisFS  afero.Fs
 	proj    *project.WithVersion
@@ -100,13 +97,6 @@ type generateCmd struct {
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

@@ -13,6 +13,8 @@ import (
 
 // Cmd contains commands for Upbound Profiles.
 type Cmd struct {
+	upbound.RequiresContextAllowMissingProfile
+
 	Current currentCmd `cmd:"" help:"Get the current active Upbound profile."`
 	List    listCmd    `cmd:"" help:"List all configured Upbound profiles."`
 	Use     useCmd     `cmd:"" help:"Switch to a different Upbound profile."`
@@ -21,22 +23,14 @@ type Cmd struct {
 	Create  createCmd  `cmd:"" help:"Create a new Upbound profile."`
 	Delete  deleteCmd  `cmd:"" help:"Delete an existing Upbound profile."`
 	Rename  renameCmd  `cmd:"" help:"Rename an existing Upbound profile."`
-
-	Flags upbound.Flags `embed:""`
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags, upbound.AllowMissingProfile())
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
 	// Let subcommands access the raw flags, in case they want to use different
 	// defaults than the profile.
-	kongCtx.Bind(upCtx, c.Flags)
+	kongCtx.Bind(c.Flags)
 	return nil
 }
 

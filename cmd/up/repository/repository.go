@@ -18,18 +18,11 @@ import (
 
 // AfterApply constructs and binds a repositories client to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(repositories.NewClient(cfg))
 	return nil
 }
@@ -72,13 +65,12 @@ func PredictRepos() complete.Predictor {
 
 // Cmd contains commands for interacting with repositories.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create     createCmd      `cmd:"" help:"Create a repository."`
 	Update     updateCmd      `cmd:"" help:"Update a repository."`
 	Delete     deleteCmd      `cmd:"" help:"Delete a repository."`
 	List       listCmd        `cmd:"" help:"List repositories for the account."`
 	Get        getCmd         `cmd:"" help:"Get a repository for the account."`
 	Permission permission.Cmd `cmd:"" help:"Manage permissions of a repository for a team in the account."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }

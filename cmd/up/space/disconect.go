@@ -35,20 +35,14 @@ import (
 )
 
 type disconnectCmd struct {
-	Registry registry.Flags `embed:""`
+	upbound.RequiresContext
 
-	Upbound upbound.Flags `embed:""`
+	Registry registry.Flags `embed:""`
 
 	Space string `arg:"" help:"Name of the Upbound Space. If name is not a supplied, it will be determined from the connection info in the space." optional:""`
 }
 
-func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *disconnectCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	needsKube := true
 	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
@@ -67,7 +61,6 @@ func (c *disconnectCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(ctrlCfg)
 	kongCtx.Bind(robots.NewClient(cfg))
 	kongCtx.Bind(spaces.NewClient(cfg))

@@ -22,18 +22,11 @@ const (
 
 // AfterApply constructs and binds a teams client to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(accounts.NewClient(cfg))
 	kongCtx.Bind(organizations.NewClient(cfg))
 	kongCtx.Bind(teams.NewClient(cfg))
@@ -88,11 +81,10 @@ func PredictTeams() complete.Predictor {
 
 // Cmd contains commands for interacting with teams.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create createCmd `cmd:"" help:"Create a team."`
 	Delete deleteCmd `cmd:"" help:"Delete a team."`
 	List   listCmd   `cmd:"" help:"List teams."`
 	Get    getCmd    `cmd:"" help:"Get a team."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }

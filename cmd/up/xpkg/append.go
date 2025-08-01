@@ -28,14 +28,9 @@ const (
 )
 
 // AfterApply parses flags and sets defaults.
-func (c *appendCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *appendCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// TODO(jastang): consider prompting about re-signing if already signed
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
 
 	// Get default docker auth.
 	c.keychain = remote.WithAuthFromKeychain(upCtx.RegistryKeychain())
@@ -69,13 +64,15 @@ func (c *appendCmd) AfterApply(kongCtx *kong.Context) error {
 
 // appendCmd appends an additional manifest of package extensions to a crossplane package.
 type appendCmd struct {
+	upbound.RequiresContext
+
 	// Arguments
 	RemoteRef string `arg:"" help:"The fully qualified remote image reference" required:""`
 
 	// Flags. Keep sorted alphabetically.
-	Destination    string        `help:"Optional OCI reference to write to. If not set, the command will modify the input reference." optional:""`
-	ExtensionsRoot string        `default:"./extensions"                                                                              help:"An optional directory of arbitrary files for additional consumers of the package." placeholder:"PATH" type:"path"`
-	Flags          upbound.Flags `embed:""`
+	Destination    string `help:"Optional OCI reference to write to. If not set, the command will modify the input reference." optional:""`
+	ExtensionsRoot string `default:"./extensions"                                                                              help:"An optional directory of arbitrary files for additional consumers of the package." placeholder:"PATH" type:"path"`
+
 	// Internal state. These aren't part of the user-exposed CLI structure.
 	fs       afero.Fs
 	indexRef name.Reference

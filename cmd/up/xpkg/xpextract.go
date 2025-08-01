@@ -60,14 +60,14 @@ func daemonFetch(ctx context.Context, r name.Reference) (v1.Image, error) {
 }
 
 func xpkgFetch(path string) fetchFn {
-	return func(ctx context.Context, r name.Reference) (v1.Image, error) {
+	return func(_ context.Context, _ name.Reference) (v1.Image, error) {
 		return tarball.ImageFromPath(filepath.Clean(path), nil)
 	}
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *xpExtractCmd) AfterApply() error {
+func (c *xpExtractCmd) AfterApply(upCtx *upbound.Context) error {
 	c.fs = afero.NewOsFs()
 	c.fetch = registryFetch
 	if c.FromDaemon {
@@ -93,11 +93,6 @@ func (c *xpExtractCmd) AfterApply() error {
 		if c.Package == "" {
 			return errors.New(errMustProvideTag)
 		}
-		upCtx, err := upbound.NewFromFlags(c.Flags)
-		if err != nil {
-			return err
-		}
-		upCtx.SetupLogging()
 
 		name, err := name.ParseReference(c.Package, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Hostname()))
 		if err != nil {
@@ -111,6 +106,8 @@ func (c *xpExtractCmd) AfterApply() error {
 // xpExtractCmd extracts package contents into a Crossplane cache compatible
 // format.
 type xpExtractCmd struct {
+	upbound.RequiresContext
+
 	fs    afero.Fs
 	name  name.Reference
 	fetch fetchFn
@@ -119,13 +116,10 @@ type xpExtractCmd struct {
 	FromDaemon bool   `help:"Indicates that the image should be fetched from the Docker daemon."                                                                                  xor:"xp-extract-from"`
 	FromXpkg   bool   `help:"Indicates that the image should be fetched from a local xpkg. If package is not specified and only one exists in current directory it will be used." xor:"xp-extract-from"`
 	Output     string `default:"out.gz"                                                                                                                                           help:"Package output file path. Extension must be .gz or will be replaced."                          short:"o"`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // Run runs the xp extract cmd.
-func (c *xpExtractCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *xpExtractCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	// NOTE(hasheddan): most of the logic in this method is from the machinery
 	// used in Crossplane's package cache and should be updated to use shared
 	// libraries if moved to crossplane-runtime.
@@ -194,7 +188,7 @@ func (c *xpExtractCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //n
 	if err != nil {
 		return errors.Wrap(err, errCreateOutputFile)
 	}
-	defer cf.Close() //nolint:errcheck
+	defer func() { _ = cf.Close() }()
 	w, err := gzip.NewWriterLevel(cf, gzip.BestSpeed)
 	if err != nil {
 		return errors.Wrap(err, errCreateGzipWriter)

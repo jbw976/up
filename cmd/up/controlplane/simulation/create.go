@@ -79,8 +79,9 @@ type CreateCmd struct {
 	Wait              bool            `default:"true"                                                                                              help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
 	TerminateOnFinish bool            `default:"false"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
 
-	Flags upbound.Flags `embed:""`
 	quiet config.QuietFlag
+
+	debugLevel int
 }
 
 // Validate performs custom argument validation for the create command.
@@ -113,6 +114,7 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, qu
 
 	c.debugPrintf(kongCtx.Stderr, "debug logging enabled\n")
 	c.quiet = quiet
+	c.debugLevel = upCtx.DebugLevel
 	return nil
 }
 
@@ -304,7 +306,7 @@ func (c *CreateCmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDif
 
 // debugPrintf defines a printer for writing debug logs from internal methods.
 func (c *CreateCmd) debugPrintf(stderr io.Writer, format string, args ...any) {
-	if c.Flags.Debug > 0 {
+	if c.debugLevel > 0 {
 		fmt.Fprintf(stderr, format, args...) //nolint:errcheck // Fine if debug output fails to print.
 	}
 }

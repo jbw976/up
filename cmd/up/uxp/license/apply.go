@@ -16,7 +16,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/uxp"
 )
 
@@ -25,8 +24,6 @@ type applyCmd struct {
 	Dev         bool   `help:"Apply embedded development license for single-node kind clusters." xor:"license-source"`
 
 	Namespace string `default:"crossplane-system" help:"Namespace in which to create the license key secret."`
-
-	Flags upbound.Flags `embed:""`
 
 	// TODO(adamwg): fs is injectable for testing, but we don't have tests yet
 	// because of

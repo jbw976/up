@@ -24,13 +24,7 @@ const (
 
 // AfterApply constructs and binds a robots client to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
@@ -90,13 +84,12 @@ func PredictRobots() complete.Predictor {
 
 // Cmd contains commands for interacting with robots.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create createCmd `cmd:"" help:"Create a robot."`
 	Delete deleteCmd `cmd:"" help:"Delete a robot."`
 	List   listCmd   `cmd:"" help:"List robots for the account."`
 	Get    getCmd    `cmd:"" help:"Get a robot for the account."`
 	Token  token.Cmd `cmd:"" help:"Interact with robot tokens."`
 	Team   team.Cmd  `cmd:"" help:"Interact with robot teams."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }

@@ -6,7 +6,6 @@ package simulate
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
@@ -25,21 +24,13 @@ type deleteCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file."    short:"f"`
 	Name        string `arg:""                 help:"The name of the simulation resource"`
 
-	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
-	GlobalFlags       upbound.Flags `embed:""`
+	ControlPlaneGroup string `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
 
 	spaceClient client.Client
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *deleteCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
+func (c *deleteCmd) AfterApply(upCtx *upbound.Context) error {
 	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
 	if err != nil {
 		return errors.Wrap(err, "cannot get spaces kubeconfig")

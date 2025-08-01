@@ -103,8 +103,6 @@ type generateCmd struct {
 	Output      string `default:"file"                                                                         enum:"file,yaml,json"                   help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
 	CacheDir    string `default:"~/.up/cache/"                                                                 env:"CACHE_DIR"                         help:"Directory used for caching dependency images."                                                                                    type:"path"`
 
-	Flags upbound.Flags `embed:""`
-
 	projFS afero.Fs
 	apisFS afero.Fs
 	proj   *projectv2alpha1.Project
@@ -114,14 +112,9 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
