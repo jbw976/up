@@ -89,6 +89,8 @@ oci:
         compatibleChartVersion: "1.12.x"
       - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1"
         compatibleChartVersion: ">=1.13.0"
+      - image: "xpkg.upbound.io/spaces-artifacts/alpine:3.20"
+        compatibleChartVersion: ">=1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.22.3"
         compatibleChartVersion: "1.12.x"
       - image: "xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.1"
