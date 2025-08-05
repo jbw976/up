@@ -4,7 +4,7 @@
 package project
 
 import (
-	"strings"
+	"path"
 
 	"github.com/google/go-containerregistry/pkg/name"
 
@@ -60,8 +60,14 @@ func DetermineRepository(upCtx *upbound.Context, proj *v2alpha1.Project, overrid
 			return "", err
 		}
 
+		// If the user isn't logged in, use a dummy address. Assume we're in
+		// local mode and this will be rewritten by an ImageConfig.
+		if upCtx.Organization == "" {
+			return path.Join("up-project.local", repoName), nil
+		}
+
 		// Always use the host and org from the context
-		return strings.Join([]string{upCtx.RegistryEndpoint.Host, upCtx.Organization, repoName}, "/"), nil
+		return path.Join(upCtx.RegistryEndpoint.Host, upCtx.Organization, repoName), nil
 	}
 
 	return proj.Spec.Repository, nil

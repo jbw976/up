@@ -345,7 +345,10 @@ func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 	if upCtx != nil && upCtx.Organization != "" {
 		newRepo = fmt.Sprintf("%s/%s/%s", upCtx.RegistryEndpoint.Hostname(), upCtx.Organization, c.Name)
 	} else {
-		newRepo = fmt.Sprintf("%s/<organization>/%s", upCtx.RegistryEndpoint.Hostname(), c.Name)
+		// Use "example" as the default organization because (a) it's
+		// obvious-ish that it should be replaced, and (b) it's a reserved
+		// account name in Upbound Cloud.
+		newRepo = fmt.Sprintf("%s/example/%s", upCtx.RegistryEndpoint.Hostname(), c.Name)
 	}
 
 	if err := project.Update(c.projFS, c.projFile, func(proj *v2alpha1.Project) {
