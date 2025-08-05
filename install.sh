@@ -79,6 +79,8 @@ if [ $BIN = "up" ]; then
   echo up version
   echo
   echo "Visit https://upbound.io to get started. 🚀"
+  echo "Telemetry helps Upbound make the product better. We may collect certain CLI"
+  echo "interactions to improve up's capabilities. Read more at https://docs.upbound.io/reference/usage/telemetry"
   echo "Have a nice day! 👋"
   echo
 fi
