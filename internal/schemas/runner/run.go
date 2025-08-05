@@ -91,7 +91,7 @@ func DefaultGenerateOptions() GenerateOptions {
 // Generate runs the containerized language tool for schema generation.
 func (r RealSchemaRunner) Generate(ctx context.Context, fromFS afero.Fs, baseFolder, basePath, imageName string, command []string, options ...Option) error {
 	if err := docker.Check(ctx); err != nil {
-		return errors.New("failed to connect to Docker; schema generation requires a Docker-compatible container runtime")
+		return errors.Wrap(err, "failed to connect to Docker; schema generation requires a Docker-compatible container runtime")
 	}
 
 	if len(r.imageConfigs) > 0 {
