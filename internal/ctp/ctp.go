@@ -437,7 +437,7 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	// else will fail if we don't.
 	if err := docker.Check(ctx); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
-		return nil, errors.New("failed to connect to Docker; local dev control planes require a Docker-compatible container runtime")
+		return nil, errors.Wrap(err, "failed to connect to Docker; local dev control planes require a Docker-compatible container runtime")
 	}
 
 	// kind creates a docker container named <name>-control-plane, and uses the
