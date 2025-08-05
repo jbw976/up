@@ -22,18 +22,11 @@ const (
 
 // AfterApply constructs and binds a needed clients to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
 	}
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(accounts.NewClient(cfg))
 	kongCtx.Bind(tokens.NewClient(cfg))
 	kongCtx.Bind(robots.NewClient(cfg))
@@ -43,11 +36,10 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 // Cmd contains commands for managing robot tokens.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create createCmd `cmd:"" help:"Create a personal access token for the current user."`
 	List   listCmd   `cmd:"" help:"Get all personal access tokens for the current user."`
 	Get    getCmd    `cmd:"" help:"Get a personal access token for the current user."`
 	Delete deleteCmd `cmd:"" help:"Delete a personal access token for the current user."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }

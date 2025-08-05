@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
@@ -30,20 +29,11 @@ type Cmd struct {
 	Force             bool   `help:"Do not ask for confirmation before stopping the control plane."`
 	Local             bool   `help:"Find and stop a local dev control plane, even if Spaces is available."`
 
-	GlobalFlags upbound.Flags `embed:""`
-
 	proj *v2alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
+func (c *Cmd) AfterApply() error {
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
 	if err != nil {

@@ -20,7 +20,6 @@ import (
 	"github.com/upbound/up-sdk-go/service/tokens"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
-	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/version"
 )
@@ -35,11 +34,11 @@ const (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *installCmd) AfterApply() error {
+func (c *installCmd) AfterApply(upCtx *upbound.Context) error {
 	if c.ClusterName == "" {
 		c.ClusterName = c.Namespace
 	}
-	kubeconfig, err := kube.GetKubeConfig(c.Kubeconfig)
+	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
 	}
@@ -90,7 +89,6 @@ type installCmd struct {
 
 	Token                 string `help:"API token used to authenticate. If not provided, a new robot and a token will be created."`
 	ClusterName           string `help:"Name of the cluster connecting to the control plane. If not provided, the namespace argument value will be used."`
-	Kubeconfig            string `help:"Override the default kubeconfig path."                                                                            type:"existingfile"`
 	InstallationNamespace string `default:"kube-system"                                                                                                   env:"MCP_CONNECTOR_NAMESPACE" help:"Kubernetes namespace for MCP Connector. Default is kube-system." short:"n"`
 	ControlPlaneSecret    string `help:"Name of the secret that contains the kubeconfig for a control plane."`
 

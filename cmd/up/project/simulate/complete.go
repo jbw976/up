@@ -33,8 +33,7 @@ type completeCmd struct {
 	Output            string `help:"Output the results of the simulation to the provided file. Defaults to standard out if not specified" short:"o"`
 	TerminateOnFinish bool   `default:"true"                                                                                              help:"Terminate the simulation after the completion criteria is met"`
 
-	ControlPlaneGroup string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
-	GlobalFlags       upbound.Flags `embed:""`
+	ControlPlaneGroup string `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
 
 	spaceClient client.Client
 
@@ -43,14 +42,7 @@ type completeCmd struct {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *completeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
-	upCtx, err := upbound.NewFromFlags(c.GlobalFlags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
+func (c *completeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
 	if err != nil {
 		return errors.Wrap(err, "cannot get kubeconfig for space")

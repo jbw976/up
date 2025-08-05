@@ -17,13 +17,10 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
-	"github.com/upbound/up/internal/upbound"
 )
 
 type removeCmd struct {
 	Force bool `help:"Do not ask for confirmation before removing the license."`
-
-	Flags upbound.Flags `embed:""`
 }
 
 func (c *removeCmd) Run(cl client.Client) error {

@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package group contains commands for working with groups in spaces.
 package group
 
 import (
@@ -19,7 +20,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 )
 
-var fieldNames = []string{"NAME", "PROTECTED"}
+var fieldNames = []string{"NAME", "PROTECTED"} //nolint:gochecknoglobals // Const used by list and get.
 
 func init() {
 	runtime.Must(spacesv1beta1.AddToScheme(scheme.Scheme))
@@ -32,15 +33,7 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // AfterApply constructs and binds an Upbound context to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// we can't use groups from inside a control plane
 	if _, ctp, inSpace := upCtx.GetCurrentSpaceContextScope(); !inSpace {
 		return errors.New("your kubeconfig must be pointing at a space context")
@@ -60,15 +53,15 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 
 // Cmd contains commands for interacting with groups.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Create createCmd `cmd:"" help:"Create a group."`
 	Delete deleteCmd `cmd:"" help:"Delete a group."`
 	List   listCmd   `cmd:"" help:"List groups in the space."`
 	Get    getCmd    `cmd:"" help:"Get a group."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
+// Help returns help text.
 func (c *Cmd) Help() string {
 	return `
 Interact with groups within the current space. Both Upbound profiles and

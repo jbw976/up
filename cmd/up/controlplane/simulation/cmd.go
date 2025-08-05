@@ -37,13 +37,7 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // AfterApply constructs and binds a control plane client to any subcommands
 // that have Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	kongCtx.Bind(upCtx)
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// we can't use control planes from inside a control plane
 	if _, ctp, isSpace := upCtx.GetCurrentSpaceContextScope(); isSpace && ctp.Name != "" {
 		return errors.New("cannot access simulations from inside a control plane context. Use 'up ctx ..' to go up to the group context")
@@ -65,9 +59,6 @@ type Cmd struct {
 	Create CreateCmd `cmd:"" help:"Start a new control plane simulation and wait for the results."`
 	Delete deleteCmd `cmd:"" help:"Delete a control plane simulation."`
 	List   listCmd   `cmd:"" help:"List control plane simulations for the account."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // Help prints help.

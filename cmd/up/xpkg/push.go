@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -41,29 +40,20 @@ const (
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *pushCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *pushCmd) AfterApply() error {
 	c.fs = afero.NewOsFs()
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
 	return nil
 }
 
 // pushCmd pushes a package.
 type pushCmd struct {
+	upbound.RequiresContext
+
 	fs afero.Fs
 
 	Tag     string   `arg:""                                                                                                      help:"Tag of the package to be pushed. Must be a valid OCI image tag."`
 	Package []string `help:"Path to packages. If not specified and only one package exists in current directory it will be used." short:"f"`
 	Create  bool     `help:"Create repository on push if it does not exist."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // Run runs the push cmd.

@@ -32,14 +32,13 @@ import (
 
 // Cmd is the `up project build` command.
 type Cmd struct {
-	ProjectFile    string        `default:"upbound.yaml"                                                                           help:"Path to project definition file."                              short:"f"`
-	Repository     string        `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
-	OutputDir      string        `default:"_output"                                                                                help:"Path to the output directory, where packages will be written." short:"o"`
-	NoBuildCache   bool          `default:"false"                                                                                  help:"Don't cache image layers while building."`
-	BuildCacheDir  string        `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."                            type:"path"`
-	MaxConcurrency uint          `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                                             help:"Maximum number of functions to build at once."`
-	CacheDir       string        `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                      help:"Directory used for caching dependencies."      type:"path"`
-	Flags          upbound.Flags `embed:""`
+	ProjectFile    string `default:"upbound.yaml"                                                                           help:"Path to project definition file."                              short:"f"`
+	Repository     string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
+	OutputDir      string `default:"_output"                                                                                help:"Path to the output directory, where packages will be written." short:"o"`
+	NoBuildCache   bool   `default:"false"                                                                                  help:"Don't cache image layers while building."`
+	BuildCacheDir  string `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."                            type:"path"`
+	MaxConcurrency uint   `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                                             help:"Maximum number of functions to build at once."`
+	CacheDir       string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                      help:"Directory used for caching dependencies."      type:"path"`
 
 	outputFS afero.Fs
 	projFS   afero.Fs
@@ -57,15 +56,8 @@ type Cmd struct {
 }
 
 // AfterApply parses flags and applies defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()

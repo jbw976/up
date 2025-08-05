@@ -15,7 +15,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/upbound"
 	apiproject "github.com/upbound/up/pkg/apis/project"
 )
 
@@ -23,8 +22,6 @@ import (
 type Cmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 	projFS      afero.Fs
-
-	Flags upbound.Flags `embed:""`
 }
 
 // Help returns help text for the upgrade command.
@@ -47,12 +44,6 @@ Currently supported upgrades:
 // AfterApply constructs and binds Upbound-specific context.
 func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

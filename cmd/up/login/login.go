@@ -60,13 +60,7 @@ func (c *LoginCmd) BeforeApply() error {
 }
 
 // AfterApply parses flags and sets defaults.
-func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags, upbound.AllowMissingProfile())
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *LoginCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// Avoid changing the organization for a profile. Encourage the user to
 	// create a new profile if they have a second organization.
 	profileOrg := upCtx.Profile.Organization
@@ -111,6 +105,8 @@ func (c *LoginCmd) AfterApply(kongCtx *kong.Context) error {
 // LoginCmd adds a user or token profile with session token to the up config
 // file if a username is passed, but defaults to launching a web browser to authenticate with Upbound.
 type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `LogoutCmd` is also in this package.
+	upbound.RequiresContextAllowMissingProfile
+
 	client   uphttp.Client
 	stdin    io.Reader
 	prompter input.Prompter
@@ -118,9 +114,6 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 	Username string `env:"UP_USER"     help:"Username used to execute command."                                                          short:"u" xor:"identifier"`
 	Password string `env:"UP_PASSWORD" help:"Password for specified user. '-' to read from stdin."                                       short:"p"`
 	Token    string `env:"UP_TOKEN"    help:"Upbound API token (personal access token) used to execute command. '-' to read from stdin." short:"t" xor:"identifier"`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 
 	UseDeviceCode bool `help:"Use authentication flow based on device code. We will also use this if it can't launch a browser in your behalf, e.g. in remote SSH"`
 }

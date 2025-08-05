@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/alecthomas/kong"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage"
@@ -87,21 +86,14 @@ func TestAfterApply(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Prepare Cmd
 			cmd := &Cmd{
-				Flags:     upbound.Flags{},
 				Directory: tc.args.Directory,
 				SSHKey:    tc.args.SSHKey,
 				Name:      tc.args.Name,
 				Template:  tc.args.Template,
 			}
 
-			parser, err := kong.New(&struct{}{})
-			assert.NilError(t, err)
-
-			kongCtx, err := parser.Parse([]string{})
-			assert.NilError(t, err)
-
 			// Run AfterApply
-			err = cmd.AfterApply(kongCtx, &mockCommandRunner{})
+			err := cmd.AfterApply(&mockCommandRunner{})
 
 			// Validate error
 			if tc.expectError != "" {
@@ -235,7 +227,6 @@ func TestRun_Scratch(t *testing.T) {
 			projFS := afero.NewBasePathFs(afero.NewOsFs(), tempProjDir)
 
 			cmd := &Cmd{
-				Flags:           upbound.Flags{},
 				Scratch:         true,
 				Language:        "kcl",
 				TestLanguage:    "kcl",
@@ -483,7 +474,6 @@ func TestRun_Example(t *testing.T) {
 			projFS := afero.NewBasePathFs(afero.NewOsFs(), tempProjDir)
 
 			cmd := &Cmd{
-				Flags:           upbound.Flags{},
 				SSHKey:          tc.args.SSHKey,
 				Name:            tc.args.Name,
 				Template:        tc.args.Template,

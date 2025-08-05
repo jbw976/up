@@ -69,8 +69,6 @@ type generateCmd struct {
 	Name        string `arg:""                  help:"Name for the new Function."       required:""`
 	E2E         bool   `help:"create e2e tests" name:"e2e"`
 
-	Flags upbound.Flags `embed:""`
-
 	testFS   afero.Fs
 	modelsFS afero.Fs
 	projFS   afero.Fs
@@ -83,16 +81,9 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	c.testName = fmt.Sprintf("test-%s", c.Name)
 	if c.E2E {

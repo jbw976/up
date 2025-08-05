@@ -37,14 +37,7 @@ func (c *Cmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 
 // AfterApply constructs and binds a k8s client to any subcommands that have
 // Run() methods that receive it.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	// Check that the current context meets the command's requirements and
 	// construct a kube context. The requirement may be on a parent node, so
 	// iterate up the command tree.
@@ -99,6 +92,8 @@ func PredictControlPlanes() complete.Predictor {
 // Each subcommand struct must embed a struct from the `requires` package to
 // indicate what kind of kube context it needs.
 type Cmd struct {
+	upbound.RequiresContext
+
 	// Commands for managing control planes in Spaces. These require a space
 	// context.
 	Create createCmd `cmd:"" help:"Create a Spaces control plane."`
@@ -135,9 +130,6 @@ type Cmd struct {
 	// Commands for managing OIDC auth. These require a spaces control plane
 	// context.
 	OIDCAuth oidcauth.Cmd `cmd:"" help:"Create OIDC ProviderConfig in a Spaces control plane and Cloud Resources."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 func extractSpaceFields(obj any) []string {

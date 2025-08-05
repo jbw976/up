@@ -27,7 +27,8 @@ const (
 
 // destroyCmd uninstalls Upbound.
 type destroyCmd struct {
-	Upbound  upbound.Flags  `embed:""`
+	upbound.RequiresContext
+
 	Registry registry.Flags `embed:""`
 
 	Confirmed bool `help:"Bypass safety checks and destroy Spaces"                    name:"yes-really-delete-space-and-all-data" type:"bool"`
@@ -35,13 +36,7 @@ type destroyCmd struct {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *destroyCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *destroyCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err

@@ -41,31 +41,12 @@ func init() {
 
 // Cmd is the `up ctx` command.
 type Cmd struct {
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
+	upbound.RequiresContext
 
 	Argument    string `arg:""                                                                                                                       help:".. to move to the parent, '-' for the previous context, '.' for the current context, or any relative path." optional:""`
 	Short       bool   `env:"UP_SHORT"                                                                                                               help:"Short output."                                                                                              name:"short"                             short:"s"`
 	KubeContext string `default:"upbound"                                                                                                            env:"UP_CONTEXT"                                                                                                  help:"Kubernetes context to operate on." name:"context"`
 	File        string `help:"Kubeconfig to modify when saving a new context. Overrides the --kubeconfig flag. Use '-' to write to standard output." short:"f"`
-}
-
-// AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-
-	if upCtx.ProfileName == "" {
-		return errors.New("no profile found; use `up login` or `up profile create` to create one")
-	}
-
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
-	return nil
 }
 
 // Termination is a model state that indicates the command should be terminated,

@@ -16,19 +16,10 @@ type Cmd struct {
 	Open    openCmd    `cmd:"" help:"Open the UXP web UI."`
 	Enable  enableCmd  `cmd:"" help:"Enable the UXP web UI."`
 	Disable disableCmd `cmd:"" help:"Disable the UXP web UI."`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
 }
 
 // AfterApply processes arguments and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err

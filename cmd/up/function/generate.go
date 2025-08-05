@@ -82,8 +82,6 @@ type generateCmd struct {
 	CacheDir    string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
 	Language    string `default:"kcl"                                                                                    enum:"kcl,python,go,go-templating"      help:"Language for function."                        short:"l"`
 
-	Flags upbound.Flags `embed:""`
-
 	functionFS        afero.Fs
 	modelsFS          afero.Fs
 	projFS            afero.Fs
@@ -98,16 +96,9 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, quiet config.QuietFlag) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, quiet config.QuietFlag) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

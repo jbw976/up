@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/alecthomas/kong"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
@@ -20,23 +19,15 @@ import (
 
 // Cmd is the `up project move` command.
 type Cmd struct {
-	NewRepository string        `arg:""                 help:"The new repository for the project."`
-	ProjectFile   string        `default:"upbound.yaml" help:"Path to the project definition file." short:"f"`
-	Flags         upbound.Flags `embed:""`
+	NewRepository string `arg:""                 help:"The new repository for the project."`
+	ProjectFile   string `default:"upbound.yaml" help:"Path to the project definition file." short:"f"`
 
 	newRepo string
 	projFS  afero.Fs
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-	kongCtx.Bind(upCtx)
-
+func (c *Cmd) AfterApply(upCtx *upbound.Context) error {
 	// Make sure the new repository name is valid, and apply the default
 	// registry if the user didn't provide a full path.
 	ref, org, repoName, err := upbound.ParseRepository(c.NewRepository, upCtx.RegistryEndpoint.Host)

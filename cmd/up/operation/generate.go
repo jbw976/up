@@ -81,8 +81,6 @@ type generateCmd struct {
 	Watch     watchSpec `embed:""                                                    help:"Watch for resources and trigger the operation when they change."                  optional:"" prefix:"watch-"`
 	Functions []string  `default:"xpkg.upbound.io/crossplane-contrib/function-dummy" help:"Comma-separated list of functions to call in the generated operation's pipeline."`
 
-	Flags upbound.Flags `embed:""`
-
 	projFS afero.Fs
 	opsFS  afero.Fs
 	proj   *projectv2alpha1.Project
@@ -92,13 +90,8 @@ type generateCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	ctx := context.Background()
-
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)

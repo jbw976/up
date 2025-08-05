@@ -4,7 +4,11 @@
 // Package function contains the `up function` commands.
 package function
 
+import "github.com/upbound/up/internal/upbound"
+
 // Cmd contains commands for function cmd.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Generate generateCmd `cmd:"" help:"Generate an Function for a Composition."`
 }

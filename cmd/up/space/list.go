@@ -26,20 +26,14 @@ const (
 
 // listCmd lists all of the spaces in Upbound.
 type listCmd struct {
-	Upbound upbound.Flags `embed:""`
+	upbound.RequiresContext
 
 	kc client.Client
 	ac *accounts.Client
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
@@ -57,7 +51,6 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 	}
 	c.kc = kc
 
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
 
 	return nil

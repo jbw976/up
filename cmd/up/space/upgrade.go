@@ -10,7 +10,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/alecthomas/kong"
 	"github.com/blang/semver/v4"
 	"github.com/pterm/pterm"
 	"helm.sh/helm/v3/pkg/chart"
@@ -44,9 +43,10 @@ const (
 
 // upgradeCmd upgrades Upbound.
 type upgradeCmd struct {
+	upbound.RequiresContext
+
 	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
-	Upbound upbound.Flags `embed:""`
 
 	// NOTE(hasheddan): version is currently required for upgrade with OCI image
 	// as latest strategy is undetermined.
@@ -72,18 +72,10 @@ func (c *upgradeCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *upgradeCmd) AfterApply(kongCtx *kong.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
+func (c *upgradeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
-
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
 
 	kubeconfig, err := upCtx.GetKubeconfig()
 	if err != nil {

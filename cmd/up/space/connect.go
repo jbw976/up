@@ -64,9 +64,9 @@ const (
 )
 
 type connectCmd struct {
-	Registry registry.AuthorizedFlags `embed:""`
+	upbound.RequiresContext
 
-	Upbound upbound.Flags `embed:""`
+	Registry registry.AuthorizedFlags `embed:""`
 
 	Space string `arg:""                                                                       help:"Name of the Upbound Space. If name is not a supplied, one is generated." optional:""`
 	Token string `help:"The Upbound robot token contents used to authenticate the connection." hidden:""                                                                      name:"robot-token" optional:""`
@@ -74,16 +74,10 @@ type connectCmd struct {
 	Environment string `default:"prod" env:"UP_ENVIRONMENT" help:"Override the default Upbound Environment." hidden:"" name:"up-environment"`
 }
 
-func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
+func (c *connectCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
-
-	upCtx, err := upbound.NewFromFlags(c.Upbound)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
 
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
@@ -94,7 +88,6 @@ func (c *connectCmd) AfterApply(kongCtx *kong.Context) error {
 		return err
 	}
 
-	kongCtx.Bind(upCtx)
 	kongCtx.Bind(ctrlCfg)
 	kongCtx.Bind(accounts.NewClient(cfg))
 	kongCtx.Bind(organizations.NewClient(cfg))

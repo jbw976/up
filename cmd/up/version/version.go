@@ -68,23 +68,9 @@ type Info struct {
 
 // Cmd is the `up version` command.
 type Cmd struct {
+	upbound.RequiresContext
+
 	Client bool `env:"" help:"If true, shows client version only (no server required)." json:"client,omitempty"`
-
-	// Common Upbound API configuration
-	Flags upbound.Flags `embed:""`
-}
-
-// AfterApply parses flags and applies defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
-	kongCtx.Bind(upCtx)
-
-	return nil
 }
 
 // BeforeApply sets default values and parses flags.

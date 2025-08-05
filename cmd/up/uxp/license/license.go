@@ -19,18 +19,10 @@ type Cmd struct {
 	Show   showCmd   `cmd:"" help:"Show the UXP license for a control plane."`
 	Apply  applyCmd  `cmd:"" help:"Apply a UXP license to a control plane. Specify either a license file or use --dev for development clusters."`
 	Remove removeCmd `cmd:"" help:"Remove the UXP license from a control plane."`
-
-	Flags upbound.Flags `embed:""`
 }
 
 // AfterApply processes arguments and sets defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	upCtx, err := upbound.NewFromFlags(c.Flags)
-	if err != nil {
-		return err
-	}
-	upCtx.SetupLogging()
-
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	cl, err := upCtx.BuildCurrentContextClient()
 	if err != nil {
 		return errors.Wrap(err, "failed to get kube client")
