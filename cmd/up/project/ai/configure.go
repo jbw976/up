@@ -51,6 +51,8 @@ installation steps:
 👉 %s
 `
 	kubectlaiLink = "https://github.com/GoogleCloudPlatform/kubectl-ai?tab=readme-ov-file#installation"
+	// The image ref for the marketplace-mcp-server.
+	imageMarketplaceMCP = "xpkg.upbound.io/upbound/marketplace-mcp-server:v0.1.0"
 )
 
 type configureToolsCmd struct {
@@ -148,6 +150,8 @@ type templateData struct {
 	ProjectName string
 	// Path for .up/config.json
 	UpConfigDir string
+	// MarketPlaceMCPServer image
+	MarketPlaceMCP string
 }
 
 // generateTemplates from the rootDir of the given filesystem, or errors.
@@ -165,8 +169,9 @@ func (c *configureToolsCmd) generateTemplates(fs embed.FS, rootDir string) (afer
 	}
 
 	tmplData := templateData{
-		ProjectName: c.proj.Name,
-		UpConfigDir: cd,
+		ProjectName:    c.proj.Name,
+		UpConfigDir:    cd,
+		MarketPlaceMCP: imageMarketplaceMCP,
 	}
 
 	if err := writeTemplates(targetFS, tmpls, tmplData); err != nil {

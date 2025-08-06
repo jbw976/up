@@ -17,7 +17,7 @@
         "-i",
         "-v",
         "{{ .UpConfigDir }}/:/mcp/.up:ro",
-        "xpkg.upbound.io/upbound/marketplace-mcp-server:v0.0.0-28.g65b7ae4"
+        "{{ .MarketPlaceMCP }}"
       ]
     }
   }
