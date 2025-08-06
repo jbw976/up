@@ -629,26 +629,10 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 			"name": caConfigMap,
 			"key":  certs.SecretKeyCACert,
 		},
-		// TODO(adamwg): Remove these secrets once UXPv2 is public.
 		"upbound": map[string]any{
-			"manager": map[string]any{
-				"imagePullSecrets": []map[string]any{{
-					"name": pullSecretName,
-				}},
-			},
 			"telemetry": map[string]any{
 				"disabled": telemetryDisabled,
 			},
-		},
-		"webui": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": pullSecretName,
-			}},
-		},
-		"apollo": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": pullSecretName,
-			}},
 		},
 	}
 	if err = mgr.Install(version, values); err != nil {
