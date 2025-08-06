@@ -36,6 +36,7 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		helm.RollbackOnError(c.Rollback),
 		helm.Force(c.Force),
 		helm.Wait(),
+		helm.CreateNamespace(true),
 	)
 	if err != nil {
 		return err

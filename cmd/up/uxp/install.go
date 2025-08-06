@@ -38,6 +38,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		uxp.ChartNamespace,
 		helm.WithChart(c.Bundle),
 		helm.Wait(),
+		helm.CreateNamespace(true),
 	)
 	if err != nil {
 		return err
