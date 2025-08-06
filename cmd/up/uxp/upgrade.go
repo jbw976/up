@@ -4,8 +4,6 @@
 package uxp
 
 import (
-	"context"
-	"fmt"
 	"io"
 
 	"github.com/pterm/pterm"
@@ -16,8 +14,6 @@ import (
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
-	"github.com/upbound/up/internal/registry"
-	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/uxp"
 )
@@ -40,6 +36,7 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 		helm.RollbackOnError(c.Rollback),
 		helm.Force(c.Force),
 		helm.Wait(),
+		helm.CreateNamespace(true),
 	)
 	if err != nil {
 		return err
@@ -83,32 +80,13 @@ type upgradeCmd struct {
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
 	Unstable bool `help:"Allow installing unstable versions."`
 
-	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 }
 
 // Run executes the upgrade command.
-func (c *upgradeCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
-	if err := c.Registry.AfterApply(); err != nil {
-		return err
-	}
-
-	// TODO(branden): Remove this once UXP is public.
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, uxp.ImagePullSecret, uxp.ChartNamespace, c.Registry)
-
+func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
 	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", uxp.ImagePullSecret), 1, 2),
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return errors.Wrap(pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
-		},
-		p,
-	); err != nil {
-		return err
-	}
-
-	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter("Upgrading UXP", 2, 2),
+		"Upgrading UXP",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			params, err := c.parser.Parse()

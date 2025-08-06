@@ -4,8 +4,6 @@
 package uxp
 
 import (
-	"context"
-	"fmt"
 	"io"
 
 	"github.com/pterm/pterm"
@@ -17,8 +15,6 @@ import (
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
-	"github.com/upbound/up/internal/registry"
-	"github.com/upbound/up/internal/registry/pullsecret"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/uxp"
 )
@@ -42,6 +38,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		uxp.ChartNamespace,
 		helm.WithChart(c.Bundle),
 		helm.Wait(),
+		helm.CreateNamespace(true),
 	)
 	if err != nil {
 		return err
@@ -90,32 +87,13 @@ type installCmd struct {
 	Unstable     bool   `help:"Allow installing unstable versions."`
 	DisableWebUI bool   `help:"Disable the UXP web UI."             optional:""`
 
-	Registry registry.AuthorizedFlags `embed:""`
 	install.CommonParams
 }
 
 // Run executes the install command.
-func (c *installCmd) Run(ctx context.Context, p upterm.ObjectPrinter) error {
-	if err := c.Registry.AfterApply(); err != nil {
-		return err
-	}
-
-	// TODO(branden): Remove this once UXP is public.
-	pullSecret := pullsecret.NewManagerFromFlags(c.kClient, uxp.ImagePullSecret, uxp.ChartNamespace, c.Registry)
-
+func (c *installCmd) Run(p upterm.ObjectPrinter) error {
 	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", uxp.ImagePullSecret), 1, 2),
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return errors.Wrap(pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
-		},
-		p,
-	); err != nil {
-		return err
-	}
-
-	if err := upterm.WrapWithSuccessSpinner(
-		upterm.StepCounter("Installing UXP", 2, 2),
+		"Installing UXP",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			params, err := c.parser.Parse()

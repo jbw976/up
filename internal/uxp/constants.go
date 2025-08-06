@@ -18,10 +18,11 @@ const (
 var (
 	// RepoURL is the URL of the stable helm chart repository.
 	//
-	// TODO(adamwg): Change this to the public repo once UXPv2 is released.
+	// TODO(adamwg): Change this to the stable non-OCI repo once UXPv2 is
+	// released there.
 	//
 	//nolint:gochecknoglobals // Would make this a const if possible.
-	RepoURL, _ = url.Parse("oci://xpkg.upbound.io/upbound-dev")
+	RepoURL, _ = url.Parse("oci://xpkg.upbound.io/upbound")
 	// UnstableRepoURL is the URL of the unstable helm chart repository.
 	//nolint:gochecknoglobals // Would make this a const if possible.
 	UnstableRepoURL, _ = url.Parse("https://charts.upbound.io/main")
@@ -29,24 +30,5 @@ var (
 
 // BaseValues returns base values for the UXP chart.
 func BaseValues() map[string]any {
-	return map[string]any{
-		// TODO(branden): Remove this once UXP is public.
-		"upbound": map[string]any{
-			"manager": map[string]any{
-				"imagePullSecrets": []map[string]any{{
-					"name": ImagePullSecret,
-				}},
-			},
-		},
-		"webui": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": ImagePullSecret,
-			}},
-		},
-		"apollo": map[string]any{
-			"imagePullSecrets": []map[string]any{{
-				"name": ImagePullSecret,
-			}},
-		},
-	}
+	return map[string]any{}
 }
