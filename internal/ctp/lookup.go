@@ -190,13 +190,24 @@ func findLocalDevControlPlane(ctx context.Context, _ *upbound.Context, cfg *find
 		}
 	}
 
-	return &localDevControlPlane{
+	ret := &localDevControlPlane{
 		name:                cfg.name,
 		kubeconfig:          kubeconfig,
 		client:              cl,
 		registryDir:         registryDir,
 		registryContainerID: cid,
 		registryHostname:    cfg.name + "-registry:5000",
+	}
+
+	portMapping := getExistingClusterPortMapping(ctx, cfg.name, "")
+	if portMapping == "" {
+		return ret, true, nil
+	}
+
+	return &ingressLocalDevControlPlane{
+		localDevControlPlane: *ret,
+		ingress:              true,
+		portMapping:          portMapping,
 	}, true, nil
 }
 
