@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/browser"
 	"github.com/pterm/pterm"
@@ -28,7 +29,9 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/license"
+	"github.com/upbound/up/internal/upbound"
 )
 
 const (
@@ -64,7 +67,7 @@ type openCmd struct {
 	Browser bool   `default:"true"                                                         help:"Open the web UI in a browser window." negatable:""`
 }
 
-func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
+func (c *openCmd) Run(ctx context.Context, upCtx *upbound.Context, cfg *rest.Config) error {
 	cl, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return errors.Wrap(err, errCreateClient)
@@ -76,6 +79,12 @@ func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	// Try to determine if the kubeconfig context is a local dev cluster with an
+	// ingress. If it is then we don't need to port forward.
+	if url, ok := c.localClusterIngressURL(ctx, upCtx); ok {
+		return c.open(url)
 	}
 
 	pf, url, ready, err := c.portForwarder(ctx, cfg, cl)
@@ -92,21 +101,59 @@ func (c *openCmd) Run(ctx context.Context, cfg *rest.Config) error {
 	case err := <-pfErr:
 		return errors.Wrap(err, errStartPortForward)
 	case <-ready:
+		pterm.Println("Port forwarding started; interrupt to stop")
 	}
 
-	pterm.Printfln("The web UI is available at: %s", url)
-	if c.Browser {
-		if err := browser.OpenURL(url); err != nil {
-			// Add a blank line to distinguish the error message from regular
-			// output.
-			pterm.Println()
-			pterm.Printfln("Error opening web UI in browser: %s", err)
-			// Continue executing. The port-forward is reachable from the URL
-			// printed earlier.
-		}
+	if err := c.open(url); err != nil {
+		// Add a blank line to distinguish the error message from regular
+		// output.
+		pterm.Println()
+		pterm.Println(err)
+		// Continue executing. The port-forward is reachable from the URL
+		// printed earlier.
 	}
 
 	<-ctx.Done()
+	return nil
+}
+
+// localClusterIngressURL returns the URL to the Web UI ingress if the user's
+// kubeconfig context is a local dev cluster with ingress enabled.
+func (c *openCmd) localClusterIngressURL(ctx context.Context, upCtx *upbound.Context) (string, bool) {
+	cfg, err := upCtx.GetRawKubeconfig()
+	if err != nil {
+		return "", false
+	}
+
+	// TODO(adamwg): This is a bad heuristic for whether the context is a local
+	// dev cluster, but it works well enough for our purposes.
+	if !strings.HasPrefix(cfg.CurrentContext, "kind-up-") {
+		return "", false
+	}
+	clusterName := strings.TrimPrefix(cfg.CurrentContext, "kind-")
+	cluster, found, err := ctp.FindDevControlPlane(ctx, upCtx,
+		ctp.FindWithControlPlaneName(clusterName),
+		ctp.FindForceLocal(true),
+	)
+	if err != nil || !found {
+		return "", false
+	}
+
+	icluster, ok := cluster.(ctp.IngressControlPlane)
+	if !ok {
+		return "", false
+	}
+
+	return icluster.WebUIAddress(), true
+}
+
+func (c *openCmd) open(url string) error {
+	pterm.Printfln("The web UI is available at: %s", url)
+	if c.Browser {
+		if err := browser.OpenURL(url); err != nil {
+			return errors.Wrap(err, "failed to open web UI in browser")
+		}
+	}
 	return nil
 }
 

@@ -211,6 +211,12 @@ type SideloadingControlPlane interface {
 	Sideload(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error
 }
 
+// IngressControlPlane is a control plane with an ingress for the UXP Web UI.
+type IngressControlPlane interface {
+	// WebUIAddress returns the address for the UXP web UI.
+	WebUIAddress() string
+}
+
 // spacesDevControlPlane is a development control plane that runs in a Spaces
 // cluster.
 type spacesDevControlPlane struct {
@@ -280,25 +286,11 @@ type localDevControlPlane struct {
 	registryDir         string
 	registryContainerID string
 	registryHostname    string
-	ingress             bool
-	portMapping         string
 }
 
 // Info returns human-readable information about the dev control plane.
 func (l *localDevControlPlane) Info() string {
-	info := fmt.Sprintf("💻 Local dev control plane running in kind cluster %q.", l.name)
-	if l.ingress {
-		// Extract port from portMapping (format: "hostPort:containerPort")
-		port := "80"
-		if l.portMapping != "" {
-			parts := strings.Split(l.portMapping, ":")
-			if len(parts) > 0 {
-				port = parts[0]
-			}
-		}
-		info += fmt.Sprintf("\n🌐 WebUI endpoint: http://127-0-0-1.nip.io:%s", port)
-	}
-	return info
+	return fmt.Sprintf("💻 Local dev control plane running in kind cluster %q.", l.name)
 }
 
 // ShortDescription returns a short description of the control plane.
@@ -422,6 +414,33 @@ func (l *localDevControlPlane) Sideload(ctx context.Context, imgMap project.Imag
 	return nil
 }
 
+type ingressLocalDevControlPlane struct {
+	localDevControlPlane
+
+	ingress     bool
+	portMapping string
+}
+
+func (l *ingressLocalDevControlPlane) Info() string {
+	info := l.localDevControlPlane.Info()
+
+	addr := l.WebUIAddress()
+	if addr != "" {
+		info += fmt.Sprintf("\n🌐 WebUI endpoint: %s", addr)
+	}
+
+	return info
+}
+
+func (l *ingressLocalDevControlPlane) WebUIAddress() string {
+	parts := strings.Split(l.portMapping, ":")
+	if len(parts) > 0 {
+		return fmt.Sprintf("http://127-0-0-1.nip.io:%s", parts[0])
+	}
+	// We should never get here.
+	return ""
+}
+
 // EnsureDevControlPlane ensures the existence of a control plane for
 // development.
 func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...EnsureDevControlPlaneOption) (DevControlPlane, error) {
@@ -458,7 +477,7 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 	return ctp, errors.Wrap(err, "cannot create local dev control plane")
 }
 
-func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig, telemetryDisabled bool) (*localDevControlPlane, error) {
+func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig, telemetryDisabled bool) (DevControlPlane, error) {
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
 
@@ -549,27 +568,34 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
-	if cfg.localConfig.ingress {
-		if err := ensureWebUIIngress(ctx, cl); err != nil {
-			cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
-			return nil, err
-		}
-		if err := ensureIngress(ctx, restConfig, cl); err != nil {
-			cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
-			return nil, err
-		}
-	}
-
-	cfg.eventChan.SendEvent(evText, async.EventStatusSuccess)
-	return &localDevControlPlane{
+	ret := &localDevControlPlane{
 		name:                cfg.name,
 		kubeconfig:          kubeconfig,
 		client:              cl,
 		registryDir:         registryDir,
 		registryContainerID: cid,
 		registryHostname:    cfg.name + "-registry:5000",
-		ingress:             cfg.localConfig.ingress,
-		portMapping:         actualPortMapping,
+	}
+
+	if !cfg.localConfig.ingress {
+		cfg.eventChan.SendEvent(evText, async.EventStatusSuccess)
+		return ret, nil
+	}
+
+	if err := ensureWebUIIngress(ctx, cl); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+	if err := ensureIngress(ctx, restConfig, cl); err != nil {
+		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+		return nil, err
+	}
+
+	cfg.eventChan.SendEvent(evText, async.EventStatusSuccess)
+	return &ingressLocalDevControlPlane{
+		localDevControlPlane: *ret,
+		ingress:              cfg.localConfig.ingress,
+		portMapping:          actualPortMapping,
 	}, nil
 }
 
