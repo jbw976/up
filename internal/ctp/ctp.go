@@ -742,6 +742,12 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 }
 
 func ensureUpboundImageConfig(ctx context.Context, upCtx *upbound.Context, cl client.Client) error {
+	// If the user is not logged in we can't create a pull secret for them, and
+	// therefore don't have a secret at which to point the ImageConfig.
+	if upCtx.Organization == "" {
+		return nil
+	}
+
 	imgcfg := &pkgv1beta1.ImageConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "upbound",
@@ -1003,6 +1009,15 @@ func NewKubeconfigDevControlPlane(ctx context.Context, upCtx *upbound.Context) (
 	cl, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot construct control plane client")
+	}
+
+	// Create a pull secret and ImageConfig for the user so their control plane
+	// will be able to pull their private packages.
+	if err := ensureUpboundPullSecret(ctx, upCtx, cl); err != nil {
+		return nil, err
+	}
+	if err := ensureUpboundImageConfig(ctx, upCtx, cl); err != nil {
+		return nil, err
 	}
 
 	return &KubeconfigDevControlPlane{
