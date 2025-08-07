@@ -62,6 +62,7 @@ const BlankProjectTemplate = "https://github.com/upbound/project-template-scratc
 // availableTemplates maps template names to their repository URLs.
 var availableTemplates = map[string]string{ //nolint:gochecknoglobals // this is a constant
 	"AWS Bucket":         "https://github.com/upbound/project-template-aws-s3",
+	"Azure Storage":      "https://github.com/upbound/project-template-azure-storage",
 	"GCP Storage":        "https://github.com/upbound/project-template-gcp-storage",
 	"Kubernetes WebApp":  "https://github.com/upbound/project-template-k8s-webapp",
 	"Start from scratch": BlankProjectTemplate,
