@@ -77,7 +77,7 @@ func New(config *rest.Config, svc ServiceType) (*IngressNginx, error) {
 		mgr:     mgr,
 		dclient: dclient,
 		kclient: kclient,
-		values:  getValues(svc),
+		values:  GetValues(svc),
 	}, nil
 }
 
@@ -159,9 +159,9 @@ func (c *IngressNginx) IsInstalled() (bool, error) {
 	return false, err
 }
 
-// getValues returns the IngressNginx parameters that are passed to
+// GetValues returns the IngressNginx parameters that are passed to
 // Helm to install Nginx.
-func getValues(svc ServiceType) map[string]any {
+func GetValues(svc ServiceType) map[string]any {
 	nodeSelector := map[string]any{
 		"ingress-ready": "true",
 	}
