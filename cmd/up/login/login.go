@@ -31,8 +31,9 @@ import (
 	uphttp "github.com/upbound/up/internal/http"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 const (
@@ -119,38 +120,12 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 	UseDeviceCode bool `help:"Use authentication flow based on device code. We will also use this if it can't launch a browser in your behalf, e.g. in remote SSH"`
 }
 
+//go:embed help/login.md
+var loginHelp string
+
 // Help returns help text for the login command.
 func (c *LoginCmd) Help() string {
-	return style.RenderHelp(`
-The <login> command authenticates with Upbound Cloud and stores session credentials.
-
-## Authentication Methods:
-
-- *Web Browser (default)* - Opens browser for OAuth authentication
-- *Device Code* - Use --use-device-code for headless environments
-- *Username/Password* - Provide --username and --password flags
-- *Personal Access Token* - Provide --token flag
-
-The command creates or updates a profile with the authenticated session. If no profile
-name is specified, it uses the "default" profile.
-
-## Usage Examples:
-
-    up login
-        Opens browser for OAuth authentication (recommended).
-
-    up login --username=<user@example.com>
-        Prompts for password and authenticates with credentials.
-
-    up login --token=<upat_xxxxx>
-        Authenticates using a personal access token.
-
-    up login --use-device-code
-        Uses device code flow for headless/remote environments.
-
-    up login --profile=<production> --organization=<my-org>
-        Authenticates and creates/updates the "production" profile.
-`)
+	return loginHelp
 }
 
 // Run executes the login command.

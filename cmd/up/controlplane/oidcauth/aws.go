@@ -25,36 +25,17 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	upconfig "github.com/upbound/up/internal/config"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
+
+	_ "embed"
 )
 
+//go:embed help/aws.md
+var awsHelp string
+
 func (c *awsCmd) Help() string {
-	return style.RenderHelp(`
-The <oidc-auth> command sets up OIDC authentication for an Upbound ControlPlane using an AWS IAM Identity Provider.
-
-## Usage Examples:
-
-    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess>
-        Checks if the IAM IdentityProvider 'proidc.upbound.io' exists; creates it if missing.
-        Creates an IAM Role trusted by the identity provider and attaches the AdministratorAccess policy.
-        Also configures the ControlPlane with a ProviderConfig for Provider-AWS.
-
-    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --sub <example-*>
-        Checks if the IAM IdentityProvider 'proidc.upbound.io' exists; creates it if missing.
-        Creates an IAM Role with a trust policy using a wildcard match (StringLike) on 'sub'.
-        Useful for allowing access from multiple ControlPlanes matching the pattern.
-
-    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --oidc-provider-name <example.upbound.io>
-        Checks if the IAM IdentityProvider 'example.upbound.io' exists; creates it if missing.
-        Creates an IAM Role trusted by the specified identity provider and attaches the AdministratorAccess policy.
-        Configures the ControlPlane with the appropriate ProviderConfig for Provider-AWS.
-
-    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --dry-run
-        Shows the AWS CLI commands that would be executed without actually running them.
-        Useful for reviewing changes before applying them to your AWS account.
-`)
+	return awsHelp
 }
 
 type awsCmd struct {

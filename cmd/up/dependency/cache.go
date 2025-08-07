@@ -15,11 +15,12 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/cache"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
 // updateCacheCmd updates the cache.
@@ -35,26 +36,12 @@ type updateCacheCmd struct {
 	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
 }
 
+//go:embed help/update-cache.md
+var updateCacheHelp string
+
 // Help returns help.
 func (c *updateCacheCmd) Help() string {
-	return style.RenderHelp(`
-The <update-cache> command updates the local dependency cache for the current project.
-It downloads and caches all dependencies specified in the project's upbound.yaml file.
-
-## Usage Examples:
-
-    up dependency update-cache
-        Updates cache for all dependencies in upbound.yaml.
-        Uses default cache directory (~/.up/cache/).
-
-    up dependency update-cache --cache-dir <path/to/cache>
-        Updates cache using a custom cache directory.
-        Useful for CI/CD environments.
-
-    up dependency update-cache -f <custom-project.yaml>
-        Updates cache for dependencies in a custom project file.
-        Default is upbound.yaml.
-`)
+	return updateCacheHelp
 }
 
 func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
@@ -150,22 +137,12 @@ type cleanCacheCmd struct {
 	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
 }
 
+//go:embed help/clean-cache.md
+var cleanCacheHelp string
+
 // Help returns help.
 func (c *cleanCacheCmd) Help() string {
-	return style.RenderHelp(`
-The <clean-cache> command removes all cached package images from the local cache directory.
-This can help free up disk space or resolve issues with corrupted cache entries.
-
-## Usage Examples:
-
-    up dependency clean-cache
-        Cleans the default cache directory (~/.up/cache/).
-        Removes all cached package images.
-
-    up dependency clean-cache --cache-dir <path/to/cache>
-        Cleans a custom cache directory.
-        Useful for CI/CD environments.
-`)
+	return cleanCacheHelp
 }
 
 func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context) error {

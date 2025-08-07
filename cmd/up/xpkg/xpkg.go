@@ -7,7 +7,8 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/feature"
-	"github.com/upbound/up/internal/style"
+
+	_ "embed"
 )
 
 // BeforeReset is the first hook to run.
@@ -24,12 +25,10 @@ type Cmd struct {
 	Append    appendCmd    `cmd:"" help:"Append additional files to an xpkg."                                                                            maturity:"alpha"`
 }
 
+//go:embed help/xpkg.md
+var xpkgHelp string
+
 // Help returns the help string for the `xpkg` command group.
 func (c *Cmd) Help() string {
-	return style.RenderHelp(`
-*This command is deprecated and will be removed in a future release.*
-
-To build Crossplane packages with up, use the project commands. To work with
-non-project Crossplane packages, use the crossplane CLI.
-`)
+	return xpkgHelp
 }

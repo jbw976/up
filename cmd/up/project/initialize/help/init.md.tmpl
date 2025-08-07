@@ -1,0 +1,72 @@
+This command initializes a new project. By default, it will start a wizard to
+help you create a new project. The project will be created in a new directory
+named after the project. You can specify which template to use with the
+`--template` flag along with the `--language` flag.
+
+#### Supported Languages
+
+{{ $tl := .TestLanguages }}
+
+The following slugs are accepted as arguments by the `--langauge` and
+`--test-language` flags:
+
+| Language | Slug | Supported for Tests |
+| -------- | ---- | ------------------- |
+{{- range $lang, $slug := .Languages }}
+| {{ $lang }} | {{ $slug }} | {{- if index $tl $lang }} Yes {{- else }} No {{- end}} |
+{{- end }}
+
+#### Examples
+
+Initialize a project called `my-new-project` using the AWS S3 bucket example
+with Python functions and tests:
+
+```shell
+up project init my-new-project --template project-template-aws \
+    --language python
+```
+
+Initialize a project called `my-new-project` with Go functions and Python tests:
+
+```shell
+up project init my-new-project --template project-template-aws \
+    --language go --test-language python
+```
+
+Initialize a project using a public template repository at a specific ref:
+
+```shell
+up project init my-new-project \
+    --template 'https://github.com/upbound/project-template-aws@main' \
+    --language kcl
+```
+
+Initialize a project from a template using Git token authentication:
+
+```shell
+up project init my-new-project \
+    --template 'https://github.com/template/project-template-private.git' \
+    --language kcl  \
+    --username 'username' \
+    --password 'token'
+```
+
+Initialize a project from a template using SSH authentication:
+
+```shell
+up project init my-new-project \
+    --template 'git@github.com:upbound/project-template-private.git' \
+    --language kcl \
+    --ssh-key /Users/username/.ssh/id_rsa
+```
+
+Initialize a new project from a private template using SSH authentication with
+an SSH key password:
+
+```shell
+up project init my-new-project \
+    --template 'git@github.com:upbound/project-template-private.git' \
+    --language kcl \
+    --ssh-key /Users/username/.ssh/id_rsa \
+    --password 'ssh-key-password'
+```

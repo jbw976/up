@@ -28,41 +28,19 @@ import (
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
+//go:embed help/generate.md
+var generateHelp string
+
 func (c *generateCmd) Help() string {
-	return style.RenderHelp(`
-The <generate> command creates a composition and adds the required function packages to the project as dependencies.
-
-## Usage Examples:
-
-    up composition generate <apis/xnetwork/definition.yaml>
-        Generates a composition from an CompositeResourceDefinition (XRD).
-        Saves output to 'apis/xnetworks/composition.yaml'.
-
-    up composition generate <examples/xnetwork/xnetwork.yaml>
-        Generates a composition from an Composite Resource (XR).
-        Saves output to <apis/xnetworks/composition.yaml>.
-
-    up composition generate <examples/network/network-aws.yaml> --name <aws>
-        Generates a composition from the Composite Resource Claim (XRC) with labels
-        if 'spec.compositionSelector.matchLabels' is set in the XR, using 'aws' as a prefix in 'metadata.name'.
-        Saves output to <apis/xnetworks/composition-aws.yaml>.
-
-    up composition generate <examples/xnetwork/xnetwork-azure.yaml> --name <azure>
-        Generates a composition from the Composite Resource (XR) or Composite Resource Claim (XRC) with labels
-        if 'spec.compositionSelector.matchLabels' is set in the XR, using 'azure' as a prefix in 'metadata.name'.
-        Saves output to <apis/xnetworks/composition-azure.yaml>.
-
-    up composition generate <examples/xdatabase/database.yaml> --plural <postgreses>
-        Generates a composition from the Composite Resource (XR) with a custom plural form,
-        Saves output to <apis/xdatabases/composition.yaml>.
-`)
+	return generateHelp
 }
 
 const (

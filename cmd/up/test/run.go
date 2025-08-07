@@ -54,7 +54,6 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/schemas/runner"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -66,6 +65,8 @@ import (
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
 // runCmd is the `up test run` command.
@@ -105,21 +106,11 @@ type runCmd struct {
 	asyncWrapper async.WrapperFunc
 }
 
+//go:embed help/run.md
+var runHelp string
+
 func (c *runCmd) Help() string {
-	return style.RenderHelp(`
-The <run> command executes project tests.
-
-## Usage Examples:
-
-    up test run <tests/*> --e2e
-        Runs all end-to-end (e2e) tests located in the 'tests/' directory.
-
-    up test run <tests/*>
-        Executes only composition tests within the 'tests/' directory.
-
-    up test run <tests/*> --e2e --kubectl=<_output/kubectl>
-        Runs e2e tests in 'tests/' while specifying custom paths for the Kubectl binary.
-`)
+	return runHelp
 }
 
 // AfterApply processes flags and sets defaults.

@@ -21,55 +21,21 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/xpkg/functions"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
+//go:embed help/render.md
+var renderHelp string
+
 func (c *renderCmd) Help() string {
-	return style.RenderHelp(`
-The <render> command shows you what composed resources Crossplane would create by
-printing them to stdout. It also prints any changes that would be made to the
-status of the XR. It doesn't talk to Crossplane. Instead it runs the Composition
-Function pipeline specified by the Composition locally, and uses that to render
-the XR.
-
-## Usage Examples:
-
-    up composition render <composition.yaml> <xr.yaml>
-        Simulate creating a new XR.
-
-    up composition render <composition.yaml> <xr.yaml> \
-        --observed-resources=<existing-observed-resources.yaml>
-        Simulate updating an XR that already exists.
-
-    up composition render <composition.yaml> <xr.yaml> \
-        --context-values=<apiextensions.crossplane.io/environment='{"key": "value"}'>
-        Pass context values to the Function pipeline.
-
-    up composition render <composition.yaml> <xr.yaml> \
-        --extra-resources=<extra-resources.yaml>
-        Pass extra resources Functions in the pipeline can request.
-
-    up composition render <composition.yaml> <xr.yaml> \
-        --function-credentials=<credentials.yaml>
-        Pass credentials to Functions in the pipeline that need them.
-
-## Docker Configuration:
-
-The render command uses Docker to run Composition Functions. Configure the Docker
-connection using these standard environment variables:
-
-    <DOCKER_HOST>                 Docker daemon socket (e.g., unix:///var/run/docker.sock)
-    <DOCKER_API_VERSION>          Docker API version to use
-    <DOCKER_CERT_PATH>            Path to Docker TLS certificates
-    <DOCKER_TLS_VERIFY>           Enable TLS verification (1 or 0)
-
-`)
+	return renderHelp
 }
 
 type renderCmd struct {

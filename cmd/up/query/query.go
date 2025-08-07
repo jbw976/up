@@ -19,8 +19,9 @@ import (
 
 	"github.com/upbound/up/cmd/up/query/resource"
 	"github.com/upbound/up/internal/feature"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 // QueryCmd is the `up alpha query` command.
@@ -136,38 +137,10 @@ func (c *QueryCmd) AfterApply(kongCtx *kong.Context) error { //nolint:gocyclo //
 	return c.afterApply()
 }
 
+//go:embed help/query.md
+var queryHelp string
+
 // Help returns help for the query command.
 func (c *QueryCmd) Help() string {
-	return style.RenderHelp(`
-The <query> command queries control plane resources via the Query API.
-
-## Usage Examples:
-
-    up alpha query buckets
-        List all S3 buckets in ps output format.
-
-    up alpha query buckets -o wide
-        List all buckets in ps output format with more information (such as node name).
-
-    up alpha query bucket <web-bucket-13je7>
-        List a single S3 bucket with specified NAME in ps output format.
-
-    up alpha query buckets.v1.s3.aws.upbound.io -o json
-        List S3 buckets in JSON output format, in the "v1" version of the "s3.aws.upbound.io" API group.
-
-    up alpha query -o json bucket <web-bucket-13je7>
-        List a single bucket in JSON output format.
-
-    up alpha query -o template bucket/<web-bucket-13je7> --template={{.metadata.annotations.external-name}}
-        Return only the external-name value of the specified bucket.
-
-    up alpha query bucket <test-bucket> -o custom-columns=NAME:.spec.forProvider.name,SIZE:.status.atProvider.size
-        List resource information in custom columns.
-
-    up alpha query buckets,vpcs
-        List all replication controllers and services together in ps output format.
-
-    up alpha query vpc/<prod> bucket/<backup> providerconfig/<kube>
-        List one or more resources by their type and names.
-`)
+	return queryHelp
 }

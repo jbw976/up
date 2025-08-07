@@ -4,7 +4,17 @@
 // Package style contains the shared style for the Upbound CLI.
 package style
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"os"
+
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/styles"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
+	"golang.org/x/term"
+
+	_ "embed"
+)
 
 var (
 	// UpboundBrandColor is the Upbound brand color.
@@ -40,3 +50,44 @@ var (
 //
 //nolint:gochecknoglobals // We'd make these consts if we could.
 var UpboundRootStyle = lipgloss.NewStyle().Foreground(UpboundBrandColor)
+
+// RenderMarkdown formats markdown-formatted text for output to the terminal. If
+// anything fails, the raw markdown is returned.
+func RenderMarkdown(md string) string {
+	wrapWidth, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	wrapWidth = min(wrapWidth, 120)
+
+	tr, err := glamour.NewTermRenderer(
+		getStyleOpt(),
+		glamour.WithWordWrap(wrapWidth),
+	)
+	if err != nil {
+		return md
+	}
+
+	formatted, err := tr.Render(md)
+	if err != nil {
+		return md
+	}
+
+	return formatted
+}
+
+var (
+	//go:embed light.json
+	lightStylesheet []byte
+	//go:embed dark.json
+	darkStylesheet []byte
+)
+
+func getStyleOpt() glamour.TermRendererOption {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return glamour.WithStandardStyle(styles.AsciiStyle)
+	}
+
+	if termenv.HasDarkBackground() {
+		return glamour.WithStylesFromJSONBytes(darkStylesheet)
+	}
+
+	return glamour.WithStylesFromJSONBytes(lightStylesheet)
+}

@@ -15,10 +15,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/version"
+
+	_ "embed"
 )
 
 const (
@@ -81,18 +82,12 @@ func (c *Cmd) BeforeApply() error {
 	return nil
 }
 
+//go:embed help/version.md
+var versionHelp string
+
 // Help returns help for the command.
 func (c *Cmd) Help() string {
-	return style.RenderHelp(`
-## Options:
-
-    --client=false
-        If true, shows client version only (no server required).
-
-## Usage:
-
-    up version [flags] [options]
-`)
+	return versionHelp
 }
 
 // BuildVersionInfo builds the version info for the client and server.

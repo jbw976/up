@@ -17,10 +17,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/meta"
 
 	"github.com/upbound/up/internal/input"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/migration"
 	"github.com/upbound/up/pkg/migration/category"
+
+	_ "embed"
 )
 
 const (
@@ -35,23 +36,11 @@ type pauseToggleCmd struct {
 	Yes   bool `default:"false" help:"When set to true, automatically accepts any confirmation prompts that may appear during the process."`
 }
 
+//go:embed help/pause-toggle.md
+var pauseToggleHelp string
+
 func (c *pauseToggleCmd) Help() string {
-	return style.RenderHelp(`
-The <pause-toggle> command allows you to manage the paused state of resources after a migration attempt.
-
-- When --pause=true, all resources in the *target control plane* will be paused due to a faulty migration. This is useful after running 'migration import --unpause-after-import=true' and discovering issues in the target.
-- When --pause=false, only resources paused during the migration will be *unpaused in the source control plane*, ensuring that pre-existing paused resources remain unchanged.
-
-## Use Cases:
-
-    up migration pause-toggle --pause=true
-        Pauses all resources in the *target control plane* after a migration if the import caused issues.
-        Useful for stopping resources in a faulty target environment.
-
-    up migration pause-toggle --pause=false
-        Unpauses only the resources that were paused in the *source control plane* due to migration.
-        This is helpful when reverting migration-induced pauses in the source after a failed import to the target.
-`)
+	return pauseToggleHelp
 }
 
 // BeforeApply sets default values for the delete command, before assignment and validation.

@@ -9,6 +9,6 @@ import "github.com/upbound/up/internal/upbound"
 type Cmd struct {
 	upbound.RequiresContext
 
-	Generate generateCmd `cmd:"" help:"Generate an Composition."`
+	Generate generateCmd `cmd:"" help:"Generate a Composition."`
 	Render   renderCmd   `cmd:"" help:"Run a composition locally to render an XR into composed resources."`
 }

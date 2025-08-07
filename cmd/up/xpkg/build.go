@@ -18,10 +18,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/yaml"
+
+	_ "embed"
 )
 
 const (
@@ -128,23 +129,11 @@ type buildCmd struct {
 	Ignore       []string `help:"Paths, specified relative to --package-root, to exclude from the package."`
 }
 
+//go:embed help/build.md
+var buildHelp string
+
 func (c *buildCmd) Help() string {
-	return style.RenderHelp(`
-The <build> command creates a xpkg compatible OCI image for a Crossplane package
-from the local file system. It packages the found YAML files containing Kubernetes-like
-object manifests into the meta data layer of the OCI image. The package manager
-will use this information to install the package into a Crossplane instance.
-
-Only configuration and provider packages are supported at this time.
-
-Example claims can be specified in the examples directory.
-
-For more generic information, see the xpkg parent command help. Also see the
-Crossplane documentation for more information on building packages:
-
-  https://docs.crossplane.io/latest/concepts/packages/#building-a-package
-
-Even more details can be found in the xpkg reference document.`)
+	return buildHelp
 }
 
 // Run executes the build command.

@@ -33,26 +33,15 @@ import (
 	"github.com/upbound/up/internal/yaml"
 	projectapis "github.com/upbound/up/pkg/apis/project"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
+//go:embed help/generate.md
+var generateHelp string
+
 func (c *generateCmd) Help() string {
-	return `
-The 'generate' command creates a new, empty operation.
-
-
-Examples:
-    up operation generate my-operation
-        Generates a new, no-op operation named 'my-operation'.
-
-    up operation generate my-operation --cron "0 0 * * *"
-        Generates a new, no-op cron operation named 'my-operation' triggered by a cron schedule.
-
-    up operation generate my-operation --watch-group-version-kind "apps/v1/Deployment" --watch-namespace "my-namespace"
-        Generates a new, no-op watch operation named 'my-operation' triggered by a watch on a deployment in namespace 'my-namespace'.
-
-    up operation generate claude-pod-watcher --watch-group-version-kind "apps/v1/Pod" --watch-namespace "default" --functions xpkg.upbound.io/upbound/function-claude
-        Generates a new operation named 'claude-pod-watcher' that invokes a Claude prompt when pods change.
-`
+	return generateHelp
 }
 
 const (

@@ -21,28 +21,17 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
+//go:embed help/generate.md
+var generateHelp string
+
 func (c *generateCmd) Help() string {
-	return style.RenderHelp(`
-The <generate> command creates tests in the specified language.
-
-## Usage Examples:
-
-    up test generate <xstoragebucket>
-        Creates a composition test with the default language (KCL) in the folder 'tests/test-xstoragebucket'.
-
-    up test generate <xstoragebucket> --language <python>
-        Creates a composition test with Python language support in the folder 'tests/test-xstoragebucket'.
-
-    up test generate <xstoragebucket> --language <python> --e2e
-        Creates an e2e test with Python language support in the folder 'tests/e2etest-xstoragebucket'.
-`)
+	return generateHelp
 }
 
 // Embed templates for languages.

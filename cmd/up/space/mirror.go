@@ -22,31 +22,16 @@ import (
 
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/registry"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
+
+	_ "embed"
 )
 
+//go:embed help/mirror.md
+var mirrorHelp string
+
 func (c *mirrorCmd) Help() string {
-	return style.RenderHelp(`
-The <mirror> command mirrors all required OCI artifacts for a specific Space version.
-
-## Usage Examples:
-
-    up space mirror -v <1.9.0> --output-dir=</tmp/output> --token-file=<upbound-token.json>
-        This command mirrors all artifacts for Space version 1.9.0
-        into a local directory as .tar.gz files, using the token file for authentication.
-
-    up space mirror -v <1.9.0> --destination-registry=<myregistry.io> --token-file=<upbound-token.json>
-        This command mirrors all artifacts for Space version 1.9.0
-        to a specified container registry, using the token file for authentication.
-        Note: Ensure you log in to the registry first using a command like 'docker login myregistry.io'.
-
-    up space mirror -v <1.9.0> --output-dir=</tmp/output> --token-file=<upbound-token.json> --dry-run
-        This command performs a dry run to verify mirroring of all artifacts for
-        Space version 1.9.0 into a local directory as .tar.gz files,
-        using the token file for authentication.
-        A request is made to the Upbound registry to confirm network access.
-`)
+	return mirrorHelp
 }
 
 type repository struct {

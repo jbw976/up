@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package main is the up CLI.
 package main
 
 import (
@@ -54,6 +55,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 
+	_ "embed"
 	// TODO(epk): Remove this once we upgrade kubernetes deps to 1.25
 	// TODO(epk): Specifically, get rid of the k8s.io/client-go/client/auth/azure
 	// and k8s.io/client-go/client/auth/gcp packages.
@@ -240,20 +242,16 @@ type alpha struct {
 	Xpkg xpkg.Cmd `cmd:"" help:"Manage Crossplane packages." hidden:""`
 }
 
-const helpDescription = `The Upbound CLI.
-
-Please report issues and feature requests at https://github.com/upbound/upbound.`
+//go:embed help.md
+var helpDescription string
 
 func main() {
 	c := cli{}
 
 	parser := kong.Must(&c,
 		kong.Name("up"),
-		kong.Description(helpDescription),
-		kong.ConfigureHelp(kong.HelpOptions{
-			Compact:             true,
-			NoExpandSubcommands: true,
-		}))
+		kong.Help(helpPrinter),
+	)
 
 	kongplete.Complete(parser,
 		kongplete.WithPredictor("orgs", organization.PredictOrgs()),
@@ -274,6 +272,7 @@ func main() {
 	kongCtx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
 	kongCtx.BindTo(context.Background(), (*context.Context)(nil))
+	kongCtx.Model.Detail = helpDescription
 
 	// Ensure OTEL client and spans are properly shut down
 	defer func() {

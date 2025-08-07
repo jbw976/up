@@ -15,10 +15,11 @@ import (
 	"k8s.io/client-go/restmapper"
 
 	"github.com/upbound/up/internal/input"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/migration"
 	"github.com/upbound/up/pkg/migration/exporter"
+
+	_ "embed"
 )
 
 const secretsWarning = `Warning: A functional Crossplane control plane requires cloud provider credentials,
@@ -45,24 +46,11 @@ type exportCmd struct {
 	PauseBeforeExport bool `default:"false" help:"When set to true, pauses all claim,composite and managed resources before starting the export process. This can help ensure a consistent state for the export. Defaults to false."`
 }
 
+//go:embed help/export.md
+var exportHelp string
+
 func (c *exportCmd) Help() string {
-	return style.RenderHelp(`
-Use the available options to customize the export process, such as specifying the output file path, including or excluding
-specific resources and namespaces, and deciding whether to pause claim,composite,managed resources before exporting.
-
-## Usage Examples:
-
-    up migration export --pause-before-export
-        Pauses all claim, composite, and managed resources before exporting the control plane state.
-        The state is exported to the default archive file named xp-state.tar.gz.
-        Resources that were already paused will be annotated with migration.upbound.io/already-paused: "true" to preserve their paused state during the restore process.
-
-    up migration export --output=<my-export.tar.gz>
-        Exports the control plane state to a specified file 'my-export.tar.gz'.
-
-    up migration export --include-extra-resources="<customresource.group>" --include-namespaces="<crossplane-system,team-a,team-b>"
-        Exports the control plane state to a default file 'xp-state.tar.gz', with the additional resource specified and only using provided namespaces.
-`)
+	return exportHelp
 }
 
 // BeforeApply sets default values for the delete command, before assignment and validation.
