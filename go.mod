@@ -11,7 +11,7 @@ require (
 	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/chroma v0.10.0
 	github.com/alecthomas/kong v1.12.1
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2/config v1.29.18
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
 	github.com/blang/semver/v4 v4.0.0
