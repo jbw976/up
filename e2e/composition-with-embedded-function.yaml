@@ -9,7 +9,7 @@ spec:
   mode: Pipeline
   pipeline:
   - functionRef:
-      name: upbound-dev-e2e-testxcluster
+      name: upbound-e2e-testxcluster
     step: xcluster
   - functionRef:
       name: crossplane-contrib-function-auto-ready

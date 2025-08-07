@@ -443,10 +443,9 @@ jobs:
         run: |
           up version
 
-      # TODO(adamwg): Change back to upbound once UXPv2 is public.
       - name: up login with robot
         run: |
-          up login -t ${{ secrets.UPBOUND_DEV_TOKEN }} --organization=upbound-dev
+          up login -t ${{ secrets.UPBOUND_ROBOT_TOKEN }} --organization=upbound
 
       - name: up project init
         run: |
@@ -551,20 +550,18 @@ jobs:
           contains: _output/e2e-test.uppkg
           expected_result: PASSED
 
-      # TODO(adamwg): Change back to upbound once UXPv2 is public.
       - name: Login to xpkg with robot
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
         with:
           registry: xpkg.upbound.io
-          username: ${{ secrets.UPBOUND_DEV_USERNAME }}
-          password: ${{ secrets.UPBOUND_DEV_TOKEN }}
+          username: ${{ secrets.UPBOUND_ROBOT_ID }}
+          password: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
 
-      # TODO(adamwg): Re-enable once UXPv2 is public.
-      # - name: up project push
-      #   run: |
-      #     eval $(make --no-print-directory build.vars)
-      #     cd e2e-test
-      #     up project push --tag=${VERSION}
+      - name: up project push
+        run: |
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project push --tag=${VERSION}
 
       - name: up project run
         run: |
