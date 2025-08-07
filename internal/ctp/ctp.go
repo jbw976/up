@@ -10,10 +10,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +43,7 @@ import (
 
 	licensev1alpha1 "github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
+	"github.com/upbound/up/cmd/up/space/prerequisites/ingressnginx"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctp/certs"
@@ -98,6 +102,8 @@ type spacesConfig struct {
 type localConfig struct {
 	crossplaneVersion string
 	registryDir       string
+	ingress           bool
+	portMapping       string
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
@@ -171,6 +177,15 @@ func WithLocalCrossplaneVersion(v string) EnsureDevControlPlaneOption {
 func WithLocalRegistryDirectory(path string) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.localConfig.registryDir = path
+	}
+}
+
+// WithIngress sets whether to install ingress and the port mapping for local
+// dev control planes.
+func WithIngress(enabled bool, portMapping string) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.localConfig.ingress = enabled
+		cfg.localConfig.portMapping = portMapping
 	}
 }
 
@@ -265,11 +280,25 @@ type localDevControlPlane struct {
 	registryDir         string
 	registryContainerID string
 	registryHostname    string
+	ingress             bool
+	portMapping         string
 }
 
 // Info returns human-readable information about the dev control plane.
 func (l *localDevControlPlane) Info() string {
-	return fmt.Sprintf("💻 Local dev control plane running in kind cluster %q.", l.name)
+	info := fmt.Sprintf("💻 Local dev control plane running in kind cluster %q.", l.name)
+	if l.ingress {
+		// Extract port from portMapping (format: "hostPort:containerPort")
+		port := "80"
+		if l.portMapping != "" {
+			parts := strings.Split(l.portMapping, ":")
+			if len(parts) > 0 {
+				port = parts[0]
+			}
+		}
+		info += fmt.Sprintf("\n🌐 WebUI endpoint: http://127-0-0-1.nip.io:%s", port)
+	}
+	return info
 }
 
 // ShortDescription returns a short description of the control plane.
@@ -447,7 +476,7 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	nameLen = min(nameLen, 63-len("-control-plane"))
 	cfg.name = cfg.name[:nameLen]
 
-	kubeconfig, err := ensureKindCluster(cfg.name)
+	kubeconfig, actualPortMapping, err := ensureKindCluster(ctx, cfg.name, cfg.localConfig.portMapping, cfg.localConfig.ingress)
 	if err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
@@ -520,6 +549,17 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
+	if cfg.localConfig.ingress {
+		if err := ensureWebUIIngress(ctx, cl); err != nil {
+			cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+			return nil, err
+		}
+		if err := ensureIngress(ctx, restConfig, cl); err != nil {
+			cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
+			return nil, err
+		}
+	}
+
 	cfg.eventChan.SendEvent(evText, async.EventStatusSuccess)
 	return &localDevControlPlane{
 		name:                cfg.name,
@@ -528,15 +568,94 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		registryDir:         registryDir,
 		registryContainerID: cid,
 		registryHostname:    cfg.name + "-registry:5000",
+		ingress:             cfg.localConfig.ingress,
+		portMapping:         actualPortMapping,
 	}, nil
 }
 
-func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
+// getExistingClusterPortMapping retrieves the actual port mapping from an existing cluster.
+func getExistingClusterPortMapping(ctx context.Context, name string, defaultMapping string) string {
+	containerName := name + "-control-plane"
+	containerInfo, found, err := docker.GetContainerByName(ctx, containerName, false)
+	if err != nil || !found {
+		return defaultMapping
+	}
+
+	// Find existing ingress port (ports bound to 0.0.0.0, excluding API server).
+	for _, portConfig := range containerInfo.Ports {
+		if portConfig.IP == "0.0.0.0" && portConfig.PublicPort != 6443 {
+			return fmt.Sprintf("%d:%d", portConfig.PublicPort, portConfig.PrivatePort)
+		}
+	}
+	return defaultMapping
+}
+
+// createPortMappings creates the port mappings for the kind cluster.
+func createPortMappings(portMapping string, ingressEnabled bool) ([]v1alpha4.PortMapping, error) {
+	if portMapping == "" && ingressEnabled {
+		return []v1alpha4.PortMapping{
+			{
+				ContainerPort: 80,
+				HostPort:      0, // 0 means kind will pick a random available port.
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
+		}, nil
+	}
+
+	if portMapping != "" {
+		var hostPort, containerPort int32
+		_, err := fmt.Sscanf(portMapping, "%d:%d", &hostPort, &containerPort)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid port mapping: %s", portMapping)
+		}
+		return []v1alpha4.PortMapping{
+			{
+				ContainerPort: containerPort,
+				HostPort:      hostPort,
+				Protocol:      v1alpha4.PortMappingProtocolTCP,
+			},
+		}, nil
+	}
+
+	return nil, nil
+}
+
+// createKindClusterConfig creates the kind cluster configuration.
+func createKindClusterConfig(extraPortMappings []v1alpha4.PortMapping, ingressEnabled bool) *v1alpha4.Cluster {
+	node := v1alpha4.Node{
+		Role:              v1alpha4.ControlPlaneRole,
+		ExtraPortMappings: extraPortMappings,
+	}
+
+	// Only add ingress-ready label if ingress is enabled.
+	if ingressEnabled {
+		node.KubeadmConfigPatches = []string{
+			`kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    node-labels: "ingress-ready=true"`,
+		}
+	}
+
+	return &v1alpha4.Cluster{
+		TypeMeta: v1alpha4.TypeMeta{
+			APIVersion: "kind.x-k8s.io/v1alpha4",
+			Kind:       "Cluster",
+		},
+		Nodes: []v1alpha4.Node{node},
+		ContainerdConfigPatches: []string{
+			"[plugins.\"io.containerd.grpc.v1.cri\".registry]\nconfig_path = \"/etc/containerd/certs.d\"\n",
+		},
+	}
+}
+
+func ensureKindCluster(ctx context.Context, name string, portMapping string, ingressEnabled bool) (clientcmd.ClientConfig, string, error) {
 	provider := kind.NewProvider()
+	var actualPortMapping string
 
 	kubeconfigFile, err := os.CreateTemp("", "up-*.kubeconfig")
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create temporary kubeconfig")
+		return nil, "", errors.Wrap(err, "failed to create temporary kubeconfig")
 	}
 	// We don't need the file handle.
 	_ = kubeconfigFile.Close()
@@ -546,56 +665,73 @@ func ensureKindCluster(name string) (clientcmd.ClientConfig, error) {
 
 	existing, err := provider.List()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list kind clusters")
+		return nil, "", errors.Wrap(err, "failed to list kind clusters")
 	}
+
 	if slices.Contains(existing, name) {
+		// Handle existing cluster
+		actualPortMapping = getExistingClusterPortMapping(ctx, name, portMapping)
 		if err := provider.ExportKubeConfig(name, kubeconfigFile.Name(), false); err != nil {
-			return nil, errors.Wrap(err, "failed to get kubeconfig for kind cluster")
+			return nil, "", errors.Wrap(err, "failed to get kubeconfig for kind cluster")
 		}
 	} else {
-		cfg := &v1alpha4.Cluster{
-			TypeMeta: v1alpha4.TypeMeta{
-				APIVersion: "kind.x-k8s.io/v1alpha4",
-				Kind:       "Cluster",
-			},
-			ContainerdConfigPatches: []string{
-				"[plugins.\"io.containerd.grpc.v1.cri\".registry]\nconfig_path = \"/etc/containerd/certs.d\"\n",
-			},
-		}
-		cfgBytes, err := yaml.Marshal(cfg)
+		// Create new cluster
+		actualPortMapping, err = createNewKindCluster(ctx, provider, name, portMapping, ingressEnabled, kubeconfigFile.Name())
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to marshal kind config")
-		}
-
-		if err := provider.Create(
-			name,
-			kind.CreateWithRawConfig(cfgBytes),
-			// TODO(adamwg): Do we want to customize our base image? Or set a
-			// specific version depending on the Crossplane version?
-			kind.CreateWithNodeImage(defaults.Image),
-			// Removes kind cluster information output.
-			kind.CreateWithDisplayUsage(false),
-			// Removes 'Thanks for using kind! 😊'
-			kind.CreateWithDisplaySalutation(false),
-			// Tell kind where to write the kubeconfig so it doesn't munge the
-			// user's normal kubeconfig.
-			kind.CreateWithKubeconfigPath(kubeconfigFile.Name()),
-		); err != nil {
-			return nil, errors.Wrap(err, "failed to create kind cluster")
+			return nil, "", err
 		}
 	}
 
 	kubeconfigBytes, err := os.ReadFile(kubeconfigFile.Name())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to load kubeconfig")
+		return nil, "", errors.Wrap(err, "failed to load kubeconfig")
 	}
 
 	kubeconfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse kubeconfig")
+		return nil, "", errors.Wrap(err, "failed to parse kubeconfig")
 	}
 
-	return kubeconfig, nil
+	return kubeconfig, actualPortMapping, nil
+}
+
+// createNewKindCluster creates a new kind cluster with the specified configuration.
+func createNewKindCluster(ctx context.Context, provider *kind.Provider, name string, portMapping string, ingressEnabled bool, kubeconfigPath string) (string, error) {
+	extraPortMappings, err := createPortMappings(portMapping, ingressEnabled)
+	if err != nil {
+		return "", err
+	}
+
+	cfg := createKindClusterConfig(extraPortMappings, ingressEnabled)
+
+	cfgBytes, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal kind config")
+	}
+
+	if err := provider.Create(
+		name,
+		kind.CreateWithRawConfig(cfgBytes),
+		// TODO(adamwg): Do we want to customize our base image? Or set a
+		// specific version depending on the Crossplane version?
+		kind.CreateWithNodeImage(defaults.Image),
+		// Removes kind cluster information output.
+		kind.CreateWithDisplayUsage(false),
+		// Removes 'Thanks for using kind! 😊'
+		kind.CreateWithDisplaySalutation(false),
+		// Tell kind where to write the kubeconfig so it doesn't munge the
+		// user's normal kubeconfig.
+		kind.CreateWithKubeconfigPath(kubeconfigPath),
+	); err != nil {
+		return "", errors.Wrap(err, "failed to create kind cluster")
+	}
+
+	// For new clusters with ingress, retrieve the actual port that was assigned
+	if ingressEnabled {
+		return getExistingClusterPortMapping(ctx, name, portMapping), nil
+	}
+
+	return portMapping, nil
 }
 
 func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool) error {
@@ -766,6 +902,95 @@ func ensureUpboundImageConfig(ctx context.Context, upCtx *upbound.Context, cl cl
 	}
 	if err := cl.Create(ctx, imgcfg); err != nil && !kerrors.IsAlreadyExists(err) {
 		return errors.Wrap(err, "failed to create image config")
+	}
+
+	return nil
+}
+
+func ensureWebUIIngress(ctx context.Context, cl client.Client) error {
+	// Create webui ingress.
+	// ToDo(haarchri): lets add an ingress inside the webui helm-chart.
+	ingressClassName := "nginx"
+	pathType := networkingv1.PathTypePrefix
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "webui-ingress",
+			Namespace: crossplaneNamespace,
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+			},
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &ingressClassName,
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: "127-0-0-1.nip.io",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "webui",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := cl.Create(ctx, ingress); err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "failed to create webui ingress")
+	}
+
+	return nil
+}
+
+func ensureIngress(ctx context.Context, restConfig *rest.Config, cl client.Client) error {
+	// Create the ingress-nginx namespace.
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ingress-nginx",
+		},
+	}
+	if err := cl.Create(ctx, ns); err != nil && !kerrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "failed to create ingress-nginx namespace")
+	}
+
+	// Add the ingress-nginx helm repository.
+	repoURL, err := url.Parse("https://kubernetes.github.io/ingress-nginx")
+	if err != nil {
+		return errors.Wrap(err, "failed to parse ingress-nginx repo URL")
+	}
+
+	mgr, err := helm.NewManager(restConfig,
+		"ingress-nginx",
+		*repoURL,
+		"ingress-nginx",
+		helm.Wait(),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to build new helm manager for ingress")
+	}
+
+	// Check if ingress is already installed.
+	if _, err := mgr.GetCurrentVersion(); err == nil {
+		// Already installed
+		return nil
+	}
+
+	values := ingressnginx.GetValues(ingressnginx.NodePort)
+	if err = mgr.Install("4.12.1", values); err != nil {
+		return errors.Wrap(err, "failed to install ingress-nginx")
 	}
 
 	return nil

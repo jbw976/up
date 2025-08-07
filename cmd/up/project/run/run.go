@@ -56,14 +56,16 @@ type Cmd struct {
 
 	ControlPlaneGroup  string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName   string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force              bool          `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
+	Force              bool          `alias:"allow-production"                                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
 	Local              bool          `help:"Use a local dev control plane, even if Spaces is available."`
 	LocalRegistryPath  string        `help:"Directory to use for local registry images. The default is system-dependent."`
 	NoUpdateKubeconfig bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
 	UseCurrentContext  bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
-	CacheDir           string        `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
+	CacheDir           string        `default:"~/.up/cache/"                                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
 	Public             bool          `help:"Create new repositories with public visibility."`
-	Timeout            time.Duration `default:"5m"                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
+	Timeout            time.Duration `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
+	Ingress            bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
+	IngressPort        string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -201,6 +203,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 					ctp.SkipDevCheck(c.Force),
 					ctp.ForceLocal(c.Local),
 					ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
+					ctp.WithIngress(c.Ingress, c.IngressPort),
 				)
 			}
 			if err != nil {
