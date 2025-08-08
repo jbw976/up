@@ -34,6 +34,7 @@ import (
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/functions"
@@ -86,6 +87,52 @@ type Cmd struct {
 	kubeconfigPath string
 
 	proj *v2alpha1.Project
+}
+
+// Help returns help text for the run command.
+func (c *Cmd) Help() string {
+	return style.RenderHelp(`
+The <run> command builds and runs a project on a development control plane for testing.
+
+This command:
+- Builds all embedded functions defined in the project
+- Creates or uses an existing development control plane
+- Pushes packages to the container registry
+- Installs the project configuration on the control plane
+- Updates kubeconfig to use the development control plane
+
+The command supports both cloud-based and local development control planes.
+
+## Usage Examples:
+
+    up project run
+        Runs the project on a cloud-based development control plane.
+
+    up project run --control-plane-name=<my-dev-cp>
+        Runs the project on a control plane with a specific name.
+        Creates the control plane if it doesn't exist, or uses the existing one.
+
+    up project run --use-current-context
+        Uses the current kubeconfig context instead of creating a new control plane.
+
+    up project run --local
+        Uses a local development control plane (KIND cluster with UXP) instead of cloud-based.
+
+    up project run --local --ingress
+        Creates a local development control plane with ingress controller enabled.
+        The Web UI will be accessible at localhost on a randomly assigned port.
+
+    up project run --local --ingress --ingress-port=<8080:80>
+        Creates a local development control plane with ingress mapped to specific port.
+        The Web UI will be accessible at http://127-0-0-1.nip.io:8080.
+
+    up project run --repository=<xpkg.upbound.io/my-org/my-project>
+        Overrides the repository specified in the project file to push to a different container registry.
+
+    up project run --force --control-plane-name=<my-cp>
+        Allows running on a production control plane with a specific name.
+        Useful for disconnected Space environments or testing on existing control planes.
+`)
 }
 
 // AfterApply processes flags and sets defaults.
