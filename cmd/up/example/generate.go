@@ -24,37 +24,38 @@ import (
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/style"
 	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
 )
 
 func (c *generateCmd) Help() string {
-	return `
-The 'generate' command is used to create an Composite Resource (XR) or Composite Resource Claim (XRC) resource.
+	return style.RenderHelp(`
+The <generate> command is used to create an Composite Resource (XR) or Composite Resource Claim (XRC) resource.
 For v2 projects: Only Composite Resources (XRs) are supported. XRs are namespace-scoped by default, but you can choose cluster-scoped if needed.
 
-Examples:
+## Usage Examples:
 
-    example generate
+    up example generate
         Creates an Composite Resource (XR) or Composite Resource Claim (XRC) resource. All necessary inputs will be collected interactively
         and saved in the 'example' project directory.
 
-    example generate --name example --namespace default
+    up example generate --name <example> --namespace <default>
         Sets the metadata name and namespace. All other inputs will be collected interactively
         and saved in the 'example' project directory.
 
-    example generate --type claim --api-group acme.comp --api-version v1beta1 --kind Cluster --name example
+    up example generate --type <claim> --api-group <acme.comp> --api-version <v1beta1> --kind <Cluster> --name <example>
         Creates a Composite Resource Claim (XRC) with specified api-group, api-version, kind, and metadata name. All additional inputs
         will be collected interactively and saved in the 'example' project directory.
 
-    example generate apis/xnetworks/definition.yaml
+    up example generate <apis/xnetworks/definition.yaml>
         Generates an Composite Resource (XR) or Composite Resource Claim (XRC) from an CompositeResourceDefinition (XRD) definition. Necessary inputs are collected interactively,
         with default values and enums to scaffold a functional skeleton, saved in the 'example' project directory.
 
-    example generate apis/xnetworks/definition.yaml --type xr
+    up example generate <apis/xnetworks/definition.yaml> --type <xr>
         Creates an Composite Resource (XR) from an CompositeResourceDefinition (XRD) definition with default values and enums to scaffold a functional skeleton,
         saved in the 'example' project directory.
-`
+`)
 }
 
 const (

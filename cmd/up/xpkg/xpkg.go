@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/feature"
+	"github.com/upbound/up/internal/style"
 )
 
 // BeforeReset is the first hook to run.
@@ -25,10 +26,10 @@ type Cmd struct {
 
 // Help returns the help string for the `xpkg` command group.
 func (c *Cmd) Help() string {
-	return `
-This command is deprecated and will be removed in a future release.
+	return style.RenderHelp(`
+*This command is deprecated and will be removed in a future release.*
 
 To build Crossplane packages with up, use the project commands. To work with
 non-project Crossplane packages, use the crossplane CLI.
-`
+`)
 }

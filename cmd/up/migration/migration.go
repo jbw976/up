@@ -11,6 +11,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/cmd/up/controlplane/requires"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/pkg/migration"
 )
@@ -45,13 +46,13 @@ type Cmd struct {
 
 // Help prints help.
 func (c *Cmd) Help() string {
-	return `
-The 'migration' command is designed to facilitate the seamless migration of control planes from Crossplane or Universal
+	return style.RenderHelp(`
+The <migration> command is designed to facilitate the seamless migration of control planes from Crossplane or Universal
 Crossplane (XP/UXP) environments to Upbound's Managed Control Planes.
 
 This command simplifies the process of transferring your existing Crossplane configurations and states into the Upbound
 platform, ensuring a smooth transition with minimal downtime.
 
-For detailed information on each command and its options, use the '--help' flag with the specific command (e.g., 'up alpha migration export --help').
-`
+For detailed information on each command and its options, use the '--help' flag with the specific command (e.g., 'up controlplane migration export --help').
+`)
 }

@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/crossplane/crossplane-runtime/pkg/test"
 
@@ -501,7 +502,7 @@ func TestListObjectsV2InputIterator(t *testing.T) {
 				got = append(got, iteration{ListObjectsV2Inputs: inputs, Window: window, Err: err})
 			}
 
-			if diff := cmp.Diff(tc.want, got, test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.want, got, test.EquateErrors(), cmpopts.IgnoreUnexported(s3.ListObjectsV2Input{})); diff != "" {
 				t.Errorf("\n%s\nListObjectsV2InputIterator output: -want, +got:\n%s", tc.reason, diff)
 			}
 		})

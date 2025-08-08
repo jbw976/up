@@ -10,6 +10,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -22,21 +23,23 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 type listCmd struct{}
 
 func (c *listCmd) Help() string {
-	return `
-The 'list' command displays all configured Upbound profiles in a table format.
+	return style.RenderHelp(`
+The <list> command displays all configured Upbound profiles in a table format.
 
-This command shows:
-  - CURRENT: Indicates the active profile with an asterisk (*)
-  - NAME: The name of each profile
-  - TYPE: Profile type (cloud or disconnected)
-  - ORGANIZATION: The organization associated with the profile (for cloud profiles)
+## This command shows:
+
+- *CURRENT*: Indicates the active profile with an asterisk (*)
+- *NAME*: The name of each profile
+- *TYPE*: Profile type (cloud or disconnected)
+- *ORGANIZATION*: The organization associated with the profile (for cloud profiles)
 
 The profiles are listed in alphabetical order by name for consistent output.
 
-Usage Examples:
+## Usage Examples:
+
     up profile list
         Shows all configured profiles in a table format.
-`
+`)
 }
 
 // Run executes the list command.

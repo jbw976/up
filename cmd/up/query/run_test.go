@@ -9,9 +9,12 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"k8s.io/kubectl/pkg/cmd/get"
 )
 
 func TestAllowedFormats(t *testing.T) {
+	printFlags := get.NewGetPrintFlags()
+
 	formatsInTag := extractFormatsFromHelpTag()
 	formatsInPrinter := printFlags.AllowedFormats()
 

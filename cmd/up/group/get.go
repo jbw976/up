@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
@@ -31,9 +30,13 @@ func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the list command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client client.Client) error {
 	// list groups
-	var ns corev1.Namespace
+	var (
+		ns         corev1.Namespace
+		fieldNames = []string{"NAME", "PROTECTED"}
+	)
+
 	if err := client.Get(ctx, types.NamespacedName{Name: c.Name}, &ns); err != nil {
 		return err
 	}

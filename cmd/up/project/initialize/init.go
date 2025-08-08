@@ -25,6 +25,7 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
@@ -64,42 +65,60 @@ type Cmd struct {
 // supported template options.
 func (c *Cmd) Help() string {
 	tpl := `
-This command initializes a new project. By default, it will start a wizard to help you create a new project. You can specify which template to use with the --template flag along with a --language flag. The following --language flags are supported:
+This command initializes a new project. By default, it will start a wizard to help you create a new project. You can specify which template to use with the --template flag along with a --language flag.
+
+## Supported Languages:
 
 %s
 
-Examples:
+## Usage Examples:
 
-  # Initialize a new project using a specific template:
-  up project init --template="project-template-aws" --language="go" my-new-project
+    # Initialize a new project using a specific template:
+    up project init <my-new-project> --template=<project-template-aws> --language=<go>
 
-  # Initialize a new project using a specific template and use a different language for tests:
-  up project init --template="project-template-aws" --language="go" --test-language="python" my-new-project
+    # Initialize a new project using a specific template and use a different language for tests:
+    up project init <my-new-project> \
+        --template=<project-template-aws> \
+        --language="go" \
+        --test-language="python"
 
-  # Initialize a new project using a public template repository at a specific ref:
-  up project init --template="https://github.com/upbound/project-template-aws@main" --language="kcl" my-new-project
+    # Initialize a new project using a public template repository at a specific ref:
+    up project init <my-new-project> \
+        --template="https://github.com/upbound/project-template-aws@main" \
+        --language="kcl"
 
-  # Initialize a new project from a template using Git token authentication:
-  up project init --template="https://github.com/template/project-template-private.git" --language="kcl" --username="<username>" --password="<token>" my-new-project
+    # Initialize a new project from a template using Git token authentication:
+    up project init <my-new-project> \
+        --template="https://github.com/template/project-template-private.git" \
+        --language="kcl" \
+        --username="<username>" \
+        --password="<token>"
 
-  # Initialize a new project from a template using SSH authentication:
-  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --ssh-key=/Users/username/.ssh/id_rsa my-new-project
+    # Initialize a new project from a template using SSH authentication:
+    up project init <my-new-project> \
+        --template="git@github.com:upbound/project-template-private.git" \
+        --language="kcl" \
+        --ssh-key=</Users/username/.ssh/id_rsa>
 
-  # Initialize a new project from a private template using SSH authentication with an SSH key password:
-  up project init --template="git@github.com:upbound/project-template-private.git" --language="kcl" --ssh-key=/Users/username/.ssh/id_rsa --password="<ssh-key-password>" my-new-project
+    # Initialize a new project from a private template using SSH authentication with an SSH key password:
+    up project init <my-new-project> \
+        --template="git@github.com:upbound/project-template-private.git" \
+        --language="kcl" \
+        --ssh-key=</Users/username/.ssh/id_rsa> \
+        --password="<ssh-key-password>"
 `
 
 	languages := strings.Builder{}
 	for _, lang := range wizard.SupportedLanguages {
 		isTestLanguage := slices.Contains(wizard.SupportedTestLanguages, lang)
 		if isTestLanguage {
-			languages.WriteString(fmt.Sprintf(" - %s (supported for tests)\n", lang))
+			languages.WriteString(fmt.Sprintf("- *%s* (supported for tests)\n", lang))
 		} else {
-			languages.WriteString(fmt.Sprintf(" - %s\n", lang))
+			languages.WriteString(fmt.Sprintf("- *%s*\n", lang))
 		}
 	}
 
-	return fmt.Sprintf(tpl, languages.String())
+	return style.RenderHelp(fmt.Sprintf(tpl, languages.String()))
 }
 
 // AfterApply performs validation and setup after the command flags have been parsed.

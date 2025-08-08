@@ -13,6 +13,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/xpkg"
 )
@@ -83,18 +84,22 @@ type appendCmd struct {
 
 // Help returns the help message for the xpkg-append command.
 func (c *appendCmd) Help() string {
-	return `
-This command creates a tarball from a local directory of additional package
+	return style.RenderHelp(`
+The <xpkg-append> command creates a tarball from a local directory of additional package
 assets, such as images or documentation, and appends them to a remote package.
 
 If your remote image is already signed, this command will invalidate current signatures and the updated image will need to be re-signed.
 
-Examples:
+## Usage Examples:
 
-  # Add all files under an "/extensions" folder to a remote image.
-  up alpha xpkg-append --extensions-root=./extensions my-registry/my-organization/my-repo@sha256:<digest>
+    up alpha xpkg-append --extensions-root=<./extensions> <my-registry/my-organization/my-repo@sha256:digest>
+        Add all files under an "/extensions" folder to a remote image.
+        Creates a new manifest with the extensions included.
 
-`
+    up alpha xpkg-append --extensions-root=<./docs> --destination=<my-registry/my-organization/my-repo:v1.0.1> <my-registry/my-organization/my-repo@sha256:digest>
+        Add documentation files to a package and save to a different tag.
+        Preserves the original package at the source reference.
+`)
 }
 
 // Run executes the append command.

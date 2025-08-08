@@ -12,6 +12,7 @@ import (
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -24,24 +25,25 @@ type useCmd struct {
 }
 
 func (c *useCmd) Help() string {
-	return `
-The 'use' command switches the active Upbound profile and updates the kubeconfig context.
+	return style.RenderHelp(`
+The <use> command switches the active Upbound profile and updates the kubeconfig context.
 
 This command:
-  - Sets the specified profile as the default profile
-  - Updates the kubeconfig to use the context associated with the profile
-  - Preserves any existing kubeconfig context information from the profile
+- Sets the specified profile as the default profile
+- Updates the kubeconfig to use the context associated with the profile
+- Preserves any existing kubeconfig context information from the profile
 
-Usage Examples:
-    up profile use production
+## Usage Examples:
+
+    up profile use <production>
         Switches to the "production" profile and updates the kubeconfig context.
 
-    up profile use dev
+    up profile use <dev>
         Switches to the "dev" profile and updates the kubeconfig context.
 
 Note: If the profile has no associated kubeconfig context, only the profile switch
 occurs without kubeconfig updates.
-`
+`)
 }
 
 // Run executes the Use command.

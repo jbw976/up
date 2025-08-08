@@ -54,6 +54,7 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -105,19 +106,20 @@ type runCmd struct {
 }
 
 func (c *runCmd) Help() string {
-	return `
-The 'run' command executes project tests.
+	return style.RenderHelp(`
+The <run> command executes project tests.
 
-Examples:
-    run tests/* --e2e
+## Usage Examples:
+
+    up test run <tests/*> --e2e
         Runs all end-to-end (e2e) tests located in the 'tests/' directory.
 
-    run tests/*
+    up test run <tests/*>
         Executes only composition tests within the 'tests/' directory.
 
-    run tests/* --e2e --kubectl=_output/kubectl
+    up test run <tests/*> --e2e --kubectl=<_output/kubectl>
         Runs e2e tests in 'tests/' while specifying custom paths for the Kubectl binary.
-`
+`)
 }
 
 // AfterApply processes flags and sets defaults.

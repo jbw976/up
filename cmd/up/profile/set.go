@@ -6,6 +6,7 @@ package profile
 import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -15,20 +16,22 @@ type setCmd struct {
 }
 
 func (c *setCmd) Help() string {
-	return `
-The 'set' command updates configuration values for the current Upbound profile.
+	return style.RenderHelp(`
+The <set> command updates configuration values for the current Upbound profile.
 
-Available configuration keys:
-    organization - Sets the default organization for the current profile
-    domain       - Sets the Upbound API domain for the current profile
+## Available configuration keys:
 
-Usage Examples:
-    up profile set organization my-org
+- *organization* - Sets the default organization for the current profile
+- *domain* - Sets the Upbound API domain for the current profile
+
+## Usage Examples:
+
+    up profile set organization <my-org>
         Sets the default organization to "my-org" for the current profile.
 
-    up profile set domain api.upbound.io
+    up profile set domain <api.upbound.io>
         Sets the Upbound API domain to "api.upbound.io" for the current profile.
-`
+`)
 }
 
 func (c *setCmd) Run(upCtx *upbound.Context) error {

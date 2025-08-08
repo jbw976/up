@@ -20,9 +20,11 @@ import (
 	"github.com/upbound/up/cmd/up/query/resource"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
+// GetCmd is used for query.
 type GetCmd struct {
 	cmd
 
@@ -30,6 +32,7 @@ type GetCmd struct {
 	AllNamespaces bool   `help:"If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with --namespace." name:"all-namespaces" short:"A"`
 }
 
+// BeforeReset is the first hook to run.
 func (c *GetCmd) BeforeReset(p *kong.Path, maturity feature.Maturity) error {
 	return feature.HideMaturity(p, maturity)
 }
@@ -57,7 +60,7 @@ func (c *GetCmd) AfterApply(kongCtx *kong.Context) error {
 	// example: https://host/apis/spaces.upbound.io/v1beta1/namespaces/default/controlplanes/ctp-kine/k8s
 	base, controlPlane, found := profile.ParseSpacesK8sURL(ctpConfig.Host)
 	if !found {
-		return errors.New("You are not connected to a control plane.")
+		return errors.New("you are not connected to a control plane")
 	}
 
 	// create Spaces API kubeconfig
@@ -103,10 +106,38 @@ func (c *GetCmd) AfterApply(kongCtx *kong.Context) error {
 	return c.afterApply()
 }
 
+// Help prints help.
 func (c *GetCmd) Help() string {
-	s, err := help("up alpha get") // nolint:errcheck // nothing we can do here.
-	if err != nil {
-		return err.Error()
-	}
-	return s
+	return style.RenderHelp(`
+The <get> command retrieves resources from a control plane.
+
+## Usage Examples:
+
+    up alpha get buckets
+        List all S3 buckets in ps output format.
+
+    up alpha get buckets -o wide
+        List all buckets in ps output format with more information (such as node name).
+
+    up alpha get bucket <web-bucket-13je7>
+        List a single S3 bucket with specified NAME in ps output format.
+
+    up alpha get buckets.v1.s3.aws.upbound.io -o json
+        List S3 buckets in JSON output format, in the "v1" version of the "s3.aws.upbound.io" API group.
+
+    up alpha get -o json bucket <web-bucket-13je7>
+        List a single bucket in JSON output format.
+
+    up alpha get -o template bucket/<web-bucket-13je7> --template={{.metadata.annotations.external-name}}
+        Return only the external-name value of the specified bucket.
+
+    up alpha get bucket <test-bucket> -o custom-columns=NAME:.spec.forProvider.name,SIZE:.status.atProvider.size
+        List resource information in custom columns.
+
+    up alpha get buckets,vpcs
+        List all replication controllers and services together in ps output format.
+
+    up alpha get vpc/<prod> bucket/<backup> providerconfig/<kube>
+        List one or more resources by their type and names.
+`)
 }

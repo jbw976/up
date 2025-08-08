@@ -18,6 +18,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/parser"
 
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/yaml"
@@ -128,8 +129,8 @@ type buildCmd struct {
 }
 
 func (c *buildCmd) Help() string {
-	return `
-The build command creates a xpkg compatible OCI image for a Crossplane package
+	return style.RenderHelp(`
+The <build> command creates a xpkg compatible OCI image for a Crossplane package
 from the local file system. It packages the found YAML files containing Kubernetes-like
 object manifests into the meta data layer of the OCI image. The package manager
 will use this information to install the package into a Crossplane instance.
@@ -143,7 +144,7 @@ Crossplane documentation for more information on building packages:
 
   https://docs.crossplane.io/latest/concepts/packages/#building-a-package
 
-Even more details can be found in the xpkg reference document.`
+Even more details can be found in the xpkg reference document.`)
 }
 
 // Run executes the build command.

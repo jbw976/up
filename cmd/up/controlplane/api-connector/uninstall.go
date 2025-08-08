@@ -18,22 +18,24 @@ import (
 
 	"github.com/upbound/up-sdk-go"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
 func (c *uninstallCmd) Help() string {
-	return `
-The 'uninstall' command uninstalls the API Connector from a cluster.
+	return style.RenderHelp(`
+The <uninstall> command uninstalls the API Connector from a cluster.
 
-Examples:
+## Usage Examples:
+
     up controlplane api-connector uninstall --target-kubeconfig <kubeconfig-path-for-deployment-cluster>
-	    Uninstalls the API Connector from the cluster but leaves the connections and secrets.
+        Uninstalls the API Connector from the cluster but leaves the connections and secrets.
 
     up controlplane api-connector uninstall --all --target-kubeconfig <kubeconfig-path-for-deployment-cluster>
         Uninstalls the API Connector from the cluster and deletes the connections and secrets.
-		It will not delete API objects created by the API Connector initial installation.
-`
+        It will not delete API objects created by the API Connector initial installation.
+`)
 }
 
 // AfterApply sets default values in command after assignment and validation.

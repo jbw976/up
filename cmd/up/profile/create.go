@@ -10,6 +10,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -23,26 +24,28 @@ type createCmd struct {
 }
 
 func (c *createCmd) Help() string {
-	return `
-The 'create' command creates a new Upbound profile with the specified configuration.
+	return style.RenderHelp(`
+The <create> command creates a new Upbound profile with the specified configuration.
 
-Profile Types:
-    cloud        - Profile for connecting to Upbound Cloud (default)
-    disconnected - Profile for offline/disconnected environments using local kubeconfig
+## Profile Types:
+
+- *cloud* - Profile for connecting to Upbound Cloud (default)
+- *disconnected* - Profile for offline/disconnected environments using local kubeconfig
 
 The command automatically switches to the newly created profile unless --use=false is specified.
 For cloud profiles, an organization must be provided via the --organization flag.
 
-Usage Examples:
-    up profile create my-profile --organization=my-org
+## Usage Examples:
+
+    up profile create <my-profile> --organization=<my-org>
         Creates a cloud profile named "my-profile" for organization "my-org".
 
-    up profile create local-dev --type=disconnected
+    up profile create <local-dev> --type=<disconnected>
         Creates a disconnected profile using the current kubeconfig context.
 
-    up profile create staging --organization=my-org --use=false
+    up profile create <staging> --organization=<my-org> --use=<false>
         Creates a profile but doesn't switch to it immediately.
-`
+`)
 }
 
 func (c *createCmd) AfterApply(flags upbound.Flags, upCtx *upbound.Context) error {

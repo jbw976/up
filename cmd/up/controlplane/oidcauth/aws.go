@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,34 +25,36 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	upconfig "github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
 func (c *awsCmd) Help() string {
-	return `
-The 'oidc-auth' command sets up OIDC authentication for an Upbound ControlPlane using an AWS IAM Identity Provider.
+	return style.RenderHelp(`
+The <oidc-auth> command sets up OIDC authentication for an Upbound ControlPlane using an AWS IAM Identity Provider.
 
-Examples:
-    ctp oidc-auth aws example-project-aws-up-cli arn:aws:iam::aws:policy/AdministratorAccess
+## Usage Examples:
+
+    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess>
         Checks if the IAM IdentityProvider 'proidc.upbound.io' exists; creates it if missing.
         Creates an IAM Role trusted by the identity provider and attaches the AdministratorAccess policy.
         Also configures the ControlPlane with a ProviderConfig for Provider-AWS.
 
-    ctp oidc-auth aws example-project-aws-up-cli arn:aws:iam::aws:policy/AdministratorAccess --sub example-*
+    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --sub <example-*>
         Checks if the IAM IdentityProvider 'proidc.upbound.io' exists; creates it if missing.
         Creates an IAM Role with a trust policy using a wildcard match (StringLike) on 'sub'.
         Useful for allowing access from multiple ControlPlanes matching the pattern.
 
-    ctp oidc-auth aws example-project-aws-up-cli arn:aws:iam::aws:policy/AdministratorAccess --oidc-provider-name example.upbound.io
+    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --oidc-provider-name <example.upbound.io>
         Checks if the IAM IdentityProvider 'example.upbound.io' exists; creates it if missing.
         Creates an IAM Role trusted by the specified identity provider and attaches the AdministratorAccess policy.
         Configures the ControlPlane with the appropriate ProviderConfig for Provider-AWS.
 
-    ctp oidc-auth aws example-project-aws-up-cli arn:aws:iam::aws:policy/AdministratorAccess --dry-run
+    up ctp oidc-auth aws <example-project-aws-up-cli> <arn:aws:iam::aws:policy/AdministratorAccess> --dry-run
         Shows the AWS CLI commands that would be executed without actually running them.
         Useful for reviewing changes before applying them to your AWS account.
-`
+`)
 }
 
 type awsCmd struct {

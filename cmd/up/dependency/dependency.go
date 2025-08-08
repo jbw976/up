@@ -5,6 +5,7 @@
 package dependency
 
 import (
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -19,10 +20,10 @@ type Cmd struct {
 
 // Help returns help.
 func (c *Cmd) Help() string {
-	return `
-The dependency command manages crossplane package dependencies of the project
+	return style.RenderHelp(`
+The <dependency> command manages crossplane package dependencies of the project
 in the current directory. It caches package information in a local file system
 cache (by default in ~/.up/cache), to be used e.g. for the upbound language
 server.
-`
+`)
 }

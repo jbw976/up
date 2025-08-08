@@ -29,23 +29,25 @@ import (
 	"github.com/upbound/up/internal/schemas/generator"
 	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/yaml"
 )
 
 func (c *generateCmd) Help() string {
-	return `
-The 'generate' command creates a CompositeResourceDefinition (XRD) from a given Composite Resource (XR) and generates associated language models for function usage.
+	return style.RenderHelp(`
+The <generate> command creates a CompositeResourceDefinition (XRD) from a given Composite Resource (XR) and generates associated language models for function usage.
 
-Usage Examples:
-    xrd generate examples/cluster/example.yaml
+## Usage Examples:
+
+    up xrd generate <examples/cluster/example.yaml>
         Generates a CompositeResourceDefinition (XRD) based on the specified Composite Resource and saves it to the default APIs folder in the project.
 
-    xrd generate examples/postgres/example.yaml --plural postgreses
+    up xrd generate <examples/postgres/example.yaml> --plural <postgreses>
         Generates a CompositeResourceDefinition (XRD) with a specified plural form, useful for cases where automatic pluralization may not be accurate (e.g., "postgres").
 
-    xrd generate examples/postgres/example.yaml --path database/definition.yaml
+    up xrd generate <examples/postgres/example.yaml> --path <database/definition.yaml>
         Generates a CompositeResourceDefinition (XRD) and saves it to a custom path within the project's default APIs folder.
-`
+`)
 }
 
 const (

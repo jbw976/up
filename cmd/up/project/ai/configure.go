@@ -18,18 +18,29 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 func (c *configureToolsCmd) Help() string {
-	return `
-The 'configure-tools' command generates configurations for the specified tool provider.
+	return style.RenderHelp(`
+The <configure-tools> command generates configurations for the specified tool provider.
 
-Examples:
-    project ai configure-tools --gemini-cli
-        Creates a GEMINI.md and places a settings.json under the .gemini directory.'.
-`
+## Usage Examples:
+
+    up project ai configure-tools --gemini-cli
+        Creates a GEMINI.md and places a settings.json under the .gemini directory.
+
+    up project ai configure-tools --claude-code
+        Creates a CLAUDE.md and places AI assistant configurations in the project.
+
+    up project ai configure-tools --cursor
+        Creates cursor configurations for the project.
+
+    up project ai configure-tools --gemini-cli --claude-code --cursor
+        Creates configurations for all three AI tool providers.
+`)
 }
 
 var (
@@ -43,7 +54,7 @@ var (
 
 const (
 	kubectlaiWarningFmt = `
-mcp-server configurations for kubectl-ai were set up for this project. 
+mcp-server configurations for kubectl-ai were set up for this project.
 If you do not have kubectl-ai installed and would like to use this mcp-server
 for working against your Control Plane, visit the following documents for
 installation steps:

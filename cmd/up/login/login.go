@@ -31,6 +31,7 @@ import (
 	uphttp "github.com/upbound/up/internal/http"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 )
 
@@ -120,34 +121,36 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 
 // Help returns help text for the login command.
 func (c *LoginCmd) Help() string {
-	return `
-The 'login' command authenticates with Upbound Cloud and stores session credentials.
+	return style.RenderHelp(`
+The <login> command authenticates with Upbound Cloud and stores session credentials.
 
-Authentication Methods:
-    1. Web Browser (default) - Opens browser for OAuth authentication
-    2. Device Code - Use --use-device-code for headless environments
-    3. Username/Password - Provide --username and --password flags
-    4. Personal Access Token - Provide --token flag
+## Authentication Methods:
+
+- *Web Browser (default)* - Opens browser for OAuth authentication
+- *Device Code* - Use --use-device-code for headless environments
+- *Username/Password* - Provide --username and --password flags
+- *Personal Access Token* - Provide --token flag
 
 The command creates or updates a profile with the authenticated session. If no profile
 name is specified, it uses the "default" profile.
 
-Usage Examples:
+## Usage Examples:
+
     up login
         Opens browser for OAuth authentication (recommended).
 
-    up login --username=user@example.com
+    up login --username=<user@example.com>
         Prompts for password and authenticates with credentials.
 
-    up login --token=upat_xxxxx
+    up login --token=<upat_xxxxx>
         Authenticates using a personal access token.
 
     up login --use-device-code
         Uses device code flow for headless/remote environments.
 
-    up login --profile=production --organization=my-org
+    up login --profile=<production> --organization=<my-org>
         Authenticates and creates/updates the "production" profile.
-`
+`)
 }
 
 // Run executes the login command.

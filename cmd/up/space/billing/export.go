@@ -19,13 +19,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/alecthomas/kong"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/pterm/pterm"
 	gcpopt "google.golang.org/api/option"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
+	"github.com/upbound/up/internal/style"
 	usageaws "github.com/upbound/up/internal/usage/aws"
 	"github.com/upbound/up/internal/usage/azure"
 	"github.com/upbound/up/internal/usage/event"
@@ -33,8 +35,6 @@ import (
 	"github.com/upbound/up/internal/usage/report"
 	reporttar "github.com/upbound/up/internal/usage/report/file/tar"
 	usagetime "github.com/upbound/up/internal/usage/time"
-
-	_ "embed"
 )
 
 const (
@@ -55,8 +55,7 @@ func (d *dateRange) Decode(ctx *kong.DecodeContext) error {
 
 	parts := strings.SplitN(value, "/", 2)
 	if len(parts) != 2 {
-		fmt.Printf("%s\n", parts)
-		return fmt.Errorf("invalid format")
+		return fmt.Errorf("invalid format: expected YYYY-MM-DD/YYYY-MM-DD, got %s", value)
 	}
 
 	start, err := time.Parse(time.DateOnly, parts[0])
@@ -107,11 +106,54 @@ type exportCmd struct {
 	billingPeriod usagetime.Range
 }
 
-//go:embed export_help.txt
-var exportCmdHelp string
-
 func (c *exportCmd) Help() string {
-	return exportCmdHelp
+	return style.RenderHelp(`
+The <export> command collects billing data from cloud storage and creates a billing report.
+
+The storage location for the billing data used to create the report is supplied
+using the optional --provider, --bucket, and --endpoint flags. If these flags
+are missing, their values will be retrieved from the Spaces cluster from your
+kubeconfig. Set --endpoint="" to use the storage provider's default endpoint
+without checking your Spaces cluster for a custom endpoint.
+
+Credentials and other storage provider configuration are supplied according to
+the instructions for each provider below.
+
+## AWS S3
+
+Supply configuration by setting these environment variables: <AWS_REGION>,
+<AWS_ACCESS_KEY_ID>, and <AWS_SECRET_ACCESS_KEY>. For more options, see the
+documentation at
+https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/welcome.html
+
+## GCP Cloud Storage
+
+Supply credentials by setting the environment variable
+<GOOGLE_APPLICATION_CREDENTIALS> with the location of a credential JSON file. For
+more options, see the documentation at
+https://cloud.google.com/docs/authentication/application-default-credentials.
+
+## Azure Blob Storage
+
+Supply configuration by setting these environment variables: <AZURE_TENANT_ID>,
+<AZURE_CLIENT_ID>, and <AZURE_CLIENT_SECRET>. For more options, see the
+documentation at
+https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication.
+
+## Usage Examples:
+
+    up space billing export --provider=aws --bucket=<my-bucket> --account=<my-account> --billing-month=<2024-01>
+        Exports billing report for January 2024 from AWS S3.
+        Creates upbound_billing_report.tgz in current directory.
+
+    up space billing export --provider=gcp --bucket=<my-bucket> --account=<my-account> --billing-custom=<2024-01-01/2024-01-15>
+        Exports billing report for custom date range from GCP Cloud Storage.
+        Date range is inclusive (Jan 1-15, 2024).
+
+    up space billing export --provider=azure --bucket=<my-container> --azure-storage-account=<storage-account> --account=<my-account> --billing-month=<2024-02> -o <report.tgz>
+        Exports February 2024 billing from Azure Blob Storage.
+        Saves to custom output file report.tgz.
+`)
 }
 
 func (c *exportCmd) Validate() error {
@@ -149,19 +191,19 @@ func (c *exportCmd) Validate() error {
 	return nil
 }
 
-func (c *exportCmd) Run() error {
-	fmt.Printf(
-		"Exporting billing report for Upbound account %s from %s to %s.\n",
+func (c *exportCmd) Run(p pterm.TextPrinter) error {
+	p.Printfln(
+		"Exporting billing report for Upbound account %s from %s to %s.",
 		c.Account,
 		formatTimestamp(c.billingPeriod.Start),
 		formatTimestamp(c.billingPeriod.End),
 	)
-	fmt.Printf("\n")
-	fmt.Printf("Reading usage data from storage...\n")
-	fmt.Printf("Provider: %s\n", c.Provider)
-	fmt.Printf("Bucket: %s\n", c.Bucket)
+	p.Println()
+	p.Println("Reading usage data from storage...")
+	p.Printfln("Provider: %s", c.Provider)
+	p.Printfln("Bucket: %s", c.Bucket)
 	if c.Endpoint != "" {
-		fmt.Printf("Endpoint: %s\n", c.Endpoint)
+		p.Printfln("Endpoint: %s", c.Endpoint)
 	}
 
 	if err := c.collectReport(); err != nil {
@@ -169,14 +211,14 @@ func (c *exportCmd) Run() error {
 		return err
 	}
 
-	fmt.Printf("\n")
-	fmt.Printf("Billing report saved to %s\n", c.outAbs)
+	p.Println()
+	p.Printfln("Billing report saved to %s", c.outAbs)
 	return nil
 }
 
 func (c *exportCmd) cleanupOnError() {
 	if err := os.Remove(c.outAbs); err != nil {
-		fmt.Fprintf(os.Stderr, "error cleaning up: %s", err)
+		pterm.Error.Printfln("error cleaning up: %s", err)
 	}
 }
 
@@ -207,7 +249,7 @@ func (c *exportCmd) collectReport() error {
 	if err != nil {
 		return errors.Wrap(err, "error creating report")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck // We're writing to a file, close errors are not critical here
 	gw := gzip.NewWriter(f)
 	tw := tar.NewWriter(gw)
 	rw, err := reporttar.NewWriter(tw, report.Meta{
@@ -246,17 +288,20 @@ func (c *exportCmd) getGCPIter(ctx context.Context, window time.Duration) (event
 }
 
 func (c *exportCmd) getAWSIter(window time.Duration) (event.WindowIterator, error) {
-	sess, err := session.NewSession(&aws.Config{})
+	ctx := context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating aws session")
+		return nil, errors.Wrap(err, "error loading aws config")
 	}
-	config := &aws.Config{}
+
+	opts := []func(*s3.Options){}
 	if c.Endpoint != "" {
-		config = &aws.Config{
-			Endpoint: aws.String(c.Endpoint),
-		}
+		opts = append(opts, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(c.Endpoint)
+		})
 	}
-	s3client := s3.New(sess, config)
+
+	s3client := s3.NewFromConfig(cfg, opts...)
 	return usageaws.NewWindowIterator(s3client, c.Bucket, c.Account, c.billingPeriod, window)
 }
 

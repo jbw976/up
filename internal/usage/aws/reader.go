@@ -8,8 +8,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/upbound/up/internal/usage/encoding/json"
 	"github.com/upbound/up/internal/usage/event"
@@ -17,14 +17,12 @@ import (
 	"github.com/upbound/up/internal/usage/model"
 )
 
-var ErrEOF = event.ErrEOF
-
 var _ event.Reader = &ListObjectsV2InputEventReader{}
 
-// ListBlobsResponseEventReader reads usage events from a
+// ListObjectsV2InputEventReader reads usage events from a
 // *s3.ListObjectsV2Input.
 type ListObjectsV2InputEventReader struct {
-	Client             *s3.S3
+	Client             *s3.Client
 	Bucket             string
 	ListObjectsV2Input *s3.ListObjectsV2Input
 	reader             *reader.MultiReader
@@ -33,29 +31,28 @@ type ListObjectsV2InputEventReader struct {
 func (r *ListObjectsV2InputEventReader) Read(ctx context.Context) (model.MXPGVKEvent, error) {
 	if r.reader == nil {
 		readers := []event.Reader{}
-		if err := r.Client.ListObjectsV2PagesWithContext(
-			ctx,
-			r.ListObjectsV2Input,
-			func(page *s3.ListObjectsV2Output, _ bool) bool {
-				for _, obj := range page.Contents {
-					readers = append(readers, &GetObjectInputEventReader{
-						Client: r.Client,
-						GetObjectInput: &s3.GetObjectInput{
-							Bucket: aws.String(r.Bucket),
-							Key:    obj.Key,
-						},
-					})
-				}
-				return true
-			},
-		); err != nil {
-			return model.MXPGVKEvent{}, err
+		paginator := s3.NewListObjectsV2Paginator(r.Client, r.ListObjectsV2Input)
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage(ctx)
+			if err != nil {
+				return model.MXPGVKEvent{}, err
+			}
+			for _, obj := range page.Contents {
+				readers = append(readers, &GetObjectInputEventReader{
+					Client: r.Client,
+					GetObjectInput: &s3.GetObjectInput{
+						Bucket: aws.String(r.Bucket),
+						Key:    obj.Key,
+					},
+				})
+			}
 		}
 		r.reader = &reader.MultiReader{Readers: readers}
 	}
 	return r.reader.Read(ctx)
 }
 
+// Close closes the underlying reader.
 func (r *ListObjectsV2InputEventReader) Close() error {
 	if r.reader == nil {
 		return nil
@@ -67,7 +64,7 @@ var _ event.Reader = &GetObjectInputEventReader{}
 
 // GetObjectInputEventReader reads usage events from a *s3.GetObjectInput.
 type GetObjectInputEventReader struct {
-	Client         *s3.S3
+	Client         *s3.Client
 	GetObjectInput *s3.GetObjectInput
 	decoder        *json.MXPGVKEventDecoder
 	closers        []io.Closer
@@ -77,7 +74,7 @@ func (r *GetObjectInputEventReader) Read(ctx context.Context) (model.MXPGVKEvent
 	if r.decoder == nil {
 		// TODO(branden): Use s3manager.Downloader for streaming and concurrent
 		// downloads.
-		resp, err := r.Client.GetObjectWithContext(ctx, r.GetObjectInput)
+		resp, err := r.Client.GetObject(ctx, r.GetObjectInput)
 		if err != nil {
 			return model.MXPGVKEvent{}, err
 		}
@@ -109,11 +106,12 @@ func (r *GetObjectInputEventReader) Read(ctx context.Context) (model.MXPGVKEvent
 		r.decoder = decoder
 	}
 	if !r.decoder.More() {
-		return model.MXPGVKEvent{}, ErrEOF
+		return model.MXPGVKEvent{}, event.ErrEOF
 	}
 	return r.decoder.Decode()
 }
 
+// Close closes all underlying resources in reverse order.
 func (r *GetObjectInputEventReader) Close() error {
 	// Close closers in reverse.
 	for i := len(r.closers) - 1; i >= 0; i-- {
