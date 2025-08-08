@@ -210,7 +210,10 @@ type cli struct {
 	Logout     login.LogoutCmd              `cmd:"" group:"Configure up" help:"Logout of Upbound."`
 	Version    v.Cmd                        `cmd:"" group:"Configure up" help:"Show current version."`
 
-	Alpha alpha `cmd:"" group:"Alpha" help:"Alpha features. Commands may be removed in future releases."`
+	// Alpha contains alpha commands, which we hide in the top-level help and
+	// documentation. These commands should be documented in the product docs
+	// for their relevant features.
+	Alpha alpha `cmd:"" help:"Alpha features. Commands may be removed in future releases." hidden:""`
 
 	GenerateDocs docsCmd `cmd:"" help:"Generate documentation in YAML format." hidden:""`
 
