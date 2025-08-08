@@ -35,6 +35,8 @@ func (c *LogoutCmd) AfterApply(upCtx *upbound.Context) error {
 
 // LogoutCmd invalidates a stored session token for a given profile.
 type LogoutCmd struct {
+	upbound.RequiresContext
+
 	client up.Client
 }
 
