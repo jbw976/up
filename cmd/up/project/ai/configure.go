@@ -82,6 +82,10 @@ type configureToolsCmd struct {
 func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 
+	if !c.UseGemini && !c.UseClaude && !c.UseCursor {
+		return errors.New("no tools specified; must specify at least one tool to configure")
+	}
+
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
 	if err != nil {
