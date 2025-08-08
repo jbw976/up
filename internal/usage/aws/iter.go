@@ -1,14 +1,15 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package aws provides AWS S3-based usage event reading functionality.
 package aws
 
 import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	clock "k8s.io/utils/clock/testing"
 
 	"github.com/upbound/up/internal/usage/event"
@@ -21,13 +22,13 @@ var _ event.WindowIterator = &WindowIterator{}
 // WindowIterator iterates through readers for windows of usage events from an
 // S3 bucket. Must be initialized with NewWindowIterator().
 type WindowIterator struct {
-	Client *s3.S3
+	Client *s3.Client
 	Bucket string
 	Iter   *ListObjectsV2InputIterator
 }
 
 // NewWindowIterator returns an initialized *WindowIterator.
-func NewWindowIterator(cli *s3.S3, bucket, account string, tr usagetime.Range, window time.Duration) (*WindowIterator, error) {
+func NewWindowIterator(cli *s3.Client, bucket, account string, tr usagetime.Range, window time.Duration) (*WindowIterator, error) {
 	iter, err := NewListObjectsV2InputIterator(bucket, account, tr, window)
 	if err != nil {
 		return nil, err
@@ -39,10 +40,12 @@ func NewWindowIterator(cli *s3.S3, bucket, account string, tr usagetime.Range, w
 	}, nil
 }
 
+// More returns true if there are more windows to iterate through.
 func (i *WindowIterator) More() bool {
 	return i.Iter.More()
 }
 
+// Next returns the next event reader and time window.
 func (i *WindowIterator) Next() (event.Reader, usagetime.Range, error) {
 	inputs, window, err := i.Iter.Next()
 	if err != nil {

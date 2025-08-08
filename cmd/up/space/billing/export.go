@@ -19,9 +19,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/alecthomas/kong"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pterm/pterm"
 	gcpopt "google.golang.org/api/option"
 
@@ -124,7 +124,7 @@ the instructions for each provider below.
 Supply configuration by setting these environment variables: <AWS_REGION>,
 <AWS_ACCESS_KEY_ID>, and <AWS_SECRET_ACCESS_KEY>. For more options, see the
 documentation at
-https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html.
+https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/welcome.html
 
 ## GCP Cloud Storage
 
@@ -288,17 +288,20 @@ func (c *exportCmd) getGCPIter(ctx context.Context, window time.Duration) (event
 }
 
 func (c *exportCmd) getAWSIter(window time.Duration) (event.WindowIterator, error) {
-	sess, err := session.NewSession(&aws.Config{})
+	ctx := context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating aws session")
+		return nil, errors.Wrap(err, "error loading aws config")
 	}
-	config := &aws.Config{}
+
+	opts := []func(*s3.Options){}
 	if c.Endpoint != "" {
-		config = &aws.Config{
-			Endpoint: aws.String(c.Endpoint),
-		}
+		opts = append(opts, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(c.Endpoint)
+		})
 	}
-	s3client := s3.New(sess, config)
+
+	s3client := s3.NewFromConfig(cfg, opts...)
 	return usageaws.NewWindowIterator(s3client, c.Bucket, c.Account, c.billingPeriod, window)
 }
 
