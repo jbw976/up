@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
@@ -177,6 +178,12 @@ func (c *Cmd) AfterApply(cmdRunner runner.CommandRunner) error {
 	}
 
 	c.gitCloner = &git.DefaultCloner{}
+
+	// The project name must be a valid k8s resource name, which also makes it a
+	// valid OCI repository name.
+	if errs := validation.IsDNS1035Label(c.Name); len(errs) > 0 {
+		return errors.Errorf("'%s' is not a valid project name. DNS-1035 constraints: %s", c.Name, strings.Join(errs, "; "))
+	}
 
 	if c.Directory == "" {
 		c.Directory = c.Name

@@ -53,6 +53,12 @@ func TestAfterApply(t *testing.T) {
 		expectError string
 		expectedDir string
 	}{
+		"PathAsName": {
+			args: args{
+				Name: "/home/user/my-cool-project",
+			},
+			expectError: "'/home/user/my-cool-project' is not a valid project name.",
+		},
 		"SSHWithoutKey": {
 			args: args{
 				Template: "ssh://user@host/path/to/repo",
