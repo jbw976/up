@@ -522,7 +522,7 @@ jobs:
       - name: up function generate
         run: |
           cd e2e-test
-          up function generate xcluster apis/xclusters/composition.yaml
+          up function generate --language=kcl xcluster apis/xclusters/composition.yaml
 
       - name: assert composition with embedded function
         uses: GuillaumeFalourd/assert-command-line-output@main
