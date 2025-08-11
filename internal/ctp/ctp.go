@@ -104,6 +104,7 @@ type localConfig struct {
 	registryDir       string
 	ingress           bool
 	portMapping       string
+	clusterAdmin      bool
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
@@ -186,6 +187,14 @@ func WithIngress(enabled bool, portMapping string) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.localConfig.ingress = enabled
 		cfg.localConfig.portMapping = portMapping
+	}
+}
+
+// WithClusterAdmin sets whether to grant Crossplane cluster admin privileges in
+// the local dev control plane.
+func WithClusterAdmin(enabled bool) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.localConfig.clusterAdmin = enabled
 	}
 }
 
@@ -471,13 +480,11 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 		return ctp, errors.Wrap(err, "cannot create dev control plane in Spaces")
 	}
 
-	telemetryDisabled := upCtx.Cfg.Upbound.Configuration[config.ConfigurationTelemetryDisabled] == "true"
-
-	ctp, err := ensureLocalDevControlPlane(ctx, upCtx, cfg, telemetryDisabled)
+	ctp, err := ensureLocalDevControlPlane(ctx, upCtx, cfg)
 	return ctp, errors.Wrap(err, "cannot create local dev control plane")
 }
 
-func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig, telemetryDisabled bool) (DevControlPlane, error) {
+func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg *ensureDevControlPlaneConfig) (DevControlPlane, error) {
 	evText := "Creating local development control plane"
 	cfg.eventChan.SendEvent(evText, async.EventStatusStarted)
 
@@ -565,7 +572,8 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, err
 	}
 
-	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled); err != nil {
+	telemetryDisabled := upCtx.Cfg.Upbound.Configuration[config.ConfigurationTelemetryDisabled] == "true"
+	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled, cfg.localConfig.clusterAdmin); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -772,7 +780,7 @@ func createNewKindCluster(ctx context.Context, provider *kind.Provider, name str
 	return portMapping, nil
 }
 
-func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool) error {
+func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool, clusterAdmin bool) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
@@ -807,6 +815,9 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 			"telemetry": map[string]any{
 				"disabled": telemetryDisabled,
 			},
+		},
+		"rbac": map[string]any{
+			"clusterAdmin": clusterAdmin,
 		},
 	}
 	if err = mgr.Install(version, values); err != nil {

@@ -68,6 +68,7 @@ type Cmd struct {
 	Timeout            time.Duration `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
 	Ingress            bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
 	IngressPort        string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
+	ClusterAdmin       bool          `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -216,6 +217,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 					ctp.ForceLocal(c.Local),
 					ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 					ctp.WithIngress(c.Ingress, c.IngressPort),
+					ctp.WithClusterAdmin(c.ClusterAdmin),
 				)
 			}
 			if err != nil {

@@ -72,19 +72,20 @@ import (
 // runCmd is the `up test run` command.
 type runCmd struct {
 	Patterns                []string `arg:""                                                                                                                                     help:"The path to the test manifests"`
-	ProjectFile             string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                  short:"f"`
+	ProjectFile             string   `default:"upbound.yaml"                                                                                                                     help:"Path to project definition file."                                                            short:"f"`
 	Repository              string   `help:"Repository for the built package. Overrides the repository specified in the project file."                                           optional:""`
 	NoBuildCache            bool     `default:"false"                                                                                                                            help:"Don't cache image layers while building."`
-	BuildCacheDir           string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                type:"path"`
-	MaxConcurrency          uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                 help:"Maximum number of functions to build and push at once."`
+	BuildCacheDir           string   `default:"~/.up/build-cache"                                                                                                                help:"Path to the build cache directory."                                                          type:"path"`
+	MaxConcurrency          uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                           help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup       string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix  string   `help:"Prefex of the control plane name to use. It will be created if not found."`
-	Force                   bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane." name:"skip-control-plane-check"`
+	Force                   bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                           name:"skip-control-plane-check"`
 	Local                   bool     `help:"Use a local dev control plane, even if Spaces is available."`
+	ClusterAdmin            bool     `default:"true"                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true." negatable:""`
 	LocalRegistryPath       string   `help:"Directory to use for local registry images. The default is system-dependent."`
 	SkipControlPlaneCleanup bool     `help:"Skip cleanup of the control plane after the test run."                                                                               name:"skip-control-plane-cleanup"`
 	UseCurrentContext       bool     `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
-	CacheDir                string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                          help:"Directory used for caching dependencies."               type:"path"`
+	CacheDir                string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                    help:"Directory used for caching dependencies."               type:"path"`
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
@@ -557,6 +558,7 @@ func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *
 				ctp.SkipDevCheck(c.Force),
 				ctp.ForceLocal(c.Local),
 				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
+				ctp.WithClusterAdmin(c.ClusterAdmin),
 			}
 
 			if test.Spec.Crossplane != nil {
