@@ -6,8 +6,9 @@ package profile
 import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 type renameCmd struct {
@@ -15,23 +16,11 @@ type renameCmd struct {
 	To   string `arg:"" help:"New name for the profile."      required:""`
 }
 
+//go:embed help/rename.md
+var renameHelp string
+
 func (c *renameCmd) Help() string {
-	return style.RenderHelp(`
-The <rename> command changes the name of an existing Upbound profile.
-
-This command renames a profile while preserving all its configuration settings.
-If the profile being renamed is currently active, it remains active after renaming.
-
-The new name must not conflict with any existing profile names.
-
-## Usage Examples:
-
-    up profile rename <old-name> <new-name>
-        Renames the profile "old-name" to "new-name".
-
-    up profile rename <dev> <development>
-        Renames the profile "dev" to "development".
-`)
+	return renameHelp
 }
 
 func (c *renameCmd) Run(upCtx *upbound.Context) error {

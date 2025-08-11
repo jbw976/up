@@ -12,8 +12,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 const (
@@ -40,28 +41,12 @@ type LogoutCmd struct {
 	client up.Client
 }
 
+//go:embed help/logout.md
+var logoutHelp string
+
 // Help returns help text for the logout command.
 func (c *LogoutCmd) Help() string {
-	return style.RenderHelp(`
-The <logout> command invalidates the current session and removes stored credentials.
-
-This command:
-  - Invalidates the session token with Upbound Cloud
-  - Removes the session token from the local profile configuration
-  - Keeps the profile configuration intact (only removes authentication)
-
-After logout, you can log back in using 'up login' to re-authenticate with the same profile.
-
-## Usage Examples:
-
-    up logout
-        Logs out from the selected active profile.
-
-    up logout --profile=<production>
-        Logs out from the "production" profile.
-
-*Note*: This only affects the selected profile. Other profiles remain authenticated.
-`)
+	return logoutHelp
 }
 
 // Run executes the logout command.

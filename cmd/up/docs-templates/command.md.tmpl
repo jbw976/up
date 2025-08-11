@@ -1,0 +1,32 @@
+---
+mdx:
+  format: md
+---
+
+{{ .Help | htmlEscape }}
+
+{{ .Detail | htmlEscape }}
+
+#### Usage
+
+`up {{ .Summary }}`
+
+{{- if .Positional }}
+#### Arguments
+
+| Argument | Description |
+| -------- | ----------- |
+{{- range .Positional }}
+| `<{{ .Name }}>` | {{- if not .Required }}**Optional**{{- end }} {{ .Help }} |
+{{- end }}
+{{- end }}
+
+{{- if .Flags }}
+#### Flags
+
+| Flag | Short Form | Description |
+| ---- | ---------- | ----------- |
+{{- range .Flags }}
+| `--{{ .Name }}` | {{- if .Short }} `-{{ .Short | printf "%c" }}` {{- end }} | {{- if .Required }} **Required** {{- end }} {{ .Help }} |
+{{- end }}
+{{- end }}

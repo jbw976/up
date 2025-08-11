@@ -18,29 +18,15 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
+//go:embed help/configure.md
+var configureHelp string
+
 func (c *configureToolsCmd) Help() string {
-	return style.RenderHelp(`
-The <configure-tools> command generates configurations for the specified tool provider.
-
-## Usage Examples:
-
-    up project ai configure-tools --gemini-cli
-        Creates a GEMINI.md and places a settings.json under the .gemini directory.
-
-    up project ai configure-tools --claude-code
-        Creates a CLAUDE.md and places AI assistant configurations in the project.
-
-    up project ai configure-tools --cursor
-        Creates cursor configurations for the project.
-
-    up project ai configure-tools --gemini-cli --claude-code --cursor
-        Creates configurations for all three AI tool providers.
-`)
+	return configureHelp
 }
 
 var (

@@ -12,6 +12,8 @@ import (
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/feature"
+
+	_ "embed"
 )
 
 const (
@@ -62,24 +64,18 @@ func (c *getCmd) Run(p pterm.TextPrinter) error {
 	return nil
 }
 
-func (c *getCmd) Help() string {
-	return `
-		Configuration:
-		- telemetry.disabled: Set to true to disable telemetry.
+//go:embed help/get.md
+var getHelp string
 
-		Example:
-			up config get
-	`
+func (c *getCmd) Help() string {
+	return getHelp
 }
 
-func (c *setCmd) Help() string {
-	return `
-		Configuration keys:
-		- telemetry.disabled: Set to true to disable telemetry.
+//go:embed help/set.md
+var setHelp string
 
-		Example:
-			up config set telemetry.disabled true
-	`
+func (c *setCmd) Help() string {
+	return setHelp
 }
 
 // Run sets a configuration value.

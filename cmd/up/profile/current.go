@@ -10,28 +10,18 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/profile"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 type currentCmd struct{}
 
+//go:embed help/current.md
+var currentHelp string
+
 func (c *currentCmd) Help() string {
-	return style.RenderHelp(`
-The <current> command displays the currently active Upbound profile and its configuration.
-
-This command outputs JSON-formatted information about the active profile, including:
-- Profile name
-- Profile type (cloud or disconnected)
-- Organization (for cloud profiles)
-- Domain configuration
-- Other profile settings (with sensitive data redacted)
-
-## Usage Examples:
-
-    up profile current
-        Shows the current active profile configuration in JSON format.
-`)
+	return currentHelp
 }
 
 type output struct {

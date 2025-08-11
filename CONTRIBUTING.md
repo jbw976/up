@@ -14,6 +14,42 @@ make submodules
 The rest is just a usual Golang CLI project where you can find the executables
 under `cmd` folder.
 
+## kong
+
+We use [kong](https://pkg.go.dev/github.com/alecthomas/kong) as our CLI
+framework. Each command is defined as a struct, in which fields become
+subcommands, positional arguments, or flags. Kong's [struct
+tags](https://pkg.go.dev/github.com/alecthomas/kong#readme-supported-tags) can
+be used to control many behaviors, including validation, auto-completion, and
+documentation.
+
+## Embedded Documentation
+
+The CLI is self-documenting. Short descriptions for commands and flags should be
+added using kong struct tags. Longer help should be returned by each command's
+`Help()` method. This help can be formatted using markdown, which we render in
+the console using the
+[glamour](https://pkg.go.dev/github.com/charmbracelet/glamour) library.
+
+The `up generate-docs` command is used to generate CLI reference documentation
+for [docs.upbound.io](https://docs.upbound.io/reference/cli-reference). Markdown
+returned by each command's `Help()` is embedded verbatim into this
+documentation; making the generated docs look good requires a touch of care:
+
+* Don't use headings below level 4 (i.e., `#### Section`), since our help gets
+  embedded into the docs site at that level. We render all heading levels the same in the terminal
+  the same in the terminal, so it's generally best to use only level 4.
+* Don't use `<` characters in code blocks. We have to replace the `<` character
+  with `&lt;` when we generate markdown for the documentation website, but the
+  escaped version ends up being displayed verbatim in code blocks. `<` is fine
+  in inline code (backtick expressions), and all other special characters are
+  fine in code blocks.
+
+If in doubt about whether your help will look good, you can easily check your
+work by cloning the [upbound/docs](https://github.com/upbound/docs) repo,
+running `make start`, then using `up generate-docs` to update the CLI reference
+section.
+
 ## Release Process
 
 This is a slimmed-down version of the release process described [here](https://github.com/crossplane/release).

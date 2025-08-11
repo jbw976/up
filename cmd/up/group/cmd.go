@@ -17,8 +17,9 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/feature"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+
+	_ "embed"
 )
 
 func init() {
@@ -60,31 +61,12 @@ type Cmd struct {
 	Get    getCmd    `cmd:"" help:"Get a group."`
 }
 
+//go:embed help/group.md
+var groupHelp string
+
 // Help prints help.
 func (c *Cmd) Help() string {
-	return style.RenderHelp(`
-The <group> command interacts with groups within the current space. Both Upbound profiles and
-local Spaces are supported. Use the "profile" management command to switch
-between different Upbound profiles or to connect to a local Space.
-
-## Usage Examples:
-
-    up group list
-        List all groups in the current space.
-        Shows group names and protection status.
-
-    up group create <my-group>
-        Create a new group named "my-group".
-        Groups organize control planes within a space.
-
-    up group get <my-group>
-        Get details about a specific group.
-        Shows group configuration and metadata.
-
-    up group delete <my-group>
-        Delete a group.
-        Cannot delete protected groups.
-`)
+	return groupHelp
 }
 
 func extractGroupFields(obj any) []string {

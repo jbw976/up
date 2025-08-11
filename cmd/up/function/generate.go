@@ -30,7 +30,6 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
@@ -38,26 +37,11 @@ import (
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
+//go:embed help/generate.md
+var generateHelp string
+
 func (c *generateCmd) Help() string {
-	return style.RenderHelp(`
-The <generate> command creates an embedded function in the specified language.
-
-## Usage Examples:
-
-    up function generate <fn1>
-        Creates a function with the default language (KCL) in the folder 'functions/fn1'.
-
-    up function generate <fn2> --language <python>
-        Creates a function with Python language support in the folder 'functions/fn2'.
-
-    up function generate <compose-xcluster> <apis/xcluster/composition.yaml>
-        Creates a function with the default language (KCL) in the folder 'functions/compose-xcluster'
-        and adds a composition pipeline step with the function reference name specified in the given composition file.
-
-    up function generate <check-pod-logs> <operations/watch-pods/operation.yaml> --language <go>
-        Creates a Go function in the folder 'functions/check-pod-logs' and adds a pipeline step for the function
-        to the operation in 'operations/watch-pods/operation.yaml'.
-`)
+	return generateHelp
 }
 
 var (

@@ -17,47 +17,18 @@ import (
 	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
+
+	_ "embed"
 )
 
+//go:embed help/add.md
+var addHelp string
+
 func (c *addCmd) Help() string {
-	return style.RenderHelp(`
-The <add> command retrieves a Crossplane package (provider, configuration, or function) from a specified registry with an optional version tag and adds it to a project as a dependency.
-
-For API dependencies, use --api flag.
-
-## Usage Examples:
-
-    up dependency add <xpkg.upbound.io/upbound/provider-aws-eks>
-        Retrieves the provider, adds all CRDs to the cache folder,
-        and places all language schemas in the repository root .up/ folder.
-        Uses the latest available package.
-
-    up dependency add <'xpkg.upbound.io/upbound/platform-ref-aws:>v1.1.0'>
-        Retrieves the configuration, adds all XRDs to the cache folder,
-        and places all language schemas in the repository root .up/ folder.
-        Uses a package version greater than v1.1.0.
-
-    up dependency add <'xpkg.upbound.io/crossplane-contrib/function-kcl:>=v0.10.8'>
-        Retrieves the function, adds all CRDs to the cache folder,
-        and places all language schemas in the repository root .up/ folder.
-        Uses a package version v0.10.8 or newer, if available.
-
-    up dependency add --api <k8s:v1.33.0>
-        Adds Kubernetes API v1.33.0 as a api-dependency,
-        and provides all language schemas.
-
-    up dependency add --api <https://raw.githubusercontent.com/cert-manager/cert-manager/refs/heads/master/deploy/crds/cert-manager.io_certificaterequests.yaml>
-        Adds a CRD from an HTTP URL as api-dependency,
-        and provides all language schemas.
-
-    up dependency add --api <https://github.com/crossplane/crossplane> --git-ref=<release-1.20> --git-path=<cluster/crds>
-        Adds CRDs from a git repository as api-dependency,
-        and provides all language schemas.
-`)
+	return addHelp
 }
 
 // addCmd manages crossplane dependencies.
