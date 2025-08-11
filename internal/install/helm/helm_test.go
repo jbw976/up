@@ -41,6 +41,11 @@ func (m *mockPullClient) SetDestDir(string) {}
 // SetVersion is a no op.
 func (m *mockPullClient) SetVersion(string) {}
 
+// ListVersions returns empty list.
+func (m *mockPullClient) ListVersions(string) ([]string, error) {
+	return []string{}, nil
+}
+
 type mockInstallClient struct {
 	runFn func(*chart.Chart, map[string]any) (*release.Release, error)
 }

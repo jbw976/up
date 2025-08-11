@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -17,8 +18,10 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/client-go/rest"
 	"oras.land/oras-go/v2/registry/remote/auth"
@@ -29,6 +32,7 @@ import (
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/yaml"
 )
 
 const (
@@ -59,10 +63,12 @@ type helmPuller interface {
 	Run(ref string) (string, error)
 	SetDestDir(d string)
 	SetVersion(version string)
+	ListVersions(ref string) ([]string, error)
 }
 
 type puller struct {
 	*action.Pull
+	regClient *registry.Client
 }
 
 func (p *puller) SetDestDir(dir string) {
@@ -71,6 +77,88 @@ func (p *puller) SetDestDir(dir string) {
 
 func (p *puller) SetVersion(version string) {
 	p.Version = version
+}
+
+func (p *puller) ListVersions(ref string) ([]string, error) {
+	if registry.IsOCI(ref) {
+		return p.listVersionsFromOCI(ref)
+	}
+	return p.listVersionsFromRepo(ref)
+}
+
+func (p *puller) listVersionsFromOCI(ref string) ([]string, error) {
+	// ref may have the oci:// prefix, which the registry client doesn't like.
+	ref = strings.TrimPrefix(ref, "oci://")
+
+	tags, err := p.regClient.Tags(ref)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list tags from OCI registry")
+	}
+
+	return tags, nil
+}
+
+func (p *puller) listVersionsFromRepo(ref string) ([]string, error) {
+	if p.RepoURL == "" {
+		return nil, errors.New("repository URL not set")
+	}
+
+	// Build index file URL
+	repoURL := p.RepoURL
+	if !strings.HasSuffix(repoURL, "/") {
+		repoURL += "/"
+	}
+	repoURL += "index.yaml"
+
+	// Use getter to download repository index
+	getters := getter.All(p.Settings)
+	var g getter.Getter
+	var err error
+	if strings.HasPrefix(repoURL, "http://") {
+		g, err = getters.ByScheme("http")
+	} else {
+		// Default to https
+		g, err = getters.ByScheme("https")
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get URL getter")
+	}
+
+	// Configure getter options
+	options := []getter.Option{
+		getter.WithPassCredentialsAll(p.PassCredentialsAll),
+		getter.WithTLSClientConfig(p.CertFile, p.KeyFile, p.CaFile),
+		getter.WithInsecureSkipVerifyTLS(p.InsecureSkipTLSverify),
+	}
+	if p.Username != "" && p.Password != "" {
+		options = append(options, getter.WithBasicAuth(p.Username, p.Password))
+	}
+
+	// Download the index
+	resp, err := g.Get(repoURL, options...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to download repository index")
+	}
+
+	// Parse the index
+	idxFile := &repo.IndexFile{}
+	if err := yaml.Unmarshal(resp.Bytes(), idxFile); err != nil {
+		return nil, errors.Wrap(err, "failed to parse repository index")
+	}
+
+	versions, exists := idxFile.Entries[ref]
+	if !exists {
+		return nil, errors.Errorf("chart %s not found in repository", ref)
+	}
+
+	versionStrings := make([]string, 0, len(versions))
+	for _, version := range versions {
+		if version != nil {
+			versionStrings = append(versionStrings, version.Version)
+		}
+	}
+
+	return versionStrings, nil
 }
 
 type helmGetter interface {
@@ -122,6 +210,7 @@ type Installer struct {
 	fs                 afero.Fs
 	tempDir            TempDirFn
 	log                logging.Logger
+	versionFilterFn    func(string) bool
 
 	// Auth
 	username string
@@ -220,6 +309,14 @@ func UpgradeReuseValues() InstallerModifierFn {
 	}
 }
 
+// WithVersionFilter sets a function to filter versions when no version is
+// specified.
+func WithVersionFilter(fn func(string) bool) InstallerModifierFn {
+	return func(h *Installer) {
+		h.versionFilterFn = fn
+	}
+}
+
 // NewManager builds a helm install manager.
 func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespace string, modifiers ...InstallerModifierFn) (install.Manager, error) {
 	h := &Installer{
@@ -297,7 +394,10 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespac
 	if h.repoURL != nil {
 		p.RepoURL = h.repoURL.String()
 	}
-	h.pullClient = &puller{p}
+	h.pullClient = &puller{
+		Pull:      p,
+		regClient: rc,
+	}
 
 	// Get Client
 	h.getClient = action.NewGet(actionConfig)
@@ -502,12 +602,41 @@ func (h *Installer) pullAndLoad(version string) (*chart.Chart, error) {
 }
 
 func (h *Installer) pullChart(version string) error {
-	// NOTE(hasheddan): Because UXP uses different Helm repos for stable and
-	// development versions, we are safe to set version to latest in repo
-	// regardless of whether stable or unstable is specified.
 	if version == "" {
 		version = allVersions
+
+		// Find the latest version that satisfies the filter if a filter is
+		// configured.
+		if h.versionFilterFn != nil {
+			latest := semver.MustParse("0.0.0-0")
+			versions, err := h.pullClient.ListVersions(h.chartRef)
+			if err != nil {
+				return errors.Wrap(err, "failed to list versions")
+			}
+
+			for _, v := range versions {
+				if !h.versionFilterFn(v) {
+					continue
+				}
+
+				sv, err := semver.NewVersion(v)
+				if err != nil {
+					// Ignore non-semver versions.
+					continue
+				}
+
+				if sv.GreaterThanEqual(latest) {
+					latest = sv
+					version = latest.String()
+				}
+			}
+
+			if version == allVersions {
+				return errors.New("could not find suitable version to install")
+			}
+		}
 	}
+
 	h.pullClient.SetVersion(version)
 	_, err := h.pullClient.Run(h.chartRef)
 	return err
