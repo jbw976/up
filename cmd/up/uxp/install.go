@@ -52,7 +52,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 
 	values := uxp.BaseValues()
 	paved := fieldpath.Pave(values)
-	if err := paved.SetBool("webui.enabled", c.DisableWebUI); err != nil {
+	if err := paved.SetBool("webui.enabled", !c.DisableWebUI); err != nil {
 		return errors.Wrap(err, errSetChartValues)
 	}
 
