@@ -37,7 +37,7 @@ returned by each command's `Help()` is embedded verbatim into this
 documentation; making the generated docs look good requires a touch of care:
 
 * Don't use headings below level 4 (i.e., `#### Section`), since our help gets
-  embedded into the docs site at that level. We render all heading levels render
+  embedded into the docs site at that level. We render all heading levels the same in the terminal
   the same in the terminal, so it's generally best to use only level 4.
 * Don't use `<` characters in code blocks. We have to replace the `<` character
   with `&lt;` when we generate markdown for the documentation website, but the
