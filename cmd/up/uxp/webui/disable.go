@@ -25,14 +25,18 @@ type disableCmd struct {
 
 func (c *disableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error {
 	repo := uxp.RepoURL
+
+	filter := uxp.StableVersionFilter
 	if c.Unstable {
-		repo = uxp.UnstableRepoURL
+		filter = uxp.UnstableVersionFilter
 	}
+
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		uxp.ChartName,
 		*repo,
 		uxp.ChartNamespace,
 		helm.UpgradeReuseValues(),
+		helm.WithVersionFilter(filter),
 		helm.Wait(),
 	)
 	if err != nil {

@@ -29,9 +29,12 @@ const (
 // AfterApply sets default values in command after assignment and validation.
 func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	repo := uxp.RepoURL
+
+	filter := uxp.StableVersionFilter
 	if c.Unstable {
-		repo = uxp.UnstableRepoURL
+		filter = uxp.UnstableVersionFilter
 	}
+
 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
 		uxp.ChartName,
 		*repo,
@@ -39,6 +42,7 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 		helm.WithChart(c.Bundle),
 		helm.Wait(),
 		helm.CreateNamespace(true),
+		helm.WithVersionFilter(filter),
 	)
 	if err != nil {
 		return err

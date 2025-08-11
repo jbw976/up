@@ -786,6 +786,7 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 		"crossplane",
 		*repo,
 		crossplaneNamespace,
+		helm.WithVersionFilter(uxp.StableVersionFilter),
 		helm.Wait(),
 	)
 	if err != nil {
