@@ -27,6 +27,7 @@ require (
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/golang/tools v0.32.0
 	github.com/google/addlicense v1.1.1
 	github.com/google/go-cmp v0.7.0
@@ -176,7 +177,6 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20250115185438-c4dd792fa06c // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20250115185438-c4dd792fa06c // indirect
 	github.com/gorilla/css v1.0.1 // indirect

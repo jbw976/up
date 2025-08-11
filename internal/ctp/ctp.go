@@ -488,6 +488,18 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 		return nil, errors.Wrap(err, "failed to connect to Docker; local dev control planes require a Docker-compatible container runtime")
 	}
 
+	// Check that the user's session is valid if they are logged in, since we
+	// will use their creds to create a pull secret in the cluster.
+	if upCtx.Organization != "" {
+		valid, err := upCtx.HasValidSession()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to determine whether profile has a valid session")
+		}
+		if !valid {
+			return nil, errors.New("current profile is not logged in or login has expired; run `up login` before proceeding")
+		}
+	}
+
 	// kind creates a docker container named <name>-control-plane, and uses the
 	// name as the container's hostname. Hostnames can be at most 63
 	// characters. Truncate the name if needed.
@@ -887,6 +899,10 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 	}
 
 	xpkgSecret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pullSecretName,
 			Namespace: crossplaneNamespace,
@@ -896,7 +912,9 @@ func ensureUpboundPullSecret(ctx context.Context, upCtx *upbound.Context, cl cli
 			corev1.DockerConfigJsonKey: authJSON,
 		},
 	}
-	if err := cl.Create(ctx, xpkgSecret); err != nil && !kerrors.IsAlreadyExists(err) {
+	// Patch the secret so we get an updated token if the user's session expired
+	// and was renewed.
+	if err := cl.Patch(ctx, xpkgSecret, client.Apply, client.FieldOwner("up-cli"), client.ForceOwnership); err != nil {
 		return errors.Wrap(err, "failed to create xpkg pull secret")
 	}
 
