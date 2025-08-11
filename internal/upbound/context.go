@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/go-logr/logr"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/afero"
 	"go.uber.org/zap/zapcore"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -388,6 +390,36 @@ func (c *Context) applyOverrides(f Flags, profileName string) (Flags, error) {
 	}
 
 	return of, nil
+}
+
+// HasValidSession determines whether the context has a valid session token for
+// using the Upbound API. Note that this method does not check whether the
+// session token has access to any particular resources or operations, only that
+// it is not expired.
+func (c *Context) HasValidSession() (bool, error) {
+	session := c.Profile.Session
+	if session == "" {
+		return false, nil
+	}
+
+	parser := jwt.NewParser()
+	token, _, err := parser.ParseUnverified(session, jwt.MapClaims{})
+	if err != nil {
+		return false, errors.Wrap(err, "failed to parse token")
+	}
+
+	exp, err := token.Claims.GetExpirationTime()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get token expiration")
+	}
+	if exp == nil {
+		return true, nil
+	}
+
+	// Treat the token as expired if it expires within the next 30 seconds. This
+	// forces users to re-auth a little earlier than necessary, but avoids
+	// tokens expiring part way through an operation.
+	return time.Now().Add(30 * time.Second).Before(exp.Time), nil
 }
 
 // MarshalJSON marshals the Flags struct, converting the url.URL to strings.
