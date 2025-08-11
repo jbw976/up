@@ -51,13 +51,16 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 	c.kClient = client
 
 	values := uxp.BaseValues()
-	if c.DisableWebUI {
-		paved := fieldpath.Pave(values)
-		if err := paved.SetBool("webui.enabled", false); err != nil {
-			return errors.Wrap(err, errSetChartValues)
-		}
-		values = paved.UnstructuredContent()
+	paved := fieldpath.Pave(values)
+	if err := paved.SetBool("webui.enabled", c.DisableWebUI); err != nil {
+		return errors.Wrap(err, errSetChartValues)
 	}
+
+	if err := paved.SetBool("rbac.clusterAdmin", c.ClusterAdmin); err != nil {
+		return errors.Wrap(err, errSetChartValues)
+	}
+	values = paved.UnstructuredContent()
+
 	if c.File != nil {
 		defer func() { _ = c.File.Close() }()
 		b, err := io.ReadAll(c.File)
@@ -83,9 +86,10 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version      string `arg:""                                     help:"UXP version to install." optional:""`
+	Version      string `arg:""                                                                          help:"UXP version to install." optional:""`
 	Unstable     bool   `help:"Allow installing unstable versions."`
-	DisableWebUI bool   `help:"Disable the UXP web UI."             optional:""`
+	DisableWebUI bool   `help:"Disable the UXP web UI."                                                  optional:""`
+	ClusterAdmin bool   `help:"Install UXP with cluster admin permissions. NOT FOR PRODUCTION PURPOSES." optional:""`
 
 	install.CommonParams
 }
