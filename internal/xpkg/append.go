@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -74,6 +75,9 @@ func (a *Appender) Append(index v1.ImageIndex, extImg v1.Image, opts ...AppendOp
 			return index, nil
 		}
 	}
+
+	// Filter out any existing descriptors with the same annotation.
+	index = mutate.RemoveManifests(index, match.Annotation(AnnotationKey, ManifestAnnotation))
 
 	// Create the new index to replace
 	newIndex := mutate.AppendManifests(index, mutate.IndexAddendum{
