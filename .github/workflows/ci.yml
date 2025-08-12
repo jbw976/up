@@ -476,7 +476,7 @@ jobs:
       - name: up project deps
         run: |
           cd e2e-test
-          up dep add xpkg.upbound.io/upbound/provider-kubernetes
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.0
 
       - name: assert project with deps
         uses: GuillaumeFalourd/assert-command-line-output@main

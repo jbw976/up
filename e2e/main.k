@@ -2,6 +2,7 @@
 import models.comp.acme.v1beta1 as acmev1beta1
 import models.io.crossplane.kubernetes.v1alpha1 as kubernetesv1alpha1
 import models.io.crossplane.kubernetes.v1alpha2 as kubernetesv1alpha2
+import models.io.crossplane.kubernetesm.v1alpha1 as kubernetesmv1alpha1
 import models.k8s.apimachinery.pkg.apis.meta.v1 as metav1
 
 oxr = option("params").oxr # observed composite resource
