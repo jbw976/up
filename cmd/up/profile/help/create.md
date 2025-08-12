@@ -35,7 +35,7 @@ called `my-space`:
 up profile create local-dev --type=disconnected --kubecontext=my-space
 ```
 
-Create a new profile but don't make it the curren tprofile:
+Create a new profile but don't make it the current profile:
 
 ```shell
 up profile create staging --organization=my-org --use=false
