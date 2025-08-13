@@ -122,7 +122,8 @@ func (e *UnstructuredFetcher) shouldSkip(r unstructured.Unstructured) bool { // 
 		}
 	}
 
-	if r.GetOwnerReferences() != nil {
+	// NOTE(phisco): We want ManagedResourceDefinitions to be exported as they could have been activated manually.
+	if r.GetOwnerReferences() != nil && r.GetKind() != "ManagedResourceDefinition" {
 		// We don't want to export resources that are owned by Crossplane or Upbound package manager.
 		// They will be installed to the target cluster again using the package manager after the migration.
 		ownedByPackageManager := false
