@@ -46,6 +46,10 @@ var (
 		"configmaps",
 		"secrets",
 
+		// Upbound resources
+		// Runtime
+		"upboundruntimeconfigs.pkg.upbound.io",
+		"licenses.licensing.upbound.io",
 		// Crossplane resources
 		// Runtime
 		"controllerconfigs.pkg.crossplane.io",
@@ -62,9 +66,6 @@ var (
 		"providers.pkg.crossplane.io",
 		"functions.pkg.crossplane.io",
 		"configurations.pkg.crossplane.io",
-		// Upbound resources
-		// Runtime
-		"upboundruntimeconfigs.pkg.upbound.io",
 		// Packages
 		"addons.pkg.upbound.io",
 	}
