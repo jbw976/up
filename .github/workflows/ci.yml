@@ -274,11 +274,14 @@ jobs:
           PLATFORM_ARCH="${PLATFORM}_${ARCH}"
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
 
-      - name: Publish Artifacts to GitHub
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      # We use a per-job cache for our artifacts instead of uploading them as
+      # real artifacts because downloading from blacksmith cache is much faster
+      # than downloading from GH artifacts when using blacksmith runners.
+      - name: Upload Artifacts
+        uses: useblacksmith/cache/save@v4
         with:
-          name: output
-          path: _output/bin/${{ env.PLATFORM_ARCH }}/*
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
@@ -425,16 +428,29 @@ jobs:
         with:
           submodules: true
 
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
       - name: Download Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
-          name: output
-          path: _output
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
@@ -620,16 +636,29 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
       - name: Download Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
-          name: output
-          path: _output
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/bin/${{ env.PLATFORM_ARCH }}/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
