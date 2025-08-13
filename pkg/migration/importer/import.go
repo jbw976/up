@@ -46,6 +46,10 @@ var (
 		"configmaps",
 		"secrets",
 
+		// Upbound resources
+		// Runtime
+		"upboundruntimeconfigs.pkg.upbound.io",
+		"licenses.licensing.upbound.io",
 		// Crossplane resources
 		// Runtime
 		"controllerconfigs.pkg.crossplane.io",
@@ -55,13 +59,13 @@ var (
 		"compositionrevisions.apiextensions.crossplane.io",
 		"compositions.apiextensions.crossplane.io",
 		"compositeresourcedefinitions.apiextensions.crossplane.io",
+		// Managed Resource Definitions
+		"managedresourceactivationpolicies.apiextensions.crossplane.io",
+		"managedresourcedefinitions.apiextensions.crossplane.io",
 		// Packages
 		"providers.pkg.crossplane.io",
 		"functions.pkg.crossplane.io",
 		"configurations.pkg.crossplane.io",
-		// Upbound resources
-		// Runtime
-		"upboundruntimeconfigs.pkg.upbound.io",
 		// Packages
 		"addons.pkg.upbound.io",
 	}
