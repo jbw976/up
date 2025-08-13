@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"sync"
 
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
@@ -39,6 +40,11 @@ type DependencyManager struct {
 	deps            *dmanager.Manager
 	schemas         *smanager.Manager
 	apiDepProcessor *apidependency.Processor
+
+	// updateMutex serializes updates to the in-memory project and on-disk
+	// project file. Since each update is a read-modify-write operation,
+	// concurrent updates risk corruption.
+	updateMutex sync.Mutex
 }
 
 // ProcessedAPIDependency contains information about a processed API dependency.
@@ -75,6 +81,9 @@ func (m *DependencyManager) Add(ctx context.Context, d pkgmetav1.Dependency) err
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+
+	m.updateMutex.Lock()
+	defer m.updateMutex.Unlock()
 
 	if err := UpsertDependency(m.proj, d); err != nil {
 		return errors.Wrap(err, "failed to add dependency to project")
@@ -163,6 +172,9 @@ func (m *DependencyManager) AddAPIDependency(ctx context.Context, dep v2alpha1.A
 	if err := m.schemas.Add(ctx, source); err != nil {
 		return errors.Wrapf(err, "failed to generate schemas for API dependency %s", dep.Type)
 	}
+
+	m.updateMutex.Lock()
+	defer m.updateMutex.Unlock()
 
 	// Update the project with the new API dependency
 	if err := UpsertAPIDependency(m.proj, dep); err != nil {
