@@ -75,7 +75,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -126,7 +126,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -173,7 +173,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -233,7 +233,7 @@ jobs:
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         id: restore-cache
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        uses: useblacksmith/cache/restore@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -253,7 +253,7 @@ jobs:
           RELEASE_TARGET: "release"
 
       - name: Save Go cache
-        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        uses: useblacksmith/cache/save@v4
         if: steps.restore-cache.outputs.cache-hit != 'true'
         with:
           path: |
@@ -261,11 +261,27 @@ jobs:
             ~/.cache/go-build
           key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
 
-      - name: Publish Artifacts to GitHub
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      # We use a per-job cache for our artifacts instead of uploading them as
+      # real artifacts because downloading from blacksmith cache is much faster
+      # than downloading from GH artifacts when using blacksmith runners.
+      - name: Upload Artifacts
+        uses: useblacksmith/cache/save@v4
         with:
-          name: output
-          path: _output/**
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
@@ -402,8 +418,7 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
 
   e2e:
-    # ToDo(haarchri): Download artifacts is too slow with blacksmith
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -412,12 +427,6 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: true
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: output
-          path: _output
 
       - name: Platform Architecture
         id: determine-platform
@@ -431,6 +440,12 @@ jobs:
           esac
           PLATFORM_ARCH="${PLATFORM}_${ARCH}"
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      - name: Download Artifacts
+        uses: useblacksmith/cache/restore@v4
+        with:
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: up
         run: |
@@ -461,7 +476,7 @@ jobs:
       - name: up project deps
         run: |
           cd e2e-test
-          up dep add xpkg.upbound.io/upbound/provider-kubernetes
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.0
 
       - name: assert project with deps
         uses: GuillaumeFalourd/assert-command-line-output@main
@@ -596,8 +611,7 @@ jobs:
           expected_result: FAILED
 
   e2e-project-template-aws-s3:
-    # ToDo(haarchri): Download artifacts is too slow with blacksmith
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-8vcpu-ubuntu-2404
     needs: publish-artifacts
     if: needs.detect-noop.outputs.noop != 'true'
 
@@ -622,12 +636,6 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Download Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: output
-          path: _output
-
       - name: Platform Architecture
         id: determine-platform
         run: |
@@ -640,6 +648,12 @@ jobs:
           esac
           PLATFORM_ARCH="${PLATFORM}_${ARCH}"
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      - name: Download Artifacts
+        uses: useblacksmith/cache/restore@v4
+        with:
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
 
       - name: up
         run: |
