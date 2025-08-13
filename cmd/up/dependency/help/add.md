@@ -1,5 +1,5 @@
 The `add` command retrieves a Crossplane package from a specified registry with
-an optional version tag and adds it to a project as a dependency. Langauge
+an optional version tag and adds it to a project as a dependency. Language
 schemas will be added to the project if the package provides them.
 
 API dependencies can be added using the `--api` flag. This automatically
