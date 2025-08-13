@@ -18,9 +18,9 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76
-	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea
-	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
+	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0
+	github.com/crossplane/crossplane/v2 v2.1.0-rc.0
+	github.com/crossplane/crossplane/v2/xcrd v0.0.0
 	github.com/crossplane/uptest v1.4.0
 	github.com/docker/docker-credential-helpers v0.9.3
 	github.com/gdamore/tcell/v2 v2.8.1
@@ -50,8 +50,8 @@ require (
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
 	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250801144414-a50e30d17153
-	github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732
-	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf
+	github.com/upbound/up-sdk-go v1.13.1-0.20250807100726-8dc90a854de1
+	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250807100726-8dc90a854de1
 	github.com/upbound/up/pkg/migration v0.0.0-20250725120159-e48033b28c2d
 	github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237
 	github.com/willabides/kongplete v0.4.0
@@ -155,6 +155,8 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/creack/pty v1.1.20 // indirect
+	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250721080030-e4e442e27027 // indirect
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
@@ -429,7 +431,7 @@ require (
 )
 
 replace (
-	github.com/crossplane/crossplane/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
+	github.com/crossplane/crossplane/v2/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
 	github.com/golang/tools => ./internal/vendor/golang.org/x/tools
 )
 

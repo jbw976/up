@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/project/initialize/wizard"
 	"github.com/upbound/up/cmd/up/project/initialize/wizard/template"

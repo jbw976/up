@@ -17,7 +17,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"gotest.tools/v3/assert"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // TestCloneRepository tests the CloneRepository.

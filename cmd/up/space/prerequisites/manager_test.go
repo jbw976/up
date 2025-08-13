@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"github.com/crossplane/crossplane-runtime/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 
 	"github.com/upbound/up/cmd/up/space/defaults"
 	spacefeature "github.com/upbound/up/cmd/up/space/features"

@@ -25,7 +25,7 @@ import (
 	"github.com/pterm/pterm"
 	gcpopt "google.golang.org/api/option"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	usageaws "github.com/upbound/up/internal/usage/aws"
 	"github.com/upbound/up/internal/usage/azure"

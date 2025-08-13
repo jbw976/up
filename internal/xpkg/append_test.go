@@ -15,7 +15,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/test"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 )
 
 var (

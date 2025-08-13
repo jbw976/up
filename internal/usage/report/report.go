@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/usage/aggregate"
 	"github.com/upbound/up/internal/usage/event"

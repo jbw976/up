@@ -9,7 +9,7 @@ import (
 	"gotest.tools/assert"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // TestConvert verifies that Convert correctly filters and converts input to []CompositionTest.

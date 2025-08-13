@@ -3,7 +3,7 @@
 
 package v2alpha1
 
-import pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+import pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 var _ pkgmetav1.Pkg = &Project{}
 

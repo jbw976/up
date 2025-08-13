@@ -21,10 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	apiextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	apiextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	pkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"

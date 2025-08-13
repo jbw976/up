@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
-	apiextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
+	apiextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"

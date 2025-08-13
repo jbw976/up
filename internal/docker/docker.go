@@ -24,7 +24,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // Check attempts to connect to the local Docker daemon (or any

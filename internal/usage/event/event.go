@@ -7,7 +7,7 @@ package event
 import (
 	"context"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/usage/model"
 	"github.com/upbound/up/internal/usage/time"

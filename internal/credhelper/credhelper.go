@@ -8,8 +8,8 @@ import (
 
 	"github.com/docker/docker-credential-helpers/credentials"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/profile"

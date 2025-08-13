@@ -26,12 +26,12 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	k8syaml "sigs.k8s.io/yaml"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	xparser "github.com/crossplane/crossplane-runtime/pkg/parser"
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpextv2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	xparser "github.com/crossplane/crossplane-runtime/v2/pkg/parser"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	xpextv2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/xpkg"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"

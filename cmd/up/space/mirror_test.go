@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"gotest.tools/v3/assert"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/upterm"

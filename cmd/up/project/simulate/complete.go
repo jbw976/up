@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/config"

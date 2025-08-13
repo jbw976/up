@@ -17,12 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	xpmetav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
+	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	xpmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	xpmetav1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1beta1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"

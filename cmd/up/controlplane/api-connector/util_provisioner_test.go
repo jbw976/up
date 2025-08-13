@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pterm/pterm"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
 	upboundfake "github.com/upbound/up-sdk-go/fake"

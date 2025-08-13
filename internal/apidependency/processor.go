@@ -5,7 +5,7 @@
 package apidependency
 
 import (
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/schemas/manager"

@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // LineReader represents a reader that reads from the underlying reader

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
 )
 
 func TestCleanFieldPath(t *testing.T) {

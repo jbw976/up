@@ -8,7 +8,7 @@ import (
 	"encoding/pem"
 	"os"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // mergeCACertificates combines custom CA bundle with existing CA data.

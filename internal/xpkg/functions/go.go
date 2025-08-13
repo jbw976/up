@@ -15,7 +15,7 @@ import (
 	"github.com/google/ko/pkg/build"
 	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/upbound"

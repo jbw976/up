@@ -9,7 +9,7 @@ import (
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 func TestValidateCompositionTest(t *testing.T) {

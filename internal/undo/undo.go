@@ -7,7 +7,7 @@ package undo
 import (
 	"sync"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // Undoer allows registring undo functions.

@@ -16,11 +16,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
-	xpextensionsv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
+	xpextensionsv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	xpv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
+	xpv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	spacesv1alpha1 "github.com/upbound/up-sdk-go/apis/spaces/v1alpha1"
 	"github.com/upbound/up/internal/diff"

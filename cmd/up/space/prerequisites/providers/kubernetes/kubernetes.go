@@ -20,9 +20,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xppkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xppkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	"github.com/upbound/up/internal/resources"
 )

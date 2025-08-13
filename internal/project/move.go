@@ -14,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/workspace"

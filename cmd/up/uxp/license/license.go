@@ -8,7 +8,7 @@ import (
 	"github.com/alecthomas/kong"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	"github.com/upbound/up/internal/upbound"

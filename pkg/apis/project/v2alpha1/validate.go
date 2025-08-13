@@ -7,8 +7,8 @@ package v2alpha1
 import (
 	"path/filepath"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 )
 
 // Validate validates a project.

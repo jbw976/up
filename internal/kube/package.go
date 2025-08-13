@@ -19,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	commonv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
 	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
