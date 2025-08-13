@@ -31,7 +31,6 @@ import (
 	"github.com/upbound/up/cmd/up/function"
 	"github.com/upbound/up/cmd/up/group"
 	"github.com/upbound/up/cmd/up/login"
-	"github.com/upbound/up/cmd/up/migration"
 	"github.com/upbound/up/cmd/up/operation"
 	"github.com/upbound/up/cmd/up/organization"
 	"github.com/upbound/up/cmd/up/profile"
@@ -239,11 +238,10 @@ func (a *alpha) BeforeReset(ctx *kong.Context) error { //nolint:unparam // Kong 
 
 type alpha struct {
 	// ControlPlane has two alpha commands: `simulate` and `simulation`.
-	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                                                                                                          help:"Interact with control planes." hidden:""        name:"controlplane"`
-	Migration    migration.Cmd    `cmd:""        help:"Migrate control planes to Upbound Managed Control Planes. Deprecated: use \"up controlplane migration\" command instead." hidden:""`
-	Trace        tracecmd.Cmd     `cmd:""        help:"Trace a Crossplane resource."                                                                                             hidden:""                            maturity:"alpha"`
-	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes."                                                                             hidden:""                            maturity:"alpha"`
-	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane."                                                                                hidden:""                            maturity:"alpha"`
+	ControlPlane controlplane.Cmd `aliases:"ctp" cmd:""                                       help:"Interact with control planes."             hidden:"" name:"controlplane"`
+	Trace        tracecmd.Cmd     `cmd:""        help:"Trace a Crossplane resource."          hidden:""                                  maturity:"alpha"`
+	Query        query.QueryCmd   `cmd:""        help:"Query objects in one or many control planes." hidden:""                           maturity:"alpha"`
+	Get          query.GetCmd     `cmd:""        help:"Get objects in the current control plane." hidden:""                              maturity:"alpha"`
 	// Xpkg has one alpha command: `append`.
 	Xpkg xpkg.Cmd `cmd:"" help:"Manage Crossplane packages." hidden:""`
 }
