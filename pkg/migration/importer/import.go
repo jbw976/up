@@ -55,6 +55,9 @@ var (
 		"compositionrevisions.apiextensions.crossplane.io",
 		"compositions.apiextensions.crossplane.io",
 		"compositeresourcedefinitions.apiextensions.crossplane.io",
+		// Managed Resource Definitions
+		"managedresourceactivationpolicies.apiextensions.crossplane.io",
+		"managedresourcedefinitions.apiextensions.crossplane.io",
 		// Packages
 		"providers.pkg.crossplane.io",
 		"functions.pkg.crossplane.io",
