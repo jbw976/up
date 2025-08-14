@@ -1,0 +1,314 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: E2E Tests
+
+on:
+  workflow_call:
+    inputs:
+      platform-arch:
+        description: 'Platform architecture string'
+        required: true
+        type: string
+      aws-region:
+        description: 'AWS region'
+        required: false
+        type: string
+        default: 'us-east-1'
+    secrets:
+      upbound-robot-token:
+        description: 'Upbound robot token'
+        required: true
+      upbound-robot-id:
+        description: 'Upbound robot ID'
+        required: true
+      aws-role-arn:
+        description: 'AWS role ARN for OIDC'
+        required: true
+
+env:
+  AWS_REGION: ${{ inputs.aws-region }}
+
+jobs:
+  e2e:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Download Artifacts
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: _output/bin/${{ inputs.platform-arch }}
+          key: up-build-${{ github.run_id }}
+
+      - name: up
+        run: |
+          mkdir -p ~/up-cli-bin
+          cp _output/bin/${{ inputs.platform-arch }}/up ~/up-cli-bin/
+          chmod +x ~/up-cli-bin/up
+          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
+
+      - name: up version
+        run: |
+          up version
+
+      - name: up login with robot
+        run: |
+          up login -t ${{ secrets.upbound-robot-token }} --organization=upbound
+
+      - name: up project init
+        run: |
+          up project init --empty e2e-test
+
+      - name: assert project
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project.yaml
+          expected_result: PASSED
+
+      - name: up project deps
+        run: |
+          cd e2e-test
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.0
+
+      - name: assert project with deps
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project-with-dependencies.yaml
+          expected_result: PASSED
+
+      - name: up example generate
+        run: |
+          cd e2e-test
+          up example generate \
+            --type xr \
+            --scope cluster \
+            --api-group acme.comp \
+            --api-version v1beta1 \
+            --kind XCluster \
+            --name example
+
+      - name: assert claim
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/examples/xcluster/example.yaml
+          assert_file_path: e2e/example.yaml
+          expected_result: PASSED
+
+      - name: up xrd generate
+        run: |
+          cd e2e-test
+          up xrd generate examples/xcluster/example.yaml
+
+      - name: assert xrd
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/definition.yaml
+          assert_file_path: e2e/definition.yaml
+          expected_result: PASSED
+
+      - name: up composition generate
+        run: |
+          cd e2e-test
+          up composition generate examples/xcluster/example.yaml
+
+      - name: assert composition
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/composition.yaml
+          assert_file_path: e2e/composition.yaml
+          expected_result: PASSED
+
+      - name: assert project after composition generate
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/upbound.yaml
+          assert_file_path: e2e/project-after-compositon-generate.yaml
+          expected_result: PASSED
+
+      - name: up function generate
+        run: |
+          cd e2e-test
+          up function generate --language=kcl xcluster apis/xclusters/composition.yaml
+
+      - name: assert composition with embedded function
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/apis/xclusters/composition.yaml
+          assert_file_path: e2e/composition-with-embedded-function.yaml
+          expected_result: PASSED
+
+      - name: assert main.k from embedded function
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat e2e-test/functions/xcluster/main.k
+          assert_file_path: e2e/main.k
+          expected_result: PASSED
+
+      - name: up project build
+        run: |
+          cd e2e-test
+          up project build
+
+      - name: assert uppkg exists
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: ls _output/e2e-test.uppkg
+          contains: _output/e2e-test.uppkg
+          expected_result: PASSED
+
+      - name: Login to xpkg with robot
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.upbound-robot-id }}
+          password: ${{ secrets.upbound-robot-token }}
+
+      - name: up project push
+        run: |
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project push --tag=${VERSION}
+
+      - name: up project run
+        run: |
+          eval $(make --no-print-directory build.vars)
+          cd e2e-test
+          up project run --local --timeout=30m
+          # The run command waits for packages to be healthy; make sure that's
+          # working properly by waiting a very short interval for health.
+          kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
+          kubectl wait pkg --all --for=condition=Healthy --timeout 5s
+          kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
+          kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
+          kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
+
+      - name: up project stop
+        run: |
+          cd e2e-test
+          up project stop --local --force
+
+      - name: assert kind cluster was destroyed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: kind get clusters
+          contains: e2e-test
+          expected_result: FAILED
+
+      - name: assert docker container were removed
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: docker ps -a
+          contains: e2e-test
+          expected_result: FAILED
+
+  e2e-project-template-aws-s3:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+
+    strategy:
+      matrix:
+        language: [go, go-templating, kcl, python]
+        test-language: [kcl, python]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Download Artifacts
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: _output/bin/${{ inputs.platform-arch }}
+          key: up-build-${{ github.run_id }}
+
+      - name: up
+        run: |
+          mkdir -p ~/up-cli-bin
+          cp _output/bin/${{ inputs.platform-arch }}/up ~/up-cli-bin/
+          chmod +x ~/up-cli-bin/up
+          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
+
+      - name: up version
+        run: |
+          up version
+
+      - name: generate project name
+        run: |
+          echo "PROJECT_NAME=up-e2e-${{ matrix.language }}-${{ matrix.test-language }}-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: up project init
+        run: |
+          up project init \
+            --organization=upbound \
+            -t upbound/project-template-aws-s3 \
+            --language ${{ matrix.language }} \
+            --test-language ${{ matrix.test-language }} \
+            $PROJECT_NAME
+          cd $PROJECT_NAME
+          up project build
+
+      - name: up composition render
+        run: |
+          cd $PROJECT_NAME
+          up composition render apis/xstoragebucket/composition.yaml examples/xstoragebuckets/example.yaml --xrd apis/xstoragebucket/definition.yaml -q >> render.yaml
+
+      - name: assert up composition render
+        uses: GuillaumeFalourd/assert-command-line-output@main
+        with:
+          command_line: cat $PROJECT_NAME/render.yaml
+          assert_file_path: e2e/render-${{ matrix.language }}.yaml
+          expected_result: PASSED
+
+      - name: up test run
+        if: matrix.test-language == 'kcl' || matrix.test-language == 'python'
+        run: |
+          cd $PROJECT_NAME
+          up test run tests/*
+
+      - name: up login with robot
+        run: |
+          up login -t ${{ secrets.upbound-robot-token }} --organization=upbound
+
+      - name: up ctx
+        run: |
+          up ctx upbound/upbound-gcp-us-central-1/up-e2e
+
+      - name: Login to xpkg with robot
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.upbound-robot-id }}
+          password: ${{ secrets.upbound-robot-token }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: ${{ secrets.aws-role-arn }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: up project move
+        run: |
+          cd $PROJECT_NAME
+          up project move xpkg.upbound.io/upbound/project-template-aws-s3
+
+      - name: up test run --e2e
+        env:
+          UP_AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          UP_AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
+        run: |
+          cd $PROJECT_NAME
+          up test run tests/e2etest-xstoragebucket --e2e

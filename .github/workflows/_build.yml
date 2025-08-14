@@ -1,0 +1,279 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      docker-buildx-version:
+        description: 'Version of Docker Buildx to use'
+        required: false
+        type: string
+        default: 'v0.17.1'
+      create-release:
+        description: 'Whether to create a GitHub release'
+        required: false
+        type: boolean
+        default: false
+      promote-main:
+        description: 'Whether to promote this build to the main channel'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: 'GitHub token for releases'
+        required: true
+      docker-usr:
+        description: 'Docker Hub username'
+        required: false
+      docker-psw:
+        description: 'Docker Hub password'
+        required: false
+      xpkg-access-id:
+        description: 'XPKG registry access ID'
+        required: false
+      xpkg-token:
+        description: 'XPKG registry token'
+        required: false
+      aws-usr:
+        description: 'AWS access key ID'
+        required: false
+      aws-psw:
+        description: 'AWS secret access key'
+        required: false
+      upbound-bot-github-token:
+        description: 'GitHub token for private module access'
+        required: true
+    outputs:
+      platform-arch:
+        description: 'Platform architecture string'
+        value: ${{ jobs.build.outputs.platform-arch }}
+
+env:
+  AWS_REGION: us-east-1
+  DOCKER_USR: ${{ secrets.docker-usr }}
+  AWS_USR: ${{ secrets.aws-usr }}
+  XPKG_ACCESS_ID: ${{ secrets.xpkg-access-id }}
+
+jobs:
+  build:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    outputs:
+      platform-arch: ${{ env.PLATFORM_ARCH }}
+
+    steps:
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
+        with:
+          platforms: all
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+        with:
+          version: ${{ inputs.docker-buildx-version }}
+          install: true
+
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Restore Go cache
+        id: restore-cache
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
+
+      - name: Build Artifacts
+        run: make -j2 build.all
+        env:
+          BUILD_ARGS: "--load"
+          RELEASE_TARGET: "release"
+
+      - name: Save Go cache
+        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        if: steps.restore-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+
+      - name: Platform Architecture
+        id: determine-platform
+        run: |
+          PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64) ARCH="arm64" ;;
+            *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+          esac
+          PLATFORM_ARCH="${PLATFORM}_${ARCH}"
+          echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
+
+      - name: Upload Artifacts
+        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: _output/bin/${{ env.PLATFORM_ARCH }}
+          key: up-build-${{ github.run_id }}
+
+      - name: Create release
+        if: inputs.create-release
+        id: create_release
+        uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux AMD64 schema-generator
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/linux_amd64/schema-generator
+          asset_name: schema-generator-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux ARM64 schema-generator
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/linux_arm64/schema-generator
+          asset_name: schema-generator-linux-arm64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Darwin AMD64 schema-generator
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/darwin_amd64/schema-generator
+          asset_name: schema-generator-darwin-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Darwin ARM64 schema-generator
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/darwin_arm64/schema-generator
+          asset_name: schema-generator-darwin-arm64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux AMD64 up
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/linux_amd64/up
+          asset_name: up-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux ARM64 up
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/linux_arm64/up
+          asset_name: up-linux-arm64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Darwin AMD64 up
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/darwin_amd64/up
+          asset_name: up-darwin-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Darwin ARM64 up
+        if: inputs.create-release
+        uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 # v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./_output/bin/darwin_arm64/up
+          asset_name: up-darwin-arm64
+          asset_content_type: application/octet-stream
+
+      - name: Login to Docker
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        if: env.DOCKER_USR != ''
+        with:
+          username: ${{ secrets.docker-usr }}
+          password: ${{ secrets.docker-psw }}
+
+      - name: Login to Upbound
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        if: env.XPKG_ACCESS_ID != ''
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.xpkg-access-id }}
+          password: ${{ secrets.xpkg-token }}
+
+      - name: Publish Artifacts to S3 and Docker Hub
+        run: make -j2 publish BRANCH_NAME=${GITHUB_REF##*/}
+        if: env.AWS_USR != '' && env.DOCKER_USR != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
+          AWS_DEFAULT_REGION: us-east-1
+          GIT_API_TOKEN: ${{ secrets.github-token }}
+
+      - name: Promote Artifacts in S3 and Docker Hub
+        if: inputs.promote-main && env.AWS_USR != '' && env.DOCKER_USR != ''
+        run: make -j2 promote
+        env:
+          BRANCH_NAME: main
+          CHANNEL: main
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
+          AWS_DEFAULT_REGION: us-east-1
