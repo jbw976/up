@@ -51,10 +51,7 @@ func (c *getCmd) Run(p pterm.TextPrinter) error {
 		return errors.Wrap(err, errFailedToReadConfig)
 	}
 
-	values, err := conf.GetBaseConfiguration()
-	if err != nil {
-		return errors.Wrap(err, "failed to get base configuration")
-	}
+	values := conf.GetBaseConfiguration()
 
 	p.Printfln("Configuration:")
 	for key, value := range values {
@@ -91,11 +88,7 @@ func (c *setCmd) Run(p pterm.TextPrinter) error {
 		return errors.Wrap(err, errFailedToReadConfig)
 	}
 
-	values, err := conf.GetBaseConfiguration()
-	if err != nil {
-		return errors.Wrap(err, "failed to get base configuration")
-	}
-
+	values := conf.GetBaseConfiguration()
 	if !config.IsConfigurationFlag(c.Key) {
 		p.Printfln("Invalid configuration key: %s", c.Key)
 		p.Printfln("Valid configuration keys:")
@@ -114,9 +107,8 @@ func (c *setCmd) Run(p pterm.TextPrinter) error {
 		return nil
 	}
 
-	if err := conf.SetBaseConfiguration(c.Key, c.Value); err != nil {
-		return errors.Wrap(err, "failed to set base configuration")
-	}
+	conf.SetBaseConfiguration(c.Key, c.Value)
+
 	if err := src.UpdateConfig(conf); err != nil {
 		return errors.Wrap(err, errFailedToWriteConfig)
 	}

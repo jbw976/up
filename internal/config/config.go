@@ -289,26 +289,34 @@ func (c *Config) SetDefaultUpboundProfile(name string) error {
 }
 
 // GetBaseConfiguration returns the persisted base configuration associated with the CLI.
-func (c *Config) GetBaseConfiguration() (map[string]string, error) {
+func (c *Config) GetBaseConfiguration() map[string]string {
 	if c.Upbound.Configuration == nil {
 		c.Upbound.Configuration = make(map[string]string)
 	}
-	return c.Upbound.Configuration, nil
+	return c.Upbound.Configuration
+}
+
+// GetBaseConfigurationValue returns the configuration value for the given key,
+// or def if it's not set.
+func (c *Config) GetBaseConfigurationValue(key string, def string) string {
+	if val, ok := c.GetBaseConfiguration()[key]; ok {
+		return val
+	}
+	return def
 }
 
 // SetBaseConfiguration sets the persisted base configuration key, value pair associated with the CLI.
-func (c *Config) SetBaseConfiguration(key, value string) error {
+func (c *Config) SetBaseConfiguration(key, value string) {
 	if c.Upbound.Configuration == nil {
 		c.Upbound.Configuration = make(map[string]string)
 	}
 
 	if value == "" {
 		delete(c.Upbound.Configuration, key)
-		return nil
+		return
 	}
 
 	c.Upbound.Configuration[key] = value
-	return nil
 }
 
 // IsConfigurationFlag checks if the flag is a valid configuration flag.
