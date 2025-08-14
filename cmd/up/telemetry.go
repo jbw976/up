@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"runtime"
 	"strconv"
@@ -165,19 +166,7 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 
 	// Extract flags that were actually set (without sensitive values)
 	if node.Flags != nil {
-		var setFlags []string
-		for _, flag := range node.Flags {
-			if flag.Set && flag.Target.IsValid() {
-				setFlags = append(setFlags, flag.Name)
-			}
-		}
-
-		if len(setFlags) > 0 {
-			attrs = append(attrs, trace.WithAttributes(
-				attribute.StringSlice("flags.set", setFlags),
-				attribute.Int("flags.count", len(setFlags)),
-			))
-		}
+		attrs = append(attrs, flagAttrs(node)...)
 	}
 
 	// Extract positional arguments info (without sensitive values)
@@ -203,4 +192,36 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 	// Note: This span will be ended in main() after ctx.Run()
 	//nolint:spancheck // Span lifecycle managed globally
 	return tracer.Start(ctx, spanName, attrs...)
+}
+
+func flagAttrs(node *kong.Node) []trace.SpanStartOption {
+	var (
+		setFlags   []string
+		flagValues = map[string]string{}
+	)
+
+	for _, flag := range node.Flags {
+		if flag.Set && flag.Target.IsValid() {
+			setFlags = append(setFlags, flag.Name)
+			if flag.Tag != nil && flag.Tag.Get("telemetry") == "true" {
+				flagValues[flag.Name] = flag.Value.Target.String()
+			}
+		}
+	}
+
+	attrs := make([]trace.SpanStartOption, 0, len(flagValues)+2)
+	if len(setFlags) > 0 {
+		attrs = append(attrs, trace.WithAttributes(
+			attribute.StringSlice("flags.set", setFlags),
+			attribute.Int("flags.count", len(setFlags)),
+		))
+	}
+
+	for name, value := range flagValues {
+		attrs = append(attrs, trace.WithAttributes(
+			attribute.String(fmt.Sprintf("flags.values.%s", name), value),
+		))
+	}
+
+	return attrs
 }
