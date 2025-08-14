@@ -5,9 +5,6 @@
 package config
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
 	"maps"
 	"os"
 	"path/filepath"
@@ -291,55 +288,6 @@ func (c *Config) SetDefaultUpboundProfile(name string) error {
 	return nil
 }
 
-// GetBaseConfig returns the persisted base configuration associated with the
-// provided Profile. If the supplied name does not match an existing Profile
-// an error is returned.
-func (c *Config) GetBaseConfig(name string) (map[string]string, error) {
-	profile, ok := c.Upbound.Profiles[name]
-	if !ok {
-		return nil, errors.Errorf(errProfileNotFoundFmt, name)
-	}
-	return profile.BaseConfig, nil
-}
-
-// AddToBaseConfig adds the supplied key, value pair to the base config map of
-// the profile that corresponds to the given name. If the supplied name does
-// not match an existing Profile an error is returned. If the overrides map
-// does not currently exist on the corresponding profile, a map is initialized.
-func (c *Config) AddToBaseConfig(name, key, value string) error {
-	profile, ok := c.Upbound.Profiles[name]
-	if !ok {
-		return errors.Errorf(errProfileNotFoundFmt, name)
-	}
-
-	if profile.BaseConfig == nil {
-		profile.BaseConfig = make(map[string]string)
-	}
-
-	profile.BaseConfig[key] = value
-	c.Upbound.Profiles[name] = profile
-	return nil
-}
-
-// RemoveFromBaseConfig removes the supplied key from the base config map of
-// the Profile that corresponds to the given name. If the supplied name does
-// not match an existing Profile an error is returned. If the base config map
-// does not currently exist on the corresponding profile, a no-op occurs.
-func (c *Config) RemoveFromBaseConfig(name, key string) error {
-	profile, ok := c.Upbound.Profiles[name]
-	if !ok {
-		return errors.Errorf(errProfileNotFoundFmt, name)
-	}
-
-	if profile.BaseConfig == nil {
-		return nil
-	}
-
-	delete(profile.BaseConfig, key)
-	c.Upbound.Profiles[name] = profile
-	return nil
-}
-
 // GetBaseConfiguration returns the persisted base configuration associated with the CLI.
 func (c *Config) GetBaseConfiguration() (map[string]string, error) {
 	if c.Upbound.Configuration == nil {
@@ -385,23 +333,6 @@ func GetValidUserExposedConfigurationFlags() (map[string]ConfigurationFlag, erro
 // GetValidConfigurationFlags returns a slice of all valid configuration flags.
 func GetValidConfigurationFlags() []string {
 	return slices.Collect(maps.Keys(validConfigurationFlags))
-}
-
-// BaseToJSON converts the base config of the given Profile to JSON. If the
-// config couldn't be converted or if the supplied name does not correspond
-// to an existing Profile, an error is returned.
-func (c *Config) BaseToJSON(name string) (io.Reader, error) {
-	profile, err := c.GetBaseConfig(name)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(profile); err != nil {
-		return nil, err
-	}
-
-	return &buf, nil
 }
 
 func (c *Config) applyDefaults() {
