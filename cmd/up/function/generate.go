@@ -66,7 +66,7 @@ type generateCmd struct {
 	ProjectFile string `default:"upbound.yaml"                                                                           help:"Path to project definition file." short:"f"`
 	Repository  string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
 	CacheDir    string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
-	Language    string `default:"go-templating"                                                                          enum:"go,go-templating,kcl,python"      help:"Language for function."                        short:"l"`
+	Language    string `default:"go-templating"                                                                          enum:"go,go-templating,kcl,python"      help:"Language for function."                        short:"l"   telemetry:"true"`
 
 	functionFS        afero.Fs
 	modelsFS          afero.Fs

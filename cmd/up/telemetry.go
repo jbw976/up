@@ -115,7 +115,10 @@ func createCommandSpans(kongCtx *kong.Context) trace.Span {
 func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.Node) (context.Context, trace.Span) {
 	tracer := otelClient.Tracer()
 
-	// Build command path for span name (e.g., "up organization list")
+	// The span name will be the command path (e.g., 'up organization list')
+	// with spaces replaced by hyphens (e.g., 'up-organization-list'). We build
+	// the path manually instead of using `node.FullPath` because we don't want
+	// parenthesized aliases in our path (e.g., `up controlplane (ctp) list`).
 	var cmdPath []string
 	current := node
 	for current != nil {
@@ -125,13 +128,14 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 		current = current.Parent
 	}
 
-	spanName := strings.Join(cmdPath, "-") // e.g. "up-organization-list"
+	spanName := strings.Join(cmdPath, "-")
 
 	// Extract command metadata
 	var attrs []trace.SpanStartOption
 
 	// Add basic command info
 	attrs = append(attrs, trace.WithAttributes(
+		attribute.String("command.full", strings.Join(cmdPath, " ")),
 		attribute.String("command.name", node.Name),
 	))
 

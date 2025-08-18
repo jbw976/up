@@ -50,6 +50,73 @@ work by cloning the [upbound/docs](https://github.com/upbound/docs) repo,
 running `make start`, then using `up generate-docs` to update the CLI reference
 section.
 
+## Telemetry
+
+The CLI sends anonymous product telemetry data to Upbound via OpenTelemetry. A
+tracing span is emitted for each command and includes basic information such as
+the CLI version, the command's name, which flags were set (but not their values,
+since they may be sensitive), and whether the user is logged in (but not their
+login identity - again, sensitive).
+
+Individual commands can add more data to the span in two ways:
+
+1. Flag values we deem non-sensitive and interesting can be included by adding
+   the struct tag `telemetry:"true"`. Remember that we must not send identifying
+   or sensitive data as telemetry, so think carefully about the nature of the
+   flag value before adding it.
+2. Arbitrary values can be added by having a command's `Run` or `AfterApply`
+   methods take a `trace.Span` argument and using its `SetAttributes` method.
+
+### Testing
+
+When working on telemetry, it can be useful to see the telemetry data that will
+be sent. You can do this by running a local OpenTelemetry collector:
+
+1. Create a file called `otel-config.yaml` with the following contents:
+
+   ```yaml
+   receivers:
+     otlp:
+       protocols:
+         grpc:
+           endpoint: 0.0.0.0:4317
+         http:
+           endpoint: 0.0.0.0:4318
+           cors:
+             allowed_origins:
+               - "*"
+
+   exporters:
+     debug:
+       verbosity: detailed
+
+   service:
+     pipelines:
+       traces:
+         receivers: [otlp]
+         processors: []
+         exporters: [debug]
+   ```
+
+2. Start the OpenTelemetry collector in a container:
+
+   ```console
+   docker run -it --rm \
+       -v otel-config.yaml:/otel-config.yaml \
+       -p 4318:4318 -p 4317:4317 \
+       otel/opentelemetry-collector --config otel-config.yaml
+   ```
+
+3. Configure the CLI to use the local collector:
+
+    ```console
+    up config set telemetry.endpoint http://localhost:4317
+    up config set telemetry.insecure true
+    ```
+
+Now when you run `up`, you should see spans emitted on the terminal where you're
+running the collector.
+
 ## Release Process
 
 This is a slimmed-down version of the release process described [here](https://github.com/crossplane/release).
