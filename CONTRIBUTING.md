@@ -98,7 +98,7 @@ be sent. You can do this by running a local OpenTelemetry collector:
          exporters: [debug]
    ```
 
-2. Start the OpenTelemetry collector in a conatiner:
+2. Start the OpenTelemetry collector in a container:
 
    ```console
    docker run -it --rm \
