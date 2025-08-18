@@ -10,6 +10,11 @@ on:
         required: false
         type: string
         default: 'v0.17.1'
+      upload-artifacts:
+        description: 'Whether to upload artifacts to S3 and Docker Hub'
+        required: false
+        type: boolean
+        default: false
       create-release:
         description: 'Whether to create a GitHub release'
         required: false
@@ -44,12 +49,6 @@ on:
       platform-arch:
         description: 'Platform architecture string'
         value: ${{ jobs.build.outputs.platform-arch }}
-
-env:
-  AWS_REGION: us-east-1
-  DOCKER_USR: ${{ secrets.docker-usr }}
-  AWS_USR: ${{ secrets.aws-usr }}
-  XPKG_ACCESS_ID: ${{ secrets.xpkg-access-id }}
 
 jobs:
   build:
@@ -241,14 +240,14 @@ jobs:
 
       - name: Login to Docker
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
-        if: env.DOCKER_USR != ''
+        if: inputs.upload-artifacts
         with:
           username: ${{ secrets.docker-usr }}
           password: ${{ secrets.docker-psw }}
 
       - name: Login to Upbound
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
-        if: env.XPKG_ACCESS_ID != ''
+        if: inputs.upload-artifacts
         with:
           registry: xpkg.upbound.io
           username: ${{ secrets.xpkg-access-id }}
@@ -256,10 +255,9 @@ jobs:
 
       - name: Publish Artifacts to S3 and Docker Hub
         run: make -j2 publish BRANCH_NAME=${GITHUB_REF##*/}
-        if: env.AWS_USR != '' && env.DOCKER_USR != ''
+        if: inputs.upload-artifacts
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
           AWS_DEFAULT_REGION: us-east-1
           GIT_API_TOKEN: ${{ secrets.github-token }}
-

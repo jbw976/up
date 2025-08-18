@@ -31,6 +31,9 @@ jobs:
     with:
       docker-buildx-version: 'v0.17.1'
       create-release: ${{ startsWith(github.ref, 'refs/tags/') }}
+      # Upload artifacts to S3 and Docker Hub only for release builds (from a
+      # tag) and main builds.
+      upload-artifacts: ${{ startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       docker-usr: ${{ secrets.DOCKER_USR }}
