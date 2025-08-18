@@ -41,12 +41,12 @@ type Cmd struct {
 	Name      string `arg:""                                                                                        help:"The name of the new project to initialize."`
 	Directory string `help:"The directory to initialize. It must be empty. It will be created if it doesn't exist." type:"path"`
 
-	Scratch      bool              `aliases:"empty"                                  default:"false"                                           help:"Create a new project from scratch."`
+	Scratch      bool              `aliases:"empty"                                  default:"false"                                           help:"Create a new project from scratch." telemetry:"true"`
 	Template     string            `default:""                                       help:"The template to use to initialize the new project." short:"t"`
 	Values       map[string]string `help:"Values to use for templating the project."`
 	StateFile    string            `default:".up_wizard_state.json"                  help:"Path to wizard state file."`
-	Language     string            `default:""                                       help:"The language to use to initialize the new project." short:"l"`
-	TestLanguage string            `default:""                                       help:"The language to use for tests in the new project."`
+	Language     string            `default:""                                       help:"The language to use to initialize the new project." short:"l"                                 telemetry:"true"`
+	TestLanguage string            `default:""                                       help:"The language to use for tests in the new project."  telemetry:"true"`
 
 	SSHKey   string `help:"Optional. Specify an SSH key for authentication when initializing the new package. Used when transport protocol is 'ssh'."`
 	Username string `help:"Optional. Specify a username for authentication. Used when transport protocol is 'https' and an SSH key is not provided, or with an SSH key when the transport protocol is 'ssh'."`
