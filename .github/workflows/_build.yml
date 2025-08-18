@@ -254,7 +254,7 @@ jobs:
           password: ${{ secrets.xpkg-token }}
 
       - name: Publish Artifacts to S3 and Docker Hub
-        run: make -j2 publish BRANCH_NAME=${GITHUB_REF##*/}
+        run: make -j2 publish BRANCH_NAME=${GITHUB_REF_NAME}
         if: inputs.upload-artifacts
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}

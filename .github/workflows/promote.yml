@@ -17,7 +17,7 @@ jobs:
   promote-artifacts:
     uses: ./.github/workflows/_promote.yml
     with:
-      branch: ${{ github.ref }}
+      branch: ${{ github.ref_name }}
       version: ${{ inputs.version }}
       channel: ${{ inputs.channel }}
     secrets:

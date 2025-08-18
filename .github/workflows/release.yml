@@ -1,16 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: CI
+name: Release
 
 on:
   push:
-    branches:
-      - main
-      - release-*
-  pull_request: {}
-  workflow_dispatch: {}
-  merge_group:
-    types: [checks_requested]
+    tags:
+      - 'v*'
 
 permissions:
   id-token: write   # Required for OIDC authentication
@@ -28,8 +23,8 @@ jobs:
     uses: ./.github/workflows/_build.yml
     with:
       docker-buildx-version: 'v0.17.1'
-      create-release: false
-      upload-artifacts: ${{ github.ref == 'refs/heads/main' }}
+      create-release: true
+      upload-artifacts: true
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       docker-usr: ${{ secrets.DOCKER_USR }}
@@ -50,18 +45,3 @@ jobs:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
       aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
-
-  promote-main:
-    if: github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/_promote.yml
-    needs: [e2e-tests]
-    with:
-      branch: main
-      channel: main
-    secrets:
-      docker-usr: ${{ secrets.DOCKER_USR }}
-      docker-psw: ${{ secrets.DOCKER_PSW }}
-      xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
-      xpkg-token: ${{ secrets.XPKG_TOKEN }}
-      aws-usr: ${{ secrets.AWS_USR }}
-      aws-psw: ${{ secrets.AWS_PSW }}
