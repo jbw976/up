@@ -53,7 +53,7 @@ require (
 	github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732
 	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf
 	github.com/upbound/up/pkg/migration v0.0.0-20250725120159-e48033b28c2d
-	github.com/upbound/uxp-licensing v0.0.0-20250731105346-736639f2259c
+	github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237
 	github.com/willabides/kongplete v0.4.0
 	golang.org/x/sync v0.16.0
 	golang.org/x/term v0.33.0
