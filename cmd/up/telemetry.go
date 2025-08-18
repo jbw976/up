@@ -35,26 +35,13 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 		return errors.Wrap(err, "failed to read config")
 	}
 
-	values, err := conf.GetBaseConfiguration()
-	if err != nil {
-		return errors.Wrap(err, "failed to get base configuration")
-	}
-
-	otelDisabled, ok := values[config.ConfigurationTelemetryDisabled]
-	if !ok {
-		otelDisabled = "false"
-	}
-
+	otelDisabled := conf.GetBaseConfigurationValue(config.ConfigurationTelemetryDisabled, "false")
 	otelDisabledBool, err := strconv.ParseBool(otelDisabled)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse telemetry.disabled configuration")
 	}
 
-	otelEndpoint, ok := values[config.ConfigurationTelemetryEndpoint]
-	if !ok {
-		otelEndpoint = config.DefaultTelemetryEndpoint
-	}
-
+	otelEndpoint := conf.GetBaseConfigurationValue(config.ConfigurationTelemetryEndpoint, config.DefaultTelemetryEndpoint)
 	// Parse and normalize endpoint for OTLP gRPC exporter
 	parsedURL, err := url.Parse(otelEndpoint)
 	if err != nil {
@@ -66,43 +53,27 @@ func (c *cli) initOTEL(ctx *kong.Context) error {
 		otelEndpoint = parsedURL.Host
 	}
 
-	otelDebug, ok := values[config.ConfigurationTelemetryDebug]
-	if !ok {
-		otelDebug = "false"
-	}
+	otelDebug := conf.GetBaseConfigurationValue(config.ConfigurationTelemetryDebug, "false")
 	otelDebugBool, err := strconv.ParseBool(otelDebug)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse telemetry.debug configuration")
 	}
 	c.otelDebug = otelDebugBool
 
-	otelKey, ok := values[config.ConfigurationTelemetryKey]
-	if !ok {
-		otelKey = config.TelemetryAuthToken
-	}
-
-	otelInsecure, ok := values[config.ConfigurationTelemetryInsecure]
-	if !ok {
-		otelInsecure = "false"
-	}
+	otelInsecure := conf.GetBaseConfigurationValue(config.ConfigurationTelemetryInsecure, "false")
 	otelInsecureBool, err := strconv.ParseBool(otelInsecure)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse telemetry.insecure configuration")
 	}
 
-	otelIdentity, ok := values[config.ConfigurationTelemetryIdentity]
-	if !ok {
-		otelIdentity = ""
-	}
-
 	// Initialize OTEL client
 	otelClient, err := otel.NewClient(otel.Config{
-		Identity:    otelIdentity,
+		Identity:    conf.GetBaseConfigurationValue(config.ConfigurationTelemetryIdentity, ""),
 		ServiceName: "up-cli",
 		Endpoint:    otelEndpoint,
 		Disabled:    otelDisabledBool,
 		Debug:       otelDebugBool,
-		Key:         otelKey,
+		Key:         conf.GetBaseConfigurationValue(config.ConfigurationTelemetryKey, config.TelemetryAuthToken),
 		Insecure:    otelInsecureBool, // yes, this is expected. We overload flag for now.
 	})
 	if err != nil {

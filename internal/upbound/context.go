@@ -6,7 +6,6 @@
 package upbound
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/alecthomas/kong"
 	"github.com/go-logr/logr"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/afero"
@@ -163,19 +161,14 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		c.ProfileName = f.Profile
 	}
 
-	of, err := c.applyOverrides(f, c.ProfileName)
-	if err != nil {
-		return nil, err
-	}
-
 	// Use flag values for account and domain if they're set - these override
 	// the settings in the profile.
-	c.Organization = of.Organization
+	c.Organization = f.Organization
 	// Fall back to the deprecated account flag.
 	if c.Organization == "" {
-		c.Organization = of.Account
+		c.Organization = f.Account
 	}
-	c.Domain = of.Domain
+	c.Domain = f.Domain
 
 	// If account has not already been set, use the profile default.
 	if c.Organization == "" {
@@ -195,21 +188,21 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		}
 	}
 
-	c.APIEndpoint = of.APIEndpoint
+	c.APIEndpoint = f.APIEndpoint
 	if c.APIEndpoint == nil {
 		u := *c.Domain
 		u.Host = apiSubdomain + u.Host
 		c.APIEndpoint = &u
 	}
 
-	c.AuthEndpoint = of.AuthEndpoint
+	c.AuthEndpoint = f.AuthEndpoint
 	if c.AuthEndpoint == nil {
 		u := *c.Domain
 		u.Host = authSubdomain + u.Host
 		c.AuthEndpoint = &u
 	}
 
-	c.ProxyEndpoint = of.ProxyEndpoint
+	c.ProxyEndpoint = f.ProxyEndpoint
 	if c.ProxyEndpoint == nil {
 		u := *c.Domain
 		u.Host = proxySubdomain + u.Host
@@ -217,24 +210,24 @@ func NewFromFlags(f Flags, opts ...Option) (*Context, error) {
 		c.ProxyEndpoint = &u
 	}
 
-	c.RegistryEndpoint = of.RegistryEndpoint
+	c.RegistryEndpoint = f.RegistryEndpoint
 	if c.RegistryEndpoint == nil {
 		u := *c.Domain
 		u.Host = xpkgSubdomain + u.Host
 		c.RegistryEndpoint = &u
 	}
 
-	c.AccountsEndpoint = of.AccountsEndpoint
+	c.AccountsEndpoint = f.AccountsEndpoint
 	if c.AccountsEndpoint == nil {
 		u := *c.Domain
 		u.Host = accountsSubdomain + u.Host
 		c.AccountsEndpoint = &u
 	}
 
-	c.InsecureSkipTLSVerify = of.InsecureSkipTLSVerify
+	c.InsecureSkipTLSVerify = f.InsecureSkipTLSVerify
 
 	// setup logging
-	c.DebugLevel = of.Debug
+	c.DebugLevel = f.Debug
 	if c.Log == nil {
 		zapOpts := []zap.Opts{}
 		if f.Debug > 0 {
@@ -354,42 +347,6 @@ func (c *Context) BuildControllerClientConfig() (*rest.Config, error) {
 		cfg.BearerToken = c.Profile.Session
 	}
 	return cfg, nil
-}
-
-// applyOverrides applies applicable overrides to the given Flags based on the
-// pre-existing configs, if there are any.
-func (c *Context) applyOverrides(f Flags, profileName string) (Flags, error) {
-	// profile doesn't exist, return the supplied flags
-	if _, ok := c.Cfg.Upbound.Profiles[profileName]; !ok {
-		return f, nil
-	}
-
-	of := Flags{}
-
-	baseReader, err := c.Cfg.BaseToJSON(profileName)
-	if err != nil {
-		return of, err
-	}
-
-	overlayBytes, err := json.Marshal(f)
-	if err != nil {
-		return of, err
-	}
-
-	resolver, err := JSON(baseReader, bytes.NewReader(overlayBytes))
-	if err != nil {
-		return of, err
-	}
-	parser, err := kong.New(&of, kong.Resolvers(resolver))
-	if err != nil {
-		return of, err
-	}
-
-	if _, err = parser.Parse([]string{}); err != nil {
-		return of, err
-	}
-
-	return of, nil
 }
 
 // HasValidSession determines whether the context has a valid session token for

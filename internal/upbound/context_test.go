@@ -4,7 +4,6 @@
 package upbound
 
 import (
-	"fmt"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -73,34 +72,6 @@ var (
 			  "session": "a token",
 			  "organization": "my-org"
 			}
-		  }
-		}
-	  }
-	`
-	baseConfigJSON = `{
-		"upbound": {
-		  "default": "default",
-		  "profiles": {
-			"default": {
-			  "id": "someone@upbound.io",
-			  "type": "user",
-			  "session": "a token",
-			  "base": {
-				"UP_DOMAIN": "https://local.upbound.io",
-				"UP_ACCOUNT": "my-org",
-				"UP_INSECURE_SKIP_TLS_VERIFY": "true"
-			  }
-			},
-			"cool-profile": {
-				"id": "someone@upbound.io",
-				"type": "user",
-				"session": "a token",
-				"base": {
-				  "UP_DOMAIN": "https://local.upbound.io",
-				  "UP_ACCOUNT": "my-org",
-				  "UP_INSECURE_SKIP_TLS_VERIFY": "true"
-				}
-			  }
 		  }
 		}
 	  }
@@ -211,7 +182,7 @@ func TestNewFromFlags(t *testing.T) {
 				},
 			},
 		},
-		"PreExistingProfileNoBaseConfig": {
+		"PreExistingProfile": {
 			reason: "We should successfully return a Context if a pre-existing profile exists, but does not have a base config",
 			args: args{
 				flags: []string{},
@@ -335,83 +306,6 @@ func TestNewFromFlags(t *testing.T) {
 					ProxyEndpoint:    withURL("https://proxy.upbound.io/v1/controlPlanes"),
 					RegistryEndpoint: withURL("https://xpkg.upbound.io"),
 					AccountsEndpoint: withURL("https://accounts.upbound.io"),
-					Token:            "",
-				},
-			},
-		},
-		"PreExistingProfileBaseConfigSetProfile": {
-			reason: "We should return a Context that includes the persisted Profile from base config",
-			args: args{
-				flags: []string{},
-				opts: []Option{
-					withConfig(baseConfigJSON),
-					withPath("/.up/config.json"),
-				},
-			},
-			want: want{
-				c: &Context{
-					ProfileName:           "default",
-					Organization:          "my-org",
-					APIEndpoint:           withURL("https://api.local.upbound.io"),
-					Domain:                withURL("https://local.upbound.io"),
-					InsecureSkipTLSVerify: true,
-					Profile: profile.Profile{
-						ID:        "someone@upbound.io",
-						Type:      profile.TypeCloud,
-						TokenType: profile.TokenTypeUser,
-						Session:   "a token",
-						Account:   "",
-						BaseConfig: map[string]string{
-							"UP_ACCOUNT":                  "my-org",
-							"UP_DOMAIN":                   "https://local.upbound.io",
-							"UP_INSECURE_SKIP_TLS_VERIFY": "true",
-						},
-					},
-					AuthEndpoint:     withURL("https://auth.local.upbound.io"),
-					ProxyEndpoint:    withURL("https://proxy.local.upbound.io/v1/controlPlanes"),
-					RegistryEndpoint: withURL("https://xpkg.local.upbound.io"),
-					AccountsEndpoint: withURL("https://accounts.local.upbound.io"),
-					Token:            "",
-				},
-			},
-		},
-		"PreExistingBaseConfigOverrideThroughFlags": {
-			reason: "We should return a Context that includes the persisted Profile from base config overridden based on flags",
-			args: args{
-				flags: []string{
-					"--profile=cool-profile",
-					"--account=not-my-org",
-					fmt.Sprintf("--domain=%s", withURL("http://a.domain.org")),
-					fmt.Sprintf("--override-api-endpoint=%s", withURL("http://not.a.url")),
-				},
-				opts: []Option{
-					withConfig(baseConfigJSON),
-					withPath("/.up/config.json"),
-				},
-			},
-			want: want{
-				c: &Context{
-					ProfileName:           "cool-profile",
-					Organization:          "not-my-org",
-					APIEndpoint:           withURL("http://not.a.url"),
-					Domain:                withURL("http://a.domain.org"),
-					InsecureSkipTLSVerify: true,
-					Profile: profile.Profile{
-						ID:        "someone@upbound.io",
-						Type:      profile.TypeCloud,
-						TokenType: profile.TokenTypeUser,
-						Session:   "a token",
-						Account:   "",
-						BaseConfig: map[string]string{
-							"UP_ACCOUNT":                  "my-org",
-							"UP_DOMAIN":                   "https://local.upbound.io",
-							"UP_INSECURE_SKIP_TLS_VERIFY": "true",
-						},
-					},
-					AuthEndpoint:     withURL("http://auth.a.domain.org"),
-					ProxyEndpoint:    withURL("http://proxy.a.domain.org/v1/controlPlanes"),
-					RegistryEndpoint: withURL("http://xpkg.a.domain.org"),
-					AccountsEndpoint: withURL("http://accounts.a.domain.org"),
 					Token:            "",
 				},
 			},
