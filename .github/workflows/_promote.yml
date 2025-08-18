@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Promote
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: 'Branch to promote from'
+        required: true
+        type: string
+      version:
+        description: 'Version to promote (e.g. v0.1.0)'
+        required: true
+        type: string
+      channel:
+        description: 'Release channel'
+        required: true
+        type: string
+    secrets:
+      docker-usr:
+        description: 'Docker Hub username'
+        required: false
+      docker-psw:
+        description: 'Docker Hub password'
+        required: false
+      xpkg-access-id:
+        description: 'XPKG registry access ID'
+        required: false
+      xpkg-token:
+        description: 'XPKG registry token'
+        required: false
+      aws-usr:
+        description: 'AWS access key ID'
+        required: false
+      aws-psw:
+        description: 'AWS secret access key'
+        required: false
+
+jobs:
+  promote-artifacts:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+
+      - name: Login to Docker
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          username: ${{ secrets.docker-usr }}
+          password: ${{ secrets.docker-psw }}
+
+      - name: Login to Upbound
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.xpkg-access-id }}
+          password: ${{ secrets.xpkg-token }}
+
+      - name: Promote Artifacts in S3 and Docker Hub
+        run: make -j2 promote
+        env:
+          BRANCH_NAME: ${{ inputs.branch }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
+          AWS_DEFAULT_REGION: us-east-1

@@ -15,11 +15,6 @@ on:
         required: false
         type: boolean
         default: false
-      promote-main:
-        description: 'Whether to promote this build to the main channel'
-        required: false
-        type: boolean
-        default: false
     secrets:
       github-token:
         description: 'GitHub token for releases'
@@ -268,12 +263,3 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
           GIT_API_TOKEN: ${{ secrets.github-token }}
 
-      - name: Promote Artifacts in S3 and Docker Hub
-        if: inputs.promote-main && env.AWS_USR != '' && env.DOCKER_USR != ''
-        run: make -j2 promote
-        env:
-          BRANCH_NAME: main
-          CHANNEL: main
-          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
-          AWS_DEFAULT_REGION: us-east-1
