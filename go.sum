@@ -1728,8 +1728,8 @@ github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732 h1:XtGNTLYZyo
 github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732/go.mod h1:LO1oxiu1bQwCLxeWpo33rgW4v3rIGx9QPyhYacRAPQE=
 github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf h1:J4a0RB1hJ937ETbJB++2OYjwYKYud0bnReR0xN3Ou6k=
 github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf/go.mod h1:ao1J97sWqCwn3Ry7wo5iV7OSVDpV348V17n1Qe1YkFs=
-github.com/upbound/uxp-licensing v0.0.0-20250731105346-736639f2259c h1:7R04CFoU/NDvkGGx5LBg5Q9hl9tBrhVcWSuYSBZftPI=
-github.com/upbound/uxp-licensing v0.0.0-20250731105346-736639f2259c/go.mod h1:NlRLe7FZjseGsD7y1hEdMii1qYQIVdvDOxPfWQanvdM=
+github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237 h1:WVEqFNbLXUu9YseG1++OH/ZhHj3WGU3oB3r4yeJP/EM=
+github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237/go.mod h1:NlRLe7FZjseGsD7y1hEdMii1qYQIVdvDOxPfWQanvdM=
 github.com/vbatts/tar-split v0.12.1 h1:CqKoORW7BUWBe7UL/iqTVvkTBOF8UvOMKOIZykxnnbo=
 github.com/vbatts/tar-split v0.12.1/go.mod h1:eF6B6i6ftWQcDqEn3/iGFRFRo8cBIMSJVOpnNdfTMFA=
 github.com/vladimirvivien/gexe v0.4.1 h1:W9gWkp8vSPjDoXDu04Yp4KljpVMaSt8IQuHswLDd5LY=
