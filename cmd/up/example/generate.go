@@ -61,9 +61,9 @@ type generateCmd struct {
 	Path   string `help:"Specifies the path to the output file where the  Composite Resource (XR) or Composite Resource Claim (XRC) will be saved." optional:""`
 	Output string `default:"file"                                                                                                                   enum:"file,yaml,json" help:"Specifies the output format for the results. Use 'file' to save to a file, 'yaml' to display the  Composite Resource (XR) or Composite Resource Claim (XRC) in YAML format, or 'json' to display in JSON format." short:"o"`
 
-	Type string `default:"" enum:"xr,xrc,claim," help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)."`
+	Type string `default:"" enum:"xr,xrc,claim," help:"Specifies the type of resource to create: 'xrc' for Composite Resource Claim (XRC), 'xr' for Composite Resource (XR)." telemetry:"true"`
 
-	Scope      string `default:""                                         enum:"cluster,namespace," help:"Specifies the XR scope (v2 only)."`
+	Scope      string `default:""                                         enum:"cluster,namespace," help:"Specifies the XR scope (v2 only)." telemetry:"true"`
 	APIGroup   string `help:"Specifies the API group for the resource."`
 	APIVersion string `help:"Specifies the API version for the resource."`
 	Kind       string `help:"Specifies the Kind of the resource."`
