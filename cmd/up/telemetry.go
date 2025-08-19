@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -139,6 +140,9 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 		attribute.String("command.name", node.Name),
 	))
 
+	// Add CI info if we detect we're running in CI.
+	attrs = append(attrs, ciAttrs()...)
+
 	// Extract flags that were actually set (without sensitive values)
 	if node.Flags != nil {
 		attrs = append(attrs, flagAttrs(node)...)
@@ -178,7 +182,7 @@ func flagAttrs(node *kong.Node) []trace.SpanStartOption {
 	for _, flag := range node.Flags {
 		if flag.Set && flag.Target.IsValid() {
 			setFlags = append(setFlags, flag.Name)
-			if flag.Tag != nil && flag.Tag.Get("telemetry") == "true" {
+			if flag.Tag != nil && parseBool(flag.Tag.Get("telemetry")) {
 				flagValues[flag.Name] = flag.Value.Target.String()
 			}
 		}
@@ -199,4 +203,66 @@ func flagAttrs(node *kong.Node) []trace.SpanStartOption {
 	}
 
 	return attrs
+}
+
+func ciAttrs() []trace.SpanStartOption {
+	// Environment variables used to detect particular CI environments, from
+	// https://learn.microsoft.com/en-us/dotnet/core/tools/telemetry#continuous-integration-detection.
+	ciEnvs := map[string]func() bool{
+		"GitHub Actions": func() bool {
+			return parseBool(os.Getenv("GITHUB_ACTIONS"))
+		},
+		"Azure Pipelines": func() bool {
+			return parseBool(os.Getenv("TF_BUILD"))
+		},
+		"Appveyor": func() bool {
+			return parseBool(os.Getenv("APPVEYOR"))
+		},
+		"Travis CI": func() bool {
+			return parseBool(os.Getenv("TRAVIS"))
+		},
+		"Circle CI": func() bool {
+			return parseBool(os.Getenv("CIRCLECI"))
+		},
+		"AWS CodeBuild": func() bool {
+			return os.Getenv("CODEBUILD_BUILD_ID") != "" && os.Getenv("AWS_REGION") != ""
+		},
+		"Jenkins": func() bool {
+			return os.Getenv("BUILD_ID") != "" && os.Getenv("BUILD_URL") != ""
+		},
+		"Google Cloud Build": func() bool {
+			return os.Getenv("BUILD_ID") != "" && os.Getenv("PROJECT_ID") != ""
+		},
+		"TeamCity": func() bool {
+			return os.Getenv("TEAMCITY_VERSION") != ""
+		},
+		"JetBrains Space": func() bool {
+			return os.Getenv("JB_SPACE_API_URL") != ""
+		},
+	}
+
+	attrs := make([]trace.SpanStartOption, 0, 2)
+
+	// First, check the generic CI variable. If it's non-empty, we're most
+	// likely in a CI environment, so set the ci.env attr to true.
+	if os.Getenv("CI") != "" {
+		attrs = append(attrs, trace.WithAttributes(attribute.Bool("ci.env", true)))
+	}
+
+	// Now, check for individual providers and fill in ci.provider if possible.
+	for provider, fn := range ciEnvs {
+		if fn() {
+			attrs = append(attrs, trace.WithAttributes(attribute.String("ci.provider", provider)))
+			break
+		}
+	}
+
+	return attrs
+}
+
+// parseBool parses a boolean value from s, returning false if the string is not
+// a bool.
+func parseBool(s string) bool {
+	b, err := strconv.ParseBool(s)
+	return b && err == nil
 }
