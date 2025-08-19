@@ -75,7 +75,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -126,7 +126,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -173,7 +173,7 @@ jobs:
       # only from publish-artifacts. This is because publish-artifacts is the
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -233,7 +233,7 @@ jobs:
       # only job whose cache contains build objects for all platforms.
       - name: Restore Go cache
         id: restore-cache
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: |
             ~/go/pkg/mod
@@ -253,7 +253,7 @@ jobs:
           RELEASE_TARGET: "release"
 
       - name: Save Go cache
-        uses: useblacksmith/cache/save@v4
+        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         if: steps.restore-cache.outputs.cache-hit != 'true'
         with:
           path: |
@@ -278,7 +278,7 @@ jobs:
       # real artifacts because downloading from blacksmith cache is much faster
       # than downloading from GH artifacts when using blacksmith runners.
       - name: Upload Artifacts
-        uses: useblacksmith/cache/save@v4
+        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: _output/bin/${{ env.PLATFORM_ARCH }}
           key: up-build-${{ github.run_id }}
@@ -442,7 +442,7 @@ jobs:
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
 
       - name: Download Artifacts
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: _output/bin/${{ env.PLATFORM_ARCH }}
           key: up-build-${{ github.run_id }}
@@ -650,7 +650,7 @@ jobs:
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
 
       - name: Download Artifacts
-        uses: useblacksmith/cache/restore@v4
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 # v4
         with:
           path: _output/bin/${{ env.PLATFORM_ARCH }}
           key: up-build-${{ github.run_id }}
