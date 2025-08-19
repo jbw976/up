@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -253,34 +254,8 @@ var helpDescription string
 func main() {
 	c := cli{}
 
-	parser := kong.Must(&c,
-		kong.Name("up"),
-		kong.Help(helpPrinter),
-	)
-
-	kongplete.Complete(parser,
-		kongplete.WithPredictor("orgs", organization.PredictOrgs()),
-		kongplete.WithPredictor("ctps", controlplane.PredictControlPlanes()),
-		kongplete.WithPredictor("repos", repository.PredictRepos()),
-		kongplete.WithPredictor("robots", robot.PredictRobots()),
-		kongplete.WithPredictor("teams", team.PredictTeams()),
-		kongplete.WithPredictor("profiles", profile.PredictProfiles()),
-		// TODO(sttts): add get and query
-	)
-
-	if len(os.Args) == 1 {
-		_, err := parser.Parse([]string{"--help"})
-		parser.FatalIfErrorf(err)
-		return
-	}
-
-	kongCtx, err := parser.Parse(os.Args[1:])
-	parser.FatalIfErrorf(err)
-	kongCtx.BindTo(context.Background(), (*context.Context)(nil))
-	kongCtx.Model.Detail = helpDescription
-
-	// Ensure OTEL client and spans are properly shut down
-	defer func() {
+	// Ensure OTEL client and spans are properly shut down before exit.
+	exit := func(code int) {
 		// End the command span first
 		if globalCommandSpan != nil {
 			globalCommandSpan.End()
@@ -297,16 +272,63 @@ func main() {
 				}
 			}
 		}
-	}()
+
+		os.Exit(code)
+	}
+
+	parser := kong.Must(&c,
+		kong.Name("up"),
+		kong.Help(helpPrinter),
+		kong.Exit(exit),
+	)
+
+	kongplete.Complete(parser,
+		kongplete.WithPredictor("orgs", organization.PredictOrgs()),
+		kongplete.WithPredictor("ctps", controlplane.PredictControlPlanes()),
+		kongplete.WithPredictor("repos", repository.PredictRepos()),
+		kongplete.WithPredictor("robots", robot.PredictRobots()),
+		kongplete.WithPredictor("teams", team.PredictTeams()),
+		kongplete.WithPredictor("profiles", profile.PredictProfiles()),
+		// TODO(sttts): add get and query
+	)
+
+	// For help invocations, we don't end the span or wait for the otel client,
+	// since telemetry on help isn't interesting.
+	if len(os.Args) == 1 {
+		_, err := parser.Parse([]string{"--help"})
+		parser.FatalIfErrorf(err)
+		return
+	}
+
+	// If the command fails (during parse or execution) we mark the span with an
+	// error status. We don't send the error message since it may contain
+	// sensitive values (e.g., file paths), but include the error's (unwrapped)
+	// type in case it's interesting.
+
+	kongCtx, err := parser.Parse(os.Args[1:])
+	if err != nil && globalCommandSpan != nil {
+		globalCommandSpan.SetStatus(codes.Error, fmt.Sprintf("%T", unwrap(err)))
+	}
+	parser.FatalIfErrorf(err)
+	kongCtx.BindTo(context.Background(), (*context.Context)(nil))
+	kongCtx.Model.Detail = helpDescription
 
 	// Execute the command
 	err = kongCtx.Run()
 
-	// Record error in span if command failed
 	if err != nil && globalCommandSpan != nil {
-		globalCommandSpan.RecordError(err)
-		globalCommandSpan.SetStatus(codes.Error, err.Error())
+		globalCommandSpan.SetStatus(codes.Error, fmt.Sprintf("%T", unwrap(err)))
 	}
 
 	kongCtx.FatalIfErrorf(err)
+}
+
+// unwrap unwraps an error as far as possible. Unlike `errors.Unwrap` it will
+// never return nil for a non-nil error.
+func unwrap(err error) error {
+	for errors.Unwrap(err) != nil {
+		err = errors.Unwrap(err)
+	}
+
+	return err
 }
