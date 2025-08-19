@@ -384,14 +384,14 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Login to Docker
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         if: env.DOCKER_USR != ''
         with:
           username: ${{ secrets.DOCKER_USR }}
           password: ${{ secrets.DOCKER_PSW }}
 
       - name: Login to Upbound
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         if: env.XPKG_ACCESS_ID != ''
         with:
           registry: xpkg.upbound.io
@@ -566,7 +566,7 @@ jobs:
           expected_result: PASSED
 
       - name: Login to xpkg with robot
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         with:
           registry: xpkg.upbound.io
           username: ${{ secrets.UPBOUND_ROBOT_ID }}
@@ -708,7 +708,7 @@ jobs:
           up ctx upbound/upbound-gcp-us-central-1/up-e2e
 
       - name: Login to xpkg with robot
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         with:
           registry: xpkg.upbound.io
           username: ${{ secrets.UPBOUND_ROBOT_ID }}
