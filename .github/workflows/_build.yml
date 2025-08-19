@@ -10,6 +10,16 @@ on:
         required: false
         type: string
         default: 'v0.17.1'
+      # TODO(adamwg): Uploading artifacts and creating GH releases don't really
+      # belong in this workflow. Ideally, we'd just build here, upload the
+      # artifacts to GH artifacts (with a short-ish TTL), and then upload to S3
+      # and create releases in a separate step when appropriate. However, GH
+      # artifacts is slow from blacksmith, so it's much faster to upload
+      # artifacts here when necessary.
+      #
+      # This might also be obviated when we switch to goreleaser, since it can
+      # take care of conditionally uploading artifacts and creating releases as
+      # part of its build process.
       upload-artifacts:
         description: 'Whether to upload artifacts to S3 and Docker Hub'
         required: false
