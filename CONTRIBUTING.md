@@ -37,8 +37,8 @@ returned by each command's `Help()` is embedded verbatim into this
 documentation; making the generated docs look good requires a touch of care:
 
 * Don't use headings below level 4 (i.e., `#### Section`), since our help gets
-  embedded into the docs site at that level. We render all heading levels the same in the terminal
-  the same in the terminal, so it's generally best to use only level 4.
+  embedded into the docs site at that level. We render all heading levels the
+  same in the terminal, so it's generally best to use only level 4.
 * Don't use `<` characters in code blocks. We have to replace the `<` character
   with `&lt;` when we generate markdown for the documentation website, but the
   escaped version ends up being displayed verbatim in code blocks. `<` is fine
@@ -119,44 +119,48 @@ running the collector.
 
 ## Release Process
 
-This is a slimmed-down version of the release process described [here](https://github.com/crossplane/release).
+The release process for `up` is semi-automated through GitHub Actions. The
+following are the manual steps involved.
 
-1. **feature freeze**: Merge all completed features into main development branch
-   of all repos to begin "feature freeze" period.
-1. **branch repo**: Create a new release branch using the GitHub UI for the
-   repo (e.g. `release-0.25`).
+1. **branch repo**: For the first release of a particular minor version, create
+   a new release branch using the GitHub UI for the repo (e.g. `release-0.25`).
 1. **tag release**: Run the `Tag` action on the _release branch_ with the
-   desired version (e.g. `v0.25.0`).
-1. **build/publish**: Run the `CI` action on the tag.
-1. **tag next pre-release**: Run the `tag` action on the main development branch
-   with the `-0.rc.0` for the next release (e.g. `v0.26.0-0.rc.0`). (**NOTE**:
-   we added the `-0.` prefix to allow correctly sorting release candidates)
+   desired version (e.g. `v0.25.0`). This triggers the Release workflow in
+   GitHub Actions, which will do a build, create a GH release, and upload
+   artifacts.
 1. **verify**: Verify all artifacts have been published successfully, perform
    sanity testing.
-   - Check in https://cli.upbound.io/stable?prefix=build/release-0.25/v0.25.0.
-     Download some binaries / package formats and smoke test them, e.g. by
-     - (all platforms) download your architecture from the `bin` folder and run
-       it: `up version`.
-     - TODO: add more here
-   - **note**: You may keep downloading the old version for a while until CDN
-     cache is refreshed.
-1. **promote**: Run the `Promote` action on the release branch with the release
-   version being the tag name (e.g. `v0.25.0`) and the channel being
-   `alpha` or `stable`.
-1. **verify promotion**: Check that https://cli.upbound.io/stable?prefix=stable/v0.25.0/
-   has the new version.
-1. **update homebrew**: Run [`Bump Formula`](https://github.com/upbound/homebrew-tap/actions/workflows/bump-formula.yaml) action to open a PR in Homebrew
-   for the new version. Get approval and merge.
+   * Navigate to
+     [build/\<version>/\<version>/bin](https://cli.upbound.io/_?prefix=build/v0.40.1/v0.40.1/bin)
+     in the S3 bucket listing.
+   * Check that all platforms are present and have all the binaries.
+1. **promote**: Run the `Promote` action on the _tag_ with the release version
+   being the tag name (e.g. `v0.40.1`) and the channel being `alpha` or
+   `stable`.
+   * Promote RC releases to `alpha`.
+   * Promote regular patch releases to both `alpha` and `stable`.
+   * Don't promote patch releases for older minor versions.
+1. **verify promotion**: Check that
+   [stable/current](https://cli.upbound.io/_?prefix=stable/current/) has the new
+   version.
+1. **update docs**: Download the new release, check out the [docs
+   repo](https://github.com/upbound/docs/), and run `up generate-docs
+   --output-dir=<docs path>` to generate CLI reference docs. Create a PR in the
+   docs repo with the update.
+1. **update homebrew**: Run [`Bump
+   Formula`](https://github.com/upbound/homebrew-tap/actions/workflows/bump-formula.yaml)
+   action to open a PR in Homebrew for the new version. Get approval and merge.
 1. **release notes**:
-   - Open the new release tag in https://github.com/upbound/up/tags and click "Create
-     release from tag".
-   - "Generate release notes" from previous release ("auto" might not work).
-   - Make sure the release notes are complete, presize and well formatted.
-   - Publish the well authored Github release.
+   * Open the new release tag in the [GitHub
+     UI](https://github.com/upbound/up/tags) and click "Create release from
+     tag".
+   * "Generate release notes" from previous release ("auto" might not work).
+   * Make sure the release notes are complete, presize and well formatted.
+   * Publish the well authored Github release.
 1. **invalidate CDN cache**: If needed see the internal Notion documentation.
 1. **wait for CDN**: Wait for CloudFront to distribute the artifacts, e.g. wait
    until `curl -sL https://cli.upbound.io | sh -x && ./up version` gives the new
    release.
-1. **announce**: Announce the release on Twitter, Slack, etc.
-   - Crossplane Slack #Upbound: https://crossplane.slack.com/archives/C01TRKD4623
-   - TODO: where else?
+1. **announce**: Announce the release on Slack.
+   * Upbound Slack [#shiproom](https://upboundio.slack.com/archives/C08G69UGLJG)
+   * Crossplane Slack [#upbound](https://crossplane.slack.com/archives/C01TRKD4623)
