@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Check
+
+on:
+  workflow_call:
+    inputs:
+      golangci-version:
+        description: 'Version of golangci-lint to use'
+        required: false
+        type: string
+        default: 'v1.64.8'
+    secrets:
+      upbound-bot-github-token:
+        description: 'GitHub token for private module access'
+        required: true
+
+jobs:
+  lint:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Restore Go cache
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
+
+      - name: Lint
+        uses: useblacksmith/golangci-lint-action@a441b42f4a441117ad7ee20b8d84a061db747efe # v6
+        with:
+          version: ${{ inputs.golangci-version }}
+          only-new-issues: true
+
+  check-diff:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Restore Go cache
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
+
+      - name: Check Diff
+        run: make check-diff
+
+  unit-tests:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          submodules: true
+
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set Go cache date
+        shell: bash
+        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Restore Go cache
+        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
+          restore-keys: |
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
+            go-${{ runner.os }}-
+
+      - name: Run Unit Tests
+        run: |
+          GO_TAGS="integration" make -j2 test
