@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -139,6 +140,9 @@ func createCommandSpan(ctx context.Context, otelClient *otel.Client, node *kong.
 		attribute.String("command.name", node.Name),
 	))
 
+	// Add CI info if we detect we're running in CI.
+	attrs = append(attrs, ciAttrs()...)
+
 	// Extract flags that were actually set (without sensitive values)
 	if node.Flags != nil {
 		attrs = append(attrs, flagAttrs(node)...)
@@ -196,6 +200,21 @@ func flagAttrs(node *kong.Node) []trace.SpanStartOption {
 		attrs = append(attrs, trace.WithAttributes(
 			attribute.String(fmt.Sprintf("flags.values.%s", name), value),
 		))
+	}
+
+	return attrs
+}
+
+func ciAttrs() []trace.SpanStartOption {
+	ci := os.Getenv("CI")
+	gha := os.Getenv("GITHUB_ACTIONS")
+
+	var attrs []trace.SpanStartOption
+	if ci != "" {
+		attrs = append(attrs, trace.WithAttributes(attribute.Bool("ci.env", true)))
+	}
+	if gha == "true" {
+		attrs = append(attrs, trace.WithAttributes(attribute.String("ci.provider", "GitHub")))
 	}
 
 	return attrs
