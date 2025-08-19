@@ -11,8 +11,9 @@ on:
         type: string
       version:
         description: 'Version to promote (e.g. v0.1.0)'
-        required: true
+        required: false
         type: string
+        default: ''
       channel:
         description: 'Release channel'
         required: true
