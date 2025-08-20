@@ -10,8 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	pkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	image "github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"

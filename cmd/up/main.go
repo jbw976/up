@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/term"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/composition"
 	configcmd "github.com/upbound/up/cmd/up/config"

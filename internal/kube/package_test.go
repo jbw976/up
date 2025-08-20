@@ -8,9 +8,9 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	v1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	v1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
+	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 )
 
 func TestPackageHasHealthyConditions(t *testing.T) {

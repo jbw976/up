@@ -19,8 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"

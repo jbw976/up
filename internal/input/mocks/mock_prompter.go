@@ -4,7 +4,7 @@
 // Package mocks contains a mock prompter implementation for use in tests.
 package mocks
 
-import "github.com/crossplane/crossplane-runtime/pkg/errors"
+import "github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 const (
 	// ErrCannotPrompt is returned by the mock prompter.

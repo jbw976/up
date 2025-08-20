@@ -16,8 +16,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pterm/pterm"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
 	"github.com/upbound/up/internal/http/mocks"
 	inputmocks "github.com/upbound/up/internal/input/mocks"

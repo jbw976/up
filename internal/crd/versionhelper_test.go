@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
 )
 
 func TestGetCRDVersion(t *testing.T) {

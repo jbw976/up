@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"

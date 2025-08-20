@@ -14,7 +14,7 @@ import (
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	"k8s.io/client-go/restmapper"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"

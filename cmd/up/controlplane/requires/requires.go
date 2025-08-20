@@ -11,7 +11,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/upbound"

@@ -13,7 +13,7 @@ import (
 	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/organizations"

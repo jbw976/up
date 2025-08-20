@@ -14,8 +14,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/imageutil"
 	"github.com/upbound/up/internal/xpkg/dep/utils"

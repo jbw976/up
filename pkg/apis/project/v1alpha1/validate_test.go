@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 )
 
 func TestValidate(t *testing.T) {

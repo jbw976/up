@@ -12,8 +12,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	clock "k8s.io/utils/clock/testing"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 )
 
 func TestNewWindowIterator(t *testing.T) {

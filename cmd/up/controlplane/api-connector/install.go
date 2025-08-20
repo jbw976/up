@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
 	authorizationv1alpha1 "github.com/upbound/up-sdk-go/apis/authorization/v1alpha1"

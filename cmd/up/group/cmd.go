@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/internal/feature"

@@ -21,9 +21,9 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 	"k8s.io/utils/ptr"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg"
 	mxpkg "github.com/upbound/up/internal/xpkg/dep/marshaler/xpkg"

@@ -3,7 +3,7 @@
 
 package v1alpha1
 
-import "github.com/crossplane/crossplane-runtime/pkg/errors"
+import "github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 // Hub marks this type as the conversion hub.
 func (c *CompositionTest) Hub() {}

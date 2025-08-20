@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/afero"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
 
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/examples"

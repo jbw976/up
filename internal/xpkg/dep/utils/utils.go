@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 )
 
 // IsDigest checks if the given constraint is a valid digest.

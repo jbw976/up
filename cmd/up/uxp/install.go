@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"

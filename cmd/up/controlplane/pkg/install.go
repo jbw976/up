@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"

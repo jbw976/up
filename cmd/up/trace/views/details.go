@@ -14,8 +14,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	xpkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	"github.com/upbound/up/cmd/up/trace/model"
 	"github.com/upbound/up/cmd/up/trace/style"

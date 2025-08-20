@@ -3,7 +3,7 @@
 
 package xpkg
 
-import metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+import metav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 // InitContext defines the details we're interested in for populating a meta file.
 type InitContext struct {

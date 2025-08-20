@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/util/podutils"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"

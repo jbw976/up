@@ -15,7 +15,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 )
 
 const (

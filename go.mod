@@ -18,9 +18,9 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/crossplane/crossplane v1.21.0-rc.0.0.20250722091026-148bc49a5f76
-	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea
-	github.com/crossplane/crossplane/xcrd v0.15.0-rc.0
+	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0
+	github.com/crossplane/crossplane/v2 v2.1.0-rc.0
+	github.com/crossplane/crossplane/v2/xcrd v0.0.0
 	github.com/crossplane/uptest v1.4.0
 	github.com/docker/docker-credential-helpers v0.9.3
 	github.com/gdamore/tcell/v2 v2.8.1
@@ -36,7 +36,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/goreleaser/nfpm/v2 v2.42.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/kyverno/chainsaw v0.2.13-0.20250116043056-57a42010852a
+	github.com/kyverno/chainsaw v0.2.13-0.20250506200713-bab727ee0572
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
@@ -49,14 +49,14 @@ require (
 	github.com/sourcegraph/jsonrpc2 v0.2.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
-	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250801144414-a50e30d17153
-	github.com/upbound/up-sdk-go v1.12.1-0.20250514062122-5cbf7c61c732
-	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250721123458-f1c93b2d26cf
-	github.com/upbound/up/pkg/migration v0.0.0-20250725120159-e48033b28c2d
+	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250820091445-60634b1a874f
+	github.com/upbound/up-sdk-go v1.13.1-0.20250807100726-8dc90a854de1
+	github.com/upbound/up-sdk-go/apis v1.13.1-0.20250807100726-8dc90a854de1
+	github.com/upbound/up/pkg/migration v0.0.0-20250813115036-f191c0e8fffc
 	github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237
 	github.com/willabides/kongplete v0.4.0
 	golang.org/x/sync v0.16.0
-	golang.org/x/term v0.33.0
+	golang.org/x/term v0.34.0
 	google.golang.org/api v0.243.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -74,7 +74,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/kind v0.29.0
-	sigs.k8s.io/yaml v1.5.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -113,7 +113,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/alecthomas/repr v0.4.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/aquilax/truncate v1.0.0 // indirect
+	github.com/aquilax/truncate v1.0.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.0 // indirect
@@ -155,6 +155,7 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/creack/pty v1.1.20 // indirect
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
@@ -247,7 +248,7 @@ require (
 	k8s.io/code-generator v0.33.3 // indirect
 	k8s.io/component-helpers v0.33.3 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250704022524-ddb642e17a28 // indirect
-	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
+	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kubectl-validate v0.0.5-0.20241223122011-eb064d2f92d5 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 )
@@ -401,12 +402,12 @@ require (
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/mod v0.26.0
-	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/sys v0.34.0
-	golang.org/x/text v0.27.0
+	golang.org/x/sys v0.35.0
+	golang.org/x/text v0.28.0
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.35.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
@@ -429,7 +430,7 @@ require (
 )
 
 replace (
-	github.com/crossplane/crossplane/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
+	github.com/crossplane/crossplane/v2/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
 	github.com/golang/tools => ./internal/vendor/golang.org/x/tools
 )
 
@@ -438,9 +439,7 @@ replace github.com/upbound/up/pkg/migration => ./pkg/migration
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go v1.2.11
 
-replace github.com/crossplane/uptest => github.com/haarchri/uptest v0.0.0-20250314232719-ac1458c0331d
-
-replace github.com/kyverno/chainsaw => github.com/haarchri/chainsaw v0.0.0-20250228124511-3a2fff44e023
+replace github.com/crossplane/uptest => github.com/haarchri/uptest v0.0.0-20250806184015-a85d325208a3
 
 // Otherwise it fails with
 // # github.com/crossplane/crossplane/internal/engine

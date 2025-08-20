@@ -12,11 +12,11 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v2 "github.com/crossplane/crossplane/apis/apiextensions/v2"
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	v2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 	upboundpkgmetav1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1alpha1"
 	upboundpkgmetav1beta1 "github.com/upbound/up-sdk-go/apis/pkg/meta/v1beta1"

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/crossplane/crossplane-runtime/pkg/parser"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8syaml "sigs.k8s.io/yaml"

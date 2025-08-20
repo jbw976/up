@@ -17,7 +17,7 @@ import (
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 
-	xpmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	xpmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/upbound"

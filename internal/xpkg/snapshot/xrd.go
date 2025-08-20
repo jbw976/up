@@ -18,9 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/kube-openapi/pkg/validation/validate"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/crossplane/crossplane/xcrd"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	"github.com/crossplane/crossplane/v2/xcrd"
 
 	"github.com/upbound/up/internal/xpkg/snapshot/validator"
 )

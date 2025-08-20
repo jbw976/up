@@ -17,7 +17,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/yaml"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	queryv1alpha2 "github.com/upbound/up-sdk-go/apis/query/v1alpha2"
 	"github.com/upbound/up/cmd/up/query"

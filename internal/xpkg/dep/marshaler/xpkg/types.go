@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/parser/ndjson"
 )

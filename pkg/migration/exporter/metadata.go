@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"

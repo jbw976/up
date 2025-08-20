@@ -37,9 +37,9 @@ import (
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	kind "sigs.k8s.io/kind/pkg/cluster"
 
-	commonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	commonv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	pkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	licensev1alpha1 "github.com/upbound/controller-manager/apis/licensing/v1alpha1"
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"

@@ -16,8 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 
 	spacefeature "github.com/upbound/up/cmd/up/space/features"
 	"github.com/upbound/up/cmd/up/space/prerequisites"

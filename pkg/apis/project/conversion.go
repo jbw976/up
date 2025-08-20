@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	v1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	v1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v1alpha1"

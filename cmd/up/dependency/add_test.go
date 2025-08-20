@@ -15,8 +15,8 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgv1beta1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	pkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"

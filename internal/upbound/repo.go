@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // ParseRepository parse a repository and normalize it.

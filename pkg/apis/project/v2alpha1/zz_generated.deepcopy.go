@@ -8,7 +8,7 @@
 package v2alpha1
 
 import (
-	"github.com/crossplane/crossplane/apis/pkg/meta/v1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

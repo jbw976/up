@@ -10,7 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/utils/ptr"
 
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 )

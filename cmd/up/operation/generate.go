@@ -20,10 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
-	pkgmetav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	pkgv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
+	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	pkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"

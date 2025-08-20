@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	opsv1alpha1 "github.com/crossplane/crossplane/apis/ops/v1alpha1"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/yaml"

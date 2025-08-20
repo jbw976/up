@@ -14,7 +14,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpcommonv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	xpcommonv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	apiconnector "github.com/upbound/up/cmd/up/controlplane/api-connector"

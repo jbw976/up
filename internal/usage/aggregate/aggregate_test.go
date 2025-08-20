@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
-	"github.com/crossplane/crossplane-runtime/pkg/test"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
 	"github.com/upbound/up/internal/usage/model"
 	usagetesting "github.com/upbound/up/internal/usage/testing"

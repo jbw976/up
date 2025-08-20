@@ -9,7 +9,7 @@ import (
 	"github.com/sourcegraph/jsonrpc2"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 
 	"github.com/upbound/up/internal/xpls"
 	"github.com/upbound/up/internal/xpls/handler"

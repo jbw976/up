@@ -13,7 +13,7 @@ import (
 	"gotest.tools/v3/assert"
 	"sigs.k8s.io/yaml"
 
-	xpextv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	xpextv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
 
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"

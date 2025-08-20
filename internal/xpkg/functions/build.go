@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/spf13/afero"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"

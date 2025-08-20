@@ -6,10 +6,10 @@ package manager
 import (
 	"k8s.io/utils/ptr"
 
-	metav1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	metav1alpha1 "github.com/crossplane/crossplane/apis/pkg/meta/v1alpha1"
-	metav1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
-	"github.com/crossplane/crossplane/apis/pkg/v1beta1"
+	metav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
+	metav1alpha1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1alpha1"
+	metav1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1beta1"
+	"github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 )
 
 // ConvertToV1beta1 converts v1.Dependency types to v1beta1.Dependency types.

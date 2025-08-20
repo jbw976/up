@@ -7,7 +7,7 @@ import (
 	"github.com/pterm/pterm"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"

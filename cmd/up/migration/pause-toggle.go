@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upterm"

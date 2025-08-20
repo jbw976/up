@@ -4,7 +4,7 @@
 package v1alpha1
 
 import (
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 // Validate checks if the CompositionTest resource is properly configured.

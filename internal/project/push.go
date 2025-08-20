@@ -17,7 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/crossplane/crossplane-runtime/pkg/errors"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	sdkerrs "github.com/upbound/up-sdk-go/errors"
 	"github.com/upbound/up-sdk-go/service/repositories"
