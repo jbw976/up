@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"os"
 	"sort"
 	"strings"
 )
@@ -57,6 +58,12 @@ func getMacAddresses() (string, error) {
 }
 
 func getIdentity() string {
+	if os.Getenv("GITHUB_REPOSITORY_OWNER") == "upbound" {
+		// If we're running in an upbound-owned GitHub Action use our static CI
+		// identity to avoid polluting the data with our own usage.
+		return "upbound-ci"
+	}
+
 	identity, err := machineID()
 	if err != nil {
 		return "unknown"
