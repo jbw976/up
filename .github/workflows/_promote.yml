@@ -71,7 +71,12 @@ jobs:
           password: ${{ secrets.xpkg-token }}
 
       - name: Promote Artifacts in S3 and Docker Hub
-        run: make -j2 promote
+        run: |
+          # VERSION may be empty, which causes `make promote` to fail. Use `make
+          # build.vars` to fill it in.
+          eval $(make --no-print-directory build.vars)
+          export VERSION
+          make -j2 promote
         env:
           BRANCH_NAME: ${{ inputs.branch }}
           VERSION: ${{ inputs.version }}
