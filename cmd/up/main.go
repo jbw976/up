@@ -275,6 +275,9 @@ func main() {
 
 		os.Exit(code)
 	}
+	// If there's an error, kong will call exit with a non-zero code and defers
+	// won't run. If there's no error, make sure our telemetry shutdown runs.
+	defer exit(0)
 
 	parser := kong.Must(&c,
 		kong.Name("up"),
