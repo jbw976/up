@@ -97,37 +97,23 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Set Go cache date
-        shell: bash
-        run: echo "GO_CACHE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-
-      - name: Restore Go cache
-        id: restore-cache
-        uses: useblacksmith/cache/restore@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+      - name: Mount Go build cache
+        uses: useblacksmith/stickydisk@v1
         with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
-          restore-keys: |
-            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
-            go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-
-            go-${{ runner.os }}-
+          key: ${{ github.repository }}-go-cache
+          path: ~/.cache/go-build
+
+      - name: Mount Go mod cache
+        uses: useblacksmith/stickydisk@v1
+        with:
+          key: ${{ github.repository }}-go-mod-cache
+          path: ~/go/pkg/mod
 
       - name: Build Artifacts
         run: make -j2 build.all
         env:
           BUILD_ARGS: "--load"
           RELEASE_TARGET: "release"
-
-      - name: Save Go cache
-        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
-        if: steps.restore-cache.outputs.cache-hit != 'true'
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ env.GO_CACHE_DATE }}
 
       - name: Platform Architecture
         id: determine-platform
