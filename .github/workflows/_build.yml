@@ -129,10 +129,11 @@ jobs:
           echo "PLATFORM_ARCH=${PLATFORM_ARCH}" >> $GITHUB_ENV
 
       - name: Upload Artifacts
-        uses: useblacksmith/cache/save@c5fe29eb0efdf1cf4186b9f7fcbbcbc0cf025662 #v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          path: _output/bin/${{ env.PLATFORM_ARCH }}
-          key: up-build-${{ github.run_id }}
+          name: output
+          path: _output/bin/${{ env.PLATFORM_ARCH }}/up
+          if-no-files-found: error
 
       - name: Create release
         if: inputs.create-release
