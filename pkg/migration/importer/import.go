@@ -54,6 +54,7 @@ var (
 		// Runtime
 		"controllerconfigs.pkg.crossplane.io",
 		"deploymentruntimeconfigs.pkg.crossplane.io",
+		"imageconfigs.pkg.crossplane.io",
 		"storeconfigs.secrets.crossplane.io",
 		// Compositions
 		"compositionrevisions.apiextensions.crossplane.io",
