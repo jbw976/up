@@ -17,12 +17,9 @@ jobs:
   promote-artifacts:
     uses: ./.github/workflows/_promote.yml
     with:
-      branch: ${{ github.ref_name }}
       version: ${{ inputs.version }}
       channel: ${{ inputs.channel }}
     secrets:
-      docker-usr: ${{ secrets.DOCKER_USR }}
-      docker-psw: ${{ secrets.DOCKER_PSW }}
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}
       aws-usr: ${{ secrets.AWS_USR }}

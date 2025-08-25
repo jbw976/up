@@ -4,15 +4,17 @@ For styling guidelines, see [this document](https://github.com/crossplane/crossp
 
 ## Development Environment
 
-The project includes a git submodule that includes various helpers. After
-cloning, you'll need to make `git` download it with the following command.
+This project uses [goreleaser](https://goreleaser.com/) for builds and
+releases. Makefile targets are provided for convenience.
 
-```bash
-make submodules
-```
+We use [golangci-lint](https://golangci-lint.run/) to ensure code consistency
+and quality. Older files may have many linter issues; please fix them when you
+need to touch the file. In new code, please use `nolint` directives judiciously,
+preferring to fix lint issues rather than ignore them unless they're unavoidable
+or the fix is clearly less readable.
 
-The rest is just a usual Golang CLI project where you can find the executables
-under `cmd` folder.
+Otherwise, we use only the standard `go` toolchain, and the project structure
+follows standard Go practices.
 
 ## kong
 
@@ -128,6 +130,10 @@ following are the manual steps involved.
    desired version (e.g. `v0.25.0`). This triggers the Release workflow in
    GitHub Actions, which will do a build, create a GH release, and upload
    artifacts.
+1. **tag pre-release**: Run the `Tag` action on _main_ to create an `rc.0`
+   version of the _next_ minor release (e.g. `v0.26.0-0.rc.0`). This will not
+   trigger a release, and ensures subsequent builds from main have sensible
+   version numbers.
 1. **verify**: Verify all artifacts have been published successfully, perform
    sanity testing.
    * Navigate to

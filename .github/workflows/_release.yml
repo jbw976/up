@@ -1,16 +1,31 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Build
+name: Release
 
 on:
   workflow_call:
     secrets:
+      github-token:
+        description: 'GitHub token for releases'
+        required: true
+      xpkg-access-id:
+        description: 'XPKG registry access ID'
+        required: false
+      xpkg-token:
+        description: 'XPKG registry token'
+        required: false
+      aws-usr:
+        description: 'AWS access key ID'
+        required: false
+      aws-psw:
+        description: 'AWS secret access key'
+        required: false
       upbound-bot-github-token:
         description: 'GitHub token for private module access'
         required: true
 
 jobs:
-  build:
+  release:
     runs-on: blacksmith-8vcpu-ubuntu-2404
     steps:
       - name: Granting private modules access
@@ -21,6 +36,14 @@ jobs:
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
           fetch-depth: 0
+
+      # If we're building from main or a release branch, create a local tag so
+      # that goreleaser will run a non-snapshot release. This tag never gets
+      # pushed back to GitHub, it's purely for goreleaser's local use.
+      - name: tag
+        if: startsWith(github.ref, 'refs/heads')
+        run: |
+          git tag $(git describe)
 
       - name: Setup Go
         id: setup-go
@@ -41,10 +64,23 @@ jobs:
           key: ${{ github.repository }}-go-mod-cache
           path: ~/go/pkg/mod
 
-      - name: Build
+      - name: Login to xpkg.upbound.io
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+        with:
+          registry: xpkg.upbound.io
+          username: ${{ secrets.xpkg-access-id }}
+          password: ${{ secrets.xpkg-token }}
+
+      - name: Release
         uses: goreleaser/goreleaser-action@v6
         with:
-          args: build --snapshot --single-target
+          args: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.github-token }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
+          AWS_DEFAULT_REGION: us-east-1
+          S3_BUCKET: public-cli.releases
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -1,0 +1,284 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+# Build artifacts into _output instead of goreleaser's default `dist`
+# directory. This matches what we do in other Upbound and Crossplane projects.
+dist: _output
+
+# We use snapshots for pull request CI builds. The version number doesn't
+# *really* matter, but using the git summary makes it obvious where the build
+# came from.
+snapshot:
+  version_template: "{{ .Summary }}"
+
+builds:
+  - id: up
+    binary: up
+    main: ./cmd/up
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/upbound/up/internal/version.version=v{{.Version}}
+      - -X github.com/upbound/up/internal/version.gitCommit={{.ShortCommit}}
+    hooks:
+      post:
+        - hack/write-version.sh
+
+  - id: docker-credential-up
+    binary: docker-credential-up
+    main: ./cmd/docker-credential-up
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/upbound/up/internal/version.version=v{{.Version}}
+      - -X github.com/upbound/up/internal/version.gitCommit={{.ShortCommit}}
+
+  - id: schema-generator
+    binary: schema-generator
+    main: ./cmd/schema-generator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/upbound/up/internal/version.version=v{{.Version}}
+      - -X github.com/upbound/up/internal/version.gitCommit={{.ShortCommit}}
+
+# We upload raw (uncompressed) binaries as well as .tar.gz bundles of up and
+# docker-credential-up to S3. Raw binaries for all our executables get uploaded
+# to GH releases.
+archives:
+  - id: up-binaries
+    ids:
+      - up
+    name_template: "bin/{{ .Os }}_{{ .Arch }}/up"
+    formats:
+      - binary
+    files:
+      - LICENSE
+
+  - id: docker-credential-up-binaries
+    ids:
+      - docker-credential-up
+    name_template: "bin/{{ .Os }}_{{ .Arch }}/docker-credential-up"
+    formats:
+      - binary
+    files:
+      - LICENSE
+
+  - id: schema-generator-binaries
+    ids:
+      - schema-generator
+    name_template: "bin/{{ .Os }}_{{ .Arch }}/schema-generator"
+    formats:
+      - binary
+    files:
+      - LICENSE
+
+  - id: up-bundles
+    ids:
+      - up
+    name_template: "bundle/{{ .Os }}_{{ .Arch }}/up"
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+
+  - id: docker-credential-up-bundles
+    ids:
+      - docker-credential-up
+    name_template: "bundle/{{ .Os }}_{{ .Arch }}/docker-credential-up"
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+
+# We build deb and rpm packages for up and docker-credential-up, though we don't
+# have an automated way for users to get these today. We use separate entries
+# here for deb and rpm because we upload them to different locations in S3.
+nfpms:
+  - id: up-deb
+    ids:
+      - up
+    package_name: up
+    vendor: Upbound Inc.
+    homepage: https://upbound.io
+    maintainer: Upbound <support@upbound.io>
+    description: The official Upbound CLI
+    license: Upbound Software License
+    formats:
+      - deb
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/up/LICENSE
+        file_info:
+          mode: 0644
+
+  - id: up-rpm
+    ids:
+      - up
+    package_name: up
+    vendor: Upbound Inc.
+    homepage: https://upbound.io
+    maintainer: Upbound <support@upbound.io>
+    description: The official Upbound CLI
+    license: Upbound Software License
+    formats:
+      - rpm
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/up/LICENSE
+        file_info:
+          mode: 0644
+
+  - id: docker-credential-up-deb
+    ids:
+      - docker-credential-up
+    package_name: docker-credential-up
+    vendor: Upbound Inc.
+    homepage: https://upbound.io
+    maintainer: Upbound <support@upbound.io>
+    description: Upbound Docker credential helper
+    license: Upbound Software License
+    formats:
+      - deb
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/docker-credential-up/LICENSE
+        file_info:
+          mode: 0644
+
+  - id: docker-credential-up-rpm
+    ids:
+      - docker-credential-up
+    package_name: docker-credential-up
+    vendor: Upbound Inc.
+    homepage: https://upbound.io
+    maintainer: Upbound <support@upbound.io>
+    description: Upbound Docker credential helper
+    license: Upbound Software License
+    formats:
+      - rpm
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/docker-credential-up/LICENSE
+        file_info:
+          mode: 0644
+
+# We build a container image of up primarily for in-cluster use-cases like
+# generating tokens. It get pushed only to xpkg.upbound.io. We push with only a
+# version tag; the promote script adds release channel tags (:alpha or :stable).
+kos:
+  - id: up-image
+    build: up
+    base_image: gcr.io/distroless/base@sha256:fa5f94fa433728f8df3f63363ffc8dec4adcfb57e4d8c18b44bceccfea095ebc
+    user: "65532:65532"
+    repositories:
+      - xpkg.upbound.io/upbound/up-cli
+    bare: true
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    tags:
+      - "v{{ .Version }}"
+
+# We upload releases to S3 in a structure that matches what the build submodule
+# used to produce, so that our install script is compatible with old releases
+# and new releases. Note that schema-generator is an internal tool and does not
+# get uploaded to S3.
+blobs:
+  - provider: s3
+    bucket: "{{ .Env.S3_BUCKET }}"
+    directory: "build/v{{ .Version }}"
+    extra_files_only: true
+    extra_files:
+      - glob: "./_output/checksums.txt"
+      - glob: "./_output/version"
+
+  - provider: s3
+    bucket: "{{ .Env.S3_BUCKET }}"
+    directory: "/"
+    extra_files_only: true
+    extra_files:
+      - glob: "./install.sh"
+
+  - provider: s3
+    bucket: "{{ .Env.S3_BUCKET }}"
+    directory: "build/v{{ .Version }}"
+    ids:
+      - up-binaries
+      - docker-credential-up-binaries
+      - up-bundles
+      - docker-credential-up-bundles
+
+  - provider: s3
+    bucket: "{{ .Env.S3_BUCKET }}"
+    directory: "build/v{{ .Version }}/deb"
+    ids:
+      - up-deb
+      - docker-credential-up-deb
+
+  - provider: s3
+    bucket: "{{ .Env.S3_BUCKET }}"
+    directory: "build/v{{ .Version }}/rpm"
+    ids:
+      - up-rpm
+      - docker-credential-up-rpm
+
+checksum:
+  name_template: 'checksums.txt'
+  ids:
+    - up-binaries
+    - docker-credential-up-binaries
+    - up-deb
+    - docker-credential-up-deb
+    - up-rpm
+    - docker-credential-up-rpm
+
+# We create a GitHub release primarily so that the ecosystem team can easily get
+# our schema-generator binary. The repository is private, so the contents of the
+# release aren't incredibly important. Goreleaser will automatically make the
+# release a prerelease if the version has a prerelease string.
+release:
+  ids:
+    - up-binaries
+    - docker-credential-up-binaries
+    - schema-generator-binaries
+    - up-deb
+    - docker-credential-up-deb
+    - up-rpm
+    - docker-credential-up-rpm
+
+changelog:
+  use: github-native

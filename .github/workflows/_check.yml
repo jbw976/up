@@ -23,7 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
-          submodules: true
           fetch-depth: 0
 
       - name: Granting private modules access
@@ -62,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
-          submodules: true
+          fetch-depth: 0
 
       - name: Granting private modules access
         run: |
@@ -96,15 +95,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-        with:
-          submodules: true
 
       - name: Granting private modules access
         run: |
           git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
-
-      - name: Fetch History
-        run: git fetch --prune --unshallow
 
       - name: Setup Go
         id: setup-go
@@ -127,4 +121,4 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          GO_TAGS="integration" make -j2 test
+          make integration-test

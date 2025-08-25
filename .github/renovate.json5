@@ -109,7 +109,6 @@
     //   postUpgradeTasks: {
     //     // Post-upgrade tasks that are executed before a commit is made by Renovate.
     //     "commands": [
-    //       "git submodule update --init",
     //       "install-tool golang $(grep -oP \"^go \\K.+\" go.mod)",
     //       "make generate",
     //     ],
@@ -127,9 +126,8 @@
       postUpgradeTasks: {
         // Post-upgrade tasks that are executed before a commit is made by Renovate.
         "commands": [
-          "git submodule update --init",
           "install-tool golang $(grep -oP \"^go \\K.+\" go.mod)",
-          "make go.lint",
+          "make lint",
         ],
         fileFilters: [
           "**/*"

@@ -5,10 +5,6 @@ name: E2E Tests
 on:
   workflow_call:
     inputs:
-      platform-arch:
-        description: 'Platform architecture string'
-        required: true
-        type: string
       aws-region:
         description: 'AWS region'
         required: false
@@ -35,8 +31,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-        with:
-          submodules: true
 
       - name: Download Artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -171,13 +165,11 @@ jobs:
 
       - name: up project push
         run: |
-          eval $(make --no-print-directory build.vars)
           cd e2e-test
-          up project push --tag=${VERSION}
+          up project push
 
       - name: up project run
         run: |
-          eval $(make --no-print-directory build.vars)
           cd e2e-test
           up project run --local --timeout=30m
           # The run command waits for packages to be healthy; make sure that's
@@ -218,8 +210,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
-        with:
-          submodules: true
 
       - name: Setup Go
         id: setup-go
