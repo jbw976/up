@@ -38,13 +38,13 @@ jobs:
           cache: false
 
       - name: Mount Go build cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-cache
           path: ~/.cache/go-build
 
       - name: Mount Go mod cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-mod-cache
           path: ~/go/pkg/mod
@@ -76,13 +76,13 @@ jobs:
           cache: false
 
       - name: Mount Go build cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-cache
           path: ~/.cache/go-build
 
       - name: Mount Go mod cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-mod-cache
           path: ~/go/pkg/mod
@@ -114,13 +114,13 @@ jobs:
           cache: false
 
       - name: Mount Go build cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-cache
           path: ~/.cache/go-build
 
       - name: Mount Go mod cache
-        uses: useblacksmith/stickydisk@v1
+        uses: useblacksmith/stickydisk@bc0c024fcc3b738a9ad43776e261cbc53fab37af # v1
         with:
           key: ${{ github.repository }}-go-mod-cache
           path: ~/go/pkg/mod
