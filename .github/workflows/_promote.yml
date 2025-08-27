@@ -33,6 +33,9 @@ jobs:
     runs-on: blacksmith-2vcpu-ubuntu-2404
 
     steps:
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.1
+
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
