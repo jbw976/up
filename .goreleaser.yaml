@@ -279,6 +279,9 @@ release:
     - docker-credential-up-deb
     - up-rpm
     - docker-credential-up-rpm
+  prerelease: auto
+  # Don't do a release unless we built from a tag.
+  disable: '{{ if eq (trimprefix .Env.GITHUB_REF "refs/tags/") .Tag }}false{{ else }}true{{ end }}'
 
 changelog:
   use: github-native
