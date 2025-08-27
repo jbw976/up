@@ -79,7 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.github-token }}
           AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
-          AWS_DEFAULT_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-west-2
           S3_BUCKET: public-cli.releases
 
       - name: Upload Artifacts
