@@ -202,7 +202,7 @@ nfpms:
 kos:
   - id: up-image
     build: up
-    base_image: gcr.io/distroless/base@sha256:fa5f94fa433728f8df3f63363ffc8dec4adcfb57e4d8c18b44bceccfea095ebc
+    base_image: xpkg.upbound.io/upbound/up-cli-base@sha256:85dd4be03929b952523295951e07f1b28848d3e00ca88c8a72584d7c15da7cbc
     user: "65532:65532"
     repositories:
       - xpkg.upbound.io/upbound/up-cli
