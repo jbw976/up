@@ -50,7 +50,8 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           CHANNEL: ${{ inputs.channel }}
+          S3_BUCKET: public-cli.releases
           OCI_REPOSITORY: xpkg.upbound.io/upbound/up
           AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
-          AWS_DEFAULT_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-west-2
