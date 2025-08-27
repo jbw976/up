@@ -3,12 +3,7 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-      - release-*
   pull_request: {}
-  workflow_dispatch: {}
   merge_group:
     types: [checks_requested]
 
@@ -26,42 +21,15 @@ jobs:
 
   build:
     uses: ./.github/workflows/_build.yml
-    with:
-      docker-buildx-version: 'v0.17.1'
-      create-release: false
-      upload-artifacts: ${{ github.ref == 'refs/heads/main' }}
     secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-      docker-usr: ${{ secrets.DOCKER_USR }}
-      docker-psw: ${{ secrets.DOCKER_PSW }}
-      xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
-      xpkg-token: ${{ secrets.XPKG_TOKEN }}
-      aws-usr: ${{ secrets.AWS_USR }}
-      aws-psw: ${{ secrets.AWS_PSW }}
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   e2e-tests:
     uses: ./.github/workflows/_e2e.yml
     needs: [build, check]
     with:
-      platform-arch: ${{ needs.build.outputs.platform-arch }}
       aws-region: us-east-1
     secrets:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
       aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
-
-  promote-main:
-    if: github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/_promote.yml
-    needs: [e2e-tests]
-    with:
-      branch: main
-      channel: main
-    secrets:
-      docker-usr: ${{ secrets.DOCKER_USR }}
-      docker-psw: ${{ secrets.DOCKER_PSW }}
-      xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
-      xpkg-token: ${{ secrets.XPKG_TOKEN }}
-      aws-usr: ${{ secrets.AWS_USR }}
-      aws-psw: ${{ secrets.AWS_PSW }}

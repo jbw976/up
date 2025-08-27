@@ -4,8 +4,18 @@ name: Release
 
 on:
   push:
+    # We run the release workflow on pushes to main and release branches so that
+    # we get builds in S3 for every merge.
+    branches:
+      - main
+      - release-*
     tags:
+      # Run on all version tags ...
       - 'v*'
+      # ... except the -0.rc.0 tag we create to increment the minor version
+      # after a release.
+      - '!*-0.rc.0'
+  workflow_dispatch: {}
 
 permissions:
   id-token: write   # Required for OIDC authentication
@@ -19,16 +29,10 @@ jobs:
     secrets:
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
-  build:
-    uses: ./.github/workflows/_build.yml
-    with:
-      docker-buildx-version: 'v0.17.1'
-      create-release: true
-      upload-artifacts: true
+  release:
+    uses: ./.github/workflows/_release.yml
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      docker-usr: ${{ secrets.DOCKER_USR }}
-      docker-psw: ${{ secrets.DOCKER_PSW }}
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}
       aws-usr: ${{ secrets.AWS_USR }}
@@ -37,11 +41,22 @@ jobs:
 
   e2e-tests:
     uses: ./.github/workflows/_e2e.yml
-    needs: [build, check]
+    needs: [release, check]
     with:
-      platform-arch: ${{ needs.build.outputs.platform-arch }}
       aws-region: us-east-1
     secrets:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
       aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+
+  promote-main:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_promote.yml
+    needs: [e2e-tests]
+    with:
+      channel: main
+    secrets:
+      xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
+      xpkg-token: ${{ secrets.XPKG_TOKEN }}
+      aws-usr: ${{ secrets.AWS_USR }}
+      aws-psw: ${{ secrets.AWS_PSW }}
