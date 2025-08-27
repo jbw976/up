@@ -6,7 +6,7 @@ package v1alpha1
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // TestConvert verifies that Convert correctly filters and converts input to []E2ETest.

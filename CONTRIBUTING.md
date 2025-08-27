@@ -1,6 +1,21 @@
 # Contributing
 
-For styling guidelines, see [this document](https://github.com/crossplane/crossplane/blob/master/contributing/README.md).
+## Style
+
+For the most part, we follow the [Crossplane coding
+style](https://github.com/crossplane/crossplane/blob/main/contributing/README.md#coding-style),
+like most other Upbound codebases. Exceptions are described below.
+
+### Test Asseertions
+
+Unlike Crossplane, we use an assertion library, specifically
+[`gotest.tools/v3/assert`](https://pkg.go.dev/gotest.tools/v3/assert). We prefer
+this assertion library because it offers a limited number of assertions, each of
+which is relatively simple and self-explanatory (compared to, e.g., the
+`testify` libraries, which offer a huge number of complex assertions).
+
+It's also fine to use the go `testing` package and `cmp` (as in Crossplane), but
+`assert` often makes tests easier to read and write.
 
 ## Development Environment
 
