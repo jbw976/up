@@ -206,6 +206,7 @@ jobs:
       matrix:
         language: [go, go-templating, kcl, python]
         test-language: [kcl, python]
+      fail-fast: false
 
     steps:
       - name: Checkout Code
