@@ -6,7 +6,7 @@ For the most part, we follow the [Crossplane coding
 style](https://github.com/crossplane/crossplane/blob/main/contributing/README.md#coding-style),
 like most other Upbound codebases. Exceptions are described below.
 
-### Test Asseertions
+### Test Assertions
 
 Unlike Crossplane, we use an assertion library, specifically
 [`gotest.tools/v3/assert`](https://pkg.go.dev/gotest.tools/v3/assert). We prefer
