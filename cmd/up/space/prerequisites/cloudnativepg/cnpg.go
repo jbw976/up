@@ -31,7 +31,7 @@ const (
 	chartNamespace = "cnpg-system"
 
 	// Chart version to be installed.
-	version = "0.21.5"
+	version = "0.26.0"
 
 	cnpgCRD = "clusters.postgresql.cnpg.io"
 
