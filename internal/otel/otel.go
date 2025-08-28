@@ -7,6 +7,7 @@ package otel
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"go.opentelemetry.io/otel"
@@ -91,13 +92,13 @@ func (c *Client) initTracing() error {
 		// otlptracegrpc.WithCompressor("gzip"),
 	}
 
-	// Configure custom gRPC logger to suppress connection errors
-	// and silence other log messages.
-	if !c.config.Debug {
-		grpclog.SetLoggerV2(&quietGRPCLogger{})
-	} else {
-		grpclog.SetLoggerV2(grpclog.NewLoggerV2(os.Stdout, os.Stdout, os.Stderr))
+	// Silence gRPC logging unless debug is enabled. Telemetry-related logging
+	// isn't interesting or actionable for users.
+	logSink := io.Discard
+	if c.config.Debug {
+		logSink = os.Stderr
 	}
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(logSink, logSink, logSink))
 
 	if c.config.Insecure {
 		opts = append(opts, otlptracegrpc.WithInsecure())
