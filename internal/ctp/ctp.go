@@ -200,6 +200,8 @@ func WithClusterAdmin(enabled bool) EnsureDevControlPlaneOption {
 
 // DevControlPlane is a control plane used for local development. It may run in
 // a variety of ways.
+//
+//nolint:interfacebloat // This interface needs all these methods for functionality
 type DevControlPlane interface {
 	// Info returns human-friendly information about the control plane.
 	Info() string
@@ -212,6 +214,8 @@ type DevControlPlane interface {
 	Kubeconfig() clientcmd.ClientConfig
 	// Teardown tears down the control plane, deleting any resources it may use.
 	Teardown(ctx context.Context, force bool) error
+	// Cleanup removes all Crossplane resources from the control plane.
+	Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error)
 }
 
 // SideloadingControlPlane can sideload packages.
@@ -286,6 +290,15 @@ func (s *spacesDevControlPlane) Teardown(ctx context.Context, force bool) error 
 	}
 
 	return nil
+}
+
+// Cleanup removes all Crossplane resources from the control plane.
+func (s *spacesDevControlPlane) Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error) {
+	helper := &cleanupHelper{
+		client:     s.client,
+		kubeconfig: s.kubeconfig,
+	}
+	return helper.Cleanup(ctx, opts...)
 }
 
 type localDevControlPlane struct {
@@ -448,6 +461,15 @@ func (l *ingressLocalDevControlPlane) WebUIAddress() string {
 	}
 	// We should never get here.
 	return ""
+}
+
+// Cleanup removes all Crossplane resources from the control plane.
+func (l *localDevControlPlane) Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error) {
+	helper := &cleanupHelper{
+		client:     l.client,
+		kubeconfig: l.kubeconfig,
+	}
+	return helper.Cleanup(ctx, opts...)
 }
 
 // EnsureDevControlPlane ensures the existence of a control plane for
@@ -1272,6 +1294,15 @@ func (l *KubeconfigDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
 // Teardown does nothing for kubeconfig control planes.
 func (l *KubeconfigDevControlPlane) Teardown(_ context.Context, _ bool) error {
 	return nil
+}
+
+// Cleanup removes all Crossplane resources from the control plane.
+func (l *KubeconfigDevControlPlane) Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error) {
+	helper := &cleanupHelper{
+		client:     l.client,
+		kubeconfig: l.kubeconfig,
+	}
+	return helper.Cleanup(ctx, opts...)
 }
 
 // NewKubeconfigDevControlPlane returns an initialized

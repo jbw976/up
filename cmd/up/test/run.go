@@ -90,6 +90,7 @@ type runCmd struct {
 	concurrency        uint
 	proj               *v2alpha1.Project
 
+	textPrinter  pterm.TextPrinter
 	printer      upterm.ObjectPrinter
 	asyncWrapper async.WrapperFunc
 }
@@ -102,7 +103,7 @@ func (c *runCmd) Help() string {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter, textPrinter pterm.TextPrinter) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	// Read the project file.
@@ -181,6 +182,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	c.printer = printer
+	c.textPrinter = textPrinter
 	switch {
 	case bool(printer.Quiet):
 		c.asyncWrapper = async.IgnoreEvents
@@ -433,7 +435,7 @@ func parseManifests(output string) []string {
 func convertToUnstructured(manifests []string) []unstructured.Unstructured {
 	renderedManifests := make([]unstructured.Unstructured, 0, len(manifests))
 	for _, manifest := range manifests {
-		var obj map[string]interface{}
+		var obj map[string]any
 		if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
 			continue
 		}

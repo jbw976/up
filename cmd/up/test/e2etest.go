@@ -10,11 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/spf13/afero"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -36,6 +38,11 @@ import (
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
+
+// e2eTestResourceAnnotation is the annotation we apply to all resources that
+// get created as part of a test. This allows us to identify test resources for
+// cleanup.
+const e2eTestResourceAnnotation = "cli.upbound.io/e2etest"
 
 func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
 	var err error
@@ -151,18 +158,50 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 	// Channel to signal function return
 	retChan := make(chan struct{})
 
+	// Channel to wait for cleanup completion
+	cleanupDone := make(chan struct{})
+
+	// Channel to receive exit code from interrupted cleanup
+	exitCode := make(chan int, 1)
+
+	// Create a separate context for cleanup operations that can be cancelled
+	// when receiving multiple signals
+	cleanupRootCtx, cancelCleanup := context.WithCancel(context.Background())
+	defer cancelCleanup()
+
 	go func() {
 		select {
 		case <-sigChan:
-			log.Println("Received termination signal")
-			if !c.SkipControlPlaneCleanup {
-				log.Println("Cleaning up control plane...")
-				if err := devCtp.Teardown(ctx, c.Force); err != nil {
-					log.Printf("error during control plane deletion %v", err)
-				}
+			c.textPrinter.Println("")
+			c.handleInterruptedCleanup(ctx, cleanupRootCtx, cancelCleanup, devCtp, test, sigChan, cleanupDone, exitCode)
+			// Handle exit after cleanup completes
+			if code := <-exitCode; code != 0 {
+				os.Exit(code)
 			}
-			os.Exit(1)
+
 		case <-retChan:
+			c.handleNormalCleanup(ctx, cleanupRootCtx, devCtp, test, cleanupDone)
+			return
+
+		case <-ctx.Done():
+			// Context cancelled - still cleanup and teardown for E2E tests
+			if c.SkipControlPlaneCleanup {
+				c.textPrinter.Println("Context cancelled, skipping cleanup due to --skip-control-plane-cleanup flag")
+				close(cleanupDone)
+				return
+			}
+
+			c.textPrinter.Println("Context cancelled, tearing down test control plane...")
+
+			// Create a new context for teardown since the original is cancelled
+			// We need a fresh context to ensure teardown can complete
+			teardownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := devCtp.Teardown(teardownCtx, c.Force); err != nil { //nolint:contextcheck // Need fresh context as original is cancelled
+				c.textPrinter.Printfln("Error during control plane deletion: %v", err)
+			}
+			cancel()
+
+			close(cleanupDone)
 			return
 		}
 	}()
@@ -171,14 +210,9 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		// Send signal to cleanup goroutine
 		close(retChan)
 
-		// Clean up the dev control plane. We do this here rather than in the
-		// goroutine above because we can't guarantee it completes before `up`
-		// exits, and we risk leaving the control plane behind.
-		if !c.SkipControlPlaneCleanup {
-			if err := devCtp.Teardown(ctx, c.Force); err != nil {
-				log.Printf("error during control plane deletion %v", err)
-			}
-		}
+		// Wait for cleanup/teardown to complete
+		// This ensures the goroutine processes the retChan signal
+		<-cleanupDone
 	}()
 
 	ctpSchemeBuilders := []*scheme.Builder{
@@ -238,8 +272,28 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 			return fmt.Errorf("manifest %d is empty", i)
 		}
 
+		// Parse the manifest to add annotations
+		obj := &unstructured.Unstructured{}
+		if err := obj.UnmarshalJSON(manifest.Raw); err != nil {
+			return errors.Wrapf(err, "failed to unmarshal manifest %d", i)
+		}
+
+		// Add the uptest annotation
+		annotations := obj.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[e2eTestResourceAnnotation] = "true"
+		obj.SetAnnotations(annotations)
+
+		// Marshal back to JSON
+		annotatedManifest, err := obj.MarshalJSON()
+		if err != nil {
+			return errors.Wrapf(err, "failed to marshal manifest %d with annotations", i)
+		}
+
 		manifestFile := filepath.Join(tempDir, fmt.Sprintf("manifest-%d.yaml", i))
-		if err := os.WriteFile(manifestFile, manifest.Raw, 0o600); err != nil {
+		if err := os.WriteFile(manifestFile, annotatedManifest, 0o600); err != nil {
 			return errors.Wrapf(err, "failed writing manifest %d to file", i)
 		}
 
@@ -284,4 +338,198 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 	}
 
 	return nil
+}
+
+// executeCleanup performs cleanup of test resources and returns the result.
+func (c *runCmd) executeCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest) (*ctp.CleanupResult, error) {
+	var result *ctp.CleanupResult
+	var cleanupErr error
+
+	_ = c.asyncWrapper(func(ch async.EventChannel) error {
+		// Use CleanupTimeoutSeconds from test spec, default to 600 seconds (10 minutes)
+		cleanupTimeout := 600
+		if test.Spec.CleanupTimeoutSeconds != nil {
+			cleanupTimeout = *test.Spec.CleanupTimeoutSeconds
+		}
+		result, cleanupErr = devCtp.Cleanup(ctx,
+			ctp.WithCleanupEventChannel(ch),
+			ctp.WithCleanupTimeout(time.Duration(cleanupTimeout)*time.Second),
+			ctp.WithCleanupAnnotation(e2eTestResourceAnnotation))
+		return nil
+	})
+
+	return result, cleanupErr
+}
+
+// reportCleanupResult prints the cleanup result to the console.
+func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detailed bool) {
+	if err != nil {
+		c.textPrinter.Printfln("Cleanup error: %v", err)
+		return
+	}
+
+	if result == nil {
+		return
+	}
+
+	if detailed {
+		// Detailed output for interrupted cleanup
+		c.textPrinter.Printfln("Cleanup summary: %d deleted, %d remaining after %d attempts",
+			result.DeletedCount, result.RemainingCount, result.Attempts)
+
+		if len(result.Resources) > 0 {
+			c.textPrinter.Println("Resource cleanup details:")
+			if err := c.printResources(result.Resources); err != nil {
+				c.textPrinter.Printfln("Error printing resources: %v", err)
+			}
+		}
+	} else {
+		// Summary output for normal completion
+		c.textPrinter.Printfln("Cleanup completed: %d deleted, %d remaining",
+			result.DeletedCount, result.RemainingCount)
+
+		// Only show the table if there are remaining resources
+		remainingCount := 0
+		for _, r := range result.Resources {
+			if r.Status != "Deleted" {
+				remainingCount++
+			}
+		}
+
+		if remainingCount > 0 {
+			c.textPrinter.Println("Warning: Some resources could not be removed:")
+			if err := c.printResources(result.Resources); err != nil {
+				c.textPrinter.Printfln("Error printing resources: %v", err)
+			}
+		}
+	}
+}
+
+// handleInterruptedCleanup handles cleanup when interrupted by a signal.
+func (c *runCmd) handleInterruptedCleanup(ctx context.Context, cleanupCtx context.Context, cancelCleanup context.CancelFunc, devCtp ctp.DevControlPlane, test e2etest.E2ETest, sigChan chan os.Signal, cleanupDone chan struct{}, exitCode chan int) {
+	if c.SkipControlPlaneCleanup {
+		c.textPrinter.Println("Received termination signal, skipping cleanup due to --skip-control-plane-cleanup flag")
+		exitCode <- 1
+		close(cleanupDone)
+		return
+	}
+
+	c.textPrinter.Println("Received termination signal, cleaning up control plane...")
+
+	// Track if force exit is requested
+	forceExit := make(chan struct{})
+
+	// Listen for additional signals
+	go func() {
+		select {
+		case <-sigChan:
+			c.textPrinter.Println("Received second termination signal, aborting cleanup...")
+			cancelCleanup()
+			close(forceExit)
+		case <-cleanupDone:
+			// Cleanup finished normally
+		}
+	}()
+
+	// Execute cleanup
+	cleanupComplete := make(chan struct{})
+	var result *ctp.CleanupResult
+	var cleanupErr error
+
+	go func() {
+		result, cleanupErr = c.executeCleanup(cleanupCtx, devCtp, test)
+		close(cleanupComplete)
+	}()
+
+	// Wait for cleanup to complete or be cancelled
+	select {
+	case <-cleanupComplete:
+		c.reportCleanupResult(result, cleanupErr, true)
+	case <-forceExit:
+		c.textPrinter.Println("Cleanup aborted by user")
+	}
+
+	// Always teardown control plane when interrupted
+	teardownCtx := ctx
+	if cleanupCtx.Err() != nil {
+		// Cleanup was cancelled, use a timeout for teardown
+		var cancel context.CancelFunc
+		teardownCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
+
+	c.textPrinter.Println("Tearing down test control plane...")
+	if err := devCtp.Teardown(teardownCtx, c.Force); err != nil {
+		c.textPrinter.Printfln("Error during control plane deletion: %v", err)
+	}
+
+	// Send exit code based on whether cleanup was aborted
+	if cleanupCtx.Err() != nil {
+		exitCode <- 130 // Standard exit code for SIGINT
+	} else {
+		exitCode <- 1
+	}
+	close(cleanupDone)
+}
+
+// handleNormalCleanup handles cleanup when test completes normally.
+func (c *runCmd) handleNormalCleanup(ctx context.Context, cleanupCtx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, cleanupDone chan struct{}) {
+	if c.SkipControlPlaneCleanup {
+		c.textPrinter.Println("Test completed, skipping cleanup due to --skip-control-plane-cleanup flag")
+		close(cleanupDone)
+		return
+	}
+
+	c.textPrinter.Println("Test completed, cleaning up resources...")
+
+	result, cleanupErr := c.executeCleanup(cleanupCtx, devCtp, test)
+	c.reportCleanupResult(result, cleanupErr, false)
+
+	// Always teardown test control plane
+	c.textPrinter.Println("Tearing down test control plane...")
+	if err := devCtp.Teardown(ctx, c.Force); err != nil {
+		c.textPrinter.Printfln("Error during control plane deletion: %v", err)
+	} else {
+		c.textPrinter.Println("Test control plane deleted successfully")
+	}
+
+	close(cleanupDone)
+}
+
+func extractResourceFields(obj any) []string {
+	r := obj.(ctp.GenericResource) //nolint:forcetypeassert // its always GenericResource
+
+	name := fmt.Sprintf("%s.%s/%s",
+		strings.ToLower(r.GVK.Kind),
+		r.GVK.Group,
+		r.Name)
+
+	// Display external name or "-" if not present
+	externalName := r.ExternalName
+	if externalName == "" {
+		externalName = "-"
+	}
+
+	// Truncate long messages for better readability
+	displayMessage := r.Message
+	if len(displayMessage) > 80 {
+		displayMessage = displayMessage[:77] + "..."
+	}
+
+	return []string{name, externalName, r.Status, displayMessage}
+}
+
+func (c *runCmd) printResources(resources []ctp.GenericResource) error {
+	if len(resources) == 0 {
+		return nil
+	}
+
+	// Convert to []any for the printer
+	items := make([]any, len(resources))
+	for i, r := range resources {
+		items[i] = r
+	}
+
+	resourceFieldNames := []string{"NAME", "EXTERNAL-NAME", "STATUS", "MESSAGE"}
+	return c.printer.Print(items, resourceFieldNames, extractResourceFields)
 }

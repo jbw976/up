@@ -15,8 +15,10 @@ import (
 
 // MockDevControlPlane implements the DevControlPlane interface for testing.
 type MockDevControlPlane struct {
-	client     client.Client
-	kubeconfig clientcmd.ClientConfig
+	client        client.Client
+	kubeconfig    clientcmd.ClientConfig
+	cleanupResult *CleanupResult
+	cleanupErr    error
 }
 
 // NewMockDevControlPlane creates a new MockDevControlPlane with the provided client and kubeconfig.
@@ -62,4 +64,35 @@ type MockSideloadingDevControlPlane struct {
 // Sideload calls the SideloadFn callback.
 func (m *MockSideloadingDevControlPlane) Sideload(ctx context.Context, imgMap project.ImageTagMap, tag name.Tag) error {
 	return m.SideloadFn(ctx, imgMap, tag)
+}
+
+// Cleanup is a no-op implementation for the mock control plane.
+func (m *MockDevControlPlane) Cleanup(_ context.Context, _ ...CleanupOption) (*CleanupResult, error) {
+	if m.cleanupErr != nil {
+		return nil, m.cleanupErr
+	}
+
+	if m.cleanupResult != nil {
+		return m.cleanupResult, nil
+	}
+
+	return &CleanupResult{
+		DeletedCount:   0,
+		RemainingCount: 0,
+		Resources:      []GenericResource{},
+		Errors:         []error{},
+		Attempts:       1,
+	}, nil
+}
+
+// WithCleanupResult sets a specific result to be returned by Cleanup.
+func (m *MockDevControlPlane) WithCleanupResult(result *CleanupResult) *MockDevControlPlane {
+	m.cleanupResult = result
+	return m
+}
+
+// WithCleanupError sets an error to be returned by Cleanup.
+func (m *MockDevControlPlane) WithCleanupError(err error) *MockDevControlPlane {
+	m.cleanupErr = err
+	return m
 }
