@@ -101,7 +101,28 @@ func (c *updateCmd) AfterApply() error {
 func (c *updateCmd) Run(p pterm.TextPrinter) error {
 	ctx := context.Background()
 
-	// Print parameter values.
+	c.printParams(p)
+
+	targetPath, cleanupLocalTarget, err := c.prepareLocalTarget(ctx, p)
+	if err != nil {
+		return err
+	}
+	defer cleanupLocalTarget()
+
+	updatedPath, err := c.updateLocalTarget(p, c.Source, targetPath)
+	if err != nil {
+		return err
+	}
+
+	if err := c.finalizeRemoteTarget(ctx, p, updatedPath); err != nil {
+		return err
+	}
+
+	p.Printfln("\nBilling report updated successfully")
+	return nil
+}
+
+func (c *updateCmd) printParams(p pterm.TextPrinter) {
 	p.Printfln("Source file: %s", c.Source)
 	if c.isTargetInCloudStorage() {
 		p.Printfln("Target object: %s", c.Target)
@@ -114,54 +135,53 @@ func (c *updateCmd) Run(p pterm.TextPrinter) error {
 		p.Printfln("Target file: %s", c.Target)
 	}
 	p.Printfln("")
+}
 
-	var targetPath string
+// prepareLocalTarget prepares a local copy of the target report, It returns the
+// path to the local copy and a function that deletes it. If the target doesn't
+// exist at its original location, the local copy is initialized as an empty
+// report.
+func (c *updateCmd) prepareLocalTarget(ctx context.Context, p pterm.TextPrinter) (string, func(), error) {
 	if c.isTargetInCloudStorage() {
 		p.Printfln("Downloading target from cloud storage...")
-		var err error
-		targetPath, err = c.downloadFromCloudStorage(ctx)
-		if err != nil {
-			return errors.Wrap(err, "failed to download report from cloud storage")
+		path, err := c.downloadFromCloudStorage(ctx)
+		err = errors.Wrap(err, "failed to download report from cloud storage")
+		cleanup := func() {
+			c.fs.Remove(path) //nolint:errcheck // Cleaning up a tempfile
 		}
-		defer c.fs.Remove(targetPath) //nolint:errcheck // Cleaning up a tempfile
-	} else {
-		targetPath = c.Target
-		// Initialize empty report if target does not exist.
-		if _, err := os.Stat(targetPath); errors.Is(err, os.ErrNotExist) {
-			file, err := c.fs.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
-			if err != nil {
-				return errors.Wrap(err, "failed to open target file")
-			}
-			if err := createEmptyReport(file); err != nil {
-				return errors.Wrap(err, "failed to create empty report")
-			}
-		}
+		return path, cleanup, err
 	}
-
-	p.Printfln("Updating target report...")
-	updatedPath, err := c.updateReport(c.Source, targetPath)
+	cleanup := func() {}
+	_, err := os.Stat(c.Target)
+	if err == nil {
+		return c.Target, cleanup, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", nil, errors.Wrap(err, "failed to stat target file")
+	}
+	// Target doesn't exist, so initialize empty report.
+	file, err := c.fs.OpenFile(c.Target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
-		return errors.Wrap(err, "failed to update report")
+		return "", nil, errors.Wrap(err, "failed to open target file")
 	}
+	return c.Target, cleanup, errors.Wrap(createEmptyReport(file), "failed to create empty report")
+}
 
-	if c.isTargetInCloudStorage() {
-		p.Printfln("Uploading updated report to cloud storage...")
-		// Upload updated report back to cloud storage and clean up the local
-		// copy.
-		defer c.fs.Remove(updatedPath) //nolint:errcheck // Cleaning up a tempfile
-		if err := c.uploadToCloudStorage(ctx, updatedPath); err != nil {
-			return errors.Wrap(err, "failed to upload updated report to cloud storage")
-		}
-	} else {
+// finalizeRemoteTarget moves a temporary local copy of an updated target report
+// to the remote target location, replacing the original if it exists. It
+// deletes the temporary local copy.
+func (c *updateCmd) finalizeRemoteTarget(ctx context.Context, p pterm.TextPrinter, tmpUpdatedPath string) error {
+	if !c.isTargetInCloudStorage() {
 		// Target is a local file. Move the updated report to replace the
 		// target.
-		if err := c.fs.Rename(updatedPath, c.Target); err != nil {
-			return errors.Wrap(err, "failed to replace target file")
-		}
+		return errors.Wrap(c.fs.Rename(tmpUpdatedPath, c.Target), "failed to replace target file")
 	}
 
-	p.Printfln("\nBilling report updated successfully")
-	return nil
+	p.Printfln("Uploading updated report to cloud storage...")
+	// Upload updated report back to cloud storage and clean up the local
+	// copy.
+	defer c.fs.Remove(tmpUpdatedPath) //nolint:errcheck // Cleaning up a tempfile
+	return errors.Wrap(c.uploadToCloudStorage(ctx, tmpUpdatedPath), "failed to upload updated report to cloud storage")
 }
 
 // isTargetInCloudStorage returns true if the target report to be updated is in
@@ -321,10 +341,12 @@ func (c *updateCmd) gcsClient(ctx context.Context) (*storage.Client, error) {
 	return storage.NewClient(ctx, opts...)
 }
 
-// updateReport returns a path to a gzipped tarball containing the contents of
-// the consolidated report at targetPath updated with the contents of the report
-// at sourcePath.
-func (c *updateCmd) updateReport(sourcePath, targetPath string) (string, error) {
+// updateLocalTarget returns a path to a tempfile containing a gzipped tarball
+// of the consolidated report at targetPath updated with the contents of the
+// report at sourcePath.
+func (c *updateCmd) updateLocalTarget(p pterm.TextPrinter, sourcePath, targetPath string) (string, error) {
+	p.Printfln("Updating target report...")
+
 	// Create a temporary working directory for extracting data.
 	workDir, err := afero.TempDir(c.fs, "", "report-update-")
 	if err != nil {
@@ -385,23 +407,38 @@ func (c *updateCmd) createTarGzip(fs afero.Fs) (string, error) {
 	gzw := gzip.NewWriter(out)
 	tw := tar.NewWriter(gzw)
 
+	defer func() {
+		// Close remaining closers. If a closer is not nil, it means we returned
+		// an error before we could close it properly.
+		if tw != nil {
+			tw.Close() //nolint:errcheck // Already handling an error
+		}
+		if gzw != nil {
+			gzw.Close() //nolint:errcheck // Already handling an error
+		}
+		if out != nil {
+			out.Close() //nolint:errcheck // Already handling an error
+		}
+	}()
+
 	if err := tw.AddFS(afero.NewIOFS(fs)); err != nil {
-		tw.Close()  //nolint:errcheck // Already handling an error
-		gzw.Close() //nolint:errcheck // Already handling an error
-		out.Close() //nolint:errcheck // Already handling an error
 		return "", err
 	}
 
 	if err := tw.Close(); err != nil {
-		gzw.Close() //nolint:errcheck // Already handling an error
-		out.Close() //nolint:errcheck // Already handling an error
 		return "", err
 	}
+	tw = nil // Prevent double-close in defer.
 	if err := gzw.Close(); err != nil {
-		out.Close() //nolint:errcheck // Already handling an error
 		return "", err
 	}
-	return name, out.Close()
+	gzw = nil // Prevent double-close in defer.
+	if err := out.Close(); err != nil {
+		return "", err
+	}
+	out = nil // Prevent double-close in defer.
+
+	return name, nil
 }
 
 func createEmptyReport(file afero.File) error {
