@@ -18,6 +18,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.10.0
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea
 	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0
 	github.com/crossplane/crossplane/v2 v2.1.0-rc.0
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
@@ -150,7 +151,6 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/creack/pty v1.1.20 // indirect
-	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
@@ -440,3 +440,5 @@ exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b
 
 // Replace kube-openapi to use version compatible with structured-merge-diff v4
 replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59
+
+replace github.com/crossplane/crossplane/v2 => github.com/crossplane/crossplane/v2 v2.0.2

@@ -12,16 +12,13 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	chainsawapis "github.com/kyverno/chainsaw/pkg/apis"
 	chainsawv1alpha1 "github.com/kyverno/chainsaw/pkg/apis/v1alpha1"
 	chainsawchecks "github.com/kyverno/chainsaw/pkg/engine/checks"
@@ -29,30 +26,18 @@ import (
 	chainsawcompilers "github.com/kyverno/kyverno-json/pkg/core/compilers"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
-	v1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
-	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
-	uptest "github.com/crossplane/uptest/pkg"
 
-	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
-	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
-	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
-	"github.com/upbound/up/internal/filesystem"
-	"github.com/upbound/up/internal/kube"
-	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
@@ -64,6 +49,7 @@ import (
 	"github.com/upbound/up/pkg/apis"
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
+	operationtest "github.com/upbound/up/pkg/apis/operationtest/v1alpha1"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 
 	_ "embed"
@@ -89,8 +75,9 @@ type runCmd struct {
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
-	Public bool `help:"Create new repositories with public visibility."`
-	E2E    bool `help:"Run E2E"                                         name:"e2e"`
+	Public    bool `help:"Create new repositories with public visibility."`
+	E2E       bool `help:"Run E2E tests"                                   name:"e2e"`
+	Operation bool `help:"Run Operation tests"                             name:"operation"`
 
 	projFS             afero.Fs
 	testFS             afero.Fs
@@ -252,23 +239,35 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		terr     int
 	)
 
-	if c.E2E {
+	switch {
+	case c.E2E:
 		tests, err := e2etest.Convert(parsedTests)
 		if err != nil {
 			return errors.Wrap(err, "unable to validate e2e tests")
 		}
 
-		ttotal, tsuccess, terr, err = c.uptest(ctx, upCtx, tests)
+		ttotal, tsuccess, terr, err = c.runE2ETests(ctx, upCtx, tests)
 		if err != nil {
 			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute e2e tests")
 		}
-	} else {
+	case c.Operation:
+		tests, err := operationtest.Convert(parsedTests)
+		if err != nil {
+			return errors.Wrap(err, "unable to validate operation tests")
+		}
+
+		ttotal, tsuccess, terr, err = c.runOperationTests(ctx, upCtx, log, tests)
+		if err != nil {
+			displayTestResults(ttotal, tsuccess, terr)
+			return errors.Wrap(err, "unable to execute operation tests")
+		}
+	default:
 		tests, err := compositiontest.Convert(parsedTests)
 		if err != nil {
 			return errors.Wrap(err, "unable to validate composition tests")
 		}
-		ttotal, tsuccess, terr, err = c.render(ctx, upCtx, log, tests)
+		ttotal, tsuccess, terr, err = c.runCompositionTests(ctx, upCtx, log, tests)
 		if err != nil {
 			displayTestResults(ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute composition tests")
@@ -305,206 +304,6 @@ func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 	return nil
 }
 
-func (c *runCmd) render(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
-	total, success, errs := 0, 0, 0
-
-	var efns []v1.Function
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
-		functionOptions := render.FunctionOptions{
-			Project: c.proj,
-			// Use the original projFS here so schema generation knows the real
-			// path.
-			ProjFS:             c.projFS,
-			Concurrency:        c.concurrency,
-			NoBuildCache:       c.NoBuildCache,
-			BuildCacheDir:      c.BuildCacheDir,
-			DependencyManager:  c.m,
-			FunctionIdentifier: c.functionIdentifier,
-			EventChannel:       ch,
-		}
-
-		fns, err := render.BuildEmbeddedFunctionsLocalDaemon(ctx, upCtx, functionOptions)
-		if err != nil {
-			return err
-		}
-		efns = fns
-
-		return nil
-	})
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	// Create an overlay filesystem so we can write resources to temporary files
-	// that will be used during render only.
-	overlayFS := filesystem.MemOverlay(c.projFS)
-	var finalErr error
-	for _, test := range tests {
-		total++
-
-		observedResourcesPath, err := writeToFile(overlayFS, test.Spec.ObservedResources, "observed")
-		if err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			continue
-		}
-
-		extraResourcesPath, err := writeToFile(overlayFS, test.Spec.ExtraResources, "extraresources")
-		if err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			continue
-		}
-
-		xrPath := test.Spec.XRPath
-		if len(test.Spec.XR.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XR}, "xr")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			xrPath = path
-		}
-
-		compositionPath := test.Spec.CompositionPath
-		if len(test.Spec.Composition.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			compositionPath = path
-		}
-
-		xrdPath := test.Spec.XRDPath
-		if len(test.Spec.XRD.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			xrdPath = path
-		}
-
-		options := render.Options{
-			Project:                c.proj,
-			ProjFS:                 overlayFS,
-			IncludeFullXR:          true,
-			IncludeFunctionResults: true,
-			IncludeContext:         true,
-			ObservedResources:      observedResourcesPath,
-			FunctionCredentials:    test.Spec.FunctionCredentialsPath,
-			ExtraResources:         extraResourcesPath,
-			CompositeResource:      xrPath,
-			Composition:            compositionPath,
-			XRD:                    xrdPath,
-			Concurrency:            c.concurrency,
-			ImageResolver:          c.r,
-		}
-
-		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)
-		defer cancel()
-
-		output, err := render.Render(renderCtx, log, efns, options)
-		if err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			pterm.PrintOnError(err)
-			continue
-		}
-
-		if err = c.asyncWrapper(func(ch async.EventChannel) error {
-			eg, ctx := errgroup.WithContext(ctx)
-			eg.Go(func() error {
-				err = assertions(ctx, output, test.Name, test.Spec.AssertResources, ch)
-				return err
-			})
-			return eg.Wait()
-		}); err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			continue
-		}
-		success++
-	}
-
-	return total, success, errs, finalErr
-}
-
-func (c *runCmd) uptest(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
-	var err error
-	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	// Move the project, in memory only, to the desired repository.
-	basePath := ""
-	if bfs, ok := c.projFS.(*afero.BasePathFs); ok && basePath == "" {
-		basePath = afero.FullBaseFsPath(bfs, ".")
-	}
-	c.projFS = filesystem.MemOverlay(c.projFS)
-
-	if c.Repository != c.proj.Spec.Repository {
-		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
-			return 0, 0, 0, errors.Wrap(err, "failed to update project repository")
-		}
-	}
-
-	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(c.concurrency),
-		project.BuildWithFunctionIdentifier(c.functionIdentifier),
-	)
-
-	var imgMap project.ImageTagMap
-	if err = c.asyncWrapper(func(ch async.EventChannel) error {
-		eg, ctx := errgroup.WithContext(ctx)
-		eg.Go(func() error {
-			var err error
-			imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
-				project.BuildWithEventChannel(ch),
-				project.BuildWithImageLabels(common.ImageLabels(c)),
-				project.BuildWithDependencyManager(c.m),
-				project.BuildWithProjectBasePath(basePath),
-			)
-			return err
-		})
-		return eg.Wait()
-	}); err != nil {
-		return 0, 0, 0, err
-	}
-
-	if !c.NoBuildCache {
-		// Create a layer cache so that if we're building on top of base images we
-		// only pull their layers once. Note we do this here rather than in the
-		// builder because pulling layers is deferred to where we use them, which is
-		// here.
-		cch := cache.NewValidatingCache(v1cache.NewFilesystemCache(c.BuildCacheDir))
-		for tag, img := range imgMap {
-			imgMap[tag] = v1cache.Image(img, cch)
-		}
-	}
-
-	total, success, errs := 0, 0, 0
-	var finalErr error
-
-	for _, test := range tests {
-		total++
-		err = c.executeTest(ctx, upCtx, c.proj, imgMap, test)
-		if err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			continue
-		}
-		success++
-	}
-
-	return total, success, errs, finalErr
-}
-
 func writeClientConfig(clientConfig clientcmd.ClientConfig, dir string) (string, error) {
 	kubeconfigPath := filepath.Join(dir, "kubeconfig.yaml")
 
@@ -538,189 +337,6 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 		}
 	}
 	return cleanup, nil
-}
-
-func (c *runCmd) executeTest(ctx context.Context, upCtx *upbound.Context, proj *v2alpha1.Project, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
-	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
-	if err != nil {
-		return errors.Wrap(err, "failed to create control plane")
-	}
-	var devCtp ctp.DevControlPlane
-	if err := c.asyncWrapper(func(ch async.EventChannel) error {
-		var err error
-		if c.UseCurrentContext {
-			devCtp, err = ctp.NewKubeconfigDevControlPlane(ctx, upCtx)
-		} else {
-			opts := []ctp.EnsureDevControlPlaneOption{
-				ctp.WithEventChannel(ch),
-				ctp.WithSpacesGroup(c.ControlPlaneGroup),
-				ctp.WithControlPlaneName(controlPlaneName),
-				ctp.SkipDevCheck(c.Force),
-				ctp.ForceLocal(c.Local),
-				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
-				ctp.WithClusterAdmin(c.ClusterAdmin),
-			}
-
-			if test.Spec.Crossplane != nil {
-				opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
-				if test.Spec.Crossplane.Version != nil {
-					opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
-				}
-			}
-
-			devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)
-		}
-		return err
-	}); err != nil {
-		return errors.Wrap(err, "failed to create control plane")
-	}
-
-	generatedTag, err := c.pushOrLoadPackages(ctx, upCtx, imgMap, devCtp)
-	if err != nil {
-		return err
-	}
-
-	// Handle OS signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
-
-	// Channel to signal function return
-	retChan := make(chan struct{})
-
-	go func() {
-		select {
-		case <-sigChan:
-			log.Println("Received termination signal")
-			if !c.SkipControlPlaneCleanup {
-				log.Println("Cleaning up control plane...")
-				if err := devCtp.Teardown(ctx, c.Force); err != nil {
-					log.Printf("error during control plane deletion %v", err)
-				}
-			}
-			os.Exit(1)
-		case <-retChan:
-			return
-		}
-	}()
-
-	defer func() {
-		// Send signal to cleanup goroutine
-		close(retChan)
-
-		// Clean up the dev control plane. We do this here rather than in the
-		// goroutine above because we can't guarantee it completes before `up`
-		// exits, and we risk leaving the control plane behind.
-		if !c.SkipControlPlaneCleanup {
-			if err := devCtp.Teardown(ctx, c.Force); err != nil {
-				log.Printf("error during control plane deletion %v", err)
-			}
-		}
-	}()
-
-	ctpSchemeBuilders := []*scheme.Builder{
-		v1.SchemeBuilder,
-		xpkgv1beta1.SchemeBuilder,
-		upboundpkgv1alpha1.SchemeBuilder,
-		upboundpkgv1beta1.SchemeBuilder,
-	}
-	for _, bld := range ctpSchemeBuilders {
-		if err := bld.AddToScheme(devCtp.Client().Scheme()); err != nil {
-			return err
-		}
-	}
-
-	if err := upterm.WrapWithSuccessSpinner(
-		"Applying Init Resources",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.InitResources)
-		},
-		c.printer,
-	); err != nil {
-		return errors.Wrap(err, "failed to apply init resources")
-	}
-
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
-		return kube.InstallConfiguration(ctx, devCtp.Client(), proj.Name, generatedTag, ch)
-	})
-	if err != nil {
-		return errors.Wrapf(err, "failed to install package")
-	}
-
-	if err := upterm.WrapWithSuccessSpinner(
-		"Applying Extra Resources",
-		upterm.CheckmarkSuccessSpinner,
-		func() error {
-			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.ExtraResources)
-		},
-		c.printer,
-	); err != nil {
-		return errors.Wrap(err, "failed to apply extra resources")
-	}
-
-	tempDir, err := os.MkdirTemp("", test.Name)
-	if err != nil {
-		return errors.Wrap(err, "failed creating temp directory")
-	}
-	defer func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			log.Printf("failed to remove temp directory %v", err)
-		}
-	}()
-
-	manifestPaths := []string{}
-	for i, manifest := range test.Spec.Manifests {
-		if len(manifest.Raw) == 0 {
-			return fmt.Errorf("manifest %d is empty", i)
-		}
-
-		manifestFile := filepath.Join(tempDir, fmt.Sprintf("manifest-%d.yaml", i))
-		if err := os.WriteFile(manifestFile, manifest.Raw, 0o600); err != nil {
-			return errors.Wrapf(err, "failed writing manifest %d to file", i)
-		}
-
-		manifestPaths = append(manifestPaths, manifestFile)
-	}
-
-	kubeconfigPath, err := writeClientConfig(devCtp.Kubeconfig(), tempDir)
-	if err != nil {
-		return errors.Wrap(err, "error getting kubeconfig of controlplane")
-	}
-
-	vars := map[string]string{
-		"KUBECTL":    c.Kubectl,
-		"KUBECONFIG": kubeconfigPath,
-	}
-
-	cleanup, err := setEnvVars(vars)
-	if err != nil {
-		return errors.Wrap(err, "failed setting environment variables")
-	}
-	defer cleanup()
-
-	builder := uptest.NewAutomatedTestBuilder()
-	automatedTest := builder.
-		SetManifestPaths(manifestPaths).
-		SetDataSourcePath("").
-		SetSetupScriptPath("").
-		SetTeardownScriptPath("").
-		SetDefaultConditions(test.Spec.DefaultConditions).
-		SetDefaultTimeout(time.Duration(*test.Spec.TimeoutSeconds) * time.Second).
-		SetDirectory(tempDir).
-		SetSkipDelete(false).
-		SetSkipUpdate(true).
-		SetSkipImport(true).
-		SetOnlyCleanUptestResources(true).
-		SetRenderOnly(false).
-		SetLogCollectionInterval(10 * time.Second).
-		Build()
-
-	if err := uptest.RunTest(automatedTest); err != nil {
-		return errors.Wrap(err, "uptest failed")
-	}
-
-	return nil
 }
 
 func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane) (name.Tag, error) {

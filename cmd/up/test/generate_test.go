@@ -4,7 +4,6 @@
 package test
 
 import (
-	"context"
 	"embed"
 	"net/url"
 	"path/filepath"
@@ -36,18 +35,56 @@ func TestGenerateCmd_Run(t *testing.T) {
 	tcs := map[string]struct {
 		language      string
 		name          string
+		e2e           bool
+		operation     bool
 		expectedFiles []string
 		err           error
 	}{
-		"LanguageKcl": {
+		"CompositionTestKcl": {
 			name:          "testkcl",
 			language:      "kcl",
+			e2e:           false,
+			operation:     false,
 			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
 			err:           nil,
 		},
-		"LanguagePython": {
+		"CompositionTestPython": {
 			name:          "testpython",
 			language:      "python",
+			e2e:           false,
+			operation:     false,
+			expectedFiles: []string{"model", "main.py", "requirements.txt"},
+			err:           nil,
+		},
+		"E2ETestKcl": {
+			name:          "testkcl",
+			language:      "kcl",
+			e2e:           true,
+			operation:     false,
+			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
+			err:           nil,
+		},
+		"E2ETestPython": {
+			name:          "testpython",
+			language:      "python",
+			e2e:           true,
+			operation:     false,
+			expectedFiles: []string{"model", "main.py", "requirements.txt"},
+			err:           nil,
+		},
+		"OperationTestKcl": {
+			name:          "testkcl",
+			language:      "kcl",
+			e2e:           false,
+			operation:     true,
+			expectedFiles: []string{"model", "main.k", "kcl.mod", "kcl.mod.lock"},
+			err:           nil,
+		},
+		"OperationTestPython": {
+			name:          "testpython",
+			language:      "python",
+			e2e:           false,
+			operation:     true,
 			expectedFiles: []string{"model", "main.py", "requirements.txt"},
 			err:           nil,
 		},
@@ -88,23 +125,35 @@ func TestGenerateCmd_Run(t *testing.T) {
 			)
 			assert.NilError(t, err)
 
+			// Determine test name and template base folder based on test type
+			templateBaseFolder := "compositiontest"
+			if tc.e2e {
+				templateBaseFolder = "e2e"
+			}
+			if tc.operation {
+				templateBaseFolder = "operationtest"
+			}
+
 			// Use BasePathFs for testFS, scoped to the temp directories
-			testFS := afero.NewBasePathFs(projFS, filepath.Join("/tests", tc.name))
+			testFS := afero.NewBasePathFs(projFS, filepath.Clean("/tests/test"))
 
 			// Setup the generateCmd with mock dependencies
 			c := &generateCmd{
-				ProjectFile: "upbound.yaml",
-				projFS:      projFS,
-				testFS:      testFS,
-				modelsFS:    testModelsFS,
-				Language:    tc.language,
-				Name:        tc.name,
-				testName:    tc.name,
-				m:           mgr,
-				proj:        proj,
+				ProjectFile:        "upbound.yaml",
+				projFS:             projFS,
+				testFS:             testFS,
+				modelsFS:           testModelsFS,
+				Language:           tc.language,
+				Name:               tc.name,
+				E2E:                tc.e2e,
+				Operation:          tc.operation,
+				testName:           tc.name,
+				templateBaseFolder: templateBaseFolder,
+				m:                  mgr,
+				proj:               proj,
 			}
 
-			err = c.Run(context.Background(), upterm.DefaultObjPrinter)
+			err = c.Run(t.Context(), upterm.DefaultObjPrinter)
 			if tc.err != nil {
 				assert.ErrorContains(t, err, tc.err.Error())
 				return

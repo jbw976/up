@@ -246,7 +246,7 @@ func TestLoadFunctions(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			functions, err := loadFunctions(t.Context(), tc.proj, image.NewResolver(image.WithFetcher(tc.fetcher)))
+			functions, err := LoadFunctions(t.Context(), tc.proj, image.NewResolver(image.WithFetcher(tc.fetcher)))
 
 			if tc.expectedErrorMessage != "" {
 				assert.ErrorContains(t, err, tc.expectedErrorMessage)
