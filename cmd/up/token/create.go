@@ -15,10 +15,8 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
-
-	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/tokens"
+	"github.com/upbound/up-sdk-go/service/userinfo"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -39,22 +37,14 @@ func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm.ObjectPrinter, ac *accounts.Client, tc *tokens.Client, upCtx *upbound.Context) error {
+func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm.ObjectPrinter, ui *userinfo.Client, tc *tokens.Client, upCtx *upbound.Context) error {
 	tokenFields := []string{
 		"AccessID",
 		"Token",
 	}
 
-	a, err := ac.Get(ctx, upCtx.Organization)
-	if err != nil {
-		return err
-	}
-	if a.Account.Type != accounts.AccountOrganization {
-		return errors.New(errRobot)
-	}
-
 	// get the userID
-	u, err := ac.Get(ctx, upCtx.Profile.ID)
+	u, err := ui.Get(ctx)
 	if err != nil {
 		return err
 	}
@@ -67,7 +57,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm
 			Owner: tokens.TokenOwner{
 				Data: tokens.TokenOwnerData{
 					Type: tokens.TokenOwnerUser,
-					ID:   strconv.FormatUint(uint64(u.Organization.CreatorID), 10),
+					ID:   strconv.FormatUint(uint64(u.User.ID), 10),
 				},
 			},
 		},

@@ -10,6 +10,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up-sdk-go/service/tokens"
+	"github.com/upbound/up-sdk-go/service/userinfo"
 	"github.com/upbound/up-sdk-go/service/users"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -31,6 +32,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	kongCtx.Bind(tokens.NewClient(cfg))
 	kongCtx.Bind(robots.NewClient(cfg))
 	kongCtx.Bind(users.NewClient(cfg))
+	kongCtx.Bind(userinfo.NewClient(cfg))
 	return nil
 }
 
