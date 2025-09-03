@@ -190,7 +190,7 @@ jobs:
           ./support-bundle version
 
           ./kind export logs -n up-e2e-test ./kind-logs
-          ./support-bundle support-bundle.yaml
+          ./support-bundle .github/support-bundle.yaml
 
       - name: Publish E2E Support Bundle to GitHub
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
