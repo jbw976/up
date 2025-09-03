@@ -13,10 +13,8 @@ import (
 	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
-
-	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/common"
+	"github.com/upbound/up-sdk-go/service/userinfo"
 	"github.com/upbound/up-sdk-go/service/users"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -35,27 +33,19 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
 type listCmd struct{}
 
 // Run executes the list personal access tokens command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, uc *users.Client, upCtx *upbound.Context) error {
-	a, err := ac.Get(ctx, upCtx.Organization)
-	if err != nil {
-		return err
-	}
-	if a.Account.Type != accounts.AccountOrganization {
-		return errors.New(errRobot)
-	}
-
+func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ui *userinfo.Client, uc *users.Client, upCtx *upbound.Context) error {
 	// get the userID
-	u, err := ac.Get(ctx, upCtx.Profile.ID)
+	u, err := ui.Get(ctx)
 	if err != nil {
 		return err
 	}
 
-	ts, err := uc.ListTokens(ctx, u.Organization.CreatorID)
+	ts, err := uc.ListTokens(ctx, u.User.ID)
 	if err != nil {
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		p.Printfln("No personal access tokens found for user %s in %s", upCtx.Profile.ID, upCtx.Organization)
+		p.Printfln("No personal access tokens found for user %s", upCtx.Profile.ID)
 		return nil
 	}
 	return printer.Print(ts.DataSet, fieldNames, extractFields)
