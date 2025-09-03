@@ -67,7 +67,7 @@ jobs:
       - name: up project deps
         run: |
           cd e2e-test
-          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.0
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.1
 
       - name: assert project with deps
         uses: GuillaumeFalourd/assert-command-line-output@main
@@ -179,6 +179,28 @@ jobs:
           kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
           kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
           kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
+      - name: Collect E2E support bundle
+        if: failure()
+        run: |
+          [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-$(uname)-amd64
+          chmod a+x ./kind
+
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/support-bundle_linux_amd64.tar.gz | tar xzvf -
+          chmod a+x ./support-bundle
+          ./support-bundle version
+
+          ./kind export logs -n up-e2e-test ./kind-logs
+          ./support-bundle .github/support-bundle.yaml
+
+      - name: Publish E2E Support Bundle to GitHub
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: e2e-support-bundle
+          path: |
+            kind-logs
+            support-bundle-*.tar.gz
+          retention-days: 1
 
       - name: up project stop
         run: |
