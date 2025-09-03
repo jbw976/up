@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	apiConnectorVersion = "0.0.4"
+	apiConnectorVersion = "0.0.6"
 )
 
 var version string
