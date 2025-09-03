@@ -1,0 +1,9 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: supportbundle
+spec:
+  collectors:
+    - logs:
+        namespace: crossplane-system
+  analyzers: []
