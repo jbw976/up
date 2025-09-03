@@ -67,8 +67,7 @@ jobs:
       - name: up project deps
         run: |
           cd e2e-test
-          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.0
-          cat upbound.yaml
+          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.1
 
       - name: assert project with deps
         uses: GuillaumeFalourd/assert-command-line-output@main
@@ -189,10 +188,6 @@ jobs:
           curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/support-bundle_linux_amd64.tar.gz | tar xzvf -
           chmod a+x ./support-bundle
           ./support-bundle version
-
-          kubectl describe pkgrev
-          kubectl describe providers
-          kubectl get imageconfigs -A -o yaml
 
           ./kind export logs -n up-e2e-test ./kind-logs
           ./support-bundle support-bundle.yaml

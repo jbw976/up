@@ -807,7 +807,6 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 		"args": []string{
 			"--enable-dependency-version-upgrades",
 			"--enable-function-response-cache",
-			"--debug",
 		},
 		"registryCaBundleConfig": map[string]string{
 			"name": caConfigMap,
@@ -822,7 +821,7 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 			"clusterAdmin": clusterAdmin,
 		},
 	}
-	if err = mgr.Install("2.0.2-up.1", values); err != nil {
+	if err = mgr.Install(version, values); err != nil {
 		return errors.Wrap(err, "failed to install crossplane")
 	}
 
