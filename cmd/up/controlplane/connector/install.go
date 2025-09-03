@@ -16,8 +16,8 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
-	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/tokens"
+	"github.com/upbound/up-sdk-go/service/userinfo"
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/upbound"
@@ -163,12 +163,12 @@ func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (stri
 	// This is why this command is currently under alpha because we need to be
 	// able to connect for organizations in a scalable way, i.e. every cluster
 	// should have its own robot account.
-	a, err := accounts.NewClient(cfg).Get(context.Background(), upCtx.Profile.ID)
+	u, err := userinfo.NewClient(cfg).Get(context.Background())
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get account details")
 	}
 	p.Printfln("Creating an API token for the user %s. This token will be "+
-		"used to authenticate the cluster.", a.Account.Name)
+		"used to authenticate the cluster.", u.User.Username)
 	resp, err := tokens.NewClient(cfg).Create(context.Background(), &tokens.TokenCreateParameters{
 		Attributes: tokens.TokenAttributes{
 			Name: c.ClusterName,
@@ -177,7 +177,7 @@ func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (stri
 			Owner: tokens.TokenOwner{
 				Data: tokens.TokenOwnerData{
 					Type: tokens.TokenOwnerUser,
-					ID:   strconv.FormatUint(uint64(a.Organization.CreatorID), 10),
+					ID:   strconv.FormatUint(uint64(u.User.ID), 10),
 				},
 			},
 		},

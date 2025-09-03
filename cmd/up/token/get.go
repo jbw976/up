@@ -35,7 +35,6 @@ type getCmd struct {
 func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, uc *users.Client, ui *userinfo.Client, upCtx *upbound.Context) error {
 	// get the userID
 	r, err := ui.Get(ctx)
-	// u, err := ac.Get(ctx, upCtx.Profile.ID)
 	if err != nil {
 		return err
 	}
