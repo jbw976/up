@@ -128,8 +128,8 @@ following are the manual steps involved.
    a new release branch using the GitHub UI for the repo (e.g. `release-0.25`).
 1. **tag release**: Run the `Tag` action on the _release branch_ with the
    desired version (e.g. `v0.25.0`). This triggers the Release workflow in
-   GitHub Actions, which will do a build, create a GH release, and upload
-   artifacts.
+   GitHub Actions, which will do a build, create a GH release, upload artifacts,
+   and create a draft pull request to update the docs.
 1. **tag pre-release**: Run the `Tag` action on _main_ to create an `rc.0`
    version of the _next_ minor release (e.g. `v0.26.0-0.rc.0`). This will not
    trigger a release, and ensures subsequent builds from main have sensible
@@ -149,10 +149,10 @@ following are the manual steps involved.
 1. **verify promotion**: Check that
    [stable/current](https://cli.upbound.io/_?prefix=stable/current/) has the new
    version.
-1. **update docs**: Download the new release, check out the [docs
-   repo](https://github.com/upbound/docs/), and run `up generate-docs
-   --output-dir=<docs path>` to generate CLI reference docs. Create a PR in the
-   docs repo with the update.
+1. **mark docs PR ready for review**: Find the pull request in
+   [upbound/docs](https://github.com/upbound/docs/pulls) that was created by the
+   release workflow. Mark it as non-draft and request a review from the docs
+   team.
 1. **update homebrew**: Run [`Bump
    Formula`](https://github.com/upbound/homebrew-tap/actions/workflows/bump-formula.yaml)
    action to open a PR in Homebrew for the new version. Get approval and merge.
