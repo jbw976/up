@@ -197,17 +197,19 @@ linters-settings:
 
   depguard:
     rules:
-      no_third_party_test_libraries:
+      gotest_tools_assert:
         list-mode: lax
         files:
         - $test
         deny:
         - pkg: github.com/stretchr/testify
-          desc: "See https://go.dev/wiki/TestComments#assert-libraries"
+          desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
         - pkg: github.com/onsi/ginkgo
-          desc: "See https://go.dev/wiki/TestComments#assert-libraries"
+          desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
         - pkg: github.com/onsi/gomega
-          desc: "See https://go.dev/wiki/TestComments#assert-libraries"
+          desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
+        - pkg: gotest.tools/assert
+          desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
       use_crossplane_runtime_errors:
         list-mode: lax
         files:
