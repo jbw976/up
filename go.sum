@@ -1683,8 +1683,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75/go.mod h1
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/ulikunitz/xz v0.5.10/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
-github.com/ulikunitz/xz v0.5.12 h1:37Nm15o69RwBkXM0J6A5OlE67RZTfzUxTj8fB3dfcsc=
-github.com/ulikunitz/xz v0.5.12/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
+github.com/ulikunitz/xz v0.5.15 h1:9DNdB5s+SgV3bQ2ApL10xRc35ck0DuIX/isZvIk+ubY=
+github.com/ulikunitz/xz v0.5.15/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/upbound/controller-manager v0.1.0-rc.0.0.20250820091445-60634b1a874f h1:5gkkVbhL5Vh61Wb/5xuU8+SsOq03EOm0Mmox0Rb8hD4=
 github.com/upbound/controller-manager v0.1.0-rc.0.0.20250820091445-60634b1a874f/go.mod h1:5xp0oOptVrim788mhdVE8XPIFdnMDKZ0ev3X0Fsl36w=
 github.com/upbound/up-sdk-go v1.13.1-0.20250807100726-8dc90a854de1 h1:s2i+is2uswqPPxjvsWWVvgeuP43wlRpTJJh/h+GD5JQ=
