@@ -6,6 +6,7 @@ package ctp
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	xpcommonv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
 
@@ -213,16 +215,14 @@ func (h *cleanupHelper) findTestResources(ctx context.Context, dc discovery.Disc
 			// Extract resource references from spec.resourceRefs or spec.crossplane.resourceRefs
 			p := fieldpath.Pave(item.Object)
 
-			if v, err := p.GetValue("spec.resourceRefs"); err == nil {
-				if refs, ok := v.([]interface{}); ok {
-					h.extractResourceRefs(refs, resourceMap)
-				}
+			var refs []xpcommonv1.TypedReference
+			if err := p.GetValueInto("spec.resourceRefs", &refs); err == nil {
+				h.extractResourceRefs(refs, resourceMap)
 			}
 
-			if v, err := p.GetValue("spec.crossplane.resourceRefs"); err == nil {
-				if refs, ok := v.([]interface{}); ok {
-					h.extractResourceRefs(refs, resourceMap)
-				}
+			var xpRefs []xpcommonv1.TypedReference
+			if err := p.GetValueInto("spec.crossplane.resourceRefs", &xpRefs); err == nil {
+				h.extractResourceRefs(xpRefs, resourceMap)
 			}
 		}
 	}
@@ -231,38 +231,24 @@ func (h *cleanupHelper) findTestResources(ctx context.Context, dc discovery.Disc
 }
 
 // extractResourceRefs extracts resource references and adds them to the map.
-func (h *cleanupHelper) extractResourceRefs(refs []interface{}, resourceMap map[string]GenericResource) {
+func (h *cleanupHelper) extractResourceRefs(refs []xpcommonv1.TypedReference, resourceMap map[string]GenericResource) {
 	for _, ref := range refs {
-		if refMap, ok := ref.(map[string]interface{}); ok {
-			apiVersion, _ := refMap["apiVersion"].(string)
-			kind, _ := refMap["kind"].(string)
-			name, _ := refMap["name"].(string)
+		if ref.APIVersion == "" || ref.Kind == "" || ref.Name == "" {
+			continue
+		}
 
-			if apiVersion != "" && kind != "" && name != "" {
-				// Parse apiVersion to get group and version
-				parts := strings.Split(apiVersion, "/")
-				group := ""
-				version := ""
-				if len(parts) == 2 {
-					group = parts[0]
-					version = parts[1]
-				} else if len(parts) == 1 {
-					version = parts[0]
-				}
-
-				key := fmt.Sprintf("%s/%s/%s/%s", group, version, kind, name)
-				if _, exists := resourceMap[key]; !exists {
-					resourceMap[key] = GenericResource{
-						GVK: metav1.GroupVersionKind{
-							Group:   group,
-							Version: version,
-							Kind:    kind,
-						},
-						Name:    name,
-						Status:  resourceStatusPending,
-						Message: "managed resource",
-					}
-				}
+		gvk := ref.GroupVersionKind()
+		key := fmt.Sprintf("%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, ref.Name)
+		if _, exists := resourceMap[key]; !exists {
+			resourceMap[key] = GenericResource{
+				GVK: metav1.GroupVersionKind{
+					Group:   gvk.Group,
+					Version: gvk.Version,
+					Kind:    gvk.Kind,
+				},
+				Name:    ref.Name,
+				Status:  resourceStatusPending,
+				Message: "managed resource",
 			}
 		}
 	}
@@ -275,11 +261,9 @@ func (h *cleanupHelper) runTargetedDeletionLoop(cleanupCtx, ctx context.Context,
 
 	attempts := 0
 	initialCount := len(resourceMap)
+
 	// Create a copy of the map to track remaining resources
-	remainingResources := make(map[string]GenericResource)
-	for k, v := range resourceMap {
-		remainingResources[k] = v
-	}
+	remainingResources := maps.Clone(resourceMap)
 
 	for {
 		select {
@@ -439,26 +423,16 @@ func (h *cleanupHelper) sendEventStatus(cfg *cleanupConfig, stage string, succes
 
 // getSyncedConditionMessage extracts the message from the Synced condition.
 func (h *cleanupHelper) getSyncedConditionMessage(item *unstructured.Unstructured) string {
-	statusObj, ok := item.Object["status"].(map[string]interface{})
-	if !ok {
-		return ""
-	}
+	p := fieldpath.Pave(item.Object)
 
-	conditions, ok := statusObj["conditions"].([]interface{})
-	if !ok {
+	var conditions []xpcommonv1.Condition
+	if err := p.GetValueInto("status.conditions", &conditions); err != nil {
 		return ""
 	}
 
 	for _, cond := range conditions {
-		condMap, ok := cond.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		if condType, ok := condMap["type"].(string); ok && condType == "Synced" {
-			if message, ok := condMap["message"].(string); ok {
-				return message
-			}
+		if cond.Type == xpcommonv1.TypeSynced {
+			return cond.Message
 		}
 	}
 
