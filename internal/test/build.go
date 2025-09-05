@@ -16,6 +16,7 @@ import (
 	"github.com/upbound/up/internal/yaml"
 	compositionTest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
+	operationtest "github.com/upbound/up/pkg/apis/operationtest/v1alpha1"
 )
 
 // Runner defines an interface for running a specific test type.
@@ -207,6 +208,12 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 						continue
 					}
 					testObj = compTest
+				case "OperationTest":
+					var opTest operationtest.OperationTest
+					if err := yaml.Unmarshal(itemBytes, &opTest); err != nil {
+						continue
+					}
+					testObj = opTest
 				default:
 					continue
 				}

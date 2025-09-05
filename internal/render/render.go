@@ -7,21 +7,14 @@ package render
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
-	"runtime"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/spf13/afero"
 	"google.golang.org/grpc/grpclog"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/utils/ptr"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/fieldpath"
@@ -29,19 +22,13 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource/unstructured/composed"
 	apiextensionsv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
 	apiextensionsv2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
-	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 	pkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 	xprender "github.com/crossplane/crossplane/v2/cmd/crank/render"
 	"github.com/crossplane/crossplane/v2/xcrd"
 
-	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
 	icrd "github.com/upbound/up/internal/crd"
-	"github.com/upbound/up/internal/imageutil"
-	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
-	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep/manager"
 	"github.com/upbound/up/internal/xpkg/functions"
 	ixrd "github.com/upbound/up/internal/xrd"
@@ -164,7 +151,7 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	}
 
 	// Load additional functions
-	fns, err := loadFunctions(ctx, opts.Project, opts.ImageResolver)
+	fns, err := LoadFunctions(ctx, opts.Project, opts.ImageResolver)
 	if err != nil {
 		return "", errors.Wrap(err, "cannot load functions from project")
 	}
@@ -285,130 +272,4 @@ func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefini
 	default:
 		return nil, errors.Errorf("unsupported XRD API version: %s", apiVersion)
 	}
-}
-
-// embeddedFunctionsToDaemon loads each compatible image in the ImageTagMap into the Docker daemon.
-func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, error) {
-	functions := make([]pkgv1.Function, 0, len(imageMap))
-
-	for tag, img := range imageMap {
-		platformInfo, err := img.ConfigFile()
-		if err != nil {
-			return nil, errors.Wrapf(err, "error getting platform info for image %s", tag)
-		}
-
-		if platformInfo.Architecture != runtime.GOARCH {
-			continue
-		}
-
-		// Push the image directly to the daemon
-		if _, err := daemon.Write(tag, img); err != nil {
-			return nil, errors.Wrapf(err, "error pushing image %s to daemon", tag)
-		}
-
-		f := pkgv1.Function{
-			ObjectMeta: metav1.ObjectMeta{
-				// align name with functionRef.name in composition
-				Name: xpkg.ToDNSLabel(tag.Context().RepositoryStr()),
-			},
-			Spec: pkgv1.FunctionSpec{
-				PackageSpec: pkgv1.PackageSpec{
-					// set correct local image with tag
-					Package: tag.Name(),
-				},
-			},
-		}
-
-		functions = append(functions, f)
-	}
-
-	return functions, nil
-}
-
-// BuildEmbeddedFunctionsLocalDaemon build and push to local deamon.
-func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Context, opts FunctionOptions) ([]pkgv1.Function, error) {
-	b := project.NewBuilder(
-		project.BuildWithMaxConcurrency(opts.Concurrency),
-		project.BuildWithFunctionIdentifier(opts.FunctionIdentifier),
-	)
-
-	imgMap, err := b.Build(ctx, upCtx, opts.Project, opts.ProjFS,
-		project.BuildWithEventChannel(opts.EventChannel),
-		project.BuildWithImageLabels(common.ImageLabels(opts)),
-		project.BuildWithDependencyManager(opts.DependencyManager),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if !opts.NoBuildCache {
-		cch := cache.NewValidatingCache(v1cache.NewFilesystemCache(opts.BuildCacheDir))
-		for tag, img := range imgMap {
-			imgMap[tag] = v1cache.Image(img, cch)
-		}
-	}
-
-	stage := "Pushing embedded functions to local daemon"
-	opts.EventChannel.SendEvent(stage, async.EventStatusStarted)
-	efns, err := embeddedFunctionsToDaemon(imgMap)
-	if err != nil {
-		opts.EventChannel.SendEvent(stage, async.EventStatusFailure)
-		return nil, errors.Wrap(err, "unable to push to local docker daemon")
-	}
-	opts.EventChannel.SendEvent(stage, async.EventStatusSuccess)
-
-	return efns, nil
-}
-
-// LoadFunctions loads functions from a project's DependsOn list.
-func loadFunctions(ctx context.Context, proj *projectv2alpha1.Project, r manager.ImageResolver) ([]pkgv1.Function, error) {
-	functions := make([]pkgv1.Function, 0, len(proj.Spec.DependsOn))
-
-	for _, dep := range proj.Spec.DependsOn {
-		dep, err := project.NormalizeDependency(dep)
-		if err != nil {
-			return nil, errors.Wrap(err, "invalid dependency")
-		}
-		if !isFunction(dep) {
-			continue
-		}
-
-		// Convert function dependency
-		convertedDep, ok := manager.ConvertToV1beta1(dep)
-		if !ok {
-			return nil, errors.Errorf("failed to convert dependency in %s", *dep.Package)
-		}
-
-		// Resolve tag for function
-		version, err := r.ResolveTag(ctx, convertedDep)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve tag for function %s", *dep.Package)
-		}
-
-		// Parse function name
-		functionRepo, err := name.NewRepository(*dep.Package, name.StrictValidation)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse function name reference for %s", *dep.Package)
-		}
-
-		// Create function package manifest
-		f := pkgv1.Function{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: xpkg.ToDNSLabel(functionRepo.RepositoryStr()),
-			},
-			Spec: pkgv1.FunctionSpec{
-				PackageSpec: pkgv1.PackageSpec{
-					Package: fmt.Sprintf("%s:%s", imageutil.RewriteImage(*dep.Package, proj.Spec.ImageConfig), version),
-				},
-			},
-		}
-		functions = append(functions, f)
-	}
-
-	return functions, nil
-}
-
-func isFunction(dep pkgmetav1.Dependency) bool {
-	return ptr.Deref(dep.APIVersion, "") == pkgv1.FunctionGroupVersionKind.GroupVersion().String() &&
-		ptr.Deref(dep.Kind, "") == pkgv1.FunctionKind
 }

@@ -54,18 +54,20 @@ type kclImportStatement struct {
 	Alias      string
 }
 type generateCmd struct {
-	ProjectFile string `default:"upbound.yaml"  help:"Path to project definition file." short:"f"`
-	CacheDir    string `default:"~/.up/cache/"  env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
-	Language    string `default:"kcl"           enum:"kcl,python"                       help:"Language for test."                            short:"l"   telemetry:"true"`
-	Name        string `arg:""                  help:"Name for the new Function."       required:""`
-	E2E         bool   `help:"create e2e tests" name:"e2e"`
+	ProjectFile string `default:"upbound.yaml"        help:"Path to project definition file." short:"f"`
+	CacheDir    string `default:"~/.up/cache/"        env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
+	Language    string `default:"kcl"                 enum:"kcl,python"                       help:"Language for test."                            short:"l"   telemetry:"true"`
+	Name        string `arg:""                        help:"Name for the new Function."       required:""`
+	E2E         bool   `help:"create e2e tests"       name:"e2e"`
+	Operation   bool   `help:"create operation tests" name:"operation"`
 
-	testFS   afero.Fs
-	modelsFS afero.Fs
-	projFS   afero.Fs
-	fsPath   string
-	testName string
-	proj     *v2alpha1.Project
+	testFS             afero.Fs
+	modelsFS           afero.Fs
+	projFS             afero.Fs
+	fsPath             string
+	testName           string
+	templateBaseFolder string
+	proj               *v2alpha1.Project
 
 	m *project.DependencyManager
 }
@@ -76,9 +78,17 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
+	// Set test name and template base folder based on test type
 	c.testName = fmt.Sprintf("test-%s", c.Name)
+	c.templateBaseFolder = "compositiontest"
+
 	if c.E2E {
 		c.testName = fmt.Sprintf("e2etest-%s", c.Name)
+		c.templateBaseFolder = "e2e"
+	}
+	if c.Operation {
+		c.testName = fmt.Sprintf("operationtest-%s", c.Name)
+		c.templateBaseFolder = "operationtest"
 	}
 
 	// Read the project file.
@@ -225,12 +235,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
-	baseFolder := "compositiontest"
-	if c.E2E {
-		baseFolder = "e2e"
-	}
-
-	templates := template.Must(template.ParseFS(kclTemplate, fmt.Sprintf("templates/kcl/%s/**", baseFolder)))
+	templates := template.Must(template.ParseFS(kclTemplate, fmt.Sprintf("templates/kcl/%s/**", c.templateBaseFolder)))
 
 	foundFolders, _ := filesystem.FindNestedFoldersWithPattern(c.modelsFS, "kcl/models", "*.k")
 	importStatements := make([]kclImportStatement, 0, len(foundFolders))
@@ -262,16 +267,11 @@ func (c *generateCmd) generateKCLFiles() (afero.Fs, error) {
 func (c *generateCmd) generatePythonFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
-	baseFolder := "compositiontest"
-	if c.E2E {
-		baseFolder = "e2e"
-	}
-
 	// Note that currently our python templates don't actually do any
 	// templating, hence the empty template data. But we render them with the
 	// same mechanism we use for other languages to maximize code reuse and
 	// allow for richer templates in the future.
-	templates := template.Must(template.ParseFS(pythonTemplate, fmt.Sprintf("templates/python/%s/**", baseFolder)))
+	templates := template.Must(template.ParseFS(pythonTemplate, fmt.Sprintf("templates/python/%s/**", c.templateBaseFolder)))
 
 	tmplData := struct{}{}
 
@@ -306,8 +306,6 @@ func needsModelsSymlink(language string) bool {
 	switch language {
 	case "kcl", "python":
 		return true
-	case "go":
-		return false
 	default:
 		return false
 	}
