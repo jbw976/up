@@ -150,68 +150,66 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		return err
 	}
 
+	// We need to clean up before we return, even when we receive a
+	// SIGINT. Specifically, we need to:
+	//
+	// 1. Try to delete any resources created in the control plane (and report
+	//    any we failed to delete) to avoid leaving resources behind in cloud
+	//    accounts.
+	// 2. Cleanup the dev control plane, so we don't leave docker containers or
+	//    Spaces MCPs sitting around.
+	//
+	// In the SIGINT case we also don't want to block forever. If the user sends
+	// another SIGINT we should return right away even if we're not done
+	// cleaning up.
+
 	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
 
-	// Channel to signal function return
+	// Channel to trigger cleanup on function return.
 	retChan := make(chan struct{})
-
-	// Channel to wait for cleanup completion
+	// Channel to wait for cleanup completion.
 	cleanupDone := make(chan struct{})
 
-	// Channel to receive exit code from interrupted cleanup
-	exitCode := make(chan int, 1)
+	go func() { //nolint:contextcheck // We intentionally use a separate context for cleanup.
+		defer func() {
+			close(cleanupDone)
+		}()
 
-	// Create a separate context for cleanup operations that can be cancelled
-	// when receiving multiple signals
-	cleanupRootCtx, cancelCleanup := context.WithCancel(context.Background())
-	defer cancelCleanup()
+		// Create a separate context for cleanup operations that can be cancelled
+		// when receiving multiple signals.
+		cleanupCtx, cancelCleanup := context.WithCancel(context.Background())
+		defer cancelCleanup()
 
-	go func() {
 		select {
 		case <-sigChan:
-			c.textPrinter.Println("")
-			c.handleInterruptedCleanup(ctx, cleanupRootCtx, cancelCleanup, devCtp, test, sigChan, cleanupDone, exitCode)
-			// Handle exit after cleanup completes
-			if code := <-exitCode; code != 0 {
-				os.Exit(code)
-			}
+			c.textPrinter.Println("Received signal, cleaning up...")
+
+			// Listen for further signals and cancel cleanup.
+			go func() {
+				select {
+				case <-sigChan:
+					cancelCleanup()
+				case <-cleanupCtx.Done():
+					return
+				}
+			}()
+
+			c.e2eCleanup(cleanupCtx, devCtp, test)
 
 		case <-retChan:
-			c.handleNormalCleanup(ctx, cleanupRootCtx, devCtp, test, cleanupDone)
-			return
-
-		case <-ctx.Done():
-			// Context cancelled - still cleanup and teardown for E2E tests
-			if c.SkipControlPlaneCleanup {
-				c.textPrinter.Println("Context cancelled, skipping cleanup due to --skip-control-plane-cleanup flag")
-				close(cleanupDone)
-				return
-			}
-
-			c.textPrinter.Println("Context cancelled, tearing down test control plane...")
-
-			// Create a new context for teardown since the original is cancelled
-			// We need a fresh context to ensure teardown can complete
-			teardownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if err := devCtp.Teardown(teardownCtx, c.Force); err != nil { //nolint:contextcheck // Need fresh context as original is cancelled
-				c.textPrinter.Printfln("Error during control plane deletion: %v", err)
-			}
-			cancel()
-
-			close(cleanupDone)
-			return
+			c.e2eCleanup(cleanupCtx, devCtp, test)
 		}
 	}()
 
 	defer func() {
-		// Send signal to cleanup goroutine
+		// Trigger cleanup.
 		close(retChan)
 
-		// Wait for cleanup/teardown to complete
-		// This ensures the goroutine processes the retChan signal
+		// Wait for cleanup/teardown to complete before returning, to ensure
+		// cleanup happens before up exits.
 		<-cleanupDone
 	}()
 
@@ -310,11 +308,11 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		"KUBECONFIG": kubeconfigPath,
 	}
 
-	cleanup, err := setEnvVars(vars)
+	cleanupEnvVars, err := setEnvVars(vars)
 	if err != nil {
 		return errors.Wrap(err, "failed setting environment variables")
 	}
-	defer cleanup()
+	defer cleanupEnvVars()
 
 	builder := uptest.NewAutomatedTestBuilder()
 	automatedTest := builder.
@@ -405,95 +403,23 @@ func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detai
 	}
 }
 
-// handleInterruptedCleanup handles cleanup when interrupted by a signal.
-func (c *runCmd) handleInterruptedCleanup(ctx context.Context, cleanupCtx context.Context, cancelCleanup context.CancelFunc, devCtp ctp.DevControlPlane, test e2etest.E2ETest, sigChan chan os.Signal, cleanupDone chan struct{}, exitCode chan int) {
+// e2eCleanup cleans up test resources and the dev control plane. It returns an
+// exit code for the process, depending on how cleanup finishes.
+func (c *runCmd) e2eCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest) {
 	if c.SkipControlPlaneCleanup {
-		c.textPrinter.Println("Received termination signal, skipping cleanup due to --skip-control-plane-cleanup flag")
-		exitCode <- 1
-		close(cleanupDone)
+		c.textPrinter.Println("Skipping cleanup due to --skip-control-plane-cleanup flag")
 		return
 	}
 
-	c.textPrinter.Println("Received termination signal, cleaning up control plane...")
+	c.textPrinter.Println("Cleaning up test resources...")
+	result, cleanupErr := c.executeCleanup(ctx, devCtp, test)
+	c.reportCleanupResult(result, cleanupErr, true)
 
-	// Track if force exit is requested
-	forceExit := make(chan struct{})
-
-	// Listen for additional signals
-	go func() {
-		select {
-		case <-sigChan:
-			c.textPrinter.Println("Received second termination signal, aborting cleanup...")
-			cancelCleanup()
-			close(forceExit)
-		case <-cleanupDone:
-			// Cleanup finished normally
-		}
-	}()
-
-	// Execute cleanup
-	cleanupComplete := make(chan struct{})
-	var result *ctp.CleanupResult
-	var cleanupErr error
-
-	go func() {
-		result, cleanupErr = c.executeCleanup(cleanupCtx, devCtp, test)
-		close(cleanupComplete)
-	}()
-
-	// Wait for cleanup to complete or be cancelled
-	select {
-	case <-cleanupComplete:
-		c.reportCleanupResult(result, cleanupErr, true)
-	case <-forceExit:
-		c.textPrinter.Println("Cleanup aborted by user")
-	}
-
-	// Always teardown control plane when interrupted
-	teardownCtx := ctx
-	if cleanupCtx.Err() != nil {
-		// Cleanup was cancelled, use a timeout for teardown
-		var cancel context.CancelFunc
-		teardownCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-	}
-
-	c.textPrinter.Println("Tearing down test control plane...")
-	if err := devCtp.Teardown(teardownCtx, c.Force); err != nil {
-		c.textPrinter.Printfln("Error during control plane deletion: %v", err)
-	}
-
-	// Send exit code based on whether cleanup was aborted
-	if cleanupCtx.Err() != nil {
-		exitCode <- 130 // Standard exit code for SIGINT
-	} else {
-		exitCode <- 1
-	}
-	close(cleanupDone)
-}
-
-// handleNormalCleanup handles cleanup when test completes normally.
-func (c *runCmd) handleNormalCleanup(ctx context.Context, cleanupCtx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, cleanupDone chan struct{}) {
-	if c.SkipControlPlaneCleanup {
-		c.textPrinter.Println("Test completed, skipping cleanup due to --skip-control-plane-cleanup flag")
-		close(cleanupDone)
-		return
-	}
-
-	c.textPrinter.Println("Test completed, cleaning up resources...")
-
-	result, cleanupErr := c.executeCleanup(cleanupCtx, devCtp, test)
-	c.reportCleanupResult(result, cleanupErr, false)
-
-	// Always teardown test control plane
 	c.textPrinter.Println("Tearing down test control plane...")
 	if err := devCtp.Teardown(ctx, c.Force); err != nil {
 		c.textPrinter.Printfln("Error during control plane deletion: %v", err)
-	} else {
-		c.textPrinter.Println("Test control plane deleted successfully")
 	}
-
-	close(cleanupDone)
+	c.textPrinter.Println("Test control plane deleted")
 }
 
 func extractResourceFields(obj any) []string {
