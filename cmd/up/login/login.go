@@ -320,12 +320,15 @@ func constructAuth(username, token, password string) (*auth, profile.TokenType, 
 	}, profType, nil
 }
 
-// parseID extracts a user ID from a provided token, if available; otherwise, it
+// parseID extracts an ID from a provided token, if available; otherwise, it
 // returns the given username. It determines the token type based on the subject
 // prefix and returns an appropriate profile.TokenType.
+// TODO(tnthornton) we should revisit this method. It doesn't seem to just do 1
+// thing. Unfortunately, untangling it requires adjusting the current callers
+// to account for a change in behavior here.
 func parseID(user, token string) (string, profile.TokenType, error) {
-	// internal claims helper for pulling the the properties we care about
-	// out of the provided token.
+	// internal claims helper for pulling the properties we care about out of
+	// the provided token.
 	type tokenClaims struct {
 		jwt.MapClaims
 
