@@ -52,6 +52,16 @@ spec:
               Crossplane compositions, providers, and managed resources work correctly
               together in a real controlplane environment.
             properties:
+              cleanupTimeoutSeconds:
+                default: 600
+                description: |-
+                  CleanupTimeoutSeconds defines the maximum duration in seconds for cleanup
+                  operations after the test completes. This timeout applies to the deletion
+                  of test resources and any associated managed resources. If not specified,
+                  defaults to 600 seconds (10 minutes). Consider increasing this value for
+                  tests with many resources or complex deletion dependencies.
+                minimum: 1
+                type: integer
               crossplane:
                 description: |-
                   Crossplane specifies the Crossplane configuration and settings required

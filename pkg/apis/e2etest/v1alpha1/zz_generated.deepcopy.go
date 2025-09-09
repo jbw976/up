@@ -51,6 +51,11 @@ func (in *E2ETestSpec) DeepCopyInto(out *E2ETestSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.CleanupTimeoutSeconds != nil {
+		in, out := &in.CleanupTimeoutSeconds, &out.CleanupTimeoutSeconds
+		*out = new(int)
+		**out = **in
+	}
 	if in.SkipDelete != nil {
 		in, out := &in.SkipDelete, &out.SkipDelete
 		*out = new(bool)

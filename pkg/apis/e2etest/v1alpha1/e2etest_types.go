@@ -53,6 +53,16 @@ type E2ETestSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
 
+	// CleanupTimeoutSeconds defines the maximum duration in seconds for cleanup
+	// operations after the test completes. This timeout applies to the deletion
+	// of test resources and any associated managed resources. If not specified,
+	// defaults to 600 seconds (10 minutes). Consider increasing this value for
+	// tests with many resources or complex deletion dependencies.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=600
+	CleanupTimeoutSeconds *int `json:"cleanupTimeoutSeconds,omitempty"`
+
 	// If true, skip resource deletion after test
 	// +kubebuilder:validation:Optional
 	SkipDelete *bool `json:"skipDelete,omitempty"`
