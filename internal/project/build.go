@@ -39,6 +39,7 @@ import (
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/schema"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
+	"github.com/upbound/up/pkg/apis"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
@@ -218,6 +219,10 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 	if err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
 		return nil, errors.Wrap(err, "failed to generate language schemas")
+	}
+	if err := apis.GenerateSchema(ctx, os.depManager.schemas); err != nil {
+		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
+		return nil, errors.Wrap(err, "failed to generate language schemas for Upbound meta APIs")
 	}
 	os.eventChan.SendEvent(statusStage, async.EventStatusSuccess)
 
