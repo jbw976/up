@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/pkg/browser"
 	"github.com/pterm/pterm"
@@ -320,28 +320,41 @@ func constructAuth(username, token, password string) (*auth, profile.TokenType, 
 	}, profType, nil
 }
 
-// parseID extracts a user ID from a provided token, if available; otherwise, it
+// parseID extracts an ID from a provided token, if available; otherwise, it
 // returns the given username. It determines the token type based on the subject
 // prefix and returns an appropriate profile.TokenType.
+// TODO(tnthornton) we should revisit this method. It doesn't seem to just do 1
+// thing. Unfortunately, untangling it requires adjusting the current callers
+// to account for a change in behavior here.
 func parseID(user, token string) (string, profile.TokenType, error) {
+	// internal claims helper for pulling the properties we care about out of
+	// the provided token.
+	type tokenClaims struct {
+		jwt.MapClaims
+
+		ID  string `json:"jti"`
+		Sub string `json:"sub"`
+	}
+
 	if token != "" {
 		p := jwt.Parser{}
-		claims := &jwt.StandardClaims{}
+		claims := &tokenClaims{}
 		_, _, err := p.ParseUnverified(token, claims)
 		if err != nil {
 			return "", "", err
 		}
-		if claims.Id == "" {
+		if claims.ID == "" {
 			return "", "", errors.New(errNoIDInToken)
 		}
-		if claims.Subject == "" {
+		if claims.Sub == "" {
 			return "", "", errors.New(errNoSubInToken)
 		}
+
 		switch {
-		case strings.HasPrefix(claims.Subject, "robot|"):
-			return claims.Id, profile.TokenTypeRobot, nil
+		case strings.HasPrefix(claims.Sub, "robot|"):
+			return claims.ID, profile.TokenTypeRobot, nil
 		default:
-			return claims.Id, profile.TokenTypePAT, nil
+			return claims.ID, profile.TokenTypePAT, nil
 		}
 	}
 	return user, profile.TokenTypeUser, nil

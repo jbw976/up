@@ -5,14 +5,14 @@ package login
 
 import (
 	"bytes"
-	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
 	"testing/iotest"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pterm/pterm"
 
@@ -75,7 +75,7 @@ func TestRun(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.err, tc.cmd.Run(context.TODO(), pterm.DefaultBasicText.WithWriter(io.Discard), tc.ctx), test.EquateErrors()); diff != "" {
+			if diff := cmp.Diff(tc.err, tc.cmd.Run(t.Context(), pterm.DefaultBasicText.WithWriter(io.Discard), tc.ctx), test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nRun(...): -want error, +got error:\n%s", tc.reason, diff)
 			}
 		})
@@ -179,7 +179,7 @@ func TestParseID(t *testing.T) {
 			args: args{
 				token: "invalid",
 			},
-			err: jwt.NewValidationError("token contains an invalid number of segments", jwt.ValidationErrorMalformed),
+			err: fmt.Errorf("%w: token contains an invalid number of segments", jwt.ErrTokenMalformed),
 		},
 		"ErrorNoClaimID": {
 			reason: "If token does not contain an ID an error should be returned.",
