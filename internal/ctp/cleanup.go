@@ -198,7 +198,7 @@ func (h *cleanupHelper) findTestResources(ctx context.Context, dc discovery.Disc
 
 		for _, item := range list.Items {
 			annotations := item.GetAnnotations()
-			if annotations == nil || strings.ToLower(annotations[annotation]) != "true" {
+			if annotations == nil || !strings.EqualFold(annotations[annotation], "true") {
 				continue
 			}
 
