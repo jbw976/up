@@ -4,11 +4,7 @@
 package migration
 
 import (
-	"os"
-	"strings"
-
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
@@ -20,11 +16,6 @@ import (
 // AfterApply constructs and binds Upbound specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	// Check if this is invoked via the alpha command
-	if strings.HasPrefix(kongCtx.Command(), "alpha migration") {
-		pterm.Warning.WithWriter(os.Stderr).Printf("The 'up alpha migration' command is deprecated and will be removed in a future release. Please use 'up controlplane migration' instead.\n\n")
-	}
-
 	cfg, err := upCtx.GetKubeconfig()
 	if err != nil {
 		return err
