@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/pkg/browser"
 	"github.com/pterm/pterm"
@@ -324,24 +324,34 @@ func constructAuth(username, token, password string) (*auth, profile.TokenType, 
 // returns the given username. It determines the token type based on the subject
 // prefix and returns an appropriate profile.TokenType.
 func parseID(user, token string) (string, profile.TokenType, error) {
+	// internal claims helper for pulling the the properties we care about
+	// out of the provided token.
+	type tokenClaims struct {
+		jwt.MapClaims
+
+		ID  string `json:"jti"`
+		Sub string `json:"sub"`
+	}
+
 	if token != "" {
 		p := jwt.Parser{}
-		claims := &jwt.StandardClaims{}
+		claims := &tokenClaims{}
 		_, _, err := p.ParseUnverified(token, claims)
 		if err != nil {
 			return "", "", err
 		}
-		if claims.Id == "" {
+		if claims.ID == "" {
 			return "", "", errors.New(errNoIDInToken)
 		}
-		if claims.Subject == "" {
+		if claims.Sub == "" {
 			return "", "", errors.New(errNoSubInToken)
 		}
+
 		switch {
-		case strings.HasPrefix(claims.Subject, "robot|"):
-			return claims.Id, profile.TokenTypeRobot, nil
+		case strings.HasPrefix(claims.Sub, "robot|"):
+			return claims.ID, profile.TokenTypeRobot, nil
 		default:
-			return claims.Id, profile.TokenTypePAT, nil
+			return claims.ID, profile.TokenTypePAT, nil
 		}
 	}
 	return user, profile.TokenTypeUser, nil

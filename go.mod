@@ -27,7 +27,6 @@ require (
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/goccy/go-yaml v1.12.0
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/golang/tools v0.32.0
 	github.com/google/addlicense v1.1.1

@@ -6,13 +6,14 @@ package login
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
 	"testing/iotest"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pterm/pterm"
 
@@ -179,7 +180,7 @@ func TestParseID(t *testing.T) {
 			args: args{
 				token: "invalid",
 			},
-			err: jwt.NewValidationError("token contains an invalid number of segments", jwt.ValidationErrorMalformed),
+			err: fmt.Errorf("%w: token contains an invalid number of segments", jwt.ErrTokenMalformed),
 		},
 		"ErrorNoClaimID": {
 			reason: "If token does not contain an ID an error should be returned.",
