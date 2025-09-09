@@ -317,11 +317,21 @@ jobs:
           cd $PROJECT_NAME
           up project move xpkg.upbound.io/upbound/project-template-aws-s3
 
+      # The e2e test depend on AWS and Upbound cloud, so they're prone to
+      # flakes. We allow for retries here.
       - name: up test run --e2e
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
         env:
           UP_AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
           UP_AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           UP_AWS_SESSION_TOKEN: ${{ env.AWS_SESSION_TOKEN }}
-        run: |
-          cd $PROJECT_NAME
-          up test run tests/e2etest-xstoragebucket --e2e
+        with:
+          timeout_minutes: 30 # Per attempt
+          max_attempts: 3
+          # Wait a minute between retries to (a) make it more likely that the
+          # dev MCP has finished deleting so we don't hit a name collision, and
+          # (b) make it less likely that we re-hit any transient issues.
+          retry_wait_seconds: 60
+          command: |
+            cd $PROJECT_NAME
+            up test run tests/e2etest-xstoragebucket --e2e
