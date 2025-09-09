@@ -271,6 +271,7 @@ func TestFindTestResources(t *testing.T) {
 
 			// Create fake client with mock resources
 			fakeClient := fake.NewClientBuilder().
+				WithScheme(runtime.NewScheme()).
 				WithRuntimeObjects(tc.mockResources...).
 				Build()
 
@@ -371,9 +372,9 @@ func TestGetResourceKey(t *testing.T) {
 	}
 }
 
-func TestCreateUnstructuredObject(t *testing.T) { //nolint:tparallel // See comment below.
-	// Note: Cannot use t.Parallel() here due to concurrent map write issues
-	// in the fake client scheme registry when tests run in parallel
+func TestCreateUnstructuredObject(t *testing.T) {
+	t.Parallel()
+
 	helper := &cleanupHelper{}
 
 	tests := map[string]struct {
