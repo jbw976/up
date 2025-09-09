@@ -334,6 +334,13 @@ func (l *localDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
 func (l *localDevControlPlane) Teardown(ctx context.Context, _ bool) error {
 	provider := kind.NewProvider()
 
+	// If the context is already canceled, don't bother trying to tear down. The
+	// kind call below doesn't take/respect the context, but the docker call
+	// will fail.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	if err := provider.Delete(l.name, ""); err != nil {
 		return errors.Wrap(err, "failed to delete the local control plane")
 	}
