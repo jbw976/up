@@ -64,6 +64,7 @@ jobs:
     needs: [e2e-tests]
     with:
       channel: main
+      version: ${{ jobs.release.outputs.version }}
     secrets:
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}

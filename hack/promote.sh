@@ -28,8 +28,8 @@ if [ -z "$OCI_REPOSITORY" ]; then
 fi
 
 if [ -z "$VERSION" ]; then
-    VERSION=$(git describe)
-    echo "Defaulted VERSION to $VERSION"
+    echo "VERSION must be non-empty"
+    exit 1
 fi
 
 S3_FROM="s3://${S3_BUCKET}/build/${VERSION}"

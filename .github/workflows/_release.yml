@@ -23,10 +23,16 @@ on:
       upbound-bot-github-token:
         description: 'GitHub token for private module access'
         required: true
+    outputs:
+      version:
+        description: 'The version that was released'
+        value: ${{ jobs.release.outputs.version }}
 
 jobs:
   release:
     runs-on: blacksmith-8vcpu-ubuntu-2404
+    outputs:
+      version: ${{ steps.goreleaser.outputs.metadata.version }}
     steps:
       - name: Granting private modules access
         run: |
@@ -74,6 +80,7 @@ jobs:
           password: ${{ secrets.xpkg-token }}
 
       - name: Release
+        id: goreleaser
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           args: release

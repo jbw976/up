@@ -1,3 +1,3 @@
 #!/bin/sh
 
-git describe > _output/version
+echo $1 > _output/version
