@@ -20,18 +20,8 @@ permissions:
   contents: write   # Required for release creation
 
 jobs:
-  # We get triggered anytime the tag workflow finishes, even if it fails. Don't
-  # run release if the run failed.
-  filter-runs:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    if: ${{ github.event.workflow_run && github.event.workflow_run.conclusion != "success" }}
-    steps:
-      - name: Fail
-        run: |
-          echo "Tag workflow failed; not proceeding with release."
-          exit 1
-
   check:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/_check.yml
     with:
       golangci-version: 'v1.64.8'
@@ -39,6 +29,7 @@ jobs:
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   release:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/_release.yml
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -61,10 +52,10 @@ jobs:
   promote-main:
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/_promote.yml
-    needs: [e2e-tests]
+    needs: [release, e2e-tests]
     with:
       channel: main
-      version: ${{ jobs.release.outputs.version }}
+      version: ${{ needs.release.outputs.version }}
     secrets:
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}

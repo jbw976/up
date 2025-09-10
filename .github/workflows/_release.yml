@@ -32,7 +32,7 @@ jobs:
   release:
     runs-on: blacksmith-8vcpu-ubuntu-2404
     outputs:
-      version: ${{ steps.goreleaser.outputs.metadata.version }}
+      version: ${{ fromJSON(steps.goreleaser.outputs.metadata).version }}
     steps:
       - name: Granting private modules access
         run: |
