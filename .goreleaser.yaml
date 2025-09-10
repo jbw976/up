@@ -35,7 +35,7 @@ builds:
       - -X github.com/upbound/up/internal/version.gitCommit={{.ShortCommit}}
     hooks:
       post:
-        - hack/write-version.sh
+        - hack/write-version.sh v${{.Version}}
 
   - id: docker-credential-up
     binary: docker-credential-up

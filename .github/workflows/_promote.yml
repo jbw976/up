@@ -6,10 +6,9 @@ on:
   workflow_call:
     inputs:
       version:
-        description: 'Version to promote (e.g. v0.1.0); defaults to `git describe`'
-        required: false
+        description: 'Version to promote (e.g. v0.1.0)'
+        required: true
         type: string
-        default: ''
       channel:
         description: 'Release channel'
         required: true
