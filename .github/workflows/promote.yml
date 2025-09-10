@@ -11,7 +11,11 @@ on:
       channel:
         description: 'Release channel'
         required: true
-        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - stable
+        default: alpha
 
 jobs:
   promote-artifacts:
