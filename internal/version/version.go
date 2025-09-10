@@ -44,7 +44,6 @@ const (
 	ReleaseTargetDebug  Target = "debug"
 	agentVersion               = "0.0.0-649.g97cc957"
 	mcpConnectorVersion        = "0.8.0"
-	gitCommit                  = "unknown-commit"
 	releaseTarget              = string(ReleaseTargetDebug)
 )
 
@@ -52,7 +51,10 @@ const (
 	apiConnectorVersion = "0.0.6"
 )
 
-var version string
+var (
+	version   string
+	gitCommit string //nolint:gochecknoglobals // Filled by ldflags.
+)
 
 // UserAgent Function to print the UserAgent.
 func UserAgent() string {
