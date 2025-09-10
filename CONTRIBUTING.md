@@ -141,10 +141,12 @@ following are the manual steps involved.
 
 1. **branch repo**: For the first release of a particular minor version, create
    a new release branch using the GitHub UI for the repo (e.g. `release-0.25`).
-1. **tag release**: Run the `Tag` action on the _release branch_ with the
-   desired version (e.g. `v0.25.0`). This triggers the Release workflow in
-   GitHub Actions, which will do a build, create a GH release, upload artifacts,
-   and create a draft pull request to update the docs.
+1. **tag release**: Create a tag (e.g., `v0.25.0`) and draft release for the new
+   version on the release branch through the GitHub UI. This triggers the
+   Release workflow in GitHub Actions, which will do a build, create a GH
+   release, upload artifacts, and create a draft pull request to update the
+   docs. **IMPORTANT:** Remember to save the release as a draft; do not publish
+   it.
 1. **verify**: Verify all artifacts have been published successfully, perform
    sanity testing.
    * Navigate to
