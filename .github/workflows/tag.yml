@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.1.0)'
+        required: true
+
+jobs:
+  create-tag:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Create Tag
+        uses: negz/create-tag@39bae1e0932567a58c20dea5a1a0d18358503320 # v1
+        with:
+          version: ${{ github.event.inputs.version }}
+          message: "Release ${{ github.event.inputs.version }}"
+          token: ${{ secrets.GITHUB_TOKEN }}

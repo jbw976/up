@@ -9,19 +9,28 @@ on:
     branches:
       - main
       - release-*
-    tags:
-      # Run on all version tags ...
-      - 'v*'
-      # ... except the -0.rc.0 tag we create to increment the minor version
-      # after a release.
-      - '!*-0.rc.0'
-  workflow_dispatch: {}
+  workflow_run:
+    workflows:
+      - Tag
+    types:
+      - completed
 
 permissions:
   id-token: write   # Required for OIDC authentication
   contents: write   # Required for release creation
 
 jobs:
+  # We get triggered anytime the tag workflow finishes, even if it fails. Don't
+  # run release if the run failed.
+  filter-runs:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    if: ${{ github.event.workflow_run.conclusion == "failure" }}
+    steps:
+      - name: Fail
+        run: |
+          echo "Tag workflow failed; not proceeding with release."
+          exit 1
+
   check:
     uses: ./.github/workflows/_check.yml
     with:
