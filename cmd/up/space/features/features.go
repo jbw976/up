@@ -16,7 +16,7 @@ const (
 )
 
 func EnableFeatures(features *feature.Flags, params map[string]any) {
-	if isAlphaSharedTelemetryEnabled(params) {
+	if isAlphaSharedTelemetryEnabled(params) || isGASharedTelemetryEnabled(params) {
 		features.Enable(EnableAlphaSharedTelemetry)
 	}
 
@@ -29,6 +29,14 @@ func EnableFeatures(features *feature.Flags, params map[string]any) {
 
 func isAlphaSharedTelemetryEnabled(params map[string]any) bool {
 	enabled, err := fieldpath.Pave(params).GetBool("features.alpha.observability.enabled")
+	if err != nil {
+		return false
+	}
+	return enabled
+}
+
+func isGASharedTelemetryEnabled(params map[string]any) bool {
+	enabled, err := fieldpath.Pave(params).GetBool("observability.enabled")
 	if err != nil {
 		return false
 	}
