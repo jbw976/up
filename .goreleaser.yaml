@@ -280,6 +280,7 @@ release:
     - up-rpm
     - docker-credential-up-rpm
   prerelease: auto
+  use_existing_draft: true
   # Don't do a release unless we built from a tag.
   disable: '{{ if eq (trimprefix .Env.GITHUB_REF "refs/tags/") .Tag }}false{{ else }}true{{ end }}'
 
