@@ -32,15 +32,19 @@ var (
 )
 
 var (
-	// SelectableItemStyle is the selectable item style.
+	// SelectableItemStyle is the item style for selectable items in a list.
 	//
 	//nolint:gochecknoglobals // We'd make these consts if we could.
-	SelectableItemStyle = lipgloss.NewStyle().Foreground(DimColor)
-	// KindStyle is the kind style.
+	SelectableItemStyle = lipgloss.NewStyle()
+	// UnselectableItemStyle is the item style for unselectable items in a list.
+	//
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	UnselectableItemStyle = lipgloss.NewStyle().Foreground(DimColor)
+	// KindStyle is the style used for item kinds prefixes item names in a list.
 	//
 	//nolint:gochecknoglobals // We'd make these consts if we could.
 	KindStyle = lipgloss.NewStyle().Foreground(NeutralColor)
-	// SelectedItemStyle is the selected item style.
+	// SelectedItemStyle is the style used for the selected item in a list.
 	//
 	//nolint:gochecknoglobals // We'd make these consts if we could.
 	SelectedItemStyle = lipgloss.NewStyle().Foreground(UpboundBrandColor)

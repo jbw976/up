@@ -97,7 +97,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		mainStyle = c
 	}
 	if str.notSelectable {
-		c := style.SelectableItemStyle
+		c := style.UnselectableItemStyle
 		mainStyle = c
 	}
 	padding := str.padding
