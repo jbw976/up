@@ -145,10 +145,6 @@ following are the manual steps involved.
    desired version (e.g. `v0.25.0`). This triggers the Release workflow in
    GitHub Actions, which will do a build, create a GH release, upload artifacts,
    and create a draft pull request to update the docs.
-1. **tag pre-release**: Run the `Tag` action on _main_ to create an `rc.0`
-   version of the _next_ minor release (e.g. `v0.26.0-0.rc.0`). This will not
-   trigger a release, and ensures subsequent builds from main have sensible
-   version numbers.
 1. **verify**: Verify all artifacts have been published successfully, perform
    sanity testing.
    * Navigate to
