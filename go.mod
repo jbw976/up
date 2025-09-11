@@ -35,7 +35,7 @@ require (
 	github.com/google/ko v0.17.1
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/kyverno/chainsaw v0.2.13-0.20250506200713-bab727ee0572
+	github.com/kyverno/chainsaw v0.2.13
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
