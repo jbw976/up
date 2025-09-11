@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package features contains feature flag related functions.
 package features
 
 import (
@@ -15,6 +16,7 @@ const (
 	EnableAlphaQueryAPI feature.Flag = "EnableQueryAPI"
 )
 
+// EnableFeatures enables features based on the provided parameters.
 func EnableFeatures(features *feature.Flags, params map[string]any) {
 	if isAlphaSharedTelemetryEnabled(params) || isGASharedTelemetryEnabled(params) {
 		features.Enable(EnableAlphaSharedTelemetry)
