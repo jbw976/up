@@ -42,13 +42,14 @@ func (c *renderCmd) Help() string {
 type renderCmd struct {
 	Operation string `arg:"" help:"A YAML file specifying the Operation to render." type:"existingfile"`
 
-	RequiredResources      string            `help:"A YAML file or directory of YAML files specifying required resources that functions can request."                                          placeholder:"PATH" short:"r"   type:"path"`
+	RequiredResources      string            `help:"A YAML file or directory of YAML files specifying required resources that functions can request."                                          placeholder:"PATH"      short:"r"   type:"path"`
 	ContextFiles           map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be files containing JSON."                           mapsep:""`
 	ContextValues          map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be JSON. Keys take precedence over --context-files." mapsep:""`
 	IncludeFunctionResults bool              `help:"Include informational and warning messages from Functions in the rendered output as resources of kind: Result."                            short:"f"`
 	IncludeFullOperation   bool              `help:"Include the full Operation with original spec and metadata in the rendered output."                                                        short:"o"`
 	IncludeContext         bool              `help:"Include the context in the rendered output as a resource of kind: Context."                                                                short:"c"`
-	FunctionCredentials    string            `help:"A YAML file or directory of YAML files specifying credentials to use for Functions to render the Operation."                               placeholder:"PATH" type:"path"`
+	FunctionCredentials    string            `help:"A YAML file or directory of YAML files specifying credentials to use for Functions to render the Operation."                               placeholder:"PATH"      type:"path"`
+	FunctionAnnotations    []string          `help:"Override function annotations for all functions. Can be repeated."                                                                         placeholder:"KEY=VALUE"`
 
 	Timeout        time.Duration `default:"1m" help:"How long to run before timing out."`
 	MaxConcurrency uint          `default:"8"  env:"UP_MAX_CONCURRENCY"                  help:"Maximum number of functions to build at once."`
@@ -195,6 +196,7 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 		ContextValues:          c.ContextValues,
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
+		FunctionAnnotations:    c.FunctionAnnotations,
 	}
 
 	renderCtx, cancel := context.WithTimeout(ctx, c.Timeout)

@@ -56,6 +56,8 @@ type Options struct {
 	ContextValues map[string]string
 	Concurrency   uint
 
+	FunctionAnnotations []string
+
 	ImageResolver manager.ImageResolver
 }
 
@@ -156,6 +158,11 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		return "", errors.Wrap(err, "cannot load functions from project")
 	}
 	fns = append(fns, embeddedFunctions...)
+
+	// Apply global annotation overrides to each function
+	if err := xprender.OverrideFunctionAnnotations(fns, opts.FunctionAnnotations); err != nil {
+		return "", errors.Wrap(err, "cannot apply function annotation overrides")
+	}
 
 	// Turn off gRPC log messages.
 	// When a function starts slowly, gRPC logs a warning that it can't handle the first request.

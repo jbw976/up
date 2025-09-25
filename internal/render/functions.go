@@ -7,8 +7,11 @@ package render
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
+	"strings"
 
+	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
@@ -91,8 +94,11 @@ func isFunction(dep pkgmetav1.Dependency) bool {
 }
 
 // embeddedFunctionsToDaemon loads each compatible image in the ImageTagMap into the Docker daemon.
-func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, error) {
+func embeddedFunctionsToDaemon(ctx context.Context, imageMap project.ImageTagMap) ([]pkgv1.Function, error) {
 	functions := make([]pkgv1.Function, 0, len(imageMap))
+
+	// Detect the target daemon's architecture
+	targetArch := getDockerDaemonArchitecture(ctx)
 
 	for tag, img := range imageMap {
 		platformInfo, err := img.ConfigFile()
@@ -100,7 +106,7 @@ func embeddedFunctionsToDaemon(imageMap project.ImageTagMap) ([]pkgv1.Function, 
 			return nil, errors.Wrapf(err, "error getting platform info for image %s", tag)
 		}
 
-		if platformInfo.Architecture != runtime.GOARCH {
+		if platformInfo.Architecture != targetArch {
 			continue
 		}
 
@@ -153,7 +159,7 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Conte
 
 	stage := "Pushing embedded functions to local daemon"
 	opts.EventChannel.SendEvent(stage, async.EventStatusStarted)
-	efns, err := embeddedFunctionsToDaemon(imgMap)
+	efns, err := embeddedFunctionsToDaemon(ctx, imgMap)
 	if err != nil {
 		opts.EventChannel.SendEvent(stage, async.EventStatusFailure)
 		return nil, errors.Wrap(err, "unable to push to local docker daemon")
@@ -161,4 +167,49 @@ func BuildEmbeddedFunctionsLocalDaemon(ctx context.Context, upCtx *upbound.Conte
 	opts.EventChannel.SendEvent(stage, async.EventStatusSuccess)
 
 	return efns, nil
+}
+
+// getDockerDaemonArchitecture detects the Docker daemon's architecture.
+// If DOCKER_HOST is set, it queries the daemon for its architecture.
+// Otherwise, it returns the local runtime architecture.
+func getDockerDaemonArchitecture(ctx context.Context) string {
+	// Check if DOCKER_HOST is set, indicating a potentially remote daemon
+	dockerHost := os.Getenv("DOCKER_HOST")
+
+	// If DOCKER_HOST is not set or is a unix socket, use runtime.GOARCH
+	// Unix sockets indicate local daemon, so runtime.GOARCH is appropriate
+	if dockerHost == "" || strings.HasPrefix(dockerHost, "unix://") {
+		return runtime.GOARCH
+	}
+
+	// For TCP/SSH connections, query the daemon for its architecture
+	cli, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation(), client.FromEnv)
+	if err != nil {
+		// Fall back to runtime.GOARCH if we can't create a client
+		return runtime.GOARCH
+	}
+	defer cli.Close() //nolint:errcheck // we don't care about the error
+
+	// Get daemon info to determine architecture
+	info, err := cli.Info(ctx)
+	if err != nil {
+		// Fall back to runtime.GOARCH if we can't get daemon info
+		return runtime.GOARCH
+	}
+
+	// Map Docker's architecture naming to Go's GOARCH format
+	arch := normalizeArchitecture(info.Architecture)
+	return arch
+}
+
+// normalizeArchitecture converts Docker's architecture naming to Go's GOARCH format.
+func normalizeArchitecture(dockerArch string) string {
+	switch dockerArch {
+	case "x86_64":
+		return "amd64"
+	case "aarch64":
+		return "arm64"
+	default:
+		return dockerArch
+	}
 }

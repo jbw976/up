@@ -40,6 +40,13 @@ up composition render composition.yaml xr.yaml \
     --function-credentials=credentials.yaml
 ```
 
+Override function annotations for a remote Docker daemon.
+```shell
+DOCKER_HOST=tcp://192.168.1.100:2376 up composition render composition.yaml xr.yaml \
+	--function-annotations render.crossplane.io/runtime-docker-publish-address=0.0.0.0 \
+	--function-annotations render.crossplane.io/runtime-docker-target=192.168.1.100
+```
+
 #### Docker Configuration
 
 The render command uses Docker (or any Docker-compatible container runtime) to

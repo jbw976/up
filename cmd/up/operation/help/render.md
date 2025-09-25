@@ -45,6 +45,13 @@ Include the full Operation with original spec and metadata:
 up operation render operations/op1/operation.yaml -o
 ```
 
+Override function annotations for remote Docker daemon.
+```shell
+DOCKER_HOST=tcp://192.168.1.100:2376 up operation render operations/op1/operation.yaml \
+    --function-annotations render.crossplane.io/runtime-docker-publish-address=0.0.0.0 \
+    --function-annotations render.crossplane.io/runtime-docker-target=192.168.1.100
+```
+
 #### Docker Configuration
 
 The render command uses Docker (or any Docker-compatible container runtime) to

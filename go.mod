@@ -20,7 +20,7 @@ require (
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea
 	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0
-	github.com/crossplane/crossplane/v2 v2.1.0-rc.0
+	github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20250919173259-ca799148cdea
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
 	github.com/crossplane/uptest v1.4.0
 	github.com/docker/docker-credential-helpers v0.9.3
@@ -439,5 +439,3 @@ exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-20240907200651-3ffb98b
 
 // Replace kube-openapi to use version compatible with structured-merge-diff v4
 replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250628140032-d90c4fd18f59
-
-replace github.com/crossplane/crossplane/v2 => github.com/crossplane/crossplane/v2 v2.0.2

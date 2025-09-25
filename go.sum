@@ -917,8 +917,8 @@ github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c4
 github.com/crossplane/crossplane-runtime v1.21.0-rc.0.0.20250719014028-ab24452c43ea/go.mod h1:Q2RWQocAsv/2/QF6dYxFyW2XKf9zixqlAG02Fujndag=
 github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0 h1:T9KV7XKWCNVT7KAvUWPBGZVgO22YKvjDR9vWq1uyaFg=
 github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0/go.mod h1:pkd5UzmE8esaZAApevMutR832GjJ1Qgc5Ngr78ByxrI=
-github.com/crossplane/crossplane/v2 v2.0.2 h1:OKA26pnm3/uFHN1zF9d2CGkkvod9H/6PrK4xmL81BgU=
-github.com/crossplane/crossplane/v2 v2.0.2/go.mod h1:s0C2wok2nNwgrAozqBARzn02DfY1o1cNmPtUY7Dd/y8=
+github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20250919173259-ca799148cdea h1:eYMRAjlfPzCoTWkk2M185NHAYPdl3L92Ox4QpCnQdl0=
+github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20250919173259-ca799148cdea/go.mod h1:1GJwiopub0VDZPKWEh2Hde01daxJfeULY17CwctDO0o=
 github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 h1:2Dx4IHfC1yHWI12AxQDJM1QbRCDfk6M+blLzlZCXdrc=
 github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46/go.mod h1:uzvlm1mxhHkdfqitSA92i7Se+S9ksOn3a3qmv/kyOCw=
 github.com/cyphar/filepath-securejoin v0.4.1 h1:JyxxyPEaktOD+GAnqIqTf9A8tHyAG22rowi7HkoSU1s=
