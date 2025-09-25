@@ -41,7 +41,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/posener/complete v1.2.3
 	github.com/pterm/pterm v0.12.79
-	github.com/r3labs/diff/v3 v3.0.1
+	github.com/r3labs/diff/v3 v3.0.2
 	github.com/radovskyb/watcher v1.0.7
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	github.com/sourcegraph/go-lsp v0.0.0-20240223163137-f80c5dd31dfd
