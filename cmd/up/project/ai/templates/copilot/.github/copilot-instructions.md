@@ -12,19 +12,6 @@ This is a Crossplane project that extends Kubernetes with infrastructure orchest
 - `/tests`: Contains the related tests for this project
 - `/.up`: Local API directory with cached resources
 
-## Libraries and Frameworks
-
-- Crossplane for infrastructure orchestration
-- Kubernetes APIs for resource definitions
-- Go for function development (if applicable)
-
-## Coding Standards
-
-- Use YAML for Kubernetes resource definitions
-- Follow Crossplane naming conventions for XRDs and Compositions
-- Use semantic versioning for API versions
-- Include proper metadata labels and annotations
-
 ## Debugging Guidelines
 
 When debugging Control Plane issues:
