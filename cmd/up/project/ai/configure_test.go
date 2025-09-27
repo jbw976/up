@@ -25,6 +25,8 @@ var (
 	projectCursor embed.FS
 	//go:embed all:testdata/fake-project-gemini
 	projectGemini embed.FS
+	//go:embed all:testdata/fake-project-copilot
+	projectCopilot embed.FS
 )
 
 // TestRuleCmd_Run tests the Run method of the ruleCmd struct.
@@ -55,6 +57,12 @@ func TestRuleCmd_Run(t *testing.T) {
 			fs:            projectCursor,
 			path:          "testdata/fake-project-cursor",
 			expectedFiles: []string{"project.mdc", "mcp.json", "upbound.yaml"},
+			err:           nil,
+		},
+		"Copilot": {
+			fs:            projectCopilot,
+			path:          "testdata/fake-project-copilot",
+			expectedFiles: []string{"copilot-instructions.md", "copilot-mcp.json", "upbound.yaml"},
 			err:           nil,
 		},
 	}

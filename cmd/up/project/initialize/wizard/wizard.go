@@ -273,6 +273,8 @@ func (w *Wizard) getAITool(tool AIToolingProvider) string {
 		return "claude-code"
 	case ToolCursor:
 		return "cursor"
+	case ToolCopilot:
+		return "copilot"
 	}
 	return ""
 }
