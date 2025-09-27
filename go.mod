@@ -22,7 +22,7 @@ require (
 	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0
 	github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20250919173259-ca799148cdea
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
-	github.com/crossplane/uptest v1.4.0
+	github.com/crossplane/uptest v1.4.1-0.20250918173215-f01054f24740
 	github.com/docker/docker-credential-helpers v0.9.3
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/getkin/kin-openapi v0.131.0
@@ -421,8 +421,6 @@ replace (
 replace github.com/upbound/up/pkg/migration => ./pkg/migration
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go v1.2.11
-
-replace github.com/crossplane/uptest => github.com/haarchri/uptest v0.0.0-20250806184015-a85d325208a3
 
 // Otherwise it fails with
 // # github.com/crossplane/crossplane/internal/engine

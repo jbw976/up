@@ -329,6 +329,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		SetOnlyCleanUptestResources(true).
 		SetRenderOnly(false).
 		SetLogCollectionInterval(10 * time.Second).
+		SetUseLibraryMode(true).
 		Build()
 
 	if err := uptest.RunTest(automatedTest); err != nil {
