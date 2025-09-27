@@ -31,11 +31,11 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/upbound/up/internal/version.version=v{{.Version}}
+      - -X github.com/upbound/up/internal/version.version={{.Version}}
       - -X github.com/upbound/up/internal/version.gitCommit={{.ShortCommit}}
     hooks:
       post:
-        - hack/write-version.sh v{{.Version}}
+        - hack/write-version.sh {{.Version}}
 
   - id: docker-credential-up
     binary: docker-credential-up
