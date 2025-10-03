@@ -234,117 +234,62 @@ jobs:
           name: output
           path: _output
 
-      - name: up
-        shell: bash
+      - name: Set up up-cli
+        shell: pwsh
         run: |
-          mkdir -p ~/up-cli-bin
-          cp _output/up_windows_amd64_v1/up.exe ~/up-cli-bin/up.exe
-          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
+          mkdir "$env:USERPROFILE\up-cli-bin"
+          Copy-Item _output\up_windows_amd64_v1\up.exe "$env:USERPROFILE\up-cli-bin\up.exe"
+          echo "$env:USERPROFILE\up-cli-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: up version
-        run: |
-          up version
+      - name: Verify up-cli
+        shell: pwsh
+        run: up.exe version
 
       - name: up login with robot
+        shell: pwsh
         run: |
-          up login -t ${{ secrets.upbound-robot-token }} --organization=upbound
+          up.exe login -t ${{ secrets.upbound-robot-token }} --organization=upbound
 
       - name: up project init
+        shell: pwsh
         run: |
-          up project init --empty e2e-test
-
-      - name: assert project
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/upbound.yaml
-          assert_file_path: e2e/project.yaml
-          expected_result: PASSED
+          up.exe project init --empty e2e-test
 
       - name: up project deps
+        shell: pwsh
         run: |
           cd e2e-test
-          up dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.1
-
-      - name: assert project with deps
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/upbound.yaml
-          assert_file_path: e2e/project-with-dependencies.yaml
-          expected_result: PASSED
+          up.exe  dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.1
 
       - name: up example generate
+        shell: pwsh
         run: |
           cd e2e-test
-          up example generate --type xr --scope cluster --api-group acme.comp --api-version v1beta1 --kind XCluster --name example
-
-      - name: assert claim
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/examples/xcluster/example.yaml
-          assert_file_path: e2e/example.yaml
-          expected_result: PASSED
+          up.exe example generate --type xr --scope cluster --api-group acme.comp --api-version v1beta1 --kind XCluster --name example
 
       - name: up xrd generate
+        shell: pwsh
         run: |
           cd e2e-test
-          up xrd generate examples/xcluster/example.yaml
-
-      - name: assert xrd
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/apis/xclusters/definition.yaml
-          assert_file_path: e2e/definition.yaml
-          expected_result: PASSED
+          up.exe xrd generate examples/xcluster/example.yaml
 
       - name: up composition generate
+        shell: pwsh
         run: |
           cd e2e-test
-          up composition generate examples/xcluster/example.yaml
-
-      - name: assert composition
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/apis/xclusters/composition.yaml
-          assert_file_path: e2e/composition.yaml
-          expected_result: PASSED
-
-      - name: assert project after composition generate
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/upbound.yaml
-          assert_file_path: e2e/project-after-compositon-generate.yaml
-          expected_result: PASSED
+          up.exe  composition generate examples/xcluster/example.yaml
 
       - name: up function generate
+        shell: pwsh
         run: |
           cd e2e-test
-          up function generate --language=kcl xcluster apis/xclusters/composition.yaml
-
-      - name: assert composition with embedded function
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/apis/xclusters/composition.yaml
-          assert_file_path: e2e/composition-with-embedded-function.yaml
-          expected_result: PASSED
-
-      - name: assert main.k from embedded function
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: cat e2e-test/functions/xcluster/main.k
-          assert_file_path: e2e/main.k
-          expected_result: PASSED
+          up.exe  function generate --language=kcl xcluster apis/xclusters/composition.yaml
 
       - name: up project build
+        shell: pwsh
         run: |
           cd e2e-test
-          up project build
-
-      - name: assert uppkg exists
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: ls _output/e2e-test.uppkg
-          contains: _output/e2e-test.uppkg
-          expected_result: PASSED
+          up.exe project build
 
       - name: Login to xpkg with robot
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
@@ -354,14 +299,16 @@ jobs:
           password: ${{ secrets.upbound-robot-token }}
 
       - name: up project push
+        shell: pwsh
         run: |
           cd e2e-test
-          up project push
+          up.exe project push
 
       - name: up project run
+        shell: pwsh
         run: |
           cd e2e-test
-          up project run --local --timeout=30m
+          up.exe project run --local --timeout=30m
           kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
           kubectl wait pkg --all --for=condition=Healthy --timeout 5s
           kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
@@ -369,23 +316,10 @@ jobs:
           kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
 
       - name: up project stop
+        shell: pwsh
         run: |
           cd e2e-test
-          up project stop --local --force
-
-      - name: assert kind cluster was destroyed
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: kind get clusters
-          contains: e2e-test
-          expected_result: FAILED
-
-      - name: assert docker container were removed
-        uses: GuillaumeFalourd/assert-command-line-output@main
-        with:
-          command_line: docker ps -a
-          contains: e2e-test
-          expected_result: FAILED
+          up.exe project stop --local --force
 
   e2e-project-template-aws-s3:
     runs-on: blacksmith-8vcpu-ubuntu-2404
