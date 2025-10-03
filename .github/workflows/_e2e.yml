@@ -266,60 +266,60 @@ jobs:
         run: |
           cd e2e-test
           up.exe example generate --type xr --scope cluster --api-group acme.comp --api-version v1beta1 --kind XCluster --name example
+      # ToDo(haarchri): today only windows container support with github hosted runners
+      # - name: up xrd generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe xrd generate examples/xcluster/example.yaml
 
-      - name: up xrd generate
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe xrd generate examples/xcluster/example.yaml
+      # - name: up composition generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe  composition generate examples/xcluster/example.yaml
 
-      - name: up composition generate
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe  composition generate examples/xcluster/example.yaml
+      # - name: up function generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe  function generate --language=kcl xcluster apis/xclusters/composition.yaml
 
-      - name: up function generate
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe  function generate --language=kcl xcluster apis/xclusters/composition.yaml
+      # - name: up project build
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project build
 
-      - name: up project build
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe project build
+      # - name: Login to xpkg with robot
+      #   uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+      #   with:
+      #     registry: xpkg.upbound.io
+      #     username: ${{ secrets.upbound-robot-id }}
+      #     password: ${{ secrets.upbound-robot-token }}
 
-      - name: Login to xpkg with robot
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
-        with:
-          registry: xpkg.upbound.io
-          username: ${{ secrets.upbound-robot-id }}
-          password: ${{ secrets.upbound-robot-token }}
+      # - name: up project push
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project push
 
-      - name: up project push
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe project push
+      # - name: up project run
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project run --local --timeout=30m
+      #     kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
+      #     kubectl wait pkg --all --for=condition=Healthy --timeout 5s
+      #     kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
+      #     kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
+      #     kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
 
-      - name: up project run
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe project run --local --timeout=30m
-          kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
-          kubectl wait pkg --all --for=condition=Healthy --timeout 5s
-          kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
-          kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
-          kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
-
-      - name: up project stop
-        shell: pwsh
-        run: |
-          cd e2e-test
-          up.exe project stop --local --force
+      # - name: up project stop
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project stop --local --force
 
   e2e-project-template-aws-s3:
     runs-on: blacksmith-8vcpu-ubuntu-2404
