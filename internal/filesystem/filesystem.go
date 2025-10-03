@@ -11,13 +11,68 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
+
+// Walk is a replacement for afero.Walk that ensures paths are normalized for
+// in-memory filesystem compatibility on Windows. This reimplementation uses
+// path.Join instead of filepath.Join to always use forward slashes.
+func Walk(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+	// Normalize root to forward slashes
+	root = filepath.ToSlash(root)
+	if root == "" {
+		root = "."
+	}
+
+	info, err := fs.Stat(root)
+	if err != nil {
+		return walkFn(root, nil, err)
+	}
+	return walk(fs, root, info, walkFn)
+}
+
+func walk(fs afero.Fs, p string, info os.FileInfo, walkFn filepath.WalkFunc) error {
+	err := walkFn(p, info, nil)
+	if err != nil {
+		if info.IsDir() && errors.Is(err, filepath.SkipDir) {
+			return nil
+		}
+		return err
+	}
+
+	if !info.IsDir() {
+		return nil
+	}
+
+	// Read directory contents
+	f, err := fs.Open(p)
+	if err != nil {
+		return walkFn(p, info, err)
+	}
+	defer f.Close() //nolint:errcheck // Can't do anything useful with this error.
+
+	list, err := f.Readdir(-1)
+	if err != nil {
+		return walkFn(p, info, err)
+	}
+
+	for _, fileInfo := range list {
+		// Use path.Join instead of filepath.Join to always use forward slashes
+		filename := path.Join(p, fileInfo.Name())
+		err = walk(fs, filename, fileInfo, walkFn)
+		if err != nil {
+			if !fileInfo.IsDir() || !errors.Is(err, filepath.SkipDir) {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 // CopyFilesBetweenFs copies all files from the source filesystem (fromFS) to the destination filesystem (toFS).
 // It traverses through the fromFS filesystem, skipping directories and copying only files.
@@ -114,7 +169,7 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create prefix directory in tar archive")
 	}
-	err = afero.Walk(f, ".", func(name string, info fs.FileInfo, err error) error {
+	err = Walk(f, ".", func(name string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -141,8 +196,8 @@ func FSToTar(f afero.Fs, prefix string, opts ...FSToTarOption) ([]byte, error) {
 }
 
 func addToTar(tw *tar.Writer, prefix string, f afero.Fs, filename string, info fs.FileInfo, cfg *fsToTarConfig) error {
-	// Compute the full path in the tar archive
-	fullPath := filepath.Join(prefix, filename)
+	// Compute the full path in the tar archive using forward slashes
+	fullPath := path.Join(prefix, filename)
 
 	if info.IsDir() {
 		// Skip the root directory as it was already added
@@ -236,7 +291,8 @@ func addSymlinkToTar(tw *tar.Writer, prefix string, symlinkPath string, cfg *fsT
 		if err != nil {
 			return err
 		}
-		targetHeader.Name = filepath.Join(prefix, symlinkPath, relativePath)
+		// Use path.Join instead of filepath.Join to ensure forward slashes in tar archives
+		targetHeader.Name = path.Join(prefix, filepath.ToSlash(symlinkPath), filepath.ToSlash(relativePath))
 		if cfg.uidOverride != nil {
 			targetHeader.Uid = *cfg.uidOverride
 		}
@@ -273,11 +329,10 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 		return errors.Wrapf(err, "failed to get real path for sourcePath: %s", sourcePath)
 	}
 
-	realBasePath := strings.TrimSuffix(realSourcePath, sourcePath)
-
 	// Calculate the relative path from the targetPath's parent directory to the sourcePath
 	symlinkParentDir := filepath.Dir(realTargetPath)
-	// On Windows, ensure both paths are absolute before calculating relative path
+
+	// Ensure both paths are absolute before calculating relative path
 	absSymlinkParentDir, err := filepath.Abs(symlinkParentDir)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get absolute path for symlink parent directory: %s", symlinkParentDir)
@@ -293,17 +348,8 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 		return errors.Wrapf(err, "failed to calculate relative symlink path from %s to %s", absSymlinkParentDir, absRealSourcePath)
 	}
 
-	// Clean the paths to normalize them
-	relativeSymlinkPath = filepath.Clean(relativeSymlinkPath)
-	realBasePath = filepath.Clean(realBasePath)
-
-	resultRelativeSymlinkPath := relativeSymlinkPath
-	if strings.Contains(relativeSymlinkPath, realBasePath) {
-		resultRelativeSymlinkPath = strings.Replace(relativeSymlinkPath, realBasePath, "", 1)
-	}
-
-	// Join the real base path and target path to get the full symlink target path
-	symlinkPath := filepath.Join(realBasePath, realTargetPath)
+	// The actual symlink file will be created at this absolute path
+	symlinkPath := filepath.Join(absSymlinkParentDir, filepath.Base(realTargetPath))
 
 	// Check if the symlink or file already exists
 	if _, err := os.Lstat(symlinkPath); err == nil {
@@ -314,8 +360,8 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 	}
 
 	// Use os.Symlink to create the symlink with the calculated relative path
-	if err := os.Symlink(resultRelativeSymlinkPath, symlinkPath); err != nil {
-		return errors.Wrapf(err, "failed to create symlink from %s to %s", resultRelativeSymlinkPath, symlinkPath)
+	if err := os.Symlink(relativeSymlinkPath, symlinkPath); err != nil {
+		return errors.Wrapf(err, "failed to create symlink from %s to %s", relativeSymlinkPath, symlinkPath)
 	}
 
 	return nil

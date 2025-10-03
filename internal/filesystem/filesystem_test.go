@@ -604,3 +604,182 @@ func TestEmbedCopyOnWriteFs(t *testing.T) {
 		})
 	}
 }
+
+func TestWalk(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupFs      func(fs afero.Fs)
+		root         string
+		expectedPath []string
+		skipDir      string
+		expectErr    bool
+	}{
+		{
+			name: "WalkSingleFile",
+			setupFs: func(fs afero.Fs) {
+				afero.WriteFile(fs, "file.txt", []byte("content"), os.ModePerm)
+			},
+			root:         ".",
+			expectedPath: []string{".", "file.txt"},
+		},
+		{
+			name: "WalkNestedDirectories",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("dir1/dir2", os.ModePerm)
+				afero.WriteFile(fs, "dir1/file1.txt", []byte("content1"), os.ModePerm)
+				afero.WriteFile(fs, "dir1/dir2/file2.txt", []byte("content2"), os.ModePerm)
+			},
+			root: ".",
+			expectedPath: []string{
+				".",
+				"dir1",
+				"dir1/dir2",
+				"dir1/dir2/file2.txt",
+				"dir1/file1.txt",
+			},
+		},
+		{
+			name: "WalkSkipDir",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("dir1/dir2", os.ModePerm)
+				afero.WriteFile(fs, "dir1/file1.txt", []byte("content1"), os.ModePerm)
+				afero.WriteFile(fs, "dir1/dir2/file2.txt", []byte("content2"), os.ModePerm)
+				afero.WriteFile(fs, "file.txt", []byte("content"), os.ModePerm)
+			},
+			root:    ".",
+			skipDir: "dir1",
+			expectedPath: []string{
+				".",
+				"file.txt",
+			},
+		},
+		{
+			name: "WalkEmptyDirectory",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("empty", os.ModePerm)
+			},
+			root:         ".",
+			expectedPath: []string{".", "empty"},
+		},
+		{
+			name: "WalkNonExistentRoot",
+			setupFs: func(_ afero.Fs) {
+			},
+			root:      "nonexistent",
+			expectErr: true,
+		},
+		{
+			name: "WalkForwardSlashPaths",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("dir/subdir", os.ModePerm)
+				afero.WriteFile(fs, "dir/file.txt", []byte("content"), os.ModePerm)
+			},
+			root: ".",
+			expectedPath: []string{
+				".",
+				"dir",
+				"dir/file.txt",
+				"dir/subdir",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			tt.setupFs(fs)
+
+			var visited []string
+			err := Walk(fs, tt.root, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if tt.skipDir != "" && info.IsDir() && path == tt.skipDir {
+					return filepath.SkipDir
+				}
+				visited = append(visited, path)
+				return nil
+			})
+
+			if tt.expectErr {
+				assert.Assert(t, err != nil)
+				return
+			}
+
+			assert.NilError(t, err)
+			assert.DeepEqual(t, tt.expectedPath, visited)
+		})
+	}
+}
+
+func TestWalkSkipDirHandling(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupFs      func(fs afero.Fs)
+		walkFn       filepath.WalkFunc
+		expectedPath []string
+	}{
+		{
+			name: "SkipDirOnDirectory",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("skip/subdir", os.ModePerm)
+				afero.WriteFile(fs, "skip/file.txt", []byte("content"), os.ModePerm)
+				afero.WriteFile(fs, "keep.txt", []byte("content"), os.ModePerm)
+			},
+			walkFn: func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if path == "skip" && info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			},
+			expectedPath: []string{".", "keep.txt"},
+		},
+		{
+			name: "SkipDirInNestedWalk",
+			setupFs: func(fs afero.Fs) {
+				fs.MkdirAll("dir1/skip/nested", os.ModePerm)
+				fs.MkdirAll("dir1/keep", os.ModePerm)
+				afero.WriteFile(fs, "dir1/skip/file.txt", []byte("content"), os.ModePerm)
+				afero.WriteFile(fs, "dir1/keep/file.txt", []byte("content"), os.ModePerm)
+			},
+			walkFn: func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if path == "dir1/skip" && info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			},
+			expectedPath: []string{
+				".",
+				"dir1",
+				"dir1/keep",
+				"dir1/keep/file.txt",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			tt.setupFs(fs)
+
+			var visited []string
+			err := Walk(fs, ".", func(path string, info os.FileInfo, err error) error {
+				walkErr := tt.walkFn(path, info, err)
+				if walkErr == filepath.SkipDir {
+					return filepath.SkipDir
+				}
+				visited = append(visited, path)
+				return walkErr
+			})
+
+			assert.NilError(t, err)
+			assert.DeepEqual(t, tt.expectedPath, visited)
+		})
+	}
+}

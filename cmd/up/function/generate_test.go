@@ -188,7 +188,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 			assert.NilError(t, err)
 
 			// Use BasePathFs for functionFS, scoped to the temp directories
-			functionFS := afero.NewBasePathFs(projFS, filepath.Join("/functions", tc.name))
+			functionFS := afero.NewBasePathFs(afero.NewOsFs(), filepath.Join(tempProjDir, "functions", tc.name))
 
 			// Setup the generateCmd with mock dependencies
 			c := &generateCmd{
@@ -196,7 +196,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				projFS:            projFS,
 				proj:              proj,
 				modelsFS:          testModelsFS,
-				fsPath:            filepath.Join("/functions", tc.name),
+				fsPath:            filepath.Join("functions", tc.name),
 				functionFS:        functionFS,
 				Language:          tc.language,
 				PipelinePath:      tc.pipelinePath,
