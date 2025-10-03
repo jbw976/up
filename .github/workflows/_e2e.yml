@@ -41,7 +41,7 @@ jobs:
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/up_linux_amd64_v1/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
@@ -238,7 +238,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up.exe ~/up-cli-bin/up.exe
+          cp _output/up_windows_amd64_v1/up.exe ~/up-cli-bin/up.exe
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
       - name: up version
@@ -416,7 +416,7 @@ jobs:
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/up_linux_amd64_v1/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 

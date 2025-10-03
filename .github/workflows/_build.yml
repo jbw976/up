@@ -44,7 +44,7 @@ jobs:
       - name: Build
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
-          args: build --snapshot --single-target
+          args: build --snapshot
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

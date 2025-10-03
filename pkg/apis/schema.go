@@ -42,7 +42,7 @@ func (f *metaAPIsSource) Version(_ context.Context) (string, error) {
 	// for the files.
 	h := sha256.New()
 
-	if err := fs.WalkDir(f.fs, "crds", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(f.fs, "", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
