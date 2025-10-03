@@ -14,6 +14,8 @@ import (
 
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
+
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 )
 
 type fileInfo struct {
@@ -771,7 +773,7 @@ func TestWalkSkipDirHandling(t *testing.T) {
 			var visited []string
 			err := Walk(fs, ".", func(path string, info os.FileInfo, err error) error {
 				walkErr := tt.walkFn(path, info, err)
-				if walkErr == filepath.SkipDir {
+				if errors.Is(walkErr, filepath.SkipDir) {
 					return filepath.SkipDir
 				}
 				visited = append(visited, path)
