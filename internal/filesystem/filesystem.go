@@ -8,11 +8,13 @@ import (
 	"archive/tar"
 	"bytes"
 	"embed"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 
@@ -361,7 +363,19 @@ func CreateSymlink(targetFS *afero.BasePathFs, targetPath string, sourceFS *afer
 
 	// Use os.Symlink to create the symlink with the calculated relative path
 	if err := os.Symlink(relativeSymlinkPath, symlinkPath); err != nil {
-		return errors.Wrapf(err, "failed to create symlink from %s to %s", relativeSymlinkPath, symlinkPath)
+		baseMsg := fmt.Sprintf("failed to create symlink from %s to %s", relativeSymlinkPath, symlinkPath)
+
+		// Windows-specific privilege error
+		if strings.Contains(err.Error(), "A required privilege is not held by the client") {
+			return errors.Errorf(
+				"%s: %v\n\nOn Windows, creating symlinks requires either:\n"+
+					"  1. Running as Administrator, or\n"+
+					"  2. Enabling Developer Mode (Settings > Update & Security > For developers > Developer Mode)",
+				baseMsg, err,
+			)
+		}
+
+		return errors.Wrap(err, baseMsg)
 	}
 
 	return nil
