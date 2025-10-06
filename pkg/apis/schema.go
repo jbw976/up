@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/afero"
 
+	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/schemas/manager"
 )
 
@@ -74,7 +75,7 @@ func (f *metaAPIsSource) Version(_ context.Context) (string, error) {
 }
 
 func (f *metaAPIsSource) Resources(_ context.Context) (afero.Fs, error) {
-	return afero.NewBasePathFs(afero.FromIOFS{FS: f.fs}, "crds"), nil
+	return filesystem.EmbedCopyOnWriteFs(f.fs)
 }
 
 func (f *metaAPIsSource) Type() manager.SourceType {

@@ -4,10 +4,16 @@
 // Package kcl contains function for kcl embedded functions and tests helpers
 package kcl
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // FormatKclImportPath ensures unique aliases while converting paths.
 func FormatKclImportPath(path string, existingAliases map[string]bool) (string, string) {
+	// Normalize path to forward slashes for cross-platform compatibility
+	path = filepath.ToSlash(path)
+
 	// Find the position of "models" in the path
 	modelsIndex := strings.Index(path, "models")
 	if modelsIndex == -1 {

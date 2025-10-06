@@ -44,11 +44,13 @@ jobs:
       - name: Build
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
-          args: build --snapshot --single-target
+          args: build --snapshot
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: output
-          path: _output/up_linux_amd64_v1/up
+          path: |
+            _output/up_linux_amd64_v1/up
+            _output/up_windows_amd64_v1/up.exe
           if-no-files-found: error

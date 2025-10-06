@@ -41,7 +41,7 @@ jobs:
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/up_linux_amd64_v1/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 
@@ -221,6 +221,106 @@ jobs:
           contains: e2e-test
           expected_result: FAILED
 
+  e2e-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: output
+          path: _output
+
+      - name: Set up up-cli
+        shell: pwsh
+        run: |
+          mkdir "$env:USERPROFILE\up-cli-bin"
+          Copy-Item _output\up_windows_amd64_v1\up.exe "$env:USERPROFILE\up-cli-bin\up.exe"
+          echo "$env:USERPROFILE\up-cli-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify up-cli
+        shell: pwsh
+        run: up.exe version
+
+      - name: up login with robot
+        shell: pwsh
+        run: |
+          up.exe login -t ${{ secrets.upbound-robot-token }} --organization=upbound
+
+      - name: up project init
+        shell: pwsh
+        run: |
+          up.exe project init --empty e2e-test
+
+      - name: up project deps
+        shell: pwsh
+        run: |
+          cd e2e-test
+          up.exe  dep add xpkg.upbound.io/upbound/provider-kubernetes:v1.0.1
+
+      - name: up example generate
+        shell: pwsh
+        run: |
+          cd e2e-test
+          up.exe example generate --type xr --scope cluster --api-group acme.comp --api-version v1beta1 --kind XCluster --name example
+      # ToDo(haarchri): today only windows container support with github hosted runners
+      # - name: up xrd generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe xrd generate examples/xcluster/example.yaml
+
+      # - name: up composition generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe  composition generate examples/xcluster/example.yaml
+
+      # - name: up function generate
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe  function generate --language=kcl xcluster apis/xclusters/composition.yaml
+
+      # - name: up project build
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project build
+
+      # - name: Login to xpkg with robot
+      #   uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
+      #   with:
+      #     registry: xpkg.upbound.io
+      #     username: ${{ secrets.upbound-robot-id }}
+      #     password: ${{ secrets.upbound-robot-token }}
+
+      # - name: up project push
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project push
+
+      # - name: up project run
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project run --local --timeout=30m
+      #     kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
+      #     kubectl wait pkg --all --for=condition=Healthy --timeout 5s
+      #     kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
+      #     kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
+      #     kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
+
+      # - name: up project stop
+      #   shell: pwsh
+      #   run: |
+      #     cd e2e-test
+      #     up.exe project stop --local --force
+
   e2e-project-template-aws-s3:
     runs-on: blacksmith-8vcpu-ubuntu-2404
 
@@ -250,7 +350,7 @@ jobs:
       - name: up
         run: |
           mkdir -p ~/up-cli-bin
-          cp _output/up ~/up-cli-bin/
+          cp _output/up_linux_amd64_v1/up ~/up-cli-bin/
           chmod +x ~/up-cli-bin/up
           echo "$HOME/up-cli-bin" >> $GITHUB_PATH
 

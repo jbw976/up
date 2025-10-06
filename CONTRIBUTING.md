@@ -134,6 +134,41 @@ be sent. You can do this by running a local OpenTelemetry collector:
 Now when you run `up`, you should see spans emitted on the terminal where you're
 running the collector.
 
+## Windows Compatibility
+
+This project supports Windows, macOS, and Linux. When working with file paths and filesystem operations, it's important to follow these guidelines to ensure cross-platform compatibility:
+
+### Path Handling
+
+**Use `path` for virtual/in-memory filesystems:**
+-  When working entirely inside `afero` virtual filesystems (e.g., `MemMapFs`, or a `BasePathFs` that wraps one), use `path.Join()` instead of `filepath.Join()`
+- If `BasePathFs` wraps `afero.OsFs`, continue using `filepath.Join()` so native paths remain intact
+- The `path` package always uses forward slashes (`/`), which is required for afero's in-memory filesystems to work correctly on Windows
+- Example: `path.Join("functions", functionName)` instead of `filepath.Join("functions", functionName)`
+
+**Use `filepath` for OS filesystem operations:**
+- When working with actual OS filesystem paths, use `filepath.Join()` and other `filepath` functions
+- The `filepath` package uses OS-specific separators (backslash on Windows, forward slash on Unix)
+- Always use `filepath.ToSlash()` when storing or comparing paths that need to be platform-independent
+
+**Avoid leading slashes in BasePathFs:**
+- Don't prepend `/` to paths when working with `afero.BasePathFs` on Windows
+- BasePathFs treats paths starting with `/` as absolute on all platforms, which breaks Windows compatibility
+- Example: Use `path.Join(proj.Spec.Paths.Functions, c.Name)` instead of `path.Join("/", proj.Spec.Paths.Functions, c.Name)`
+
+### Filesystem Walking
+
+**Use `filesystem.Walk()` instead of `afero.Walk()`:**
+- The `internal/filesystem` package provides a `Walk()` function that's compatible with Windows
+- This custom implementation normalizes paths to forward slashes for in-memory filesystem compatibility
+- Example: `filesystem.Walk(fs, ".", func(path string, info os.FileInfo, err error) error { ... })`
+
+### Testing on Windows
+
+- Windows E2E tests run in GitHub Actions
+- If you make changes to filesystem operations or path handling, ensure they work on Windows
+- Consider testing locally on Windows
+
 ## Release Process
 
 The release process for `up` is semi-automated through GitHub Actions. The

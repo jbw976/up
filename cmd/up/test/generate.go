@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -109,10 +110,9 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 	proj.Default()
 	c.proj = proj
 
-	// The tests path is relative to the project directory; prepend it with
-	// `/` to make it an absolute path within the project FS.
-	c.fsPath = filepath.Join(
-		"/",
+	// The tests path is relative to the project directory
+	// Don't use leading `/` on Windows as BasePathFs treats it as absolute
+	c.fsPath = path.Join(
 		proj.Spec.Paths.Tests,
 		c.testName,
 	)

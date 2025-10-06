@@ -104,10 +104,9 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, 
 	proj.Default()
 	c.proj = proj
 
-	// The functions path is relative to the project directory; prepend it with
-	// `/` to make it an absolute path within the project FS.
-	c.fsPath = filepath.Join(
-		"/",
+	// The functions path is relative to the project directory
+	// Don't use leading `/` on Windows as BasePathFs treats it as absolute
+	c.fsPath = path.Join(
 		proj.Spec.Paths.Functions,
 		c.Name,
 	)
@@ -434,7 +433,7 @@ type goTemplatingTemplateData struct {
 func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
 	targetFS := afero.NewMemMapFs()
 
-	modelPath, err := filepath.Rel(c.fsPath, "/.up/json/models/index.schema.json")
+	modelPath, err := filepath.Rel(c.fsPath, ".up/json/models/index.schema.json")
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot determine model path")
 	}
