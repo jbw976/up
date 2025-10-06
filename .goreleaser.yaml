@@ -14,7 +14,7 @@ dist: _output
 # *really* matter, but using the git summary makes it obvious where the build
 # came from.
 snapshot:
-  version_template: "{{ .Summary }}"
+  version_template: '{{ trimprefix .Summary "v" }}'
 
 builds:
   - id: up
