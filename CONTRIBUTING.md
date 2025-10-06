@@ -141,7 +141,8 @@ This project supports Windows, macOS, and Linux. When working with file paths an
 ### Path Handling
 
 **Use `path` for virtual/in-memory filesystems:**
-- When working with `afero` in-memory filesystems (e.g., `MemMapFs`, `BasePathFs`), use `path.Join()` instead of `filepath.Join()`
+-  When working entirely inside `afero` virtual filesystems (e.g., `MemMapFs`, or a `BasePathFs` that wraps one), use `path.Join()` instead of `filepath.Join()`
+- If `BasePathFs` wraps `afero.OsFs`, continue using `filepath.Join()` so native paths remain intact
 - The `path` package always uses forward slashes (`/`), which is required for afero's in-memory filesystems to work correctly on Windows
 - Example: `path.Join("functions", functionName)` instead of `filepath.Join("functions", functionName)`
 
