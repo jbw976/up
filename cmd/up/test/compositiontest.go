@@ -119,6 +119,7 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 			XRD:                    xrdPath,
 			Concurrency:            c.concurrency,
 			ImageResolver:          c.r,
+			FunctionAnnotations:    c.FunctionAnnotations,
 		}
 
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)

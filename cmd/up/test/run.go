@@ -72,6 +72,7 @@ type runCmd struct {
 	SkipControlPlaneCleanup bool     `help:"Skip cleanup of the control plane after the test run."                                                                               name:"skip-control-plane-cleanup"`
 	UseCurrentContext       bool     `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
 	CacheDir                string   `default:"~/.up/cache/"                                                                                                                     env:"CACHE_DIR"                                                                                    help:"Directory used for caching dependencies."               type:"path"`
+	FunctionAnnotations     []string `help:"Override function annotations for all functions (compositionTests and operationTests). Can be repeated."                             placeholder:"KEY=VALUE"`
 
 	Kubectl string `env:"KUBECTL" help:"Absolute path to the kubectl binary. Defaults to the one in $PATH." type:"path"`
 
