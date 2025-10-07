@@ -88,6 +88,7 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 			RequiredResources:      requiredResourcesPath,
 			Concurrency:            c.concurrency,
 			ImageResolver:          c.r,
+			FunctionAnnotations:    c.FunctionAnnotations,
 		}
 
 		// Set timeout context
