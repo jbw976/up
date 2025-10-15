@@ -13,7 +13,7 @@ import (
 
 type objectWithoutMetadata struct {
 	FieldA string `json:"fieldA"`
-	FieldB string `jsoN:"fieldB"`
+	FieldB string `json:"fieldB"`
 }
 
 type metadataWithoutCreationTimestamp struct {
@@ -31,7 +31,7 @@ type objectWithCreationTimestamp struct {
 
 type objectWithNestedFields struct {
 	metav1.ObjectMeta `json:"metadata"`
-	TopLevel          *objectWithoutMetadata `yaml:"topLevel"`
+	TopLevel          *objectWithoutMetadata `json:"topLevel"`
 }
 
 func TestMarshal(t *testing.T) {
