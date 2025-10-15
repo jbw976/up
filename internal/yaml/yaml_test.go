@@ -35,6 +35,8 @@ type objectWithNestedFields struct {
 }
 
 func TestMarshal(t *testing.T) {
+	t.Parallel()
+
 	tcs := map[string]struct {
 		input        any
 		opts         []MarshalOption
