@@ -5,7 +5,6 @@
 package space
 
 import (
-	_ "embed"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -24,6 +23,8 @@ import (
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upterm"
+
+	_ "embed"
 )
 
 //go:embed help/mirror.md
