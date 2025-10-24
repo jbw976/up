@@ -1332,6 +1332,9 @@ func determineCrossplaneVersion(ctx context.Context, cl client.Client, cfg *ensu
 
 	return &spacesv1beta1.CrossplaneSpec{
 		Version: ptr.To(latest.Original()),
+		AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+			Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+		},
 	}, nil
 }
 

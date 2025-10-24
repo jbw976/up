@@ -229,7 +229,12 @@ func TestDetermineCrossplaneVersion(t *testing.T) {
 			configMapData: map[string]string{
 				"versions": versions,
 			},
-			expected: &spacesv1beta1.CrossplaneSpec{Version: ptr.To("1.18.3-up.1")},
+			expected: &spacesv1beta1.CrossplaneSpec{
+				Version: ptr.To("1.18.3-up.1"),
+				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+				},
+			},
 		},
 		"V1ConstraintMatch": {
 			cfg: &ensureDevControlPlaneConfig{
@@ -240,7 +245,12 @@ func TestDetermineCrossplaneVersion(t *testing.T) {
 			configMapData: map[string]string{
 				"versions": versions,
 			},
-			expected: &spacesv1beta1.CrossplaneSpec{Version: ptr.To("1.20.1-up.1")},
+			expected: &spacesv1beta1.CrossplaneSpec{
+				Version: ptr.To("1.20.1-up.1"),
+				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+				},
+			},
 		},
 		"V2ConstraintMatch": {
 			cfg: &ensureDevControlPlaneConfig{
@@ -251,7 +261,12 @@ func TestDetermineCrossplaneVersion(t *testing.T) {
 			configMapData: map[string]string{
 				"versions": versions,
 			},
-			expected: &spacesv1beta1.CrossplaneSpec{Version: ptr.To("2.0.2-up.5")},
+			expected: &spacesv1beta1.CrossplaneSpec{
+				Version: ptr.To("2.0.2-up.5"),
+				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+				},
+			},
 		},
 		"InvalidVersionInConfigMap": {
 			cfg: &ensureDevControlPlaneConfig{
@@ -265,7 +280,12 @@ func TestDetermineCrossplaneVersion(t *testing.T) {
 - "1.19.1"
 - "1.20.0"`,
 			},
-			expected: &spacesv1beta1.CrossplaneSpec{Version: ptr.To("1.20.0")},
+			expected: &spacesv1beta1.CrossplaneSpec{
+				Version: ptr.To("1.20.0"),
+				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+				},
+			},
 		},
 		"MultipleConstraints": {
 			cfg: &ensureDevControlPlaneConfig{
@@ -276,7 +296,12 @@ func TestDetermineCrossplaneVersion(t *testing.T) {
 			configMapData: map[string]string{
 				"versions": versions,
 			},
-			expected: &spacesv1beta1.CrossplaneSpec{Version: ptr.To("1.19.2-up.1")},
+			expected: &spacesv1beta1.CrossplaneSpec{
+				Version: ptr.To("1.19.2-up.1"),
+				AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+					Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+				},
+			},
 		},
 		"NoMatchingVersion": {
 			cfg: &ensureDevControlPlaneConfig{
