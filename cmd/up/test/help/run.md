@@ -36,5 +36,8 @@ binary:
 up test run tests/* --e2e --kubectl=.tools/kubectl
 ```
 
+Run e2e tests in `tests/`, overriding the default control plane version:
 
-
+```shell
+up test run tests/* --e2e --control-plane-version=v2.0.2-up.5
+```

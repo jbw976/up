@@ -131,6 +131,11 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 			}
 
 			switch {
+			case c.ControlPlaneVersion != "":
+				opts = append(opts,
+					ctp.WithLocalCrossplaneVersion(c.ControlPlaneVersion),
+					ctp.WithSpacesCrossplaneVersionConstraint(c.ControlPlaneVersion),
+				)
 			case test.Spec.Crossplane != nil:
 				opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
 				if test.Spec.Crossplane.Version != nil {

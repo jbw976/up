@@ -64,6 +64,7 @@ type runCmd struct {
 	MaxConcurrency          uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                           help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup       string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix  string   `help:"Prefix of the control plane name to use. It will be created if not found."`
+	ControlPlaneVersion     string   `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
 	Force                   bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                           name:"skip-control-plane-check"`
 	Local                   bool     `help:"Use a local dev control plane, even if Spaces is available."`
 	ClusterAdmin            bool     `default:"true"                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true." negatable:""`
