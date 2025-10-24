@@ -37,7 +37,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/functions"
-	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 
 	_ "embed"
 )
@@ -56,19 +55,20 @@ type Flags struct {
 type Cmd struct {
 	Flags
 
-	ControlPlaneGroup  string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
-	ControlPlaneName   string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	Force              bool          `alias:"allow-production"                                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
-	Local              bool          `help:"Use a local dev control plane, even if Spaces is available."`
-	LocalRegistryPath  string        `help:"Directory to use for local registry images. The default is system-dependent."`
-	NoUpdateKubeconfig bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
-	UseCurrentContext  bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
-	CacheDir           string        `default:"~/.up/cache/"                                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
-	Public             bool          `help:"Create new repositories with public visibility."`
-	Timeout            time.Duration `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
-	Ingress            bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
-	IngressPort        string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
-	ClusterAdmin       bool          `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
+	ControlPlaneGroup   string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
+	ControlPlaneName    string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
+	ControlPlaneVersion string        `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
+	Force               bool          `alias:"allow-production"                                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
+	Local               bool          `help:"Use a local dev control plane, even if Spaces is available."`
+	LocalRegistryPath   string        `help:"Directory to use for local registry images. The default is system-dependent."`
+	NoUpdateKubeconfig  bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
+	UseCurrentContext   bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
+	CacheDir            string        `default:"~/.up/cache/"                                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
+	Public              bool          `help:"Create new repositories with public visibility."`
+	Timeout             time.Duration `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
+	Ingress             bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
+	IngressPort         string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
+	ClusterAdmin        bool          `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -88,10 +88,8 @@ type Cmd struct {
 
 	kubeconfigPath string
 
-	proj *v2alpha1.Project
+	proj *project.WithVersion
 }
-
-//
 
 //go:embed help/run.md
 var runHelp string
@@ -117,7 +115,7 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, f
 	// all our operations inside this virtual FS.
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
-	prj, err := project.Parse(c.projFS, c.ProjectFile)
+	prj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
 	if err != nil {
 		return errors.New("this is not a project directory")
 	}
@@ -137,7 +135,7 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, f
 	c.installConfiguration = kube.InstallConfiguration
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
-	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
+	m, err := project.NewDependencyManager(upCtx, c.proj.Project, c.projFS,
 		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
@@ -168,7 +166,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	}
 
 	var err error
-	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
+	c.Repository, err = project.DetermineRepository(upCtx, c.proj.Project, c.Repository)
 	if err != nil {
 		return err
 	}
@@ -181,7 +179,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	c.projFS = filesystem.MemOverlay(c.projFS)
 
 	if c.Repository != c.proj.Spec.Repository {
-		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
+		if err := project.Move(ctx, c.proj.Project, c.projFS, c.Repository); err != nil {
 			return errors.Wrap(err, "failed to update project repository")
 		}
 	}
@@ -202,23 +200,37 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
+		opts := []ctp.EnsureDevControlPlaneOption{
+			ctp.WithEventChannel(ch),
+			ctp.WithSpacesGroup(c.ControlPlaneGroup),
+			ctp.WithControlPlaneName(c.ControlPlaneName),
+			ctp.SkipDevCheck(c.Force),
+			ctp.ForceLocal(c.Local),
+			ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
+			ctp.WithIngress(c.Ingress, c.IngressPort),
+			ctp.WithClusterAdmin(c.ClusterAdmin),
+		}
+
+		// Set the version options appropriately: to the user-provided version,
+		// or to an appropriate constraint for the project if the not provided.
+		switch {
+		case c.ControlPlaneVersion != "":
+			opts = append(opts,
+				ctp.WithLocalCrossplaneVersion(c.ControlPlaneVersion),
+				ctp.WithSpacesCrossplaneVersionConstraint(c.ControlPlaneVersion),
+			)
+		case c.proj.IsV1():
+			opts = append(opts, ctp.WithSpacesCrossplaneVersionConstraint("^v1.18.0-up.0"))
+		default:
+			opts = append(opts, ctp.WithSpacesCrossplaneVersionConstraint("^v2.0.0-up.0"))
+		}
+
 		eg.Go(func() error {
 			var err error
 			if c.UseCurrentContext {
 				devCtp, err = ctp.NewKubeconfigDevControlPlane(ctx, upCtx)
 			} else {
-				devCtp, err = c.ensureDevControlPlane(
-					ctx,
-					upCtx,
-					ctp.WithEventChannel(ch),
-					ctp.WithSpacesGroup(c.ControlPlaneGroup),
-					ctp.WithControlPlaneName(c.ControlPlaneName),
-					ctp.SkipDevCheck(c.Force),
-					ctp.ForceLocal(c.Local),
-					ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
-					ctp.WithIngress(c.Ingress, c.IngressPort),
-					ctp.WithClusterAdmin(c.ClusterAdmin),
-				)
+				devCtp, err = c.ensureDevControlPlane(ctx, upCtx, opts...)
 			}
 			if err != nil {
 				return err
@@ -240,7 +252,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 
 		eg.Go(func() error {
 			var err error
-			imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
+			imgMap, err = b.Build(ctx, upCtx, c.proj.Project, c.projFS,
 				project.BuildWithEventChannel(ch),
 				project.BuildWithImageLabels(common.ImageLabels(c)),
 				project.BuildWithDependencyManager(c.m),
@@ -358,7 +370,7 @@ func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap
 		}
 
 		var err error
-		generatedTag, err = c.pusher.Push(ctx, c.proj, imgMap, opts...)
+		generatedTag, err = c.pusher.Push(ctx, c.proj.Project, imgMap, opts...)
 		return err
 	})
 

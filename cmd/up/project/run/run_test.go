@@ -115,7 +115,7 @@ func TestRun(t *testing.T) {
 
 			testPkgFS := afero.NewBasePathFs(afero.FromIOFS{FS: packagesFS}, "testdata/packages")
 
-			prj, err := project.Parse(projFS, "upbound.yaml")
+			prj, err := project.ParseWithVersion(projFS, "upbound.yaml")
 			assert.NilError(t, err)
 			prj.Default()
 
@@ -125,7 +125,7 @@ func TestRun(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			mgr, err := project.NewDependencyManager(upCtx, prj, projFS,
+			mgr, err := project.NewDependencyManager(upCtx, prj.Project, projFS,
 				project.WithCacheFS(afero.NewMemMapFs()),
 				project.WithFetcher(&image.FSFetcher{FS: testPkgFS}),
 				project.WithSchemaGenerators(nil),
@@ -140,6 +140,7 @@ func TestRun(t *testing.T) {
 					NoBuildCache: true,
 				},
 				NoUpdateKubeconfig: true,
+				Local:              true,
 
 				projFS:             projFS,
 				functionIdentifier: functions.FakeIdentifier,
