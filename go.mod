@@ -21,7 +21,7 @@ require (
 	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0.0.20251007191542-756e2d041413
 	github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20251016231501-098ee8e6a482
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
-	github.com/crossplane/uptest v1.4.1-0.20250918173215-f01054f24740
+	github.com/crossplane/uptest/v2 v2.2.0
 	github.com/docker/docker-credential-helpers v0.9.3
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/getkin/kin-openapi v0.131.0

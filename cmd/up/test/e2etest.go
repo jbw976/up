@@ -22,7 +22,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	v1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
-	uptest "github.com/crossplane/uptest/pkg"
+	uptest "github.com/crossplane/uptest/v2/pkg"
 
 	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
 	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
