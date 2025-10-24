@@ -50,7 +50,6 @@ import (
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	operationtest "github.com/upbound/up/pkg/apis/operationtest/v1alpha1"
-	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 
 	_ "embed"
 )
@@ -89,7 +88,7 @@ type runCmd struct {
 	r                  manager.ImageResolver
 	keychain           authn.Keychain
 	concurrency        uint
-	proj               *v2alpha1.Project
+	proj               *project.WithVersion
 
 	textPrinter  pterm.TextPrinter
 	printer      upterm.ObjectPrinter
@@ -120,7 +119,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// parse the project
-	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
+	proj, err := project.ParseWithVersion(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}
@@ -149,7 +148,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	)
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
-	m, err := project.NewDependencyManager(upCtx, proj, c.projFS,
+	m, err := project.NewDependencyManager(upCtx, proj.Project, c.projFS,
 		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
@@ -372,7 +371,7 @@ func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context,
 		}
 
 		var err error
-		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
+		generatedTag, err = pusher.Push(ctx, c.proj.Project, imgMap, opts...)
 		return err
 	})
 

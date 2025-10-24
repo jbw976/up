@@ -36,7 +36,6 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
-	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
 // e2eTestResourceAnnotation is the annotation we apply to all resources that
@@ -46,7 +45,7 @@ const e2eTestResourceAnnotation = "cli.upbound.io/e2etest"
 
 func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
 	var err error
-	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
+	c.Repository, err = project.DetermineRepository(upCtx, c.proj.Project, c.Repository)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -59,7 +58,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 	c.projFS = filesystem.MemOverlay(c.projFS)
 
 	if c.Repository != c.proj.Spec.Repository {
-		if err := project.Move(ctx, c.proj, c.projFS, c.Repository); err != nil {
+		if err := project.Move(ctx, c.proj.Project, c.projFS, c.Repository); err != nil {
 			return 0, 0, 0, errors.Wrap(err, "failed to update project repository")
 		}
 	}
@@ -71,7 +70,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 
 	var imgMap project.ImageTagMap
 	if err = c.asyncWrapper(func(ch async.EventChannel) error {
-		imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
+		imgMap, err = b.Build(ctx, upCtx, c.proj.Project, c.projFS,
 			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
 			project.BuildWithDependencyManager(c.m),
@@ -110,7 +109,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 	return total, success, errs, finalErr
 }
 
-func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, proj *v2alpha1.Project, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, proj *project.WithVersion, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
@@ -131,11 +130,16 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				ctp.WithClusterAdmin(c.ClusterAdmin),
 			}
 
-			if test.Spec.Crossplane != nil {
+			switch {
+			case test.Spec.Crossplane != nil:
 				opts = append(opts, ctp.WithSpacesCrossplaneSpec(*test.Spec.Crossplane))
 				if test.Spec.Crossplane.Version != nil {
 					opts = append(opts, ctp.WithLocalCrossplaneVersion(*test.Spec.Crossplane.Version))
 				}
+			case proj.IsV1():
+				opts = append(opts, ctp.WithSpacesCrossplaneVersionConstraint("^v1.18.0-up.0"))
+			default:
+				opts = append(opts, ctp.WithSpacesCrossplaneVersionConstraint("^v2.0.0-up.0"))
 			}
 
 			devCtp, err = ctp.EnsureDevControlPlane(ctx, upCtx, opts...)

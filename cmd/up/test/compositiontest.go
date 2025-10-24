@@ -27,7 +27,7 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
-			Project: c.proj,
+			Project: c.proj.Project,
 			// Use the original projFS here so schema generation knows the real
 			// path.
 			ProjFS:             c.projFS,
@@ -106,7 +106,7 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 		}
 
 		options := render.Options{
-			Project:                c.proj,
+			Project:                c.proj.Project,
 			ProjFS:                 overlayFS,
 			IncludeFullXR:          true,
 			IncludeFunctionResults: true,

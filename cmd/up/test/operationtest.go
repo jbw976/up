@@ -29,7 +29,7 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 	var efns []v1.Function
 	err := c.asyncWrapper(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
-			Project:            c.proj,
+			Project:            c.proj.Project,
 			ProjFS:             c.projFS,
 			Concurrency:        c.concurrency,
 			NoBuildCache:       c.NoBuildCache,
@@ -78,7 +78,7 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 
 		// Create render options for the operation
 		options := operations.Options{
-			Project:                c.proj,
+			Project:                c.proj.Project,
 			ProjFS:                 overlayFS,
 			IncludeFullOperation:   true,
 			IncludeFunctionResults: true,
