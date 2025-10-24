@@ -211,16 +211,25 @@ func (c *mirrorCmd) mirrorImages(images []imageReference, printer upterm.ObjectP
 		return errors.Wrapf(err, "error parsing space version")
 	}
 
+	processed := make(map[string]struct{})
 	for _, image := range images {
-		if err := c.processImage(image, baseVersion, printer); err != nil {
+		i := strings.Split(image.Image, ":")[0]
+		if _, ok := processed[i]; ok {
+			continue
+		}
+		matches, err := c.processImage(image, baseVersion, printer)
+		if err != nil {
 			return errors.Wrap(err, "unable to process image")
+		}
+		if matches && len(image.CompatibleChartVersion) > 0 {
+			processed[i] = struct{}{}
 		}
 	}
 
 	return nil
 }
 
-func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Version, printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Version, printer upterm.ObjectPrinter) (bool, error) {
 	include := true
 	if image.CompatibleChartVersion != "" {
 		constraint, err := semver.NewConstraint(image.CompatibleChartVersion)
@@ -232,7 +241,7 @@ func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Versi
 	}
 
 	if !include {
-		return nil
+		return false, nil
 	}
 
 	imageName := image.Image
@@ -242,7 +251,7 @@ func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Versi
 		version = parts[1]
 	}
 
-	return c.mirrorArtifact(imageName, version, printer)
+	return true, c.mirrorArtifact(imageName, version, printer)
 }
 
 func (c *mirrorCmd) mirrorArtifact(image, version string, printer upterm.ObjectPrinter) error {
