@@ -50,7 +50,6 @@ import (
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 	operationtest "github.com/upbound/up/pkg/apis/operationtest/v1alpha1"
-	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 
 	_ "embed"
 )
@@ -65,6 +64,7 @@ type runCmd struct {
 	MaxConcurrency          uint     `default:"8"                                                                                                                                env:"UP_MAX_CONCURRENCY"                                                                           help:"Maximum number of functions to build and push at once."`
 	ControlPlaneGroup       string   `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneNamePrefix  string   `help:"Prefix of the control plane name to use. It will be created if not found."`
+	ControlPlaneVersion     string   `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
 	Force                   bool     `alias:"allow-production"                                                                                                                   help:"Allow running on a non-development control plane."                                           name:"skip-control-plane-check"`
 	Local                   bool     `help:"Use a local dev control plane, even if Spaces is available."`
 	ClusterAdmin            bool     `default:"true"                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true." negatable:""`
@@ -89,7 +89,7 @@ type runCmd struct {
 	r                  manager.ImageResolver
 	keychain           authn.Keychain
 	concurrency        uint
-	proj               *v2alpha1.Project
+	proj               *project.WithVersion
 
 	textPrinter  pterm.TextPrinter
 	printer      upterm.ObjectPrinter
@@ -120,7 +120,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	c.projFS = afero.NewBasePathFs(afero.NewOsFs(), projDirPath)
 
 	// parse the project
-	proj, err := project.Parse(c.projFS, filepath.Base(c.ProjectFile))
+	proj, err := project.ParseWithVersion(c.projFS, filepath.Base(c.ProjectFile))
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	)
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
-	m, err := project.NewDependencyManager(upCtx, proj, c.projFS,
+	m, err := project.NewDependencyManager(upCtx, proj.Project, c.projFS,
 		project.WithCacheFS(cchFS),
 	)
 	if err != nil {
@@ -372,7 +372,7 @@ func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context,
 		}
 
 		var err error
-		generatedTag, err = pusher.Push(ctx, c.proj, imgMap, opts...)
+		generatedTag, err = pusher.Push(ctx, c.proj.Project, imgMap, opts...)
 		return err
 	})
 

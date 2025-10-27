@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -90,11 +91,12 @@ type ensureDevControlPlaneConfig struct {
 // spacesConfig holds spaces-specific configuration options for creating dev
 // control planes.
 type spacesConfig struct {
-	group       string
-	allowProd   bool
-	class       string
-	annotations map[string]string
-	crossplane  *spacesv1beta1.CrossplaneSpec
+	group                       string
+	allowProd                   bool
+	class                       string
+	annotations                 map[string]string
+	crossplane                  *spacesv1beta1.CrossplaneSpec
+	crossplaneVersionConstraint string
 }
 
 // localConfig holds local-specific configuration options for creating dev
@@ -111,10 +113,6 @@ type localConfig struct {
 func defaultCrossplaneSpec() *spacesv1beta1.CrossplaneSpec {
 	return &spacesv1beta1.CrossplaneSpec{
 		AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
-			// TODO(adamwg): For now, dev MCPs always use the rapid
-			// channel because they require Crossplane features that are
-			// only present in 1.18+. We can stop hard-coding this later
-			// when other channels are upgraded.
 			Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeRapid),
 		},
 	}
@@ -143,10 +141,20 @@ func SkipDevCheck(s bool) EnsureDevControlPlaneOption {
 }
 
 // WithSpacesCrossplaneSpec sets the Crossplane version and upgrade channel to
-// use when creating a Spaces control plane.
+// use when creating a Spaces control plane. Takes precedence over
+// WithCrossplaneVersionConstraint if both are given.
 func WithSpacesCrossplaneSpec(crossplane spacesv1beta1.CrossplaneSpec) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.spacesConfig.crossplane = &crossplane
+	}
+}
+
+// WithSpacesCrossplaneVersionConstraint sets a semver constraint to use when
+// choosing a Crossplane version for a spaces control plane. The latest
+// available release matching the constraint will be discovered and used.
+func WithSpacesCrossplaneVersionConstraint(v string) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.spacesConfig.crossplaneVersionConstraint = v
 	}
 }
 
@@ -488,7 +496,6 @@ func EnsureDevControlPlane(ctx context.Context, upCtx *upbound.Context, opts ...
 			annotations: map[string]string{
 				devControlPlaneAnnotation: "true",
 			},
-			crossplane: defaultCrossplaneSpec(),
 		},
 	}
 
@@ -1101,6 +1108,13 @@ func ensureSpacesDevControlPlane(ctx context.Context, upCtx *upbound.Context, cf
 		return nil, errors.Wrap(err, "cannot construct spaces client")
 	}
 
+	// Determine what version to use based on the configuration and what's
+	// available in Spaces.
+	cfg.spacesConfig.crossplane, err = determineCrossplaneVersion(ctx, spaceClient, cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to determine crossplane version for dev control plane")
+	}
+
 	group := cfg.spacesConfig.group
 	if group == "" {
 		ns, _, err := kubeconfig.Namespace()
@@ -1266,6 +1280,62 @@ func matchesCrossplaneSpec(existing, desired spacesv1beta1.CrossplaneSpec) bool 
 	}
 
 	return cmp.Equal(existing, desired)
+}
+
+func determineCrossplaneVersion(ctx context.Context, cl client.Client, cfg *ensureDevControlPlaneConfig) (*spacesv1beta1.CrossplaneSpec, error) {
+	// Caller already configured the crossplane spec - don't override it.
+	if cfg.spacesConfig.crossplane != nil {
+		return cfg.spacesConfig.crossplane, nil
+	}
+
+	// Caller did not configure crossplane version at all - use the default.
+	if cfg.spacesConfig.crossplaneVersionConstraint == "" {
+		return defaultCrossplaneSpec(), nil
+	}
+
+	c, err := semver.NewConstraint(cfg.spacesConfig.crossplaneVersionConstraint)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid crossplane version constraint")
+	}
+
+	// Find the latest release matching the constraint.
+	var cm corev1.ConfigMap
+	if err := cl.Get(ctx, types.NamespacedName{Namespace: "upbound-system", Name: "crossplane-versions-public"}, &cm); err != nil {
+		return nil, errors.Wrap(err, "cannot get crossplane versions from space")
+	}
+
+	var vs []string
+	if err := yaml.Unmarshal([]byte(cm.Data["versions"]), &vs); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal versions from space")
+	}
+
+	var latest *semver.Version
+	for _, v := range vs {
+		vers, err := semver.NewVersion(v)
+		if err != nil {
+			// Maybe we should log this? But it's not really the user's problem
+			// if Spaces has an invalid version in its supported versions map.
+			continue
+		}
+		if !c.Check(vers) {
+			continue
+		}
+
+		if latest == nil || vers.GreaterThanEqual(latest) {
+			latest = vers
+		}
+	}
+
+	if latest == nil {
+		return nil, errors.Errorf("no crossplane version found that satisfies constraint %q", c.String())
+	}
+
+	return &spacesv1beta1.CrossplaneSpec{
+		Version: ptr.To(latest.Original()),
+		AutoUpgradeSpec: &spacesv1beta1.CrossplaneAutoUpgradeSpec{
+			Channel: ptr.To(spacesv1beta1.CrossplaneUpgradeNone),
+		},
+	}, nil
 }
 
 // KubeconfigDevControlPlane is a dev control plane based on the user's current

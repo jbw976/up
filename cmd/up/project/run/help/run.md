@@ -22,6 +22,12 @@ context is an Upbound Cloud Space. Use `up ctx` to update the current context.
 Local development control planes are used by default otherwise, and can be
 explicitly requested using the `--local` flag.
 
+Local development control planes always use UXP v2.0 or newer, defaulting to the
+latest version available. The default UXP version for cloud development control
+planes depends on your project version: v1.x for v1alpha1 projects or v2.x for
+v2alpha1 projects. The default version can be overridden with the
+`--control-plane-version` flag.
+
 It is also possible to run a project on an arbitrary UXP cluster referenced by
 the current kubeconfig context by using the `--use-current-context` flag. Note
 that this can be destructive, as it will create resources and install packages
@@ -84,4 +90,11 @@ Spaces:
 
 ```shell
 up project run --force --control-plane-name=my-cp
+```
+
+Override the default UXP version used for a Spaces development control plane,
+for example to test a v1 project on a v2 control plane:
+
+```shell
+up project run --control-plane-version=v1.20.1-up.1
 ```

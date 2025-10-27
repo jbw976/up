@@ -28,6 +28,11 @@ jobs:
   e2e:
     runs-on: blacksmith-8vcpu-ubuntu-2404
 
+    strategy:
+      matrix:
+        run-flags: ['--local', '']
+      fail-fast: false
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
@@ -171,7 +176,7 @@ jobs:
       - name: up project run
         run: |
           cd e2e-test
-          up project run --local --timeout=30m
+          up project run ${{ matrix.run-flags }} --timeout=30m
           # The run command waits for packages to be healthy; make sure that's
           # working properly by waiting a very short interval for health.
           kubectl wait configurations.pkg --all --for=condition=Installed --timeout 5s
@@ -179,6 +184,7 @@ jobs:
           kubectl wait pkgrev --all --for=condition=RevisionHealthy --timeout 5s
           kubectl wait providerrevision --all --for=condition=RuntimeHealthy --timeout 5s
           kubectl wait functionrevision --all --for=condition=RuntimeHealthy --timeout 5s
+
       - name: Collect E2E support bundle
         if: failure()
         run: |
@@ -205,7 +211,7 @@ jobs:
       - name: up project stop
         run: |
           cd e2e-test
-          up project stop --local --force
+          up project stop ${{ matrix.run-flags }} --force
 
       - name: assert kind cluster was destroyed
         uses: GuillaumeFalourd/assert-command-line-output@main
