@@ -64,9 +64,9 @@ func (in *CompositionTestSpec) DeepCopyInto(out *CompositionTestSpec) {
 	}
 	if in.Context != nil {
 		in, out := &in.Context, &out.Context
-		*out = make([]runtime.RawExtension, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+		*out = make(map[string]runtime.RawExtension, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	if in.AssertResources != nil {

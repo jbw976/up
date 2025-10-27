@@ -57,7 +57,9 @@ func TestValidateOperationTest(t *testing.T) {
 			name: "ValidWithContext",
 			input: OperationTest{
 				Spec: OperationTestSpec{
-					Context: []runtime.RawExtension{{Raw: []byte(`{}`)}},
+					Context: map[string]runtime.RawExtension{
+						"key1": {Raw: []byte(`{"data": "value"}`)},
+					},
 				},
 			},
 			expected: nil,

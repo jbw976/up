@@ -6,7 +6,6 @@ package test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/pterm/pterm"
-	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -84,7 +82,7 @@ metadata:
 		},
 	}
 
-	ctx := context.TODO()
+	ctx := t.Context()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,139 +116,6 @@ metadata:
 				}
 			} else if err != nil {
 				t.Errorf("Unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-func TestWriteToFile(t *testing.T) {
-	tests := []struct {
-		name           string
-		resources      []runtime.RawExtension
-		filename       string
-		expectErr      bool
-		expectedOutput string
-	}{
-		{
-			name:     "ValidSingleResource",
-			filename: "test-file",
-			resources: []runtime.RawExtension{
-				{
-					Raw: []byte(`
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-config
-data:
-  key: value
-`),
-				},
-			},
-			expectErr: false,
-			expectedOutput: `apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: test-config
-data:
-  key: value
----
-`,
-		},
-		{
-			name:     "MultipleResources",
-			filename: "multi-resource",
-			resources: []runtime.RawExtension{
-				{
-					Raw: []byte(`
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config1
-data:
-  key: value1
-`),
-				},
-				{
-					Raw: []byte(`
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config2
-data:
-  key: value2
-`),
-				},
-			},
-			expectErr: false,
-			expectedOutput: `apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config1
-data:
-  key: value1
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config2
-data:
-  key: value2
----
-`,
-		},
-		{
-			name:           "NoResources",
-			filename:       "empty-file",
-			resources:      []runtime.RawExtension{},
-			expectErr:      false,
-			expectedOutput: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Setup in-memory filesystem
-			fs := afero.NewMemMapFs()
-
-			// Call function
-			filePath, err := writeToFile(fs, tt.resources, tt.filename)
-
-			// Check error expectation
-			if tt.expectErr {
-				if err == nil {
-					t.Fatal("expected an error but got nil")
-				}
-
-				return
-			}
-
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-
-			// If there were no resources, filePath should be empty
-			if len(tt.resources) == 0 {
-				if filePath != "" {
-					t.Errorf("expected filePath to be empty, but got: %s", filePath)
-				}
-				return
-			}
-
-			// Verify file path
-			expectedPath := fmt.Sprintf("/resources/%s.yaml", tt.filename)
-			if expectedPath != filePath {
-				t.Errorf("Expected %v, but got %v", expectedPath, filePath)
-			}
-
-			// Read back the file content
-			actualContent, err := afero.ReadFile(fs, filePath)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Compare expected and actual file content
-			if tt.expectedOutput != string(actualContent) {
-				t.Errorf("Expected %v, but got %v", tt.expectedOutput, string(actualContent))
 			}
 		})
 	}

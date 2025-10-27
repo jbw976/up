@@ -5,9 +5,11 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pterm/pterm"
+	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -58,38 +60,14 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 	for _, test := range tests {
 		total++
 
-		operationPath := test.Spec.OperationPath
-		if len(test.Spec.Operation.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.Operation}, "operation")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			operationPath = path
-		}
-
-		requiredResourcesPath, err := writeToFile(overlayFS, test.Spec.RequiredResources, "requiredresources")
+		testFiles, err := c.prepareOperationTestFiles(overlayFS, test)
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 
-		// Create render options for the operation
-		options := operations.Options{
-			Project:                c.proj.Project,
-			ProjFS:                 overlayFS,
-			IncludeFullOperation:   true,
-			IncludeFunctionResults: true,
-			IncludeContext:         true,
-			Operation:              operationPath,
-			FunctionCredentials:    test.Spec.FunctionCredentialsPath,
-			RequiredResources:      requiredResourcesPath,
-			Concurrency:            c.concurrency,
-			ImageResolver:          c.r,
-			FunctionAnnotations:    c.FunctionAnnotations,
-		}
+		options := c.buildOperationRenderOptions(overlayFS, test, testFiles)
 
 		// Set timeout context
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)
@@ -116,4 +94,62 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 	}
 
 	return total, success, errs, finalErr
+}
+
+type operationTestFilePaths struct {
+	operation         string
+	requiredResources string
+	context           map[string]string
+}
+
+func (c *runCmd) prepareOperationTestFiles(overlayFS afero.Fs, test operationtest.OperationTest) (*operationTestFilePaths, error) {
+	paths := &operationTestFilePaths{
+		context: make(map[string]string),
+	}
+
+	operationPath, err := c.resolveOperationPath(overlayFS, test.Spec.OperationPath, test.Spec.Operation)
+	if err != nil {
+		return nil, err
+	}
+	paths.operation = operationPath
+
+	requiredResourcesPath, err := writeToFile(overlayFS, test.Spec.RequiredResources, "requiredresources")
+	if err != nil {
+		return nil, err
+	}
+	paths.requiredResources = requiredResourcesPath
+
+	for key, value := range test.Spec.Context {
+		path, err := writeContextToFile(overlayFS, value, fmt.Sprintf("context-%s", key))
+		if err != nil {
+			return nil, err
+		}
+		paths.context[key] = path
+	}
+
+	return paths, nil
+}
+
+func (c *runCmd) resolveOperationPath(overlayFS afero.Fs, existingPath string, rawOperation runtime.RawExtension) (string, error) {
+	if len(rawOperation.Raw) > 0 {
+		return writeToFile(overlayFS, []runtime.RawExtension{rawOperation}, "operation")
+	}
+	return existingPath, nil
+}
+
+func (c *runCmd) buildOperationRenderOptions(overlayFS afero.Fs, test operationtest.OperationTest, paths *operationTestFilePaths) operations.Options {
+	return operations.Options{
+		Project:                c.proj.Project,
+		ProjFS:                 overlayFS,
+		IncludeFullOperation:   true,
+		IncludeFunctionResults: true,
+		IncludeContext:         true,
+		Operation:              paths.operation,
+		FunctionCredentials:    test.Spec.FunctionCredentialsPath,
+		RequiredResources:      paths.requiredResources,
+		ContextFiles:           paths.context,
+		Concurrency:            c.concurrency,
+		ImageResolver:          c.r,
+		FunctionAnnotations:    c.FunctionAnnotations,
+	}
 }
