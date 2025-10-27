@@ -14,6 +14,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	extv1alpha1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1alpha1"
 	v2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
 	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
@@ -33,6 +34,7 @@ const (
 	errNotMetaController                 = "package meta type is not Upbound Controller"
 	errNotMetaAddOn                      = "package meta type is not Upbound AddOn"
 	errNotCRD                            = "object is not a CRD"
+	errNotMRD                            = "object is not an MRD"
 	errNotMutatingWebhookConfiguration   = "object is not a MutatingWebhookConfiguration"
 	errNotValidatingWebhookConfiguration = "object is not a ValidatingWebhookConfiguration"
 	errNotXRD                            = "object is not a CompositeResourceDefinition (XRD); got Group: %s, Version: %s, Kind: %s"
@@ -40,6 +42,7 @@ const (
 	errNotOperation                      = "object is not an Operation; got Group: %s, Version: %s, Kind: %s"
 	errBadConstraints                    = "package version constraints are poorly formatted"
 	errNoCRDs                            = "package doesn't contain any CRDs"
+	errNotActivationPolicy               = "object is not an ManagedResourceActivationPolicy"
 )
 
 // NewProviderLinter is a convenience function for creating a package linter for
@@ -48,6 +51,7 @@ func NewProviderLinter() linter.Linter {
 	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsProvider, PackageValidSemver),
 		linter.ObjectLinterFns(linter.Or(
 			IsCRD,
+			IsMRD,
 			IsValidatingWebhookConfiguration,
 			IsMutatingWebhookConfiguration,
 		)))
@@ -58,7 +62,7 @@ func NewProviderLinter() linter.Linter {
 // Since we generate CRDs from XRDs for the cache,
 // a Configuration Package retrieved from the cache may include CRDs.
 func NewConfigurationLinter() linter.Linter {
-	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsConfiguration, PackageValidSemver), linter.ObjectLinterFns(linter.Or(IsXRD, IsComposition, IsCRD, IsOperation)))
+	return linter.NewPackageLinter(linter.PackageLinterFns(OneMeta), linter.ObjectLinterFns(IsConfiguration, PackageValidSemver), linter.ObjectLinterFns(linter.Or(IsXRD, IsComposition, IsCRD, IsOperation, IsActivationPolicy)))
 }
 
 // NewFunctionLinter is a convenience function for creating a package linter for
@@ -214,4 +218,23 @@ func IsOperation(o runtime.Object) error {
 	default:
 		return fmt.Errorf(errNotOperation, o.GetObjectKind().GroupVersionKind().Group, o.GetObjectKind().GroupVersionKind().Version, o.GetObjectKind().GroupVersionKind().Kind)
 	}
+}
+
+// IsMRD checks that an object is a ManagedResourceDefinition.
+func IsMRD(o runtime.Object) error {
+	switch o.(type) {
+	case *extv1alpha1.ManagedResourceDefinition:
+		return nil
+	default:
+		return errors.New(errNotMRD)
+	}
+}
+
+// IsActivationPolicy checks that an object is an ManagedResourceActivationPolicy.
+func IsActivationPolicy(o runtime.Object) error {
+	if _, ok := o.(*extv1alpha1.ManagedResourceActivationPolicy); !ok {
+		return errors.New(errNotActivationPolicy)
+	}
+
+	return nil
 }

@@ -5,7 +5,6 @@ package xpkg
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"testing"
@@ -19,8 +18,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	extv1alpha1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1alpha1"
+	v1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 	pkgmetav1alpha1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1alpha1"
+	pkgmetav1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1beta1"
 
 	"github.com/upbound/up/internal/xpkg/scheme"
 )
@@ -46,6 +48,11 @@ kind: Configuration
 metadata:
   name: test`)
 
+	v1beta1FuncBytes = []byte(`apiVersion: meta.pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: test`)
+
 	v1ProvBytes = []byte(`apiVersion: meta.pkg.crossplane.io/v1
 kind: Provider
 metadata:
@@ -53,6 +60,11 @@ metadata:
 
 	v1ConfBytes = []byte(`apiVersion: meta.pkg.crossplane.io/v1
 kind: Configuration
+metadata:
+  name: test`)
+
+	v1FuncBytes = []byte(`apiVersion: meta.pkg.crossplane.io/v1
+kind: Function
 metadata:
   name: test`)
 
@@ -66,22 +78,61 @@ kind: Composition
 metadata:
   name: test`)
 
-	v1beta1crd       = &apiextensions.CustomResourceDefinition{}
-	_                = yaml.Unmarshal(v1beta1CRDBytes, v1beta1crd)
-	v1crd            = &apiextensions.CustomResourceDefinition{}
-	_                = yaml.Unmarshal(v1CRDBytes, v1crd)
-	v1alpha1ProvMeta = &pkgmetav1alpha1.Provider{}
-	_                = yaml.Unmarshal(v1alpha1ProvBytes, v1alpha1ProvMeta)
-	v1alpha1ConfMeta = &pkgmetav1alpha1.Configuration{}
-	_                = yaml.Unmarshal(v1alpha1ConfBytes, v1alpha1ConfMeta)
-	v1ProvMeta       = &pkgmetav1.Provider{}
-	_                = yaml.Unmarshal(v1ProvBytes, v1ProvMeta)
-	v1ConfMeta       = &pkgmetav1.Configuration{}
-	_                = yaml.Unmarshal(v1ConfBytes, v1ConfMeta)
-	v1XRD            = &v1.CompositeResourceDefinition{}
-	_                = yaml.Unmarshal(v1XRDBytes, v1XRD)
-	v1Comp           = &v1.Composition{}
-	_                = yaml.Unmarshal(v1CompBytes, v1Comp)
+	v1alpha1OpBytes = []byte(`apiVersion: ops.crossplane.io/v1alpha1
+kind: Operation
+metadata:
+  name: test`)
+
+	v1alpha1CronOpBytes = []byte(`apiVersion: ops.crossplane.io/v1alpha1
+kind: CronOperation
+metadata:
+  name: test`)
+
+	v1alpha1WatchOpBytes = []byte(`apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: test`)
+
+	v1alpha1MRDBytes = []byte(`apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: ManagedResourceDefinition
+metadata:
+  name: test`)
+
+	v1alpha1ActivationPolicyBytes = []byte(`apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: ManagedResourceActivationPolicy
+metadata:
+  name: test`)
+
+	v1beta1crd               = &apiextensions.CustomResourceDefinition{}
+	_                        = yaml.Unmarshal(v1beta1CRDBytes, v1beta1crd)
+	v1crd                    = &apiextensions.CustomResourceDefinition{}
+	_                        = yaml.Unmarshal(v1CRDBytes, v1crd)
+	v1alpha1ProvMeta         = &pkgmetav1alpha1.Provider{}
+	_                        = yaml.Unmarshal(v1alpha1ProvBytes, v1alpha1ProvMeta)
+	v1alpha1ConfMeta         = &pkgmetav1alpha1.Configuration{}
+	_                        = yaml.Unmarshal(v1alpha1ConfBytes, v1alpha1ConfMeta)
+	v1beta1FuncMeta          = &pkgmetav1beta1.Function{}
+	_                        = yaml.Unmarshal(v1beta1FuncBytes, v1beta1FuncMeta)
+	v1ProvMeta               = &pkgmetav1.Provider{}
+	_                        = yaml.Unmarshal(v1ProvBytes, v1ProvMeta)
+	v1ConfMeta               = &pkgmetav1.Configuration{}
+	_                        = yaml.Unmarshal(v1ConfBytes, v1ConfMeta)
+	v1FuncMeta               = &pkgmetav1.Function{}
+	_                        = yaml.Unmarshal(v1FuncBytes, v1FuncMeta)
+	v1XRD                    = &v1.CompositeResourceDefinition{}
+	_                        = yaml.Unmarshal(v1XRDBytes, v1XRD)
+	v1Comp                   = &v1.Composition{}
+	_                        = yaml.Unmarshal(v1CompBytes, v1Comp)
+	v1alpha1Op               = &v1alpha1.Operation{}
+	_                        = yaml.Unmarshal(v1alpha1OpBytes, v1alpha1Op)
+	v1alpha1CronOp           = &v1alpha1.CronOperation{}
+	_                        = yaml.Unmarshal(v1alpha1CronOpBytes, v1alpha1CronOp)
+	v1alpha1WatchOp          = &v1alpha1.WatchOperation{}
+	_                        = yaml.Unmarshal(v1alpha1WatchOpBytes, v1alpha1WatchOp)
+	v1alpha1MRD              = &extv1alpha1.ManagedResourceDefinition{}
+	_                        = yaml.Unmarshal(v1alpha1MRDBytes, v1alpha1MRD)
+	v1alpha1ActivationPolicy = &extv1alpha1.ManagedResourceActivationPolicy{}
+	_                        = yaml.Unmarshal(v1alpha1ActivationPolicyBytes, v1alpha1ActivationPolicy)
 
 	meta, _ = scheme.BuildMetaScheme()
 	obj, _  = scheme.BuildObjectScheme()
@@ -90,11 +141,11 @@ metadata:
 
 func TestOneMeta(t *testing.T) {
 	oneR := bytes.NewReader(bytes.Join([][]byte{v1beta1CRDBytes, v1alpha1ProvBytes}, []byte("\n---\n")))
-	oneMeta, _ := p.Parse(context.TODO(), io.NopCloser(oneR))
+	oneMeta, _ := p.Parse(t.Context(), io.NopCloser(oneR))
 	noneR := bytes.NewReader(v1beta1CRDBytes)
-	noneMeta, _ := p.Parse(context.TODO(), io.NopCloser(noneR))
+	noneMeta, _ := p.Parse(t.Context(), io.NopCloser(noneR))
 	multiR := bytes.NewReader(bytes.Join([][]byte{v1alpha1ProvBytes, v1alpha1ProvBytes}, []byte("\n---\n")))
-	multiMeta, _ := p.Parse(context.TODO(), io.NopCloser(multiR))
+	multiMeta, _ := p.Parse(t.Context(), io.NopCloser(multiR))
 
 	cases := map[string]struct {
 		reason string
@@ -278,6 +329,33 @@ func TestIsCRD(t *testing.T) {
 	}
 }
 
+func TestIsMRD(t *testing.T) {
+	cases := map[string]struct {
+		reason string
+		obj    runtime.Object
+		err    error
+	}{
+		"v1alpha1": {
+			reason: "Should not return error if object is MRD.",
+			obj:    v1alpha1MRD,
+		},
+		"ErrNotMRD": {
+			reason: "Should return error if object is not MRD.",
+			obj:    v1beta1crd,
+			err:    errors.New(errNotMRD),
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := IsMRD(tc.obj)
+			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\nIsMRD(...): -want error, +got error:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
 func TestIsXRD(t *testing.T) {
 	cases := map[string]struct {
 		reason string
@@ -329,6 +407,33 @@ func TestIsComposition(t *testing.T) {
 
 			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nIsComposition(...): -want error, +got error:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestIsActivationPolicy(t *testing.T) {
+	cases := map[string]struct {
+		reason string
+		obj    runtime.Object
+		err    error
+	}{
+		"v1alpha1": {
+			reason: "Should not return error if object is an activation policy.",
+			obj:    v1alpha1ActivationPolicy,
+		},
+		"ErrNotActivationPolicy": {
+			reason: "Should return error if object is not an activation policy.",
+			obj:    v1beta1crd,
+			err:    errors.New(errNotActivationPolicy),
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := IsActivationPolicy(tc.obj)
+			if diff := cmp.Diff(tc.err, err, test.EquateErrors()); diff != "" {
+				t.Errorf("\n%s\nIsActivationPolicy(...): -want error, +got error:\n%s", tc.reason, diff)
 			}
 		})
 	}
