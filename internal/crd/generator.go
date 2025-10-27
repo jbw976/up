@@ -66,7 +66,8 @@ func ProcessXRD(fs afero.Fs, bs []byte, path, baseFolder string) (string, string
 
 	// Write the XR CRD file if it exists
 	if xrCRD != nil {
-		xrPath = filepath.Join(baseFolder, path+"-xr.yaml")
+		// Use CRD name format: <plural>.<group>.yaml (e.g., xwebapps.platform.example.com.yaml)
+		xrPath = filepath.Join(baseFolder, xrCRD.Name+".yaml")
 		xrCRDBytes, err := yaml.Marshal(xrCRD)
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to marshal XR CRD to YAML")
@@ -78,7 +79,8 @@ func ProcessXRD(fs afero.Fs, bs []byte, path, baseFolder string) (string, string
 
 	// Write the Claim CRD file if it exists
 	if claimCRD != nil {
-		claimPath = filepath.Join(baseFolder, path+"-claim.yaml")
+		// Use CRD name format: <plural>.<group>.yaml (e.g., webapps.platform.example.com.yaml)
+		claimPath = filepath.Join(baseFolder, claimCRD.Name+".yaml")
 		claimCRDBytes, err := yaml.Marshal(claimCRD)
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to marshal claim CRD to YAML")
