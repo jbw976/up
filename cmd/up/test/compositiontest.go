@@ -5,9 +5,11 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pterm/pterm"
+	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -58,70 +60,14 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 	for _, test := range tests {
 		total++
 
-		observedResourcesPath, err := writeToFile(overlayFS, test.Spec.ObservedResources, "observed")
+		testFiles, err := c.prepareTestFiles(overlayFS, test)
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
 			continue
 		}
 
-		extraResourcesPath, err := writeToFile(overlayFS, test.Spec.ExtraResources, "extraresources")
-		if err != nil {
-			errs++
-			finalErr = errors.Join(finalErr, err)
-			continue
-		}
-
-		xrPath := test.Spec.XRPath
-		if len(test.Spec.XR.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XR}, "xr")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			xrPath = path
-		}
-
-		compositionPath := test.Spec.CompositionPath
-		if len(test.Spec.Composition.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.Composition}, "composition")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			compositionPath = path
-		}
-
-		xrdPath := test.Spec.XRDPath
-		if len(test.Spec.XRD.Raw) > 0 {
-			path, err := writeToFile(overlayFS, []runtime.RawExtension{test.Spec.XRD}, "xrd")
-			if err != nil {
-				errs++
-				finalErr = errors.Join(finalErr, err)
-				continue
-			}
-			xrdPath = path
-		}
-
-		options := render.Options{
-			Project:                c.proj.Project,
-			ProjFS:                 overlayFS,
-			IncludeFullXR:          true,
-			IncludeFunctionResults: true,
-			IncludeContext:         true,
-			ObservedResources:      observedResourcesPath,
-			FunctionCredentials:    test.Spec.FunctionCredentialsPath,
-			ExtraResources:         extraResourcesPath,
-			CompositeResource:      xrPath,
-			Composition:            compositionPath,
-			XRD:                    xrdPath,
-			Concurrency:            c.concurrency,
-			ImageResolver:          c.r,
-			FunctionAnnotations:    c.FunctionAnnotations,
-		}
-
+		options := c.buildRenderOptions(overlayFS, test, testFiles)
 		renderCtx, cancel := context.WithTimeout(ctx, time.Duration(test.Spec.TimeoutSeconds)*time.Second)
 		defer cancel()
 
@@ -144,4 +90,86 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 	}
 
 	return total, success, errs, finalErr
+}
+
+type testFilePaths struct {
+	observedResources string
+	extraResources    string
+	xr                string
+	composition       string
+	xrd               string
+	context           map[string]string
+}
+
+func (c *runCmd) prepareTestFiles(overlayFS afero.Fs, test compositiontest.CompositionTest) (*testFilePaths, error) {
+	paths := &testFilePaths{
+		context: make(map[string]string),
+	}
+
+	observedResourcesPath, err := writeToFile(overlayFS, test.Spec.ObservedResources, "observed")
+	if err != nil {
+		return nil, err
+	}
+	paths.observedResources = observedResourcesPath
+
+	extraResourcesPath, err := writeToFile(overlayFS, test.Spec.ExtraResources, "extraresources")
+	if err != nil {
+		return nil, err
+	}
+	paths.extraResources = extraResourcesPath
+
+	xrPath, err := c.resolveResourcePath(overlayFS, test.Spec.XRPath, test.Spec.XR, "xr")
+	if err != nil {
+		return nil, err
+	}
+	paths.xr = xrPath
+
+	compositionPath, err := c.resolveResourcePath(overlayFS, test.Spec.CompositionPath, test.Spec.Composition, "composition")
+	if err != nil {
+		return nil, err
+	}
+	paths.composition = compositionPath
+
+	xrdPath, err := c.resolveResourcePath(overlayFS, test.Spec.XRDPath, test.Spec.XRD, "xrd")
+	if err != nil {
+		return nil, err
+	}
+	paths.xrd = xrdPath
+
+	for key, value := range test.Spec.Context {
+		path, err := writeContextToFile(overlayFS, value, fmt.Sprintf("context-%s", key))
+		if err != nil {
+			return nil, err
+		}
+		paths.context[key] = path
+	}
+
+	return paths, nil
+}
+
+func (c *runCmd) resolveResourcePath(overlayFS afero.Fs, existingPath string, rawResource runtime.RawExtension, prefix string) (string, error) {
+	if len(rawResource.Raw) > 0 {
+		return writeToFile(overlayFS, []runtime.RawExtension{rawResource}, prefix)
+	}
+	return existingPath, nil
+}
+
+func (c *runCmd) buildRenderOptions(overlayFS afero.Fs, test compositiontest.CompositionTest, paths *testFilePaths) render.Options {
+	return render.Options{
+		Project:                c.proj.Project,
+		ProjFS:                 overlayFS,
+		IncludeFullXR:          true,
+		IncludeFunctionResults: true,
+		IncludeContext:         true,
+		ObservedResources:      paths.observedResources,
+		FunctionCredentials:    test.Spec.FunctionCredentialsPath,
+		ExtraResources:         paths.extraResources,
+		CompositeResource:      paths.xr,
+		Composition:            paths.composition,
+		XRD:                    paths.xrd,
+		ContextFiles:           paths.context,
+		Concurrency:            c.concurrency,
+		ImageResolver:          c.r,
+		FunctionAnnotations:    c.FunctionAnnotations,
+	}
 }

@@ -54,10 +54,11 @@ type OperationTestSpec struct {
 	// +kubebuilder:validation:Optional
 	FunctionCredentialsPath string `json:"functionCredentialsPath,omitempty"`
 
-	// Context specifies context for the Function Pipeline inline.
+	// Context specifies context for the Function Pipeline inline as key-value pairs.
+	// Keys are context keys, values are JSON data.
 	// Optional.
 	// +kubebuilder:validation:Optional
-	Context []runtime.RawExtension `json:"context,omitempty"`
+	Context map[string]runtime.RawExtension `json:"context,omitempty"`
 
 	// AssertResources defines assertions to validate resources after test completion.
 	// Optional.

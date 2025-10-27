@@ -54,13 +54,14 @@ spec:
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
               context:
-                description: |-
-                  Context specifies context for the Function Pipeline inline.
-                  Optional.
-                items:
+                additionalProperties:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
-                type: array
+                description: |-
+                  Context specifies context for the Function Pipeline inline as key-value pairs.
+                  Keys are context keys, values are JSON data.
+                  Optional.
+                type: object
               functionCredentialsPath:
                 description: |-
                   FunctionCredentialsPath specifies a path to a credentials file to be passed to tests.

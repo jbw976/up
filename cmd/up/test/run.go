@@ -522,40 +522,6 @@ func formatErrors(errors []error) error {
 	return fmt.Errorf("\n%s", strings.Join(formattedErrors, "\n"))
 }
 
-func writeToFile(fs afero.Fs, resources []runtime.RawExtension, filename string) (string, error) {
-	if len(resources) == 0 {
-		return "", nil
-	}
-
-	// Define file path
-	filePath := fmt.Sprintf("/resources/%s.yaml", filename)
-
-	// Ensure directory exists
-	if err := fs.MkdirAll("/resources", 0o755); err != nil {
-		return "", err
-	}
-
-	// Open file for writing (Create or Truncate existing)
-	file, err := fs.Create(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	var content []byte
-	for _, res := range resources {
-		trimmed := strings.TrimSpace(string(res.Raw)) // Trim leading/trailing whitespace
-		content = append(content, []byte(trimmed)...)
-		content = append(content, []byte("\n---\n")...) // Ensure correct separator format
-	}
-
-	// Write content to file
-	if _, err := file.Write(content); err != nil {
-		return "", err
-	}
-
-	return filePath, nil
-}
-
 // truncateAndValidateName ensures the final name is <=63 chars and valid as a DNS-1123 label.
 func truncateAndValidateName(prefix, name string) (string, error) {
 	fullName := fmt.Sprintf("%s-%s", prefix, name)

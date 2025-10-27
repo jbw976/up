@@ -65,13 +65,14 @@ spec:
                   Optional.
                 type: string
               context:
-                description: |-
-                  Context specifies context for the Function Pipeline inline.
-                  Optional.
-                items:
+                additionalProperties:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
-                type: array
+                description: |-
+                  Context specifies context for the Function Pipeline inline as key-value pairs.
+                  Keys are context keys, values are JSON data.
+                  Optional.
+                type: object
               extraResources:
                 description: |-
                   ExtraResources specifies additional resources inline.
