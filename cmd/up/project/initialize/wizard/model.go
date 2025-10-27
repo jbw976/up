@@ -78,6 +78,8 @@ const (
 	ToolClaude AIToolingProvider = "claude-code"
 	// ToolCursor represents cursor.
 	ToolCursor AIToolingProvider = "cursor"
+	// ToolCopilot represents GitHub Copilot.
+	ToolCopilot AIToolingProvider = "copilot"
 )
 
 // SupportedAIToolingProvidersMap contains tools supported for projects.
@@ -85,6 +87,7 @@ var SupportedAIToolingProvidersMap = map[string]AIToolingProvider{ //nolint:goch
 	"gemini-cli":  ToolGemini,
 	"claude-code": ToolClaude,
 	"cursor":      ToolCursor,
+	"copilot":     ToolCopilot,
 }
 
 const (

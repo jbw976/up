@@ -36,6 +36,8 @@ var (
 	cursorTemplate embed.FS
 	//go:embed all:templates/gemini
 	geminiTemplate embed.FS
+	//go:embed all:templates/copilot
+	copilotTemplate embed.FS
 )
 
 const (
@@ -55,9 +57,10 @@ installation steps:
 type configureToolsCmd struct {
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
-	UseGemini bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."      name:"gemini-cli"`
-	UseClaude bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations." name:"claude-code"`
-	UseCursor bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."          name:"cursor"`
+	UseGemini  bool `default:"false" group:"Tooling Provider Flags:" help:"Generate gemini CLI configurations."      name:"gemini-cli"`
+	UseClaude  bool `default:"false" group:"Tooling Provider Flags:" help:"Generate claude code CLI configurations." name:"claude-code"`
+	UseCursor  bool `default:"false" group:"Tooling Provider Flags:" help:"Generate cursor configurations."          name:"cursor"`
+	UseCopilot bool `default:"false" group:"Tooling Provider Flags:" help:"Generate GitHub Copilot configurations."  name:"copilot"`
 
 	projFS afero.Fs
 	proj   *v2alpha1.Project
@@ -68,7 +71,7 @@ type configureToolsCmd struct {
 func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
 	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 
-	if !c.UseGemini && !c.UseClaude && !c.UseCursor {
+	if !c.UseGemini && !c.UseClaude && !c.UseCursor && !c.UseCopilot {
 		return errors.New("no tools specified; must specify at least one tool to configure")
 	}
 
@@ -98,6 +101,7 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 	claudeRoot := "templates/claude"
 	cursorRoot := "templates/cursor"
 	geminiRoot := "templates/gemini"
+	copilotRoot := "templates/copilot"
 
 	if c.UseGemini {
 		fs, err := c.generateTemplates(geminiTemplate, geminiRoot)
@@ -119,6 +123,14 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 		fs, err := c.generateTemplates(cursorTemplate, cursorRoot)
 		if err != nil {
 			return errors.Wrap(err, "failed to handle cursor templates")
+		}
+		cfgFS = append(cfgFS, fs)
+	}
+
+	if c.UseCopilot {
+		fs, err := c.generateTemplates(copilotTemplate, copilotRoot)
+		if err != nil {
+			return errors.Wrap(err, "failed to handle copilot templates")
 		}
 		cfgFS = append(cfgFS, fs)
 	}
