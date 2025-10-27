@@ -25,6 +25,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
 	xpv1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
+	extv1alpha1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1alpha1"
 	xpv2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
 	xpv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 	xpmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
@@ -185,7 +186,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		operationsSource = afero.NewBasePathFs(projectFS, project.Spec.Paths.Operations)
 	}
 
-	// Collect resources (XRDs, compositions, and operations).
+	// Collect resources (XRDs, MRAPs, compositions, and operations).
 	packageFS := afero.NewMemMapFs()
 	statusStage := "Collecting resources"
 	os.eventChan.SendEvent(statusStage, async.EventStatusStarted)
@@ -194,6 +195,7 @@ func (b *realBuilder) Build(ctx context.Context, upCtx *upbound.Context, project
 		xpv1.CompositeResourceDefinitionGroupVersionKind.String(),
 		xpv2.CompositeResourceDefinitionGroupVersionKind.String(),
 		xpv1.CompositionGroupVersionKind.String(),
+		extv1alpha1.ManagedResourceActivationPolicyGroupVersionKind.String(),
 	}
 	if err := collectResources(packageFS, apisSource, apiGVKs, apiExcludes); err != nil {
 		os.eventChan.SendEvent(statusStage, async.EventStatusFailure)
