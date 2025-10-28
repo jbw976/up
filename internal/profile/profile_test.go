@@ -137,9 +137,7 @@ func TestRedact(t *testing.T) {
 		Domain:       "https://upbound.io",
 		SpaceKubeconfig: &clientcmdapi.Config{
 			CurrentContext: "default",
-			Preferences: clientcmdapi.Preferences{
-				Extensions: map[string]runtime.Object{},
-			},
+			Preferences:    clientcmdapi.Preferences{},
 			Clusters: map[string]*clientcmdapi.Cluster{
 				"default": {
 					Extensions: map[string]runtime.Object{},

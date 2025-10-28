@@ -60,6 +60,7 @@ var (
 		"NetworkPolicy":                    "networkpolicies",
 		"PersistentVolume":                 "persistentvolumes",
 		"PersistentVolumeClaim":            "persistentvolumeclaims",
+		"PodCertificateRequest":            "podcertificaterequests",
 		"PodSchedulingContext":             "podscchedulingcontexts",
 		"PodStatusResult":                  "podstatusresults",
 		"PodTemplate":                      "podtemplates",
