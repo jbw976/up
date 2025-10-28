@@ -41,15 +41,6 @@ var (
 )
 
 const (
-	kubectlaiWarningFmt = `
-mcp-server configurations for kubectl-ai were set up for this project.
-If you do not have kubectl-ai installed and would like to use this mcp-server
-for working against your Control Plane, visit the following documents for
-installation steps:
-
-👉 %s
-`
-	kubectlaiLink = "https://github.com/GoogleCloudPlatform/kubectl-ai?tab=readme-ov-file#installation"
 	// The image ref for the marketplace-mcp-server.
 	imageMarketplaceMCP = "xpkg.upbound.io/upbound/marketplace-mcp-server:v0.1.0"
 )
@@ -153,8 +144,6 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 	pterm.Println()
 	pterm.Info.WithPrefix(upterm.BotPrefix).Printfln("Successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
 	pterm.Println()
-	pterm.Info.WithPrefix(upterm.EyesPrefix).Println("NOTE: 👇")
-	pterm.Printfln(kubectlaiWarningFmt, kubectlaiLink)
 	return nil
 }
 

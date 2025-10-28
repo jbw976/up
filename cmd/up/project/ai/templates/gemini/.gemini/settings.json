@@ -1,12 +1,6 @@
 {
   "contextFileName": "GEMINI.md",
   "mcpServers": {
-    "kubectl-ai": {
-      "command": "kubectl-ai",
-      "args": [
-        "--mcp-server"
-      ]
-    },
     "upbound-marketplace": {
       "command": "docker",
       "args": [
