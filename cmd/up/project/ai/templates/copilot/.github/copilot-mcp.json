@@ -1,15 +1,5 @@
 {
   "mcpServers": {
-    "kubectl-ai": {
-      "type": "local",
-      "command": "kubectl-ai",
-      "args": [
-        "--mcp-server"
-      ],
-      "tools": [
-        "*"
-      ]
-    },
     "upbound-marketplace": {
       "type": "local",
       "command": "docker",
