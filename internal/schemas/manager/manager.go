@@ -14,6 +14,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -131,33 +132,73 @@ func (m *Manager) Generate(ctx context.Context, source Source) (map[string]afero
 func postProcessModelsForLanguage(language string, langFS afero.Fs) error {
 	switch language {
 	case "json":
-		// For JSON, create and write the index schema, an anyOf of all the
-		// specific schemas we've collected from any source.
-		schemas, err := afero.Glob(langFS, "models/*.schema.json")
-		if err != nil {
-			return err
+		if err := jsonBuildIndexSchema(langFS); err != nil {
+			return errors.Wrap(err, "failed to build index schema for JSON")
 		}
-
-		metaFile := filepath.Join("models", "index.schema.json")
-		var metaSchema jsonschema.Schema
-		for _, schema := range schemas {
-			if schema == metaFile {
-				continue
-			}
-			metaSchema.AnyOf = append(metaSchema.AnyOf, &jsonschema.Schema{
-				Ref: filepath.Base(schema),
-			})
+		if err := jsonBuildTestSchema(langFS); err != nil {
+			return errors.Wrap(err, "failed to build test schema for JSON")
 		}
-		bs, err := json.Marshal(metaSchema)
-		if err != nil {
-			return err
-		}
-
-		return afero.WriteFile(langFS, metaFile, bs, 0o644)
+		return nil
 
 	default:
 		return nil
 	}
+}
+
+func jsonBuildIndexSchema(langFS afero.Fs) error {
+	// For JSON, create and write the index schema, an anyOf of all the
+	// specific schemas we've collected from any source.
+	schemas, err := afero.Glob(langFS, "models/*.schema.json")
+	if err != nil {
+		return err
+	}
+
+	metaFile := filepath.Join("models", "index.schema.json")
+	var metaSchema jsonschema.Schema
+	for _, schema := range schemas {
+		if schema == metaFile {
+			continue
+		}
+		metaSchema.AnyOf = append(metaSchema.AnyOf, &jsonschema.Schema{
+			Ref: filepath.Base(schema),
+		})
+	}
+	bs, err := json.Marshal(metaSchema)
+	if err != nil {
+		return err
+	}
+
+	return afero.WriteFile(langFS, metaFile, bs, 0o644)
+}
+
+func jsonBuildTestSchema(langFS afero.Fs) error {
+	// For JSON, create and write the test schema, describing the items array we
+	// use for tests.
+	metaFile := filepath.Join("models", "test.schema.json")
+	metaSchema := jsonschema.Schema{
+		Properties: jsonschema.NewProperties(),
+	}
+	metaSchema.Properties.AddPairs(orderedmap.Pair[string, *jsonschema.Schema]{
+		Key: "items",
+		Value: &jsonschema.Schema{
+			Description: "Items is an array of test definitions.",
+			Type:        "array",
+			Items: &jsonschema.Schema{
+				AnyOf: []*jsonschema.Schema{
+					{Ref: "io-upbound-dev-meta-v1alpha1-CompositionTest.schema.json"},
+					{Ref: "io-upbound-dev-meta-v1alpha1-E2ETest.schema.json"},
+					{Ref: "io-upbound-dev-meta-v1alpha1-OperationTest.schema.json"},
+				},
+			},
+		},
+	})
+
+	bs, err := json.Marshal(metaSchema)
+	if err != nil {
+		return err
+	}
+
+	return afero.WriteFile(langFS, metaFile, bs, 0o644)
 }
 
 func (m *Manager) currentVersion(id string) (string, error) {

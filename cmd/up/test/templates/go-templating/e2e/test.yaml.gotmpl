@@ -1,0 +1,23 @@
+# code: language=yaml
+# yaml-language-server: $schema={{- .ModelIndexPath }}
+
+# Write your tests under items. No template input is provided. You can use any
+# builtin Go templating features plus functions from Sprig:
+# https://masterminds.github.io/sprig/
+
+items:
+# Example test:
+- apiVersion: meta.dev.upbound.io/v1alpha1
+  kind: E2ETest
+  metadata:
+    name: ""
+  spec:
+    crossplane:
+      autoUpgrade:
+        channel: Rapid
+    defaultConditions:
+    - Ready
+    extraResources: []
+    manifests: []
+    skipDelete: false
+    timeoutSeconds: 4500

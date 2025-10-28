@@ -52,6 +52,7 @@ require (
 	github.com/upbound/up/pkg/migration v0.0.0-20250813115036-f191c0e8fffc
 	github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237
 	github.com/willabides/kongplete v0.4.0
+	github.com/wk8/go-ordered-map/v2 v2.1.8
 	golang.org/x/sync v0.17.0
 	golang.org/x/term v0.35.0
 	google.golang.org/api v0.249.0
@@ -226,7 +227,6 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect

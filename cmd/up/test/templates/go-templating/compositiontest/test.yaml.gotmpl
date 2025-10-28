@@ -1,0 +1,20 @@
+# code: language=yaml
+# yaml-language-server: $schema={{- .ModelIndexPath }}
+
+# Write your tests under items. No template input is provided. You can use any
+# builtin Go templating features plus functions from Sprig:
+# https://masterminds.github.io/sprig/
+
+items:
+# Example test:
+- apiVersion: meta.dev.upbound.io/v1alpha1
+  kind: CompositionTest
+  metadata:
+    name: ""
+  spec:
+    assertResources: []
+    compositionPath: ""
+    xrPath: ""
+    xrdPath: ""
+    timeoutSeconds: 60
+    validate: false
