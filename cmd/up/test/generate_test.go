@@ -56,6 +56,14 @@ func TestGenerateCmd_Run(t *testing.T) {
 			expectedFiles: []string{"model", "main.py", "requirements.txt"},
 			err:           nil,
 		},
+		"CompositionTestGo": {
+			name:          "testgo",
+			language:      "go",
+			e2e:           false,
+			operation:     false,
+			expectedFiles: []string{"main.go", "go.mod"},
+			err:           nil,
+		},
 		"E2ETestKcl": {
 			name:          "testkcl",
 			language:      "kcl",
@@ -72,6 +80,14 @@ func TestGenerateCmd_Run(t *testing.T) {
 			expectedFiles: []string{"model", "main.py", "requirements.txt"},
 			err:           nil,
 		},
+		"E2ETestGo": {
+			name:          "testgo",
+			language:      "go",
+			e2e:           true,
+			operation:     false,
+			expectedFiles: []string{"main.go", "go.mod"},
+			err:           nil,
+		},
 		"OperationTestKcl": {
 			name:          "testkcl",
 			language:      "kcl",
@@ -86,6 +102,14 @@ func TestGenerateCmd_Run(t *testing.T) {
 			e2e:           false,
 			operation:     true,
 			expectedFiles: []string{"model", "main.py", "requirements.txt"},
+			err:           nil,
+		},
+		"OperationTestGo": {
+			name:          "testgo",
+			language:      "go",
+			e2e:           false,
+			operation:     true,
+			expectedFiles: []string{"main.go", "go.mod"},
 			err:           nil,
 		},
 	}

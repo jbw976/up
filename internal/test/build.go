@@ -5,7 +5,9 @@
 package test
 
 import (
+	"bytes"
 	"context"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -65,6 +67,32 @@ func (t *PythonRunner) Run(ctx context.Context, fs afero.Fs, basePath string, sc
 	return nil
 }
 
+// GoRunner implements the TestType interface for Go tests.
+type GoRunner struct{}
+
+// Run go tests manifest generation.
+func (t *GoRunner) Run(ctx context.Context, fs afero.Fs, basePath string, _ runner.SchemaRunner) error {
+	// Go tests run locally using "go run ." instead of in a container
+	cmd := exec.CommandContext(ctx, "go", "run", ".")
+	cmd.Dir = basePath
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "failed to execute 'go run .': %s", stderr.String())
+	}
+
+	// Write the output to test.yaml in the filesystem
+	if err := afero.WriteFile(fs, "test.yaml", stdout.Bytes(), 0o644); err != nil {
+		return errors.Wrap(err, "failed to write test.yaml")
+	}
+
+	return nil
+}
+
 // Identifier determines the appropriate TestType based on the filesystem.
 type Identifier interface {
 	Identify(fs afero.Fs) (Runner, error)
@@ -80,6 +108,9 @@ func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 	}
 	if exists, _ := afero.Exists(fs, "main.py"); exists {
 		return &PythonRunner{}, nil
+	}
+	if exists, _ := afero.Exists(fs, "go.mod"); exists {
+		return &GoRunner{}, nil
 	}
 	return nil, errors.New("no supported test type found")
 }
