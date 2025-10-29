@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
@@ -341,7 +342,9 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	err = c.asyncWrapper(func(ch async.EventChannel) error {
 		stageStatus := "Waiting for Simulation to complete"
 		ch.SendEvent(stageStatus, async.EventStatusStarted)
-		err := sim.WaitForCondition(ctx, c.spaceClient, simulation.Complete())
+		// Give ourselves a little extra time so that the simulation can be
+		// completed and the status is updated before our wait times out.
+		err := sim.WaitForCondition(ctx, c.spaceClient, simulation.Complete(), wait.WithTimeout(*c.CompleteAfter+1*time.Minute))
 		if err != nil {
 			ch.SendEvent(stageStatus, async.EventStatusFailure)
 		} else {

@@ -179,7 +179,9 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
 		stepSpinner,
-		waitForConditionStep(ctx, spacesClient, run, simulation.Complete()),
+		// Give ourselves a little extra time so that the simulation can be
+		// completed and the status is updated before our wait times out.
+		waitForConditionStep(ctx, spacesClient, run, simulation.Complete(), wait.WithTimeout(*c.CompleteAfter+1*time.Minute)),
 		printer,
 	); err != nil {
 		return err
