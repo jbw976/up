@@ -58,6 +58,9 @@ var (
 
 	//go:embed templates/go/operationtest.tar
 	goOperationTestTemplate []byte
+
+	//go:embed templates/go-templating/**
+	goTemplatingTemplate embed.FS
 )
 
 // Template data structure for dynamic rendering.
@@ -73,7 +76,7 @@ type kclImportStatement struct {
 type generateCmd struct {
 	ProjectFile string `default:"upbound.yaml"        help:"Path to project definition file." short:"f"`
 	CacheDir    string `default:"~/.up/cache/"        env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
-	Language    string `default:"kcl"                 enum:"go,kcl,python"                    help:"Language for test."                            short:"l"   telemetry:"true"`
+	Language    string `default:"kcl"                 enum:"go,go-templating,kcl,python"      help:"Language for test."                            short:"l"   telemetry:"true"`
 	Name        string `arg:""                        help:"Name for the new Function."       required:""`
 	E2E         bool   `help:"create e2e tests"       name:"e2e"`
 	Operation   bool   `help:"create operation tests" name:"operation"`
@@ -154,11 +157,6 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 
 // Run executes the test generation command.
 func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
-	var (
-		err            error
-		testSpecificFs = afero.NewBasePathFs(afero.NewOsFs(), ".")
-	)
-
 	if errs := validation.IsDNS1035Label(c.testName); len(errs) > 0 {
 		return errors.Errorf("'%s' is not a valid test name. DNS-1035 constraints: %s", c.testName, strings.Join(errs, "; "))
 	}
@@ -199,30 +197,15 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		return errors.Wrap(err, "unable to generate meta apis schemas")
 	}
 
-	switch c.Language {
-	case "go":
-		testSpecificFs, err = c.generateGoFiles()
-		if err != nil {
-			return errors.Wrap(err, "failed to generate Go test")
-		}
-	case "kcl":
-		testSpecificFs, err = c.generateKCLFiles()
-		if err != nil {
-			return errors.Wrap(err, "failed to generate KCL test")
-		}
-	case "python":
-		testSpecificFs, err = c.generatePythonFiles()
-		if err != nil {
-			return errors.Wrap(err, "failed to generate Python test")
-		}
-	default:
-		return errors.Errorf("unsupported language: %s", c.Language)
-	}
-
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating Test Folder",
 		upterm.CheckmarkSuccessSpinner,
 		func() error {
+			testSpecificFs, err := c.generateFiles()
+			if err != nil {
+				return err
+			}
+
 			if err := filesystem.CopyFilesBetweenFs(testSpecificFs, c.testFS); err != nil {
 				return errors.Wrap(err, "failed to copy files to test target")
 			}
@@ -250,6 +233,25 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	pterm.Printfln("Successfully created Test and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
 	return nil
+}
+
+func (c *generateCmd) generateFiles() (afero.Fs, error) {
+	switch c.Language {
+	case "go":
+		return c.generateGoFiles()
+
+	case "kcl":
+		return c.generateKCLFiles()
+
+	case "python":
+		return c.generatePythonFiles()
+
+	case "go-templating":
+		return c.generateGoTemplatingFiles()
+
+	default:
+		return nil, errors.Errorf("unsupported language: %s", c.Language)
+	}
 }
 
 // generateKCLFiles reads and processes Go template files from embed.FS.
@@ -353,6 +355,30 @@ func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
 		ModulePath:    goModPath,
 		ModelsVersion: "v0.0.0",
 		ModelsReplace: filepath.Join(relRoot, ".up", "go", "models"),
+	}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+type goTemplatingTemplateData struct {
+	ModelIndexPath string
+}
+
+func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	modelPath, err := filepath.Rel(c.fsPath, ".up/json/models/test.schema.json")
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot determine model path")
+	}
+
+	templates := template.Must(template.ParseFS(goTemplatingTemplate, fmt.Sprintf("templates/go-templating/%s/**", c.templateBaseFolder)))
+	tmplData := goTemplatingTemplateData{
+		ModelIndexPath: modelPath,
 	}
 
 	if err := renderTemplates(targetFS, templates, tmplData); err != nil {

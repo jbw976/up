@@ -7,9 +7,14 @@ package test
 import (
 	"bytes"
 	"context"
+	"io/fs"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
+	"text/template"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -93,6 +98,32 @@ func (t *GoRunner) Run(ctx context.Context, fs afero.Fs, basePath string, _ runn
 	return nil
 }
 
+// GoTemplatingRunner implements the TestType interface for go templating tests.
+type GoTemplatingRunner struct{}
+
+// Run go templating tests manifest generation.
+func (t *GoTemplatingRunner) Run(_ context.Context, fs afero.Fs, _ string, _ runner.SchemaRunner) error {
+	// We can use "*" as the pattern to parse because the GoTemplatingRunner is
+	// selected only when all files in the directory end in .tmpl or .gotmpl.
+	templates, err := template.New("").
+		Funcs(sprig.FuncMap()).
+		ParseFS(afero.NewIOFS(fs), "*")
+	if err != nil {
+		return errors.Wrap(err, "failed to parse templates")
+	}
+
+	var buf bytes.Buffer
+	if err := templates.Execute(&buf, nil); err != nil {
+		return errors.Wrapf(err, "failed to execute templates")
+	}
+
+	if err := afero.WriteFile(fs, "test.yaml", buf.Bytes(), 0o644); err != nil {
+		return errors.Wrap(err, "failed to write test.yaml")
+	}
+
+	return nil
+}
+
 // Identifier determines the appropriate TestType based on the filesystem.
 type Identifier interface {
 	Identify(fs afero.Fs) (Runner, error)
@@ -112,7 +143,50 @@ func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 	if exists, _ := afero.Exists(fs, "go.mod"); exists {
 		return &GoRunner{}, nil
 	}
+	if containsGoTemplating(fs) {
+		return &GoTemplatingRunner{}, nil
+	}
 	return nil, errors.New("no supported test type found")
+}
+
+func containsGoTemplating(tmplFS afero.Fs) bool {
+	goTemplatingExtensions := []string{
+		".gotmpl",
+		".tmpl",
+	}
+
+	// The go templating builder will match any directory containing only files
+	// with recognized extensions. Nested directories are allowed. An empty
+	// directory is not matched.
+	matches := false
+	_ = afero.Walk(tmplFS, ".", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Ignore directories but recurse into them.
+		if info.Mode().IsDir() {
+			return nil
+		}
+
+		// Don't support symlinks or any other funky stuff. We don't need to
+		// symlink in models like we do for other languages, so it's simplest to
+		// just not support them.
+		if !info.Mode().IsRegular() {
+			matches = false
+			return fs.SkipAll
+		}
+
+		if !slices.Contains(goTemplatingExtensions, filepath.Ext(path)) {
+			matches = false
+			return fs.SkipAll
+		}
+
+		matches = true
+		return nil
+	})
+
+	return matches
 }
 
 // Builder builds a project into test results.
