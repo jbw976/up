@@ -4,6 +4,8 @@
 package test
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -15,6 +17,8 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
+	"github.com/spf13/afero/tarfs"
+	"golang.org/x/mod/module"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -42,6 +46,18 @@ var (
 
 	//go:embed templates/python/**
 	pythonTemplate embed.FS
+
+	// The go templates contain go.mod files, so we can't embed them as an
+	// embed.FS. Instead we have to embed them as tar archives and extract them in
+	// code.
+	//go:embed templates/go/compositiontest.tar
+	goCompositionTestTemplate []byte
+
+	//go:embed templates/go/e2e.tar
+	goE2ETestTemplate []byte
+
+	//go:embed templates/go/operationtest.tar
+	goOperationTestTemplate []byte
 )
 
 // Template data structure for dynamic rendering.
@@ -57,7 +73,7 @@ type kclImportStatement struct {
 type generateCmd struct {
 	ProjectFile string `default:"upbound.yaml"        help:"Path to project definition file." short:"f"`
 	CacheDir    string `default:"~/.up/cache/"        env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
-	Language    string `default:"kcl"                 enum:"kcl,python"                       help:"Language for test."                            short:"l"   telemetry:"true"`
+	Language    string `default:"kcl"                 enum:"go,kcl,python"                    help:"Language for test."                            short:"l"   telemetry:"true"`
 	Name        string `arg:""                        help:"Name for the new Function."       required:""`
 	E2E         bool   `help:"create e2e tests"       name:"e2e"`
 	Operation   bool   `help:"create operation tests" name:"operation"`
@@ -184,6 +200,11 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	switch c.Language {
+	case "go":
+		testSpecificFs, err = c.generateGoFiles()
+		if err != nil {
+			return errors.Wrap(err, "failed to generate Go test")
+		}
 	case "kcl":
 		testSpecificFs, err = c.generateKCLFiles()
 		if err != nil {
@@ -282,6 +303,65 @@ func (c *generateCmd) generatePythonFiles() (afero.Fs, error) {
 	return targetFS, nil
 }
 
+type goTemplateData struct {
+	ModulePath    string
+	ModelsVersion string
+	ModelsReplace string
+}
+
+// generateGoFiles reads and processes Go template files from tar archives.
+func (c *generateCmd) generateGoFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	// Select the appropriate template based on test type
+	var templateBytes []byte
+	switch c.templateBaseFolder {
+	case "compositiontest":
+		templateBytes = goCompositionTestTemplate
+	case "e2e":
+		templateBytes = goE2ETestTemplate
+	case "operationtest":
+		templateBytes = goOperationTestTemplate
+	default:
+		return nil, errors.Errorf("unsupported template type: %s", c.templateBaseFolder)
+	}
+
+	tr := tar.NewReader(bytes.NewReader(templateBytes))
+	templateFS := afero.NewIOFS(tarfs.New(tr))
+
+	// Try to construct a nice import path based on the project's "source"
+	// field, which the user should fill in with their git repository path
+	// (possibly with https:// prefixed if it's a GH repository). If that's not
+	// valid, construct an example path we know is valid. The import path
+	// doesn't actually matter to the builder aside from being valid.
+	source := strings.TrimPrefix(c.proj.Spec.Source, "https://")
+	goModPath := path.Join(source, "tests", c.testName)
+	if module.CheckPath(goModPath) != nil {
+		goModPath = "project.example.com/tests/" + c.testName
+	}
+
+	// Figure out where the models directory will be relative to the test
+	// directory so we can generate a go mod replace for it.
+	testDir := filepath.Join("/", c.proj.Spec.Paths.Tests, "test")
+	relRoot, err := filepath.Rel(testDir, "/")
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot determine path to models directory")
+	}
+
+	templates := template.Must(template.ParseFS(templateFS, "*"))
+	tmplData := goTemplateData{
+		ModulePath:    goModPath,
+		ModelsVersion: "v0.0.0",
+		ModelsReplace: filepath.Join(relRoot, ".up", "go", "models"),
+	}
+
+	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
 // renderTemplates executes.
 func renderTemplates(targetFS afero.Fs, templates *template.Template, data any) error {
 	for _, tmpl := range templates.Templates() {
@@ -306,6 +386,8 @@ func needsModelsSymlink(language string) bool {
 	switch language {
 	case "kcl", "python":
 		return true
+	case "go":
+		return false
 	default:
 		return false
 	}
