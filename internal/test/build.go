@@ -105,11 +105,12 @@ type GoTemplatingRunner struct{}
 func (t *GoTemplatingRunner) Run(_ context.Context, fs afero.Fs, _ string, _ runner.SchemaRunner) error {
 	// We can use "*" as the pattern to parse because the GoTemplatingRunner is
 	// selected only when all files in the directory end in .tmpl or .gotmpl.
-	templates, err := template.ParseFS(afero.NewIOFS(fs), "*")
+	templates, err := template.New("").
+		Funcs(sprig.FuncMap()).
+		ParseFS(afero.NewIOFS(fs), "*")
 	if err != nil {
 		return errors.Wrap(err, "failed to parse templates")
 	}
-	templates = templates.Funcs(sprig.FuncMap())
 
 	var buf bytes.Buffer
 	if err := templates.Execute(&buf, nil); err != nil {
