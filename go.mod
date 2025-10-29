@@ -11,10 +11,10 @@ require (
 	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/chroma v0.10.0
 	github.com/alecthomas/kong v1.12.1
-	github.com/aws/aws-sdk-go-v2 v1.39.0
-	github.com/aws/aws-sdk-go-v2/config v1.31.8
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.1
-	github.com/aws/aws-sdk-go-v2/service/sts v1.38.4
+	github.com/aws/aws-sdk-go-v2 v1.39.4
+	github.com/aws/aws-sdk-go-v2/config v1.31.15
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.89.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.38.9
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.10.0
@@ -111,22 +111,22 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aquilax/truncate v1.0.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.12 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.7 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.2 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.19 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.33.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.8.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.29.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.34.4 // indirect
-	github.com/aws/smithy-go v1.23.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.29.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.3 // indirect
+	github.com/aws/smithy-go v1.23.1 // indirect
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20250205235911-d2398ba46815 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -271,7 +271,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/iam v1.47.3
+	github.com/aws/aws-sdk-go-v2/service/iam v1.49.0
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.8.1 // indirect
