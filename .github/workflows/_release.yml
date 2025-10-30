@@ -7,7 +7,7 @@ on:
     inputs:
       version:
         type: string
-        required: true
+        required: false
     secrets:
       github-token:
         description: 'GitHub token for releases'
