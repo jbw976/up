@@ -4,6 +4,10 @@ name: Release
 
 on:
   workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
     secrets:
       github-token:
         description: 'GitHub token for releases'
@@ -62,15 +66,16 @@ jobs:
           key: ${{ github.repository }}-go-mod-cache
           path: ~/go/pkg/mod
 
-      # If we're building from main or a release branch, create a local tag so
-      # that goreleaser will run a non-snapshot release. This tag never gets
-      # pushed back to GitHub, it's purely for goreleaser's local use.
       - name: Tag
-        if: startsWith(github.ref, 'refs/heads')
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          # Bump the semver appropriately based on the current branch.
-          tmp_tag=$(go run ./hack/bump-semver "$(git describe)" "$GITHUB_REF_NAME")
-          git tag "$tmp_tag"
+          if [ -z "$VERSION" ]; then
+            # If a version wasn't given in the workflow call, generate one by
+            # bumping the last tagged version appropriately.
+            VERSION=$(go run ./hack/bump-semver "$(git describe)" "$GITHUB_REF_NAME")
+          fi
+          git tag "$VERSION"
 
       - name: Login to xpkg.upbound.io
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
