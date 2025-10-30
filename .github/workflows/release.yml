@@ -31,6 +31,8 @@ jobs:
           version: ${{ github.event.inputs.version }}
 
   check:
+    needs: [validate-version]
+    if: ${{ github.event_name != 'workflow_dispatch' || needs.validate-version.result == 'success' }}
     uses: ./.github/workflows/_check.yml
     with:
       golangci-version: 'v1.64.8'
@@ -38,6 +40,8 @@ jobs:
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   release:
+    needs: [validate-version]
+    if: ${{ github.event_name != 'workflow_dispatch' || needs.validate-version.result == 'success' }}
     uses: ./.github/workflows/_release.yml
     with:
       version: ${{ github.event.inputs.version || '' }}
