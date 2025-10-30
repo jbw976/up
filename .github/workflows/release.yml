@@ -9,11 +9,12 @@ on:
     branches:
       - main
       - release-*
-  workflow_run:
-    workflows:
-      - Tag
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.1.0)'
+        required: true
+        type: string
 
 permissions:
   id-token: write   # Required for OIDC authentication
@@ -21,7 +22,6 @@ permissions:
 
 jobs:
   check:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/_check.yml
     with:
       golangci-version: 'v1.64.8'
@@ -29,8 +29,9 @@ jobs:
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   release:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/_release.yml
+    with:
+      version: ${{ github.event.inputs.version || '' }}
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
@@ -50,7 +51,7 @@ jobs:
       aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
 
   promote-main:
-    if: github.ref == 'refs/heads/main'
+    if: ${{ github.event_name == "push" && github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/_promote.yml
     needs: [release, e2e-tests]
     with:
