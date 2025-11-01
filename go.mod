@@ -18,7 +18,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.0.0.20251007191542-756e2d041413
+	github.com/crossplane/crossplane-runtime/v2 v2.1.0-rc.1
 	github.com/crossplane/crossplane/v2 v2.1.0-rc.0.0.20251016231501-098ee8e6a482
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
 	github.com/crossplane/uptest/v2 v2.2.0
