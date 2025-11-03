@@ -43,19 +43,6 @@ var SupportedLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknogloba
 	"Python":       FunctionLanguagePython,
 }
 
-// SupportedTestLanguages contains languages supported for test implementation.
-var SupportedTestLanguages = []string{ //nolint:gochecknoglobals // this is a constant
-	string(FunctionLanguageKCL),
-	string(FunctionLanguagePython),
-}
-
-// SupportedTestLanguagesMap maps the user-friendly language name to the
-// FunctionLanguage, used for the wizard.
-var SupportedTestLanguagesMap = map[string]FunctionLanguage{ //nolint:gochecknoglobals // this is a constant
-	"KCL":    FunctionLanguageKCL,
-	"Python": FunctionLanguagePython,
-}
-
 // BlankProjectTemplate is the URL of the blank project template.
 const BlankProjectTemplate = "https://github.com/upbound/project-template-scratch"
 
@@ -233,11 +220,25 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 			}
 			state.FuncLang = SupportedLanguagesMap[result]
 		case StepChooseTemplateTestLanguage:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedTestLanguagesMap)).Show("Select language used for tests")
+			// Set the default to the same language the user selected for
+			// functions, but fall back to the first option if needed.
+			opts := collectOptions(SupportedLanguagesMap)
+			def := opts[0]
+			for opt, lang := range SupportedLanguagesMap {
+				if state.FuncLang == lang {
+					def = opt
+					break
+				}
+			}
+
+			result, err := pterm.DefaultInteractiveSelect.
+				WithOptions(opts).
+				WithDefaultOption(def).
+				Show("Select language used for tests")
 			if err != nil {
 				return err
 			}
-			state.TestLang = SupportedTestLanguagesMap[result]
+			state.TestLang = SupportedLanguagesMap[result]
 			state.Step = StepAITooling
 			navigated = true
 		case StepKind:
@@ -307,11 +308,11 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepTestLang:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedTestLanguagesMap)).Show("Select test language")
+			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select test language")
 			if err != nil {
 				return err
 			}
-			state.TestLang = SupportedTestLanguagesMap[result]
+			state.TestLang = SupportedLanguagesMap[result]
 		case StepAITooling:
 			state.GenerateAITooling, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate AI Tooling Configurations?")
 			if err != nil {
