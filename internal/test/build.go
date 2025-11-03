@@ -105,15 +105,19 @@ type GoTemplatingRunner struct{}
 func (t *GoTemplatingRunner) Run(_ context.Context, fs afero.Fs, _ string, _ runner.SchemaRunner) error {
 	// We can use "*" as the pattern to parse because the GoTemplatingRunner is
 	// selected only when all files in the directory end in .tmpl or .gotmpl.
-	templates, err := template.New("").
+	tmplData, err := readTemplates(fs)
+	if err != nil {
+		return errors.Wrap(err, "failed to read templates")
+	}
+	tmpl, err := template.New("").
 		Funcs(sprig.FuncMap()).
-		ParseFS(afero.NewIOFS(fs), "*")
+		Parse(tmplData)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse templates")
 	}
 
 	var buf bytes.Buffer
-	if err := templates.Execute(&buf, nil); err != nil {
+	if err := tmpl.Execute(&buf, nil); err != nil {
 		return errors.Wrapf(err, "failed to execute templates")
 	}
 
@@ -122,6 +126,37 @@ func (t *GoTemplatingRunner) Run(_ context.Context, fs afero.Fs, _ string, _ run
 	}
 
 	return nil
+}
+
+func readTemplates(fsys afero.Fs) (string, error) {
+	const dotCharacter = 46
+
+	tmpl := ""
+
+	if err := afero.Walk(fsys, ".", func(path string, info fs.FileInfo, e error) error {
+		if e != nil {
+			return e
+		}
+
+		// check for directory and hidden files/folders
+		if info.IsDir() || info.Name()[0] == dotCharacter {
+			return nil
+		}
+
+		data, err := afero.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+
+		tmpl += string(data)
+		tmpl += "\n---\n"
+
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	return tmpl, nil
 }
 
 // Identifier determines the appropriate TestType based on the filesystem.
