@@ -127,7 +127,7 @@ jobs:
         with:
           token: ${{ secrets.upbound-bot-github-token }}
           path: _output/docs
-          commit-message: Update CLI reference docs for ${{ github.ref_name }} release
-          title: Update CLI reference docs for ${{ github.ref_name }} release
+          commit-message: Update CLI reference docs for ${{ inputs.version }} release
+          title: Update CLI reference docs for ${{ inputs.version }} release
           draft: true
-          branch: cli-docs-${{github.ref_name}}
+          branch: cli-docs-${{ inputs.version }}
