@@ -71,11 +71,9 @@ var initHelpTemplate string
 // supported template options.
 func (c *Cmd) Help() string {
 	data := struct {
-		Languages     map[string]wizard.FunctionLanguage
-		TestLanguages map[string]wizard.FunctionLanguage
+		Languages map[string]wizard.FunctionLanguage
 	}{
-		Languages:     wizard.SupportedLanguagesMap,
-		TestLanguages: wizard.SupportedTestLanguagesMap,
+		Languages: wizard.SupportedLanguagesMap,
 	}
 
 	tmpl := gotemplate.Must(gotemplate.New("help").Parse(initHelpTemplate))
@@ -132,14 +130,11 @@ func (c *Cmd) AfterApply(cmdRunner runner.CommandRunner) error {
 
 	// Validate and set test language
 	if c.Language != "" && c.TestLanguage == "" {
-		// If no test language specified, use the main language if it's supported for tests
-		if !slices.Contains(wizard.SupportedTestLanguages, c.Language) {
-			return errors.New("the --language you specified is not supported for tests. Please supply a supported language for tests using the --test-language flag. Supported languages for tests are: " + strings.Join(wizard.SupportedTestLanguages, ", "))
-		}
+		// If no test language specified, use the main language.
 		c.TestLanguage = c.Language
-	} else if c.TestLanguage != "" && !slices.Contains(wizard.SupportedTestLanguages, c.TestLanguage) {
+	} else if c.TestLanguage != "" && !slices.Contains(wizard.SupportedLanguages, c.TestLanguage) {
 		// Validate explicitly provided test language
-		return errors.New("the --test-language you specified is not supported. Supported languages for tests are: " + strings.Join(wizard.SupportedTestLanguages, ", "))
+		return errors.New("the --test-language you specified is not supported. Supported languages for tests are: " + strings.Join(wizard.SupportedLanguages, ", "))
 	}
 
 	c.gitCloner = &git.DefaultCloner{}

@@ -5,15 +5,13 @@ named after the project. You can specify which template to use with the
 
 #### Supported Languages
 
-{{ $tl := .TestLanguages }}
-
 The following slugs are accepted as arguments by the `--langauge` and
 `--test-language` flags:
 
-| Language | Slug | Supported for Tests |
-| -------- | ---- | ------------------- |
+| Language | Slug |
+| -------- | ---- |
 {{- range $lang, $slug := .Languages }}
-| {{ $lang }} | {{ $slug }} | {{- if index $tl $lang }} Yes {{- else }} No {{- end}} |
+| {{ $lang }} | {{ $slug }} |
 {{- end }}
 
 #### Examples
