@@ -342,7 +342,14 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespac
 	}
 	// If the repo is OCI, helm doesn't want to know about it. Instead, set the
 	// "chart ref" to the full OCI ref of the chart.
+	var registryHost string
 	if registry.IsOCI(repoURL.String()) {
+		// repoURL might be malformed - sometimes the hostname is part of the
+		// path component, because of weird kong parsing. Extract the hostname
+		// so we can use it to log into the registry when using basic auth.
+		realURL, _ := url.Parse(repoURL.String())
+		registryHost = realURL.Hostname()
+
 		h.chartRef = repoURL.JoinPath(chartName).String()
 		h.repoURL = nil
 	}
@@ -372,13 +379,24 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespac
 	}
 
 	// Pull Client
-	ds, err := credentials.NewStoreFromDocker(credentials.StoreOptions{DetectDefaultNativeStore: true})
-	if err != nil {
-		return nil, err
+	var rauth auth.Client
+	if h.username != "" {
+		rauth = auth.Client{
+			Credential: auth.StaticCredential(registryHost, auth.Credential{
+				Username: h.username,
+				Password: h.password,
+			}),
+		}
+	} else {
+		ds, err := credentials.NewStoreFromDocker(credentials.StoreOptions{DetectDefaultNativeStore: true})
+		if err != nil {
+			return nil, err
+		}
+		rauth = auth.Client{
+			Credential: credentials.Credential(ds),
+		}
 	}
-	rauth := auth.Client{
-		Credential: credentials.Credential(ds),
-	}
+
 	rc, err := registry.NewClient(registry.ClientOptAuthorizer(rauth))
 	if err != nil {
 		return nil, err
