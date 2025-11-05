@@ -348,7 +348,7 @@ func NewManager(config *rest.Config, chartName string, repoURL url.URL, namespac
 		// path component, because of weird kong parsing. Extract the hostname
 		// so we can use it to log into the registry when using basic auth.
 		realURL, _ := url.Parse(repoURL.String())
-		registryHost = realURL.Hostname()
+		registryHost = realURL.Host
 
 		h.chartRef = repoURL.JoinPath(chartName).String()
 		h.repoURL = nil
