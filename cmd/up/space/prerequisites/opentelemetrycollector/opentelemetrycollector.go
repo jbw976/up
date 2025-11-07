@@ -44,7 +44,8 @@ const (
 	chartNamespace = chartName
 
 	// Chart version to be installed.
-	version = "0.78.2"
+	// TODO: how do we handle compatibility with Spaces?
+	version = "0.99.0"
 
 	otelCollectorCRD = "opentelemetrycollectors.opentelemetry.io"
 
