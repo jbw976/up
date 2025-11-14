@@ -22,11 +22,11 @@ lint: generate
 
 .PHONY: test
 test: generate
-	go test -v ./...
+	go test -v -tags=exclude_graphdriver_btrfs ./...
 
 .PHONY: integration-test
 integration-test: generate
-	go test -v -tags=integration ./...
+	go test -v -tags=integration,exclude_graphdriver_btrfs ./...
 
 .PHONY: reviewable
 reviewable: lint test integration-test
