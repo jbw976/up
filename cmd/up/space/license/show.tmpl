@@ -1,0 +1,41 @@
+{{- if .SpaceLicense.Status }}
+{{- $validity := "Unknown" }}
+{{- range .SpaceLicense.Status.Conditions }}
+{{- if eq .Type "LicenseValid" }}
+{{- if eq .Status "True" }}
+{{- $validity = printf "Valid (%s)" .Message }}
+{{- else }}
+{{- $validity = printf "Invalid (%s)" .Message }}
+{{- end }}
+{{- end }}
+{{- end }}Spaces License Status: 	{{ $validity }}
+{{- end }}
+
+{{- with .license.createdAt }}
+Created: 	{{ . }}
+{{- end }}
+{{- with .license.expiresAt }}
+Expires: 	{{ . }}
+{{- end }}
+
+Plan: 	{{ .license.plan }}
+{{- if .license.restrictions }}
+
+Restrictions:
+{{- if .license.restrictions.clusterUUID }}
+- Cluster UUID: 	{{ .license.restrictions.clusterUUID }}
+{{- end}}
+{{- if .license.restrictions.clusterType }}
+- Cluster Type: 	{{ .license.restrictions.clusterType }}
+{{- end}}
+{{- end }}
+{{- if .license.capacity }}
+
+Resource Hour Limit: 	{{ .license.capacity.resourceHours }}
+Operation Limit: 	{{ .license.capacity.operations }}
+{{- end }}
+
+Enabled Features: {{- if not .SpaceLicense.Status.EnabledFeatures }} 	None {{- end}}
+{{- range .SpaceLicense.Status.EnabledFeatures }}
+- {{ . }}
+{{- end }}
