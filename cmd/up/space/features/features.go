@@ -54,7 +54,16 @@ func isAlphaQueryAPIEnabled(params map[string]any) bool {
 }
 
 func isCNPGNeeded(params map[string]any) bool {
+	// NOTE(phisco): Check for spaces <1.15
 	enabled, err := fieldpath.Pave(params).GetBool("features.alpha.apollo.storage.postgres.create")
+	if err != nil {
+		return false
+	}
+	if enabled {
+		return true
+	}
+	// NOTE(phisco): Check for spaces >=1.15
+	enabled, err = fieldpath.Pave(params).GetBool("apollo.apollo.storage.postgres.create")
 	if err != nil {
 		return false
 	}
