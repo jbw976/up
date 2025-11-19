@@ -151,6 +151,7 @@ func (c *CreateCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrin
 // Run is the body of the command.
 func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
 	var err error
+
 	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
 	if err != nil {
 		return err
@@ -396,5 +397,5 @@ func outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff, output strin
 		return nil
 	}
 
-	return os.WriteFile(output, []byte(buf.String()), 0o644) //nolint:gosec,gomnd // nothing system sensitive in the file
+	return os.WriteFile(output, []byte(buf.String()), 0o644) //nolint:gosec,mnd // nothing system sensitive in the file
 }

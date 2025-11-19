@@ -9,7 +9,7 @@ on:
         description: 'Version of golangci-lint to use'
         required: false
         type: string
-        default: 'v1.64.8'
+        default: 'v2.6.2'
     secrets:
       upbound-bot-github-token:
         description: 'GitHub token for private module access'

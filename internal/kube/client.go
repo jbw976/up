@@ -5,6 +5,7 @@ package kube
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"path"
 	"strings"
@@ -44,7 +45,7 @@ func GetKubeConfig(path string) (*rest.Config, error) {
 }
 
 // BuildCloudControlPlaneKubeconfig builds a kubeconfig entry for a control plane.
-func BuildCloudControlPlaneKubeconfig(proxy *url.URL, id string, token string, includePrefix bool) *api.Config { //nolint:interfacer // This is a helper function.
+func BuildCloudControlPlaneKubeconfig(proxy *url.URL, id string, token string, includePrefix bool) *api.Config {
 	conf := api.NewConfig()
 	key := strings.ReplaceAll(id, "/", "-")
 	if includePrefix {
@@ -80,7 +81,7 @@ func VerifyKubeConfig() func(cfg *api.Config) error {
 		if err != nil {
 			return err
 		}
-		if _, err := clientset.DiscoveryClient.ServerVersion(); err != nil {
+		if _, err := clientset.ServerVersion(); err != nil {
 			return err
 		}
 		return nil
@@ -96,15 +97,11 @@ func MergeIntoKubeConfig(mcpConf *api.Config, existingFilePath string, setDefaul
 	if err != nil {
 		return err
 	}
-	for k, v := range mcpConf.Clusters {
-		conf.Clusters[k] = v
-	}
-	for k, v := range mcpConf.AuthInfos {
-		conf.AuthInfos[k] = v
-	}
-	for k, v := range mcpConf.Contexts {
-		conf.Contexts[k] = v
-	}
+
+	maps.Copy(conf.Clusters, mcpConf.Clusters)
+	maps.Copy(conf.AuthInfos, mcpConf.AuthInfos)
+	maps.Copy(conf.Contexts, mcpConf.Contexts)
+
 	if setDefaultContext {
 		conf.CurrentContext = mcpConf.CurrentContext
 	}

@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package dialogs provides dialog primitives for tview.
 package dialogs
 
 import (
@@ -15,6 +16,7 @@ import (
 // ConfirmDialog is a simple confirmation dialog primitive.
 type ConfirmDialog struct {
 	*tview.Box
+
 	layout        *tview.Flex
 	textview      *tview.TextView
 	form          *tview.Form
@@ -115,54 +117,9 @@ func (d *ConfirmDialog) HasFocus() bool {
 func (d *ConfirmDialog) SetRect(x, y, width, height int) {
 	d.x = x + style.DialogPadding
 	d.y = y + style.DialogPadding
-	d.width = width - (2 * style.DialogPadding)   //nolint:gomnd
-	d.height = height - (2 * style.DialogPadding) //nolint:gomnd
+	d.width = width - (2 * style.DialogPadding)   //nolint:mnd // Padding factor for both left and right
+	d.height = height - (2 * style.DialogPadding) //nolint:mnd // Padding factor for both top and bottom
 	d.setRect()
-}
-
-func (d *ConfirmDialog) setRect() {
-	maxHeight := d.height
-	maxWidth := d.width
-	messageHeight := len(strings.Split(d.message, "\n"))
-	messageWidth := getMessageWidth(d.message)
-
-	layoutHeight := messageHeight + 2 //nolint:gomnd
-
-	if maxHeight > layoutHeight+style.DialogFormHeight {
-		d.height = layoutHeight + style.DialogFormHeight + 2 //nolint:gomnd
-	} else {
-		d.height = maxHeight
-		layoutHeight = d.height - style.DialogFormHeight - 2 //nolint:gomnd
-	}
-
-	if maxHeight > d.height {
-		emptyHeight := (maxHeight - d.height) / 2 //nolint:gomnd
-		d.y += emptyHeight
-	}
-
-	if d.width > style.DialogMinWidth {
-		if messageWidth < style.DialogMinWidth {
-			d.width = style.DialogMinWidth + 2 //nolint:gomnd
-		} else if messageWidth < d.width {
-			d.width = messageWidth + 2 //nolint:gomnd
-		}
-	}
-
-	if maxWidth > d.width {
-		emptyWidth := (maxWidth - d.width) / 2 //nolint:gomnd
-		d.x += emptyWidth
-	}
-
-	msgLayout := tview.NewFlex().SetDirection(tview.FlexColumn)
-	msgLayout.AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false)
-	msgLayout.AddItem(d.textview, 0, 1, true)
-	msgLayout.AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false)
-
-	d.layout.Clear()
-	d.layout.AddItem(msgLayout, layoutHeight, 0, true)
-	d.layout.AddItem(d.form, style.DialogFormHeight, 0, true)
-
-	d.Box.SetRect(d.x, d.y, d.width, d.height)
 }
 
 // Draw draws this primitive onto the screen.
@@ -171,9 +128,9 @@ func (d *ConfirmDialog) Draw(screen tcell.Screen) {
 		return
 	}
 
-	d.Box.DrawForSubclass(screen, d)
+	d.DrawForSubclass(screen, d)
 
-	x, y, width, height := d.Box.GetInnerRect()
+	x, y, width, height := d.GetInnerRect()
 	d.layout.SetRect(x, y, width, height)
 	d.layout.Draw(screen)
 }
@@ -196,7 +153,7 @@ func (d *ConfirmDialog) InputHandler() func(event *tcell.EventKey, setFocus func
 // SetCancelFunc sets form cancel button selected function.
 func (d *ConfirmDialog) SetCancelFunc(handler func()) *ConfirmDialog {
 	d.cancelHandler = handler
-	cancelButton := d.form.GetButton(d.form.GetButtonCount() - 2) //nolint:gomnd
+	cancelButton := d.form.GetButton(d.form.GetButtonCount() - 2) //nolint:mnd // Get second-to-last button (Cancel before OK)
 	cancelButton.SetSelectedFunc(handler)
 
 	return d
@@ -211,10 +168,55 @@ func (d *ConfirmDialog) SetSelectedFunc(handler func()) *ConfirmDialog {
 	return d
 }
 
+func (d *ConfirmDialog) setRect() {
+	maxHeight := d.height
+	maxWidth := d.width
+	messageHeight := len(strings.Split(d.message, "\n"))
+	messageWidth := getMessageWidth(d.message)
+
+	layoutHeight := messageHeight + 2 //nolint:mnd // Add spacing for message padding
+
+	if maxHeight > layoutHeight+style.DialogFormHeight {
+		d.height = layoutHeight + style.DialogFormHeight + 2 //nolint:mnd // Add spacing between message and form
+	} else {
+		d.height = maxHeight
+		layoutHeight = d.height - style.DialogFormHeight - 2 //nolint:mnd // Subtract spacing between message and form
+	}
+
+	if maxHeight > d.height {
+		emptyHeight := (maxHeight - d.height) / 2 //nolint:mnd // Center dialog vertically
+		d.y += emptyHeight
+	}
+
+	if d.width > style.DialogMinWidth {
+		if messageWidth < style.DialogMinWidth {
+			d.width = style.DialogMinWidth + 2 //nolint:mnd // Add border padding to minimum width
+		} else if messageWidth < d.width {
+			d.width = messageWidth + 2 //nolint:mnd // Add border padding to message width
+		}
+	}
+
+	if maxWidth > d.width {
+		emptyWidth := (maxWidth - d.width) / 2 //nolint:mnd // Center dialog horizontally
+		d.x += emptyWidth
+	}
+
+	msgLayout := tview.NewFlex().SetDirection(tview.FlexColumn)
+	msgLayout.AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false)
+	msgLayout.AddItem(d.textview, 0, 1, true)
+	msgLayout.AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false)
+
+	d.layout.Clear()
+	d.layout.AddItem(msgLayout, layoutHeight, 0, true)
+	d.layout.AddItem(d.form, style.DialogFormHeight, 0, true)
+
+	d.Box.SetRect(d.x, d.y, d.width, d.height)
+}
+
 func getMessageWidth(message string) int {
 	var messageWidth int
 
-	for _, msg := range strings.Split(message, "\n") {
+	for msg := range strings.SplitSeq(message, "\n") {
 		if len(msg) > messageWidth {
 			messageWidth = len(msg)
 		}
