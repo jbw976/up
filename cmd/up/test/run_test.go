@@ -127,14 +127,22 @@ func captureOutput(f func()) string {
 	var buf bytes.Buffer
 	writer := &buf
 
+	// Save original outputs
+	originalSuccessWriter := pterm.Success.Writer
+	originalErrorWriter := pterm.Error.Writer
+
 	// Set pterm output to the buffer.
 	pterm.SetDefaultOutput(writer)
+	pterm.Success.Writer = writer
+	pterm.Error.Writer = writer
 
 	// Execute the function while capturing output.
 	f()
 
 	// Reset pterm output (Avoid using nil, as it will cause a panic).
 	pterm.SetDefaultOutput(writer)
+	pterm.Success.Writer = originalSuccessWriter
+	pterm.Error.Writer = originalErrorWriter
 
 	// Normalize output (trim extra spaces and fix line breaks).
 	return strings.TrimSpace(strings.ReplaceAll(buf.String(), " \n", "\n"))
