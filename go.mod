@@ -22,7 +22,7 @@ require (
 	github.com/crossplane/crossplane/v2 v2.2.0-rc.0.0.20251119010707-c47845f706f9
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0
 	github.com/crossplane/uptest/v2 v2.2.0
-	github.com/docker/docker-credential-helpers v0.9.3
+	github.com/docker/docker-credential-helpers v0.9.4
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/goccy/go-yaml v1.12.0
