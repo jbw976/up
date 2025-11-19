@@ -47,8 +47,8 @@ require (
 	github.com/sourcegraph/jsonrpc2 v0.2.1
 	github.com/spf13/afero v1.14.0
 	github.com/upbound/controller-manager v0.1.0-rc.0.0.20250820091445-60634b1a874f
-	github.com/upbound/up-sdk-go v1.14.1-0.20251014194426-403482e8acce
-	github.com/upbound/up-sdk-go/apis v1.14.1-0.20251014194426-403482e8acce
+	github.com/upbound/up-sdk-go v1.15.0
+	github.com/upbound/up-sdk-go/apis v1.15.0
 	github.com/upbound/up/pkg/migration v0.0.0-20250813115036-f191c0e8fffc
 	github.com/upbound/uxp-licensing v0.0.0-20250818124243-1f3741528237
 	github.com/willabides/kongplete v0.4.0

@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/cmd/up/space/billing"
+	"github.com/upbound/up/cmd/up/space/license"
 	"github.com/upbound/up/internal/feature"
 	"github.com/upbound/up/internal/upbound"
 )
@@ -34,6 +35,7 @@ type Cmd struct {
 	Upgrade upgradeCmd `cmd:"" help:"Upgrade the Upbound Spaces deployment."`
 
 	Billing billing.Cmd `cmd:""`
+	License license.Cmd `cmd:""`
 }
 
 // overrideRegistry is a common function that takes the candidate registry,

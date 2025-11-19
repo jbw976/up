@@ -57,7 +57,7 @@ const (
 	errMakePortForwarder   = "failed to make port-forwarder"
 	errParseLabelSelector  = "failed to parse label selector"
 	errStartPortForward    = "failed to start port-forward"
-	errFmtServiceNotFound  = "Service %q not found. Verify your kubeconfig is pointing at a UXP control plane and the web UI is enabled."
+	errFmtServiceNotFound  = "Service %q not found. Verify your kubeconfig is pointing at a UXP control plane and the web UI is enabled"
 )
 
 // openCmd opens the UXP web UI in a browser.
@@ -161,7 +161,7 @@ func (c *openCmd) open(url string) error {
 // URL it listens on, and a channel that is closed when the PortForwarder is
 // ready.
 func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client.Client) (*portforward.PortForwarder, string, chan struct{}, error) {
-	localPort, err := c.localPort()
+	localPort, err := c.localPort(ctx)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -169,7 +169,7 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 	svc := &corev1.Service{}
 	if err := cl.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, svc); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, "", nil, fmt.Errorf(errFmtServiceNotFound, svcName) //nolint:stylecheck // Error message intentionally has punctuation and is capitalized
+			return nil, "", nil, fmt.Errorf(errFmtServiceNotFound, svcName) //nolint:staticcheck // Error message intentionally has punctuation and is capitalized
 		}
 		return nil, "", nil, errors.Wrap(err, fmt.Sprintf(errFmtGetService, svcName))
 	}
@@ -225,12 +225,13 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 }
 
 // localPort returns an unused local port.
-func (c *openCmd) localPort() (int, error) {
+func (c *openCmd) localPort(ctx context.Context) (int, error) {
 	if c.Port != 0 {
 		return c.Port, nil
 	}
 
-	listener, err := net.Listen("tcp", net.JoinHostPort(c.Host, "0"))
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", net.JoinHostPort(c.Host, "0"))
 	if err != nil {
 		return 0, errors.Wrap(err, errListen)
 	}

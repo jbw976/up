@@ -12,9 +12,10 @@ import (
 	"github.com/upbound/up/cmd/up/trace/style"
 )
 
-// MessageDialog is a simaple message dialog primitive.
+// MessageDialog is a simple message dialog primitive.
 type MessageDialog struct {
 	*tview.Box
+
 	layout        *tview.Flex
 	infoType      *tview.InputField
 	textview      *tview.TextView
@@ -27,12 +28,17 @@ type MessageDialog struct {
 type messageInfo int
 
 const (
-	// top dialog header label.
+	// MessageSystemInfo is the top dialog header label.
 	MessageSystemInfo messageInfo = 0 + iota
+	// MessagePodInfo is a pod information dialog header.
 	MessagePodInfo
+	// MessageContainerInfo is a container information dialog header.
 	MessageContainerInfo
+	// MessageVolumeInfo is a volume information dialog header.
 	MessageVolumeInfo
+	// MessageImageInfo is an image information dialog header.
 	MessageImageInfo
+	// MessageNetworkInfo is a network information dialog header.
 	MessageNetworkInfo
 )
 
@@ -173,26 +179,22 @@ func (d *MessageDialog) HasFocus() bool {
 func (d *MessageDialog) SetRect(x, y, width, height int) {
 	messageHeight := 0
 	if d.message != "" {
-		messageHeight = len(strings.Split(d.message, "\n")) + 3 //nolint:gomnd
+		messageHeight = len(strings.Split(d.message, "\n")) + 3 //nolint:mnd // Add padding for message display
 	}
 
 	messageWidth := getMessageWidth(d.message)
 
-	headerWidth := len(d.infoType.GetText()) + len(d.infoType.GetLabel()) + 4 //nolint:gomnd
-	if messageWidth < headerWidth {
-		messageWidth = headerWidth
-	}
+	headerWidth := len(d.infoType.GetText()) + len(d.infoType.GetLabel()) + 4 //nolint:mnd // Add spacing for header layout
+	messageWidth = max(messageWidth, headerWidth)
 
-	dWidth := width - (2 * style.DialogPadding) //nolint:gomnd
-	if messageWidth+4 < dWidth {
-		dWidth = messageWidth + 4 //nolint:gomnd
-	}
+	dWidth := width - (2 * style.DialogPadding) //nolint:mnd // Padding factor for both left and right
+	dWidth = min(dWidth, messageWidth+4)        //nolint:mnd // Add padding around message width
 
 	if style.DialogMinWidth < width && dWidth < style.DialogMinWidth {
 		dWidth = style.DialogMinWidth
 	}
 
-	emptySpace := (width - dWidth) / 2 //nolint:gomnd
+	emptySpace := (width - dWidth) / 2 //nolint:mnd // Center dialog horizontally
 	dX := x + emptySpace
 
 	dHeight := messageHeight + style.DialogFormHeight + style.DialogPadding + 1
@@ -200,8 +202,8 @@ func (d *MessageDialog) SetRect(x, y, width, height int) {
 		dHeight = height - style.DialogPadding - 1
 	}
 
-	textviewHeight := dHeight - style.DialogFormHeight - 2 //nolint:gomnd
-	hs := ((height - dHeight) / 2)                         //nolint:gomnd
+	textviewHeight := dHeight - style.DialogFormHeight - 2 //nolint:mnd // Subtract form height and spacing
+	hs := ((height - dHeight) / 2)                         //nolint:mnd // Center dialog vertically
 	dY := y + hs
 
 	d.Box.SetRect(dX, dY, dWidth, dHeight)
@@ -215,8 +217,8 @@ func (d *MessageDialog) Draw(screen tcell.Screen) {
 		return
 	}
 
-	d.Box.DrawForSubclass(screen, d)
-	x, y, width, height := d.Box.GetInnerRect()
+	d.DrawForSubclass(screen, d)
+	x, y, width, height := d.GetInnerRect()
 	d.layout.SetRect(x, y, width, height)
 	d.layout.Draw(screen)
 }

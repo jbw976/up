@@ -15,7 +15,7 @@ jobs:
   check:
     uses: ./.github/workflows/_check.yml
     with:
-      golangci-version: 'v1.64.8'
+      golangci-version: 'v2.6.2'
     secrets:
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 

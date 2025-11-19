@@ -25,6 +25,7 @@ const (
 // SimpleInputDialog is an input dialog primitive.
 type SimpleInputDialog struct {
 	*tview.Box
+
 	height        int
 	layout        *tview.Flex
 	textview      *tview.TextView
@@ -100,44 +101,13 @@ func (d *SimpleInputDialog) Hide() *SimpleInputDialog {
 	return d
 }
 
-func (d *SimpleInputDialog) setLayout(haveDesc bool) {
-	d.layout.Clear()
-
-	descHeight := siDescHeight
-
-	if !haveDesc {
-		descHeight = 1
-		d.height = siDialogHeight - 3 //nolint:gomnd
-	} else {
-		d.height = siDialogHeight
-	}
-
-	d.layout.AddItem(
-		tview.NewFlex().SetDirection(tview.FlexColumn).
-			AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false).
-			AddItem(d.textview, 0, 1, false).
-			AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false),
-		descHeight, 0, true)
-
-	d.layout.AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false).
-		AddItem(d.input, 0, 1, false).
-		AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false),
-		1, 0, true)
-
-	d.layout.AddItem(d.form, style.DialogFormHeight, 0, true)
-	d.layout.SetBorder(true)
-	d.layout.SetBorderColor(style.DialogBorderColor)
-	d.layout.SetBackgroundColor(style.DialogBgColor)
-}
-
 // SetDescription sets dialogs description.
 func (d *SimpleInputDialog) SetDescription(text string) *SimpleInputDialog {
 	d.textview.Clear()
 
 	haveDesc := true
 
-	fmt.Fprintf(d.textview, "\n%s", text)
+	_, _ = fmt.Fprintf(d.textview, "\n%s", text)
 
 	if len(text) == 0 {
 		haveDesc = false
@@ -184,7 +154,7 @@ func (d *SimpleInputDialog) SetInputText(text string) {
 
 // SetLabel sets input fields label message.
 func (d *SimpleInputDialog) SetLabel(text string) *SimpleInputDialog {
-	width := len(text) + 2 //nolint:gomnd
+	width := len(text) + 2 //nolint:mnd // Account for label separator and spacing
 	d.inputWidth = siDialogInputWidth - width
 
 	d.input.SetFieldWidth(d.inputWidth)
@@ -267,8 +237,8 @@ func (d *SimpleInputDialog) InputHandler() func(event *tcell.EventKey, setFocus 
 
 // SetRect set rects for this primitive.
 func (d *SimpleInputDialog) SetRect(x, y, width, height int) {
-	ws := (width - siDialogWidth) / 2 //nolint:gomnd
-	hs := ((height - d.height) / 2)   //nolint:gomnd
+	ws := (width - siDialogWidth) / 2 //nolint:mnd // Center dialog horizontally
+	hs := ((height - d.height) / 2)   //nolint:mnd // Center dialog vertically
 	dy := y + hs
 	bWidth := siDialogWidth
 
@@ -299,8 +269,8 @@ func (d *SimpleInputDialog) Draw(screen tcell.Screen) {
 		return
 	}
 
-	d.Box.DrawForSubclass(screen, d)
-	x, y, width, height := d.Box.GetInnerRect()
+	d.DrawForSubclass(screen, d)
+	x, y, width, height := d.GetInnerRect()
 	d.layout.SetRect(x, y, width, height)
 	d.layout.Draw(screen)
 }
@@ -319,8 +289,39 @@ func (d *SimpleInputDialog) SetSelectedFunc(handler func(value string)) *SimpleI
 // SetCancelFunc sets form cancel button selected function.
 func (d *SimpleInputDialog) SetCancelFunc(handler func()) *SimpleInputDialog {
 	d.cancelHandler = handler
-	cancelButton := d.form.GetButton(d.form.GetButtonCount() - 2) //nolint:gomnd
+	cancelButton := d.form.GetButton(d.form.GetButtonCount() - 2) //nolint:mnd // Get second-to-last button (Cancel before Enter)
 	cancelButton.SetSelectedFunc(handler)
 
 	return d
+}
+
+func (d *SimpleInputDialog) setLayout(haveDesc bool) {
+	d.layout.Clear()
+
+	descHeight := siDescHeight
+
+	if !haveDesc {
+		descHeight = 1
+		d.height = siDialogHeight - 3 //nolint:mnd // Reduce height when description is not shown
+	} else {
+		d.height = siDialogHeight
+	}
+
+	d.layout.AddItem(
+		tview.NewFlex().SetDirection(tview.FlexColumn).
+			AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false).
+			AddItem(d.textview, 0, 1, false).
+			AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false),
+		descHeight, 0, true)
+
+	d.layout.AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false).
+		AddItem(d.input, 0, 1, false).
+		AddItem(emptyBoxSpace(style.DialogBgColor), 1, 0, false),
+		1, 0, true)
+
+	d.layout.AddItem(d.form, style.DialogFormHeight, 0, true)
+	d.layout.SetBorder(true)
+	d.layout.SetBorderColor(style.DialogBorderColor)
+	d.layout.SetBackgroundColor(style.DialogBgColor)
 }

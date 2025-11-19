@@ -90,7 +90,7 @@ func (r *Run) WaitForCondition(ctx context.Context, client client.Client, condit
 	waitOpts := []wait.Option{
 		wait.WithContext(ctx),
 		wait.WithImmediate(),
-		wait.WithInterval(time.Second * 2), //nolint:gomnd // default value
+		wait.WithInterval(time.Second * 2), //nolint:mnd // default value
 	}
 	waitOpts = append(waitOpts, opts...)
 
@@ -175,8 +175,8 @@ func WithCompleteAfter(duration time.Duration) Option {
 // WithName sets an explicit name on the optional simulation.
 func WithName(name string) Option {
 	return func(_ *Run, sim *spacesv1alpha1.Simulation) {
-		sim.ObjectMeta.Name = name
-		sim.ObjectMeta.GenerateName = ""
+		sim.Name = name
+		sim.GenerateName = ""
 	}
 }
 
