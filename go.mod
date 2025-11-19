@@ -39,7 +39,7 @@ require (
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/posener/complete v1.2.3
-	github.com/pterm/pterm v0.12.79
+	github.com/pterm/pterm v0.12.82
 	github.com/r3labs/diff/v3 v3.0.2
 	github.com/radovskyb/watcher v1.0.7
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
@@ -279,7 +279,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
-	github.com/containerd/console v1.0.4 // indirect
+	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/containerd v1.7.29 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
