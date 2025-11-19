@@ -19,7 +19,7 @@ type Cmd struct {
 	upbound.RequiresContext `embed:""`
 
 	Show   showCmd   `cmd:"" help:"Show the Space license."`
-	Apply  applyCmd  `cmd:"" help:"Apply a Space license. Specify either a license file or use --dev for development clusters."`
+	Apply  applyCmd  `cmd:"" help:"Apply a Space license from a license file."`
 	Remove removeCmd `cmd:"" help:"Remove the Space license."`
 }
 

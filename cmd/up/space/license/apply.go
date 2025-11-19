@@ -16,12 +16,10 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/apis/admin/v1alpha1"
-	"github.com/upbound/up/internal/uxp"
 )
 
 type applyCmd struct {
-	LicenseFile string `arg:""                                                                   help:"File containing the license key (required unless using --dev)." optional:"" type:"filepath" xor:"license-source"`
-	Dev         bool   `help:"Apply embedded development license for single-node kind clusters." xor:"license-source"`
+	LicenseFile string `arg:"" help:"File containing the license key." type:"filepath"`
 
 	Namespace string `default:"upbound-system" help:"Namespace in which to create the license key secret."`
 
@@ -34,38 +32,22 @@ type applyCmd struct {
 
 func (c *applyCmd) AfterApply() error {
 	c.fs = afero.NewOsFs()
-
-	// Validate mutual exclusivity of --dev and license file
-	if c.Dev && c.LicenseFile != "" {
-		return errors.New("cannot specify both --dev flag and license file")
-	}
-
-	if !c.Dev && c.LicenseFile == "" {
-		return errors.New("must specify either --dev flag or license file")
-	}
-
 	return nil
 }
 
 func (c *applyCmd) Run(cl client.Client) error {
 	ctx := context.Background()
 
-	var licenseBytes []byte
+	f, err := c.fs.Open(c.LicenseFile)
+	if err != nil {
+		return errors.Wrap(err, "cannot open license file")
+	}
 
-	if c.Dev {
-		licenseBytes = []byte(uxp.DevLicense)
-	} else {
-		f, err := c.fs.Open(c.LicenseFile)
-		if err != nil {
-			return errors.Wrap(err, "cannot open license file")
-		}
+	defer func() { _ = f.Close() }()
 
-		defer func() { _ = f.Close() }()
-
-		licenseBytes, err = io.ReadAll(f)
-		if err != nil {
-			return errors.Wrap(err, "failed to read license")
-		}
+	licenseBytes, err := io.ReadAll(f)
+	if err != nil {
+		return errors.Wrap(err, "failed to read license")
 	}
 
 	s := &corev1.Secret{
