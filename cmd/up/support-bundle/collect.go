@@ -198,6 +198,10 @@ func parseRedactorFromDoc(doc []byte) (*troubleshootv1beta2.Redactor, bool, erro
 // internal.spaces.upbound.io/controlplane-name.
 // Exclude patterns support glob matching (e.g., "upbound-*" to exclude all namespaces starting with "upbound-").
 func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNamespaces, excludeNamespaces []string) ([]string, error) {
+	if restConfig == nil {
+		return nil, errors.New("rest config not set")
+	}
+
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create kubernetes client")

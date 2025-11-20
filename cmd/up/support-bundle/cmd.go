@@ -6,5 +6,6 @@ package supportbundle
 
 // Cmd contains commands for collecting support bundles.
 type Cmd struct {
-	Collect collectCmd `cmd:"" help:"Collect a support bundle from the current kube context."`
+	Collect  collectCmd  `cmd:"" help:"Collect a support bundle from the current kube context."`
+	Template templateCmd `cmd:"" help:"Output the default SupportBundle YAML configuration template."`
 }
