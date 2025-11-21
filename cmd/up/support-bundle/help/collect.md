@@ -7,25 +7,6 @@ your Kubernetes cluster or control plane for troubleshooting purposes.
 up support-bundle collect [flags]
 ```
 
-### Flags
-
-- `--config`, `-c`: Path to a SupportBundle YAML configuration file. If provided,
-  this will be used instead of the default configuration. Redactors can be included
-  in the same file as a separate YAML document (multi-document YAML).
-- `--kubeconfig`, `-k`: Path to the kubeconfig file. If not provided, the default
-  kubeconfig resolution will be used.
-- `--output`, `-o`: Output file path for the support bundle archive.
-  If not specified, a timestamped filename will be used (e.g., `upbound-support-bundle-20250105-163905.tar.gz`).
-- `--include-namespaces`: Namespaces to include in the support bundle. Supports glob patterns
-  (e.g., `upbound-*` to include all namespaces starting with "upbound-"). Multiple patterns
-  can be specified.
-- `--exclude-namespaces`: Namespaces to exclude from the support bundle. Supports glob patterns
-  (e.g., `upbound-*` to exclude all namespaces starting with "upbound-"). Multiple patterns
-  can be specified.
-- `--crossplane-resources-only`, `-x`: Collect only Crossplane CRDs and custom resources
-  (resources with composites, crossplane, or managed categories). When this flag is set,
-  log collectors are excluded and only Crossplane-related resources are included in the bundle.
-
 ### Examples
 
 ```bash

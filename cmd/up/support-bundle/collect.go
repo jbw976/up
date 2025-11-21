@@ -35,9 +35,9 @@ import (
 type collectCmd struct {
 	commonFlags `embed:""`
 
-	Config                  string `help:"Path to a SupportBundle YAML configuration file. If provided, this will be used instead of the default configuration." short:"c"`
-	Output                  string `help:"Output file path for the support bundle archive. If not specified, a timestamped filename will be used."               short:"o"`
-	CrossplaneResourcesOnly bool   `help:"Collect only Crossplane CRDs and custom resources (resources with composites, crossplane, or managed categories)."     name:"crossplane-resources-only" short:"x"`
+	Config                  string `help:"Path to a SupportBundle YAML configuration file. If provided, this will be used instead of the default configuration. Redactors can be included in the same file as a separate YAML document (multi-document YAML)." short:"c"`
+	Output                  string `help:"Output file path for the support bundle archive. If not specified, a timestamped filename will be used (e.g., upbound-support-bundle-20250105-163905.tar.gz)."                                                       short:"o"`
+	CrossplaneResourcesOnly bool   `help:"Collect only Crossplane CRDs and custom resources. When this flag is set, log collectors are excluded and only Crossplane-related resources are included in the bundle."                                             name:"crossplane-resources-only" short:"x"`
 
 	fs afero.Fs
 }
