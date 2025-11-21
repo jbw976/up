@@ -15,6 +15,7 @@ import (
 	"github.com/replicatedhq/troubleshoot/pkg/client/troubleshootclientset/scheme"
 	"github.com/replicatedhq/troubleshoot/pkg/docrewrite"
 	"github.com/replicatedhq/troubleshoot/pkg/supportbundle"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -173,21 +174,29 @@ func parseRedactorFromDoc(doc []byte) (*troubleshootv1beta2.Redactor, bool, erro
 }
 
 // determineNamespaces determines the final list of namespaces based on include/exclude flags.
-// If includeNamespaces is provided, those are used. Otherwise, it collects from crossplane-system,
-// upbound-system, and namespaces labeled with internal.spaces.upbound.io/controlplane-name.
+// If includeNamespaces is provided, those are used (supports glob patterns like "upbound-*").
+// Otherwise, it collects from crossplane-system, upbound-system, and namespaces labeled with
+// internal.spaces.upbound.io/controlplane-name.
+// Exclude patterns support glob matching (e.g., "upbound-*" to exclude all namespaces starting with "upbound-").
 func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNamespaces, excludeNamespaces []string) ([]string, error) {
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create kubernetes client")
+	}
+
 	var candidateNamespaces []string
 
 	if len(includeNamespaces) > 0 {
-		candidateNamespaces = includeNamespaces
-	} else {
-		clientset, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create kubernetes client")
+		if err := validatePatterns(includeNamespaces); err != nil {
+			return nil, errors.Wrap(err, "invalid include-namespaces pattern")
 		}
-
+		allNamespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to list namespaces")
+		}
+		candidateNamespaces = matchNamespaces(allNamespaces.Items, includeNamespaces)
+	} else {
 		candidateNamespaces = []string{"crossplane-system", "upbound-system"}
-
 		nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 			LabelSelector: "internal.spaces.upbound.io/controlplane-name",
 		})
@@ -199,17 +208,68 @@ func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNa
 		}
 	}
 
-	excludeMap := make(map[string]bool, len(excludeNamespaces))
-	for _, ns := range excludeNamespaces {
-		excludeMap[ns] = true
+	if err := validatePatterns(excludeNamespaces); err != nil {
+		return nil, errors.Wrap(err, "invalid exclude-namespaces pattern")
 	}
 
 	filtered := []string{}
 	for _, ns := range candidateNamespaces {
-		if !excludeMap[ns] {
+		if !shouldExcludeNamespace(ns, excludeNamespaces) {
 			filtered = append(filtered, ns)
 		}
 	}
 
 	return filtered, nil
+}
+
+// validatePatterns checks if all patterns are valid by attempting to match them.
+func validatePatterns(patterns []string) error {
+	for _, pattern := range patterns {
+		// we use a test namespace name to validate the pattern
+		_, err := filepath.Match(pattern, "test")
+		if err != nil {
+			return errors.Wrapf(err, "pattern %q", pattern)
+		}
+	}
+	return nil
+}
+
+// matchNamespaces returns namespaces that match any of the provided patterns.
+// Supports both exact matches and glob patterns (e.g., "upbound-*").
+func matchNamespaces(namespaces []corev1.Namespace, patterns []string) []string {
+	result := []string{}
+	for _, ns := range namespaces {
+		nsName := ns.Name
+		for _, pattern := range patterns {
+			if matchesPattern(nsName, pattern) {
+				result = append(result, nsName)
+				break
+			}
+		}
+	}
+	return result
+}
+
+// shouldExcludeNamespace checks if a namespace should be excluded based on the exclude patterns.
+// Supports both exact matches and glob patterns (e.g., "upbound-*").
+func shouldExcludeNamespace(namespace string, excludePatterns []string) bool {
+	for _, pattern := range excludePatterns {
+		if matchesPattern(namespace, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesPattern checks if a namespace matches a pattern (exact match or glob).
+// The pattern is assumed to be valid (validated by validatePatterns).
+func matchesPattern(namespace, pattern string) bool {
+	if namespace == pattern {
+		return true
+	}
+	matched, err := filepath.Match(pattern, namespace)
+	if err != nil {
+		return false
+	}
+	return matched
 }
