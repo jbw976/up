@@ -6,7 +6,6 @@ package supportbundle
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/replicatedhq/troubleshoot/pkg/client/troubleshootclientset/scheme"
 	"github.com/replicatedhq/troubleshoot/pkg/docrewrite"
 	"github.com/replicatedhq/troubleshoot/pkg/supportbundle"
+	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +38,8 @@ type collectCmd struct {
 	Config                  string `help:"Path to a SupportBundle YAML configuration file. If provided, this will be used instead of the default configuration." short:"c"`
 	Output                  string `help:"Output file path for the support bundle archive. If not specified, a timestamped filename will be used."               short:"o"`
 	CrossplaneResourcesOnly bool   `help:"Collect only Crossplane CRDs and custom resources (resources with composites, crossplane, or managed categories)."     name:"crossplane-resources-only" short:"x"`
+
+	fs afero.Fs
 }
 
 //go:embed help/collect.md
@@ -46,6 +48,23 @@ var collectHelp string
 // Help prints help.
 func (c *collectCmd) Help() string {
 	return collectHelp
+}
+
+// AfterApply initializes the filesystem and validates flags.
+func (c *collectCmd) AfterApply() error {
+	if c.fs == nil {
+		c.fs = afero.NewOsFs()
+	}
+
+	if err := validatePatterns(c.IncludeNamespaces); err != nil {
+		return errors.Wrap(err, "invalid include-namespaces pattern")
+	}
+
+	if err := validatePatterns(c.ExcludeNamespaces); err != nil {
+		return errors.Wrap(err, "invalid exclude-namespaces pattern")
+	}
+
+	return nil
 }
 
 // Run executes the support bundle collection.
@@ -125,7 +144,7 @@ func (c *collectCmd) Run(ctx context.Context) error {
 
 // loadConfigFromFile loads a SupportBundle config from a YAML file.
 func (c *collectCmd) loadConfigFromFile(configPath string) (*troubleshootv1beta2.SupportBundleSpec, *troubleshootv1beta2.Redactor, error) {
-	fileBytes, err := os.ReadFile(filepath.Clean(configPath))
+	fileBytes, err := afero.ReadFile(c.fs, filepath.Clean(configPath))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to read config file %q", configPath)
 	}
@@ -140,16 +159,16 @@ func (c *collectCmd) loadConfigFromFile(configPath string) (*troubleshootv1beta2
 	fileStr := string(fileBytes)
 	if strings.Contains(fileStr, "---") {
 		parts := strings.Split(fileStr, "\n---\n")
-		if len(parts) > 1 {
-			for i := 1; i < len(parts); i++ {
-				redactorObj, ok, err := parseRedactorFromDoc([]byte(parts[i]))
-				if err != nil {
-					return nil, nil, errors.Wrapf(err, "failed to parse redactor from document %d in file %q", i, configPath)
+		for i := 1; i < len(parts); i++ {
+			redactorObj, ok, err := parseRedactorFromDoc([]byte(parts[i]))
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "failed to parse redactor from document %d in file %q", i, configPath)
+			}
+			if ok {
+				if redactor != nil {
+					return nil, nil, errors.Errorf("multiple redactor documents found in file %q, only one redactor is supported", configPath)
 				}
-				if ok {
-					redactor = redactorObj
-					break
-				}
+				redactor = redactorObj
 			}
 		}
 	}
@@ -187,9 +206,6 @@ func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNa
 	var candidateNamespaces []string
 
 	if len(includeNamespaces) > 0 {
-		if err := validatePatterns(includeNamespaces); err != nil {
-			return nil, errors.Wrap(err, "invalid include-namespaces pattern")
-		}
 		allNamespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to list namespaces")
@@ -206,10 +222,6 @@ func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNa
 				candidateNamespaces = append(candidateNamespaces, ns.Name)
 			}
 		}
-	}
-
-	if err := validatePatterns(excludeNamespaces); err != nil {
-		return nil, errors.Wrap(err, "invalid exclude-namespaces pattern")
 	}
 
 	filtered := []string{}

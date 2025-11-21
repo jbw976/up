@@ -22,6 +22,12 @@ func CreateTestTar(t *testing.T, files map[string]string) string {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
+	archivePath := tmpFile.Name()
+	t.Cleanup(func() {
+		if err := os.Remove(archivePath); err != nil {
+			t.Logf("failed to remove temp file: %v", err)
+		}
+	})
 	defer func() {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			t.Logf("failed to close temp file: %v", closeErr)
@@ -69,5 +75,5 @@ func CreateTestTar(t *testing.T, files map[string]string) string {
 		}
 	}
 
-	return tmpFile.Name()
+	return archivePath
 }

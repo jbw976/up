@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -216,6 +217,184 @@ func TestShouldExcludeNamespace(t *testing.T) {
 			got := shouldExcludeNamespace(tt.namespace, tt.excludePatterns)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("%s\nshouldExcludeNamespace(%q, %v): -want, +got\n%s", tt.name, tt.namespace, tt.excludePatterns, diff)
+			}
+		})
+	}
+}
+
+func TestLoadConfigFromFile(t *testing.T) {
+	type result struct {
+		Spec     bool
+		Redactor bool
+		Err      error
+	}
+
+	tests := []struct {
+		name    string
+		setupFS func() afero.Fs
+		want    result
+	}{
+		{
+			name: "valid SupportBundle config without redactor",
+			setupFS: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = afero.WriteFile(fs, "/test-config.yaml", []byte(`apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: support-bundle
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources:
+        namespaces:
+          - crossplane-system
+          - upbound-system
+`), 0o644)
+				return fs
+			},
+			want: result{
+				Spec:     true,
+				Redactor: false,
+				Err:      nil,
+			},
+		},
+		{
+			name: "valid SupportBundle config with redactor",
+			setupFS: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = afero.WriteFile(fs, "/test-config.yaml", []byte(`apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: support-bundle
+spec:
+  collectors:
+    - clusterInfo: {}
+---
+apiVersion: troubleshoot.sh/v1beta2
+kind: Redactor
+metadata:
+  name: custom-redactors
+spec:
+  redactors:
+    - name: custom-redactor
+      removals:
+        regex:
+          - redactor: ".*password.*"
+`), 0o644)
+				return fs
+			},
+			want: result{
+				Spec:     true,
+				Redactor: true,
+				Err:      nil,
+			},
+		},
+		{
+			name:    "file not found",
+			setupFS: afero.NewMemMapFs,
+			want: result{
+				Spec:     false,
+				Redactor: false,
+				Err:      cmpopts.AnyError,
+			},
+		},
+		{
+			name: "invalid YAML",
+			setupFS: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = afero.WriteFile(fs, "/test-config.yaml", []byte(`invalid: yaml: content
+  - broken
+`), 0o644)
+				return fs
+			},
+			want: result{
+				Spec:     false,
+				Redactor: false,
+				Err:      cmpopts.AnyError,
+			},
+		},
+		{
+			name: "multiple redactors should error",
+			setupFS: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = afero.WriteFile(fs, "/test-config.yaml", []byte(`apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: support-bundle
+spec:
+  collectors:
+    - clusterInfo: {}
+---
+apiVersion: troubleshoot.sh/v1beta2
+kind: Redactor
+metadata:
+  name: redactor-1
+spec:
+  redactors:
+    - name: redactor-1
+---
+apiVersion: troubleshoot.sh/v1beta2
+kind: Redactor
+metadata:
+  name: redactor-2
+spec:
+  redactors:
+    - name: redactor-2
+`), 0o644)
+				return fs
+			},
+			want: result{
+				Spec:     false,
+				Redactor: false,
+				Err:      cmpopts.AnyError,
+			},
+		},
+		{
+			name: "non-redactor document after SupportBundle",
+			setupFS: func() afero.Fs {
+				fs := afero.NewMemMapFs()
+				_ = afero.WriteFile(fs, "/test-config.yaml", []byte(`apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: support-bundle
+spec:
+  collectors:
+    - clusterInfo: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+`), 0o644)
+				return fs
+			},
+			want: result{
+				Spec:     false,
+				Redactor: false,
+				Err:      cmpopts.AnyError,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := tt.setupFS()
+			configPath := "/test-config.yaml"
+
+			cmd := &collectCmd{
+				fs: fs,
+			}
+
+			spec, redactor, err := cmd.loadConfigFromFile(configPath)
+
+			got := result{
+				Spec:     spec != nil,
+				Redactor: redactor != nil,
+				Err:      err,
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("loadConfigFromFile() -want, +got\n%s", diff)
 			}
 		})
 	}

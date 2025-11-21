@@ -55,7 +55,6 @@ func FindBundleRoot(tempDir string) (string, error) {
 		return "", errors.Wrap(err, "failed to read temp directory")
 	}
 
-	var candidates []string
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -63,23 +62,14 @@ func FindBundleRoot(tempDir string) (string, error) {
 
 		dirPath := filepath.Join(tempDir, entry.Name())
 
-		if strings.HasPrefix(entry.Name(), "support-bundle-") {
+		if strings.Contains(entry.Name(), "support-bundle-") {
 			return dirPath, nil
 		}
 
 		clusterResourcesPath := filepath.Join(dirPath, "cluster-resources")
 		if info, err := os.Stat(clusterResourcesPath); err == nil && info.IsDir() {
-			candidates = append(candidates, dirPath)
+			return dirPath, nil
 		}
-	}
-
-	if len(candidates) == 1 {
-		return candidates[0], nil
-	}
-
-	clusterResourcesPath := filepath.Join(tempDir, "cluster-resources")
-	if info, err := os.Stat(clusterResourcesPath); err == nil && info.IsDir() {
-		return tempDir, nil
 	}
 
 	return tempDir, nil

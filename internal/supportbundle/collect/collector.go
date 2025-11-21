@@ -39,12 +39,9 @@ func (c *Collector) Collect(ctx context.Context, opts Options) (*supportbundle.S
 	// Create a progress channel and consume it to prevent blocking
 	progressChan := make(chan any)
 	var wg sync.WaitGroup
-	isProgressChanClosed := false
 
 	defer func() {
-		if !isProgressChanClosed {
-			close(progressChan)
-		}
+		close(progressChan)
 		wg.Wait()
 	}()
 
@@ -84,13 +81,8 @@ func (c *Collector) Collect(ctx context.Context, opts Options) (*supportbundle.S
 
 	response, err := supportbundle.CollectSupportBundleFromSpec(opts.Spec, opts.AdditionalRedactors, supportBundleOpts)
 	if err != nil {
-		close(progressChan)
-		isProgressChanClosed = true
 		return nil, errors.Wrap(err, "failed to collect support bundle")
 	}
-
-	close(progressChan)
-	isProgressChanClosed = true
 
 	if len(opts.Processors) > 0 {
 		if err := processor.Apply(ctx, response.ArchivePath, opts.Processors...); err != nil {
