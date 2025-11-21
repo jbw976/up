@@ -132,6 +132,10 @@ func newOperationFromWatchOperation(wo *v1alpha1.WatchOperation) *v1alpha1.Opera
 	}
 
 	op := &v1alpha1.Operation{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			Kind:       v1alpha1.OperationKind,
+		},
 		ObjectMeta: wo.Spec.OperationTemplate.ObjectMeta,
 		Spec:       *spec,
 	}
