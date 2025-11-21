@@ -59,7 +59,7 @@ func (c *collectCmd) Run(ctx context.Context) error {
 
 	if c.Output == "" {
 		timestamp := time.Now().Format("20060102-150405")
-		c.Output = fmt.Sprintf("support-bundle-%s.tar.gz", timestamp)
+		c.Output = fmt.Sprintf("upbound-support-bundle-%s.tar.gz", timestamp)
 	}
 
 	var spec *troubleshootv1beta2.SupportBundleSpec

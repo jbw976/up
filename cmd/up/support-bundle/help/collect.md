@@ -15,7 +15,7 @@ up support-bundle collect [flags]
 - `--kubeconfig`, `-k`: Path to the kubeconfig file. If not provided, the default
   kubeconfig resolution will be used.
 - `--output`, `-o`: Output file path for the support bundle archive.
-  If not specified, a timestamped filename will be used (e.g., `support-bundle-20250105-163905.tar.gz`).
+  If not specified, a timestamped filename will be used (e.g., `upbound-support-bundle-20250105-163905.tar.gz`).
 - `--include-namespaces`: Namespaces to include in the support bundle.
 - `--exclude-namespaces`: Namespaces to exclude from the support bundle.
 - `--crossplane-resources-only`, `-x`: Collect only Crossplane CRDs and custom resources
@@ -50,7 +50,10 @@ up support-bundle collect --crossplane-resources-only
 
 You can provide a custom SupportBundle configuration file using the `--config` flag.
 The configuration file can include both the SupportBundle spec and Redactors in a
-single file using multi-document YAML format (separated by `---`):
+single file using multi-document YAML format (separated by `---`).
+
+When using `--config`, the `--include-namespaces` and `--exclude-namespaces` flags
+are ignored. The namespaces specified in the configuration file will be used instead.
 
 ```yaml
 apiVersion: troubleshoot.sh/v1beta2
@@ -66,7 +69,6 @@ spec:
         namespaces:
           - crossplane-system
           - upbound-system
-
 ---
 apiVersion: troubleshoot.sh/v1beta2
 kind: Redactor
