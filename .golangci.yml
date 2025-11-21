@@ -2,8 +2,6 @@ version: "2"
 
 run:
   timeout: 15m
-  build-tags:
-    - exclude_graphdriver_btrfs
 
 output:
   formats:

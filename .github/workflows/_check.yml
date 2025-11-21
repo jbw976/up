@@ -18,6 +18,8 @@ on:
 jobs:
   lint:
     runs-on: blacksmith-8vcpu-ubuntu-2404
+    env:
+      CGO_ENABLED: 0
 
     steps:
       - name: Checkout

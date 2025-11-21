@@ -1,4 +1,9 @@
 # ====================================================================================
+# Environment
+
+export CGO_ENABLED=0
+
+# ====================================================================================
 # Build Targets
 
 .PHONY: build
@@ -22,11 +27,11 @@ lint: generate
 
 .PHONY: test
 test: generate
-	go test -v -tags=exclude_graphdriver_btrfs ./...
+	go test -v ./...
 
 .PHONY: integration-test
 integration-test: generate
-	go test -v -tags=integration,exclude_graphdriver_btrfs ./...
+	go test -v -tags=integration ./...
 
 .PHONY: reviewable
 reviewable: lint test integration-test
