@@ -22,7 +22,6 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/spf13/afero"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -116,51 +115,6 @@ func calculateFilesystemHash(filesystem afero.Fs, sourceType SourceType) (string
 	return fmt.Sprintf("%x", sum), nil
 }
 
-// filterCRDs creates a new filesystem with CRDs filtered based on shouldFilterCRD.
-// It only processes YAML files and filters out CRDs that match certain criteria.
-func filterCRDs(sourceFS afero.Fs) (afero.Fs, error) {
-	filteredFS := afero.NewMemMapFs()
-
-	// Walk through all files and filter CRDs
-	if err := afero.Walk(sourceFS, ".", func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		// Only process YAML files
-		ext := filepath.Ext(path)
-		if ext != ".yaml" && ext != ".yml" {
-			return nil
-		}
-
-		// Read the file
-		content, err := afero.ReadFile(sourceFS, path)
-		if err != nil {
-			return err
-		}
-
-		// Check if this is a CRD that should be filtered out
-		if shouldFilterCRD(content) {
-			// Skip this CRD
-			return nil
-		}
-
-		// Copy the file to the filtered filesystem
-		if err := afero.WriteFile(filteredFS, path, content, info.Mode()); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return filteredFS, nil
-}
-
 // fsSource is a resource source backed by a filesystem.
 type fsSource struct {
 	fs afero.Fs
@@ -237,43 +191,6 @@ func (s *xpkgSource) Schemas() (map[string]afero.Fs, error) {
 // NewXpkgSource returns a new xpkg-backed resource source.
 func NewXpkgSource(pkg *xpkg.ParsedPackage) Source {
 	return &xpkgSource{pkg: pkg}
-}
-
-// shouldFilterCRD checks if a CRD should be filtered out based on its categories and schema.
-// Returns true if the CRD has "crossplane" category combined with "managed", "store", or "provider".
-// https://github.com/upbound/arch/pull/304
-func shouldFilterCRD(content []byte) bool {
-	var crd apiextensionsv1.CustomResourceDefinition
-	if err := yaml.Unmarshal(content, &crd); err != nil {
-		return false
-	}
-
-	if crd.Kind != "CustomResourceDefinition" {
-		return false
-	}
-
-	hasCrossplane := false
-	hasManaged := false
-	// for storeConfig
-	hasStore := false
-	// for providerConfig, providerConfigUsage
-	hasProvider := false
-
-	for _, cat := range crd.Spec.Names.Categories {
-		switch cat {
-		case "crossplane":
-			hasCrossplane = true
-		case "managed":
-			hasManaged = true
-		case "store":
-			hasStore = true
-		case "provider":
-			hasProvider = true
-		}
-	}
-
-	// Filter out if crossplane is combined with managed, store, or provider
-	return hasCrossplane && (hasManaged || hasStore || hasProvider)
 }
 
 const maxCloneAttempts = 3
@@ -369,17 +286,7 @@ func (g *gitSource) Resources(_ context.Context) (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to copy files from git repository")
 	}
 
-	// Apply filtering for CRD sources
-	if g.sourceType == SourceTypeCRD {
-		filteredFS, err := filterCRDs(resultFS)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to filter CRDs")
-		}
-		g.fs = filteredFS
-	} else {
-		g.fs = resultFS
-	}
-
+	g.fs = resultFS
 	return g.fs, nil
 }
 
@@ -553,17 +460,7 @@ func (h *httpSource) Resources(ctx context.Context) (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to write content to filesystem")
 	}
 
-	// Apply filtering for CRD sources
-	if h.sourceType == SourceTypeCRD {
-		filteredFS, err := filterCRDs(resultFS)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to filter CRDs")
-		}
-		h.fs = filteredFS
-	} else {
-		h.fs = resultFS
-	}
-
+	h.fs = resultFS
 	return h.fs, nil
 }
 
