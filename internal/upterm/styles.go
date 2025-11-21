@@ -94,6 +94,7 @@ func WrapWithSuccessSpinner(msg string, spinner *pterm.SpinnerPrinter, f func() 
 	}
 
 	if err := f(); err != nil {
+		s.Fail()
 		return err
 	}
 

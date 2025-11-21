@@ -110,6 +110,11 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 }
 
 func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, proj *project.WithVersion, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+	// Create a cancellable context for this test execution that we can
+	// cancel when a signal is received to stop any in-flight operations.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	controlPlaneName, err := truncateAndValidateName(c.ControlPlaneNamePrefix, test.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
@@ -195,6 +200,10 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		select {
 		case <-sigChan:
 			c.textPrinter.Println("Received signal, cleaning up...")
+
+			// Cancel the main context to stop any in-flight operations
+			// like ApplyResources that might be stuck in a retry loop.
+			cancel()
 
 			// Listen for further signals and cancel cleanup.
 			go func() {
