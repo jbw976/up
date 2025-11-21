@@ -39,11 +39,6 @@ func (b *pythonBuilder) Name() string {
 	return "python"
 }
 
-func (b *pythonBuilder) match(fromFS afero.Fs) (bool, error) {
-	// More reliable than requirements.txt, which is optional.
-	return afero.Exists(fromFS, "main.py")
-}
-
 func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architectures []string, osBasePath string) ([]v1.Image, error) {
 	baseImage := b.baseImage
 	if len(b.imageConfigs) > 0 {
@@ -97,6 +92,11 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 	}
 
 	return images, eg.Wait()
+}
+
+func (b *pythonBuilder) match(fromFS afero.Fs) (bool, error) {
+	// More reliable than requirements.txt, which is optional.
+	return afero.Exists(fromFS, "main.py")
 }
 
 func newPythonBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *pythonBuilder {
