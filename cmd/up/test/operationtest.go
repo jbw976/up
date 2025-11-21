@@ -107,13 +107,13 @@ func (c *runCmd) prepareOperationTestFiles(overlayFS afero.Fs, test operationtes
 		context: make(map[string]string),
 	}
 
-	operationPath, err := c.resolveOperationPath(overlayFS, test.Spec.OperationPath, test.Spec.Operation)
+	operationPath, err := c.resolveResourcePath(overlayFS, test.Spec.OperationPath, test.Spec.Operation, "operation")
 	if err != nil {
 		return nil, err
 	}
 	paths.operation = operationPath
 
-	requiredResourcesPath, err := writeToFile(overlayFS, test.Spec.RequiredResources, "requiredresources")
+	requiredResourcesPath, err := c.resolveResourcesPath(overlayFS, test.Spec.RequiredResourcesPath, test.Spec.RequiredResources)
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +130,9 @@ func (c *runCmd) prepareOperationTestFiles(overlayFS afero.Fs, test operationtes
 	return paths, nil
 }
 
-func (c *runCmd) resolveOperationPath(overlayFS afero.Fs, existingPath string, rawOperation runtime.RawExtension) (string, error) {
-	if len(rawOperation.Raw) > 0 {
-		return writeToFile(overlayFS, []runtime.RawExtension{rawOperation}, "operation")
+func (c *runCmd) resolveResourcesPath(overlayFS afero.Fs, existingPath string, rawResources []runtime.RawExtension) (string, error) {
+	if len(rawResources) > 0 {
+		return writeToFile(overlayFS, rawResources, "requiredresources")
 	}
 	return existingPath, nil
 }
