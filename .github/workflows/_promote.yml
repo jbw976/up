@@ -36,7 +36,7 @@ jobs:
         uses: imjasonh/setup-crane@5146f708a817ea23476677995bf2133943b9be0b # v0.1
 
       - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
