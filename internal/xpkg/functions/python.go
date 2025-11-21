@@ -102,7 +102,7 @@ func (b *pythonBuilder) Build(ctx context.Context, fromFS afero.Fs, architecture
 func newPythonBuilder(imageConfigs []projectv2alpha1.ImageConfig, upCtx *upbound.Context) *pythonBuilder {
 	return &pythonBuilder{
 		// TODO(negz): Should this be hardcoded?
-		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.5.0",
+		baseImage: "xpkg.upbound.io/upbound/function-interpreter-python:v0.6.0",
 
 		// TODO(negz): This'll need to change if function-interpreter-python is
 		// updated to a distroless base layer that uses a newer Python version.
