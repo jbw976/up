@@ -34,7 +34,7 @@ on:
 
 jobs:
   release:
-    runs-on: blacksmith-8vcpu-ubuntu-2404
+    runs-on: blacksmith-16vcpu-ubuntu-2404
     outputs:
       version: v${{ fromJSON(steps.goreleaser.outputs.metadata).version }}
     steps:
