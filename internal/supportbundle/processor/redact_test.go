@@ -18,14 +18,12 @@ import (
 )
 
 func TestRedactConfigMaps(t *testing.T) {
-	tests := []struct {
-		name    string
+	tests := map[string]struct {
 		setup   func(bundleRoot string) error
 		wantErr error
 		verify  bool
 	}{
-		{
-			name: "RedactConfigMapList",
+		"RedactConfigMapList": {
 			setup: func(bundleRoot string) error {
 				configMapsDir := filepath.Join(bundleRoot, "cluster-resources", "configmaps")
 				_ = os.MkdirAll(configMapsDir, 0o755)
@@ -59,16 +57,14 @@ func TestRedactConfigMaps(t *testing.T) {
 			wantErr: nil,
 			verify:  true,
 		},
-		{
-			name: "NoClusterResourcesDirectory",
+		"NoClusterResourcesDirectory": {
 			setup: func(_ string) error {
 				return nil
 			},
 			wantErr: nil,
 			verify:  false,
 		},
-		{
-			name: "NoConfigMapsDirectory",
+		"NoConfigMapsDirectory": {
 			setup: func(bundleRoot string) error {
 				_ = os.MkdirAll(filepath.Join(bundleRoot, "cluster-resources"), 0o755)
 				return nil
@@ -78,8 +74,8 @@ func TestRedactConfigMaps(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			bundleRoot := t.TempDir()
 			if err := tt.setup(bundleRoot); err != nil {
 				t.Fatalf("setup failed: %v", err)
@@ -114,14 +110,12 @@ func TestRedactConfigMaps(t *testing.T) {
 }
 
 func TestRedactEnvironmentConfigs(t *testing.T) {
-	tests := []struct {
-		name    string
+	tests := map[string]struct {
 		setup   func(bundleRoot string) error
 		wantErr error
 		verify  bool
 	}{
-		{
-			name: "RedactEnvironmentConfigArray",
+		"RedactEnvironmentConfigArray": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -158,8 +152,7 @@ func TestRedactEnvironmentConfigs(t *testing.T) {
 			wantErr: nil,
 			verify:  true,
 		},
-		{
-			name: "RedactSingleEnvironmentConfig",
+		"RedactSingleEnvironmentConfig": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -187,16 +180,14 @@ func TestRedactEnvironmentConfigs(t *testing.T) {
 			wantErr: nil,
 			verify:  true,
 		},
-		{
-			name: "NoClusterResourcesDirectory",
+		"NoClusterResourcesDirectory": {
 			setup: func(_ string) error {
 				return nil
 			},
 			wantErr: nil,
 			verify:  false,
 		},
-		{
-			name: "NoEnvironmentConfigFile",
+		"NoEnvironmentConfigFile": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -207,8 +198,8 @@ func TestRedactEnvironmentConfigs(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			bundleRoot := t.TempDir()
 			if err := tt.setup(bundleRoot); err != nil {
 				t.Fatalf("setup failed: %v", err)
@@ -247,14 +238,12 @@ func TestRedactEnvironmentConfigs(t *testing.T) {
 }
 
 func TestRedactProviderKubernetesObjects(t *testing.T) {
-	tests := []struct {
-		name    string
+	tests := map[string]struct {
 		setup   func(bundleRoot string) error
 		wantErr error
 		verify  bool
 	}{
-		{
-			name: "RedactSecretInSpec",
+		"RedactSecretInSpec": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -307,8 +296,7 @@ func TestRedactProviderKubernetesObjects(t *testing.T) {
 			wantErr: nil,
 			verify:  true,
 		},
-		{
-			name: "NoObjectsFile",
+		"NoObjectsFile": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -317,8 +305,7 @@ func TestRedactProviderKubernetesObjects(t *testing.T) {
 			wantErr: nil,
 			verify:  false,
 		},
-		{
-			name: "ObjectWithNonSecretManifest",
+		"ObjectWithNonSecretManifest": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -348,8 +335,7 @@ func TestRedactProviderKubernetesObjects(t *testing.T) {
 			wantErr: nil,
 			verify:  false,
 		},
-		{
-			name: "RedactSecretWithStringData",
+		"RedactSecretWithStringData": {
 			setup: func(bundleRoot string) error {
 				customResourcesDir := filepath.Join(bundleRoot, "cluster-resources", "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -410,8 +396,8 @@ func TestRedactProviderKubernetesObjects(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			bundleRoot := t.TempDir()
 			if err := tt.setup(bundleRoot); err != nil {
 				t.Fatalf("setup failed: %v", err)

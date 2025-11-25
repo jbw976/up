@@ -16,13 +16,11 @@ import (
 )
 
 func Test_isCrossplaneCRD(t *testing.T) {
-	tests := []struct {
-		name string
+	tests := map[string]struct {
 		crd  apiextensionsv1.CustomResourceDefinition
 		want bool
 	}{
-		{
-			name: "CrossplaneAPIGroup",
+		"CrossplaneAPIGroup": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "compositeresourcedefinitions.apiextensions.crossplane.io",
@@ -36,8 +34,7 @@ func Test_isCrossplaneCRD(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "UpboundAPIGroup",
+		"UpboundAPIGroup": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "providers.pkg.upbound.io",
@@ -51,8 +48,7 @@ func Test_isCrossplaneCRD(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "CrossplaneCategory",
+		"CrossplaneCategory": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "some.resource.io",
@@ -66,8 +62,7 @@ func Test_isCrossplaneCRD(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "CompositesCategory",
+		"CompositesCategory": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "some.resource.io",
@@ -81,8 +76,7 @@ func Test_isCrossplaneCRD(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "ManagedCategory",
+		"ManagedCategory": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "some.resource.io",
@@ -96,8 +90,7 @@ func Test_isCrossplaneCRD(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "NonCrossplaneCRD",
+		"NonCrossplaneCRD": {
 			crd: apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "externalsecrets.external-secrets.io",
@@ -113,25 +106,23 @@ func Test_isCrossplaneCRD(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			got := isCrossplaneCRD(tt.crd)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
-				t.Errorf("%s\nisCrossplaneCRD(...): -want, +got\n%s", tt.name, diff)
+				t.Errorf("%s\nisCrossplaneCRD(...): -want, +got\n%s", name, diff)
 			}
 		})
 	}
 }
 
 func Test_filterCRDArrayFile(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		setup    func(dir string) string
 		wantKept map[string]bool
 		wantErr  error
 	}{
-		{
-			name: "FilterMixedCRDs",
+		"FilterMixedCRDs": {
 			setup: func(dir string) string {
 				crdList := apiextensionsv1.CustomResourceDefinitionList{
 					TypeMeta: metav1.TypeMeta{
@@ -191,8 +182,7 @@ func Test_filterCRDArrayFile(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		{
-			name: "EmptyList",
+		"EmptyList": {
 			setup: func(dir string) string {
 				crdList := apiextensionsv1.CustomResourceDefinitionList{
 					TypeMeta: metav1.TypeMeta{
@@ -215,8 +205,7 @@ func Test_filterCRDArrayFile(t *testing.T) {
 			wantKept: map[string]bool{},
 			wantErr:  nil,
 		},
-		{
-			name: "InvalidJSON",
+		"InvalidJSON": {
 			setup: func(dir string) string {
 				filePath := filepath.Join(dir, "custom-resource-definitions.json")
 				_ = os.WriteFile(filePath, []byte("invalid json"), 0o600)
@@ -225,8 +214,7 @@ func Test_filterCRDArrayFile(t *testing.T) {
 			wantKept: nil,
 			wantErr:  cmpopts.AnyError,
 		},
-		{
-			name: "PreservesMetadata",
+		"PreservesMetadata": {
 			setup: func(dir string) string {
 				crdList := apiextensionsv1.CustomResourceDefinitionList{
 					TypeMeta: metav1.TypeMeta{
@@ -265,34 +253,32 @@ func Test_filterCRDArrayFile(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			filePath := tt.setup(dir)
 
 			kept, err := filterCRDList(filePath)
 
 			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("%s\nfilterCRDList(...): -want err, +got err\n%s", tt.name, diff)
+				t.Errorf("%s\nfilterCRDList(...): -want err, +got err\n%s", name, diff)
 			}
 
 			if diff := cmp.Diff(tt.wantKept, kept); diff != "" {
-				t.Errorf("%s\nfilterCRDList(...): unexpected kept CRDs (-want +got):\n%s", tt.name, diff)
+				t.Errorf("%s\nfilterCRDList(...): unexpected kept CRDs (-want +got):\n%s", name, diff)
 			}
 		})
 	}
 }
 
 func Test_filterCustomResources(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		setup       func(dir string) (string, map[string]bool)
 		wantKept    []string
 		wantRemoved []string
 		wantErr     error
 	}{
-		{
-			name: "KeepCrossplaneResources",
+		"KeepCrossplaneResources": {
 			setup: func(dir string) (string, map[string]bool) {
 				customResourcesDir := filepath.Join(dir, "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -321,8 +307,7 @@ func Test_filterCustomResources(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		{
-			name: "KeepAllWhenAllCrossplane",
+		"KeepAllWhenAllCrossplane": {
 			setup: func(dir string) (string, map[string]bool) {
 				customResourcesDir := filepath.Join(dir, "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -344,8 +329,7 @@ func Test_filterCustomResources(t *testing.T) {
 			wantRemoved: []string{},
 			wantErr:     nil,
 		},
-		{
-			name: "RemoveAllWhenNoneCrossplane",
+		"RemoveAllWhenNoneCrossplane": {
 			setup: func(dir string) (string, map[string]bool) {
 				customResourcesDir := filepath.Join(dir, "custom-resources")
 				_ = os.MkdirAll(customResourcesDir, 0o755)
@@ -364,8 +348,7 @@ func Test_filterCustomResources(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		{
-			name: "HandleMissingDirectory",
+		"HandleMissingDirectory": {
 			setup: func(dir string) (string, map[string]bool) {
 				customResourcesDir := filepath.Join(dir, "custom-resources")
 				keptCRDNames := map[string]bool{}
@@ -377,22 +360,22 @@ func Test_filterCustomResources(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			customResourcesDir, keptCRDNames := tt.setup(dir)
 
 			err := filterCustomResources(customResourcesDir, keptCRDNames)
 
 			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("%s\nfilterCustomResources(...): -want err, +got err\n%s", tt.name, diff)
+				t.Errorf("%s\nfilterCustomResources(...): -want err, +got err\n%s", name, diff)
 			}
 
 			for _, fileName := range tt.wantKept {
 				filePath := filepath.Join(customResourcesDir, fileName)
 				_, err := os.Stat(filePath)
 				if err != nil {
-					t.Errorf("%s\nexpected file %q to exist: %v", tt.name, fileName, err)
+					t.Errorf("%s\nexpected file %q to exist: %v", name, fileName, err)
 				}
 			}
 
@@ -400,7 +383,7 @@ func Test_filterCustomResources(t *testing.T) {
 				filePath := filepath.Join(customResourcesDir, fileName)
 				_, err := os.Stat(filePath)
 				if !os.IsNotExist(err) {
-					t.Errorf("%s\nexpected file %q to be removed, but it exists", tt.name, fileName)
+					t.Errorf("%s\nexpected file %q to be removed, but it exists", name, fileName)
 				}
 			}
 		})
@@ -408,15 +391,13 @@ func Test_filterCustomResources(t *testing.T) {
 }
 
 func Test_removeNonCrossplaneClusterResources(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		setup       func(dir string) string
 		wantKept    []string
 		wantRemoved []string
 		wantErr     error
 	}{
-		{
-			name: "KeepEssentialFiles",
+		"KeepEssentialFiles": {
 			setup: func(dir string) string {
 				clusterResourcesDir := filepath.Join(dir, "cluster-resources")
 				_ = os.MkdirAll(clusterResourcesDir, 0o755)
@@ -448,8 +429,7 @@ func Test_removeNonCrossplaneClusterResources(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		{
-			name: "RemoveAllNonEssential",
+		"RemoveAllNonEssential": {
 			setup: func(dir string) string {
 				clusterResourcesDir := filepath.Join(dir, "cluster-resources")
 				_ = os.MkdirAll(clusterResourcesDir, 0o755)
@@ -466,8 +446,7 @@ func Test_removeNonCrossplaneClusterResources(t *testing.T) {
 			wantRemoved: []string{},
 			wantErr:     nil,
 		},
-		{
-			name: "HandleMissingDirectory",
+		"HandleMissingDirectory": {
 			setup: func(dir string) string {
 				clusterResourcesDir := filepath.Join(dir, "cluster-resources")
 				return clusterResourcesDir
@@ -478,22 +457,22 @@ func Test_removeNonCrossplaneClusterResources(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			clusterResourcesDir := tt.setup(dir)
 
 			err := removeNonCrossplaneClusterResources(clusterResourcesDir)
 
 			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("%s\nremoveNonCrossplaneClusterResources(...): -want err, +got err\n%s", tt.name, diff)
+				t.Errorf("%s\nremoveNonCrossplaneClusterResources(...): -want err, +got err\n%s", name, diff)
 			}
 
 			for _, itemName := range tt.wantKept {
 				itemPath := filepath.Join(clusterResourcesDir, itemName)
 				_, err := os.Stat(itemPath)
 				if err != nil {
-					t.Errorf("%s\nexpected item %q to exist: %v", tt.name, itemName, err)
+					t.Errorf("%s\nexpected item %q to exist: %v", name, itemName, err)
 				}
 			}
 
@@ -501,7 +480,7 @@ func Test_removeNonCrossplaneClusterResources(t *testing.T) {
 				itemPath := filepath.Join(clusterResourcesDir, itemName)
 				_, err := os.Stat(itemPath)
 				if !os.IsNotExist(err) {
-					t.Errorf("%s\nexpected item %q to be removed, but it exists", tt.name, itemName)
+					t.Errorf("%s\nexpected item %q to be removed, but it exists", name, itemName)
 				}
 			}
 		})
@@ -509,15 +488,13 @@ func Test_removeNonCrossplaneClusterResources(t *testing.T) {
 }
 
 func Test_removeNonEssentialBundleDirectories(t *testing.T) {
-	tests := []struct {
-		name        string
+	tests := map[string]struct {
 		setup       func(dir string) string
 		wantKept    []string
 		wantRemoved []string
 		wantErr     error
 	}{
-		{
-			name: "KeepEssentialDirectories",
+		"KeepEssentialDirectories": {
 			setup: func(dir string) string {
 				bundleRoot := filepath.Join(dir, "bundle")
 				_ = os.MkdirAll(bundleRoot, 0o755)
@@ -545,8 +522,7 @@ func Test_removeNonEssentialBundleDirectories(t *testing.T) {
 			},
 			wantErr: nil,
 		},
-		{
-			name: "RemoveAllNonEssential",
+		"RemoveAllNonEssential": {
 			setup: func(dir string) string {
 				bundleRoot := filepath.Join(dir, "bundle")
 				_ = os.MkdirAll(bundleRoot, 0o755)
@@ -563,8 +539,7 @@ func Test_removeNonEssentialBundleDirectories(t *testing.T) {
 			wantRemoved: []string{},
 			wantErr:     nil,
 		},
-		{
-			name: "HandleMissingDirectory",
+		"HandleMissingDirectory": {
 			setup: func(dir string) string {
 				bundleRoot := filepath.Join(dir, "bundle")
 				return bundleRoot
@@ -575,25 +550,25 @@ func Test_removeNonEssentialBundleDirectories(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			bundleRoot := tt.setup(dir)
 
 			err := removeNonEssentialBundleDirectories(bundleRoot)
 
 			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("%s\nremoveNonEssentialBundleDirectories(...): -want err, +got err\n%s", tt.name, diff)
+				t.Errorf("%s\nremoveNonEssentialBundleDirectories(...): -want err, +got err\n%s", name, diff)
 			}
 
 			for _, dirName := range tt.wantKept {
 				dirPath := filepath.Join(bundleRoot, dirName)
 				info, err := os.Stat(dirPath)
 				if err != nil {
-					t.Errorf("%s\nexpected directory %q to exist: %v", tt.name, dirName, err)
+					t.Errorf("%s\nexpected directory %q to exist: %v", name, dirName, err)
 				}
 				if !info.IsDir() {
-					t.Errorf("%s\nexpected %q to be a directory", tt.name, dirName)
+					t.Errorf("%s\nexpected %q to be a directory", name, dirName)
 				}
 			}
 
@@ -601,7 +576,7 @@ func Test_removeNonEssentialBundleDirectories(t *testing.T) {
 				dirPath := filepath.Join(bundleRoot, dirName)
 				_, err := os.Stat(dirPath)
 				if !os.IsNotExist(err) {
-					t.Errorf("%s\nexpected directory %q to be removed, but it exists", tt.name, dirName)
+					t.Errorf("%s\nexpected directory %q to be removed, but it exists", name, dirName)
 				}
 			}
 		})

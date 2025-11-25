@@ -17,15 +17,13 @@ import (
 )
 
 func TestApply(t *testing.T) {
-	tests := []struct {
-		name       string
+	tests := map[string]struct {
 		setup      func(t *testing.T) string
 		processors []Func
 		wantErr    error
 		verify     func(archivePath string, t *testing.T)
 	}{
-		{
-			name: "NoProcessors",
+		"NoProcessors": {
 			setup: func(t *testing.T) string {
 				return testutil.CreateTestTar(t, map[string]string{
 					"file1.txt": "content1",
@@ -35,8 +33,7 @@ func TestApply(t *testing.T) {
 			wantErr:    nil,
 			verify:     func(_ string, _ *testing.T) {},
 		},
-		{
-			name: "WithProcessor",
+		"WithProcessor": {
 			setup: func(t *testing.T) string {
 				return testutil.CreateTestTar(t, map[string]string{
 					"cluster-resources/configmaps/cm.json": `{"kind":"ConfigMap","data":{"key":"value"}}`,
@@ -68,14 +65,14 @@ func TestApply(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			archivePath := tt.setup(t)
 
 			err := Apply(context.Background(), archivePath, tt.processors...)
 
 			if diff := cmp.Diff(tt.wantErr, err, cmpopts.EquateErrors()); diff != "" {
-				t.Errorf("%s\nApply(...): -want err, +got err\n%s", tt.name, diff)
+				t.Errorf("%s\nApply(...): -want err, +got err\n%s", name, diff)
 			}
 			if err != nil {
 				return
