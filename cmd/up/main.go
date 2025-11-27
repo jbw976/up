@@ -37,6 +37,7 @@ import (
 	"github.com/upbound/up/cmd/up/project"
 	"github.com/upbound/up/cmd/up/query"
 	"github.com/upbound/up/cmd/up/repository"
+	"github.com/upbound/up/cmd/up/resource"
 	"github.com/upbound/up/cmd/up/robot"
 	"github.com/upbound/up/cmd/up/runner"
 	"github.com/upbound/up/cmd/up/space"
@@ -178,16 +179,17 @@ type cli struct {
 	DryRun bool             `help:"dry-run output."      name:"dry-run"`
 
 	// Manage Upbound Resources
-	Organization  organization.Cmd  `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"                    help:"Interact with Upbound organizations." name:"organization"`
-	Token         token.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with personal access tokens."        name:"token"`
-	Team          team.Cmd          `cmd:""         group:"Manage Upbound Resources" help:"Interact with teams."                         name:"team"`
-	Robot         robot.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with robots."                        name:"robot"`
-	Repository    repository.Cmd    `aliases:"repo" cmd:""                           group:"Manage Upbound Resources"                    help:"Interact with repositories."          name:"repository"`
+	Organization  organization.Cmd  `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with Upbound organizations." name:"organization"`
+	Token         token.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with personal access tokens."                             name:"token"`
+	Team          team.Cmd          `cmd:""         group:"Manage Upbound Resources" help:"Interact with teams."                                              name:"team"`
+	Robot         robot.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with robots."                                             name:"robot"`
+	Repository    repository.Cmd    `aliases:"repo" cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with repositories."          name:"repository"`
 	Space         space.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with Spaces."`
 	Group         group.Cmd         `cmd:""         group:"Manage Upbound Resources" help:"Interact with groups inside Spaces."`
-	ControlPlane  controlplane.Cmd  `aliases:"ctp"  cmd:""                           group:"Manage Upbound Resources"                    help:"Interact with control planes."        name:"controlplane"`
+	ControlPlane  controlplane.Cmd  `aliases:"ctp"  cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with control planes."        name:"controlplane"`
 	UXP           uxp.Cmd           `cmd:""         group:"Manage Upbound Resources" help:"Interact with UXP."`
-	SupportBundle supportbundle.Cmd `cmd:""         group:"Manage Upbound Resources" help:"Collect support bundles for troubleshooting." name:"support-bundle"`
+	SupportBundle supportbundle.Cmd `cmd:""         group:"Manage Upbound Resources" help:"Collect support bundles for troubleshooting."                      name:"support-bundle"`
+	Resource      resource.Cmd      `cmd:""         group:"Manage Upbound Resources" help:"Gather information about resources in a cluster or control plane."`
 
 	// Develop with Crossplane
 	Project     project.Cmd     `cmd:""        group:"Develop with Crossplane" help:"Manage Upbound development projects."`
