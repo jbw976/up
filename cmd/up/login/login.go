@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -151,7 +150,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		token:    token,
 		redirect: redirect,
 	}
-	err := cb.startServer()
+	err := cb.startServer(ctx)
 	if err != nil {
 		return errors.Wrap(err, errLoginFailed)
 	}
@@ -166,7 +165,7 @@ func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 			return err
 		}
 	} else {
-		if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%d", cb.port))); err != nil {
+		if err := browser.OpenURL(getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, fmt.Sprintf("http://localhost:%s", cb.port))); err != nil {
 			p.Println("Could not open a browser!")
 			if err = c.handleDeviceLogin(upCtx, token, p); err != nil {
 				return err
@@ -427,7 +426,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.C
 	}
 	defer res.Body.Close() //nolint:errcheck // Can't do anything useful with this error.
 
-	user := make(map[string]interface{})
+	user := make(map[string]any)
 	if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
 		return err
 	}
@@ -441,7 +440,7 @@ func (c *LoginCmd) exchangeTokenForSession(ctx context.Context, upCtx *upbound.C
 type callbackServer struct {
 	token    chan string
 	redirect chan string
-	port     int
+	port     string
 	srv      *http.Server
 }
 
@@ -465,46 +464,27 @@ func (cb *callbackServer) shutdownServer(ctx context.Context) error {
 	return cb.srv.Shutdown(ctx)
 }
 
-func (cb *callbackServer) startServer() (err error) {
-	cb.port, err = cb.getPort()
+func (cb *callbackServer) startServer(ctx context.Context) (err error) {
+	// Let the system choose a listening port, to avoid collisions.
+	c := &net.ListenConfig{}
+	lis, err := c.Listen(ctx, "tcp", "localhost:0")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to create callback listener")
+	}
+	_, cb.port, err = net.SplitHostPort(lis.Addr().String())
+	if err != nil {
+		return errors.Wrap(err, "failed to get callback listener port")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", cb.getResponse)
 	cb.srv = &http.Server{
-		Handler:           mux,
-		Addr:              fmt.Sprintf(":%d", cb.port),
+		Handler:           http.HandlerFunc(cb.getResponse),
 		ReadTimeout:       5 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,
 	}
-	go cb.srv.ListenAndServe() //nolint:errcheck // Intentionally not waiting for this to return.
+	go cb.srv.Serve(lis) //nolint:errcheck // Intentionally not waiting for this to return.
 
 	return nil
-}
-
-func (cb *callbackServer) getPort() (int, error) {
-	// Create a new server without specifying a port
-	// which will result in an open port being chosen
-	server, err := net.Listen("tcp", "localhost:0")
-	// If there's an error it likely means no ports
-	// are available or something else prevented finding
-	// an open port
-	if err != nil {
-		return 0, err
-	}
-	defer server.Close() //nolint:errcheck // Can't do anything useful with this error.
-
-	// Split the host from the port
-	_, portString, err := net.SplitHostPort(server.Addr().String())
-	if err != nil {
-		return 0, err
-	}
-
-	// Return the port as an int
-	return strconv.Atoi(portString)
 }
 
 func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error {
