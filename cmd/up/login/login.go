@@ -118,6 +118,7 @@ type LoginCmd struct { //nolint:revive // Can't just call this `Cmd` because `Lo
 	Token    string `env:"UP_TOKEN"    help:"Upbound API token (personal access token) used to execute command. '-' to read from stdin." short:"t" xor:"identifier"`
 
 	UseDeviceCode bool `help:"Use authentication flow based on device code. We will also use this if it can't launch a browser in your behalf, e.g. in remote SSH"`
+	QRCode        bool `help:"Display a QR code for the login URL when using the device code login flow."`
 }
 
 //go:embed help/login.md
@@ -571,7 +572,11 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 
 func (c *LoginCmd) handleDeviceLogin(upCtx *upbound.Context, token chan<- string, p pterm.TextPrinter) error {
 	ep := getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, "")
-	qrterminal.Generate(ep, qrterminal.L, os.Stdout)
+
+	if c.QRCode {
+		qrterminal.GenerateHalfBlock(ep, qrterminal.L, os.Stdout)
+	}
+
 	p.Println("Please go to", ep, "and then enter code")
 	// TODO(nullable-eth): Add a prompter with timeout?  Difficult to know when they actually
 	// finished login to know when the TOTP would expire
