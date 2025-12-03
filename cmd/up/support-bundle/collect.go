@@ -94,10 +94,12 @@ func (c *collectCmd) Run(ctx context.Context) error {
 			additionalRedactors = defaults.Redactors()
 		}
 	} else {
-		namespaces, err := determineNamespaces(ctx, restConfig, c.IncludeNamespaces, c.ExcludeNamespaces)
+		clientset, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
-			return errors.Wrap(err, "failed to determine namespaces for collection")
+			return errors.Wrap(err, "failed to create kubernetes client")
 		}
+
+		namespaces := determineNamespaces(ctx, clientset, c.IncludeNamespaces, c.ExcludeNamespaces)
 
 		// Skip collecting logs if we're only collecting Crossplane resources
 		includeLogs := !c.CrossplaneResourcesOnly
@@ -197,33 +199,33 @@ func parseRedactorFromDoc(doc []byte) (*troubleshootv1beta2.Redactor, bool, erro
 // Otherwise, it collects from crossplane-system, upbound-system, and namespaces labeled with
 // internal.spaces.upbound.io/controlplane-name.
 // Exclude patterns support glob matching (e.g., "upbound-*" to exclude all namespaces starting with "upbound-").
-func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNamespaces, excludeNamespaces []string) ([]string, error) {
-	if restConfig == nil {
-		return nil, errors.New("rest config not set")
-	}
-
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create kubernetes client")
-	}
-
+// This function always returns a valid list of namespaces, falling back to defaults when necessary.
+func determineNamespaces(ctx context.Context, clientset kubernetes.Interface, includeNamespaces, excludeNamespaces []string) []string {
 	var candidateNamespaces []string
 
 	if len(includeNamespaces) > 0 {
-		allNamespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to list namespaces")
+		if clientset == nil {
+			// if no client is provided, use includeNamespaces directly
+			candidateNamespaces = includeNamespaces
+		} else {
+			allNamespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				candidateNamespaces = includeNamespaces
+			} else {
+				candidateNamespaces = matchNamespaces(allNamespaces.Items, includeNamespaces)
+			}
 		}
-		candidateNamespaces = matchNamespaces(allNamespaces.Items, includeNamespaces)
 	} else {
 		candidateNamespaces = []string{"crossplane-system", "upbound-system"}
-		nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-			LabelSelector: "internal.spaces.upbound.io/controlplane-name",
-		})
-		if err == nil {
-			// If listing namespaces fails we will continue with the default namespaces only
-			for _, ns := range nsList.Items {
-				candidateNamespaces = append(candidateNamespaces, ns.Name)
+		if clientset != nil {
+			nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
+				LabelSelector: "internal.spaces.upbound.io/controlplane-name",
+			})
+			if err == nil {
+				// If listing namespaces fails we will continue with the default namespaces only
+				for _, ns := range nsList.Items {
+					candidateNamespaces = append(candidateNamespaces, ns.Name)
+				}
 			}
 		}
 	}
@@ -235,7 +237,7 @@ func determineNamespaces(ctx context.Context, restConfig *rest.Config, includeNa
 		}
 	}
 
-	return filtered, nil
+	return filtered
 }
 
 // validatePatterns checks if all patterns are valid by attempting to match them.

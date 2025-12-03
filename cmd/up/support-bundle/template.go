@@ -11,6 +11,7 @@ import (
 
 	troubleshootv1beta2 "github.com/replicatedhq/troubleshoot/pkg/apis/troubleshoot/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -27,6 +28,10 @@ type templateCmd struct {
 
 	// out is the writer to output the template to. Defaults to os.Stdout.
 	out io.Writer
+
+	// kClient is an Kubernetes client interface
+	// If nil, a client will be created from the kubeconfig.
+	kClient kubernetes.Interface
 }
 
 //go:embed help/template.md
@@ -38,6 +43,7 @@ func (c *templateCmd) Help() string {
 }
 
 // AfterApply initializes the output + validates the include and exclude namespaces patterns.
+// It also attempts to create a Kubernetes client from the kubeconfig if available.
 func (c *templateCmd) AfterApply() error {
 	if c.out == nil {
 		c.out = os.Stdout
@@ -49,22 +55,22 @@ func (c *templateCmd) AfterApply() error {
 	if err := validatePatterns(c.ExcludeNamespaces); err != nil {
 		return errors.Wrap(err, "invalid exclude-namespaces pattern")
 	}
+
+	// Try to create a Kubernetes client from kubeconfig if available.
+	if c.kClient == nil {
+		restConfig, err := kube.GetKubeConfig(c.Kubeconfig)
+		if err == nil {
+			// ignore error if creation fails
+			c.kClient, _ = kubernetes.NewForConfig(restConfig)
+		}
+	}
+
 	return nil
 }
 
 // Run outputs the default SupportBundle YAML configuration.
 func (c *templateCmd) Run(ctx context.Context) error {
-	restConfig, err := kube.GetKubeConfig(c.Kubeconfig)
-	if err != nil {
-		restConfig = nil
-	}
-
-	namespaces, err := determineNamespaces(ctx, restConfig, c.IncludeNamespaces, c.ExcludeNamespaces)
-	if err != nil {
-		// fall back to these two default namespaces
-		namespaces = []string{"crossplane-system", "upbound-system"}
-	}
-
+	namespaces := determineNamespaces(ctx, c.kClient, c.IncludeNamespaces, c.ExcludeNamespaces)
 	return writeTemplate(c.out, namespaces)
 }
 
