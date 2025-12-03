@@ -7,16 +7,6 @@ template that can be used as a starting point for custom support bundle configur
 up support-bundle template [flags]
 ```
 
-### Flags
-
-- `--kubeconfig`, `-k`: Path to the kubeconfig file. If not provided, the default
-  kubeconfig resolution will be used. If kubeconfig is unavailable, default namespaces
-  will be used.
-- `--include-namespaces`: Namespaces to include in the template. If not provided,
-  the command will attempt to discover namespaces from the cluster (crossplane-system,
-  upbound-system, and control plane namespaces).
-- `--exclude-namespaces`: Namespaces to exclude from the template.
-
 ### Examples
 
 ```bash
