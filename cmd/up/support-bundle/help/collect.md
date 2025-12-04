@@ -46,31 +46,15 @@ single file using multi-document YAML format (separated by `---`).
 When using `--config`, the `--include-namespaces` and `--exclude-namespaces` flags
 are ignored. The namespaces specified in the configuration file will be used instead.
 
-```yaml
-apiVersion: troubleshoot.sh/v1beta2
-kind: SupportBundle
-metadata:
-  name: support-bundle
-spec:
-  collectors:
-    - logs:
-        namespace: crossplane-system
-    - clusterInfo: {}
-    - clusterResources:
-        namespaces:
-          - crossplane-system
-          - upbound-system
----
-apiVersion: troubleshoot.sh/v1beta2
-kind: Redactor
-metadata:
-  name: custom-redactors
-spec:
-  redactors:
-    - name: custom-redactor
-      removals:
-        regex:
-          - redactor: ".*password.*"
+To generate a template configuration file that you can customize, use the
+`up support-bundle template` command:
+
+```bash
+# Generate a template and save it to a file
+up support-bundle template > my-config.yaml
+
+# Then use it with the collect command
+up support-bundle collect --config my-config.yaml
 ```
 
 ## Security
