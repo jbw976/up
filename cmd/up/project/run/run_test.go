@@ -58,6 +58,7 @@ func TestRun(t *testing.T) {
 		devCtp            ctp.DevControlPlane
 		pusher            project.Pusher
 		installFn         func(context.Context, client.Client, string, name.Tag, async.EventChannel) error
+		initResources     []runtime.RawExtension
 		extraResources    []runtime.RawExtension
 		expectedResources []client.Object
 	}{
@@ -77,6 +78,40 @@ func TestRun(t *testing.T) {
 					return errors.Errorf("wrong tag: expected %q got %q", pusherTag, tag)
 				}
 				return nil
+			},
+		},
+		"InitResources": {
+			devCtp: ctp.NewMockDevControlPlane(fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(), nil),
+			pusher: &mockPusher{
+				tag:         pusherTag,
+				expectedTag: expectedTag,
+			},
+			installFn: func(_ context.Context, _ client.Client, name string, tag name.Tag, _ async.EventChannel) error {
+				if name != "configuration-getting-started" {
+					return errors.Errorf("wrong configuration name: expected %q got %q", "configuration-getting-started", name)
+				}
+				if tag.String() != pusherTag.String() {
+					return errors.Errorf("wrong tag: expected %q got %q", pusherTag, tag)
+				}
+				return nil
+			},
+			initResources: []runtime.RawExtension{{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap","namespace":"default"},"data":{"key":"value"}}`),
+			}},
+			expectedResources: []client.Object{
+				&corev1.ConfigMap{
+					TypeMeta: v1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"key": "value",
+					},
+				},
 			},
 		},
 		"ExtraResources": {
@@ -186,6 +221,7 @@ func TestRun(t *testing.T) {
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
 				pusher:             tc.pusher,
+				initResources:      tc.initResources,
 				extraResources:     tc.extraResources,
 				ensureDevControlPlane: func(_ context.Context, _ *upbound.Context, _ ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error) {
 					return tc.devCtp, nil
