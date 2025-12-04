@@ -113,7 +113,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, 
 
 	c.projectRepository = proj.Spec.Repository
 	c.functionFS = afero.NewBasePathFs(
-		c.projFS, c.fsPath,
+		afero.NewOsFs(), filepath.Join(projDirPath, c.fsPath),
 	)
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
