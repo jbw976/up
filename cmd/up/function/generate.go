@@ -157,12 +157,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	if !isEmpty {
 		// Prompt the user for confirmation to overwrite
-		pterm.Println() // Blank line
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath))
-		confirm.DefaultValue = false
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm(fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath)), false)
 
 		if !result {
 			pterm.Error.Println("The operation was cancelled. The function folder must be empty to proceed with the generation.")

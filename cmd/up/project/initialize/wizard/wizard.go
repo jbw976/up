@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/upbound/up/cmd/up/runner"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
@@ -38,7 +39,7 @@ func (w *Wizard) Run() (State, error) {
 		if err != nil {
 			return state, fmt.Errorf("failed to load wizard state: %w", err)
 		}
-		cont, _ := pterm.DefaultInteractiveConfirm.Show("Continue from previous wizard state?")
+		cont, _ := upterm.Confirm("Continue from previous wizard state?", false)
 		if cont {
 			state = savedState
 		} else {

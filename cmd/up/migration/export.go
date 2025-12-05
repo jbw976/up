@@ -93,11 +93,7 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
 	})
 
 	if !c.Yes && e.IncludedExtraResource("secrets") {
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = secretsWarning
-		confirm.DefaultValue = true
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm(secretsWarning, true)
 		if !result {
 			return nil
 		}

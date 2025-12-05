@@ -178,11 +178,7 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 		}
 
 		if !c.Yes {
-			pterm.Println() // Blank line
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = "Would you like to install them now?"
-			result, _ := confirm.Show()
-			pterm.Println() // Blank line
+			result, _ := upterm.Confirm("Would you like to install them now?", false)
 			if !result {
 				pterm.Error.Println("prerequisites must be met in order to proceed with upgrade")
 				return nil
@@ -280,17 +276,11 @@ func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
 
 // warnAndConfirm displays a warning and prompts for confirmation.
 func warnAndConfirm(warning string, args ...any) error {
-	pterm.Println()                          // Blank line for better readability
 	pterm.Warning.Printfln(warning, args...) // Display the warning message
-	pterm.Println()                          // Another blank line
 
-	confirm := pterm.DefaultInteractiveConfirm
-	confirm.DefaultText = "Are you sure you want to proceed?"
-
-	if result, _ := confirm.Show(); !result {
+	if result, _ := upterm.Confirm("Are you sure you want to proceed?", false); !result {
 		return errors.New(errAborted)
 	}
 
-	pterm.Println() // Final blank line
 	return nil
 }

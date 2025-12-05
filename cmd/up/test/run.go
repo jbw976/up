@@ -295,8 +295,7 @@ func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 		return err
 	}
 
-	confirm := pterm.DefaultInteractiveConfirm
-	proceed, err := confirm.Show(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName))
+	proceed, err := upterm.Confirm(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName), false)
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ import (
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
 
@@ -82,7 +83,6 @@ type generateCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Read the project file.
@@ -315,12 +315,7 @@ func (c *generateCmd) getInteractiveType() string {
 		return c.Type
 	}
 
-	confirm := pterm.DefaultInteractiveSelect.
-		WithOptions([]string{xrc, xr}).
-		WithDefaultOption(xrc).
-		WithDefaultText("What do you want to create?")
-
-	choice, err := confirm.Show()
+	choice, err := upterm.Selection("What do you want to create?", []string{xrc, xr}, xrc)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting choice:", err)
 		return ""
@@ -345,11 +340,7 @@ func (c *generateCmd) getInteractiveScope() string {
 		return c.Scope
 	}
 
-	confirm := pterm.DefaultInteractiveConfirm.
-		WithDefaultText("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)").
-		WithDefaultValue(false)
-
-	wantClusterScoped, err := confirm.Show()
+	wantClusterScoped, err := upterm.Confirm("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)", false)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting scoping choice:", err)
 		return scopeNamespace // Default to namespace scoped.
@@ -367,23 +358,16 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 		return c.Kind
 	}
 
-	var input pterm.InteractiveTextInputPrinter
+	prompt := "What is your Composite Resource (XR) kind?"
+	def := "Cluster"
 	if resourceType == xrcString {
-		input = *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is your Composite Resource Claim (XRC) kind?").
-			WithDefaultValue("Cluster")
-	} else {
-		// For V2 projects, use "Cluster" as default for XR; for V1 projects, use "XCluster"
-		defaultValue := "XCluster"
-		if c.proj.IsV2() {
-			defaultValue = "Cluster"
-		}
-		input = *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is your Composite Resource (XR) kind?").
-			WithDefaultValue(defaultValue)
+		prompt = "What is your Composite Resource Claim (XRC) kind?"
+	} else if c.proj.IsV1() {
+		// For V1 projects, use "XCluster" as default for XR.
+		def = "XCluster"
 	}
 
-	name, err := input.Show()
+	name, err := upterm.Prompt(prompt, def)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting Claim or Composite Resource name:", err)
 		return ""
@@ -398,11 +382,7 @@ func (c *generateCmd) getInteractiveGroup() string {
 		return c.APIGroup
 	}
 
-	input := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the API group named?").
-		WithDefaultValue("customer.upbound.io")
-
-	group, err := input.Show()
+	group, err := upterm.Prompt("What is the API group named?", "customer.upbound.io")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting API Group:", err)
 		return ""
@@ -417,11 +397,7 @@ func (c *generateCmd) getInteractiveVersion() string {
 		return c.APIVersion
 	}
 
-	input := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the API Version named?").
-		WithDefaultValue("v1alpha1")
-
-	version, err := input.Show()
+	version, err := upterm.Prompt("What is the API Version named?", "v1alpha1")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting API Version:", err)
 		return ""
@@ -436,11 +412,7 @@ func (c *generateCmd) getInteractiveMetadataName() string {
 		return c.Name
 	}
 
-	input := *pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the metadata name?").
-		WithDefaultValue("example")
-
-	name, err := input.Show()
+	name, err := upterm.Prompt("What is the metadata name?", "example")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting metadata.name:", err)
 		return ""
@@ -458,11 +430,7 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 	// For v1 projects: XRC/Claims always ask for namespace, XRs don't have namespace
 	// For v2 projects: XRs ask for namespace if they are namespace scoped.
 	if resourceType == xrcString || resourceType == claimString || c.Scope == scopeNamespace {
-		input := *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is the metadata namespace?").
-			WithDefaultValue(defaultNamespace)
-
-		namespace, err := input.Show()
+		namespace, err := upterm.Prompt("What is the metadata namespace?", defaultNamespace)
 		if err != nil {
 			pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
 			return ""
@@ -538,15 +506,12 @@ func (c *generateCmd) outputResource(res resource) error {
 		}
 
 		if exists {
-			// Prompt the user for confirmation to merge
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.exampleFS, filePath))
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
-
+			// Ignore any error, since false will be returned and we'll abort
+			// anyway.
+			result, _ := upterm.Confirm(
+				fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.exampleFS, filePath)),
+				false,
+			)
 			if !result {
 				return errors.New("operation cancelled by user")
 			}

@@ -88,18 +88,10 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 
 	// Prompt for user confirmation if the identity is available.
 	if !c.Yes {
-		pterm.Println() // Print a blank line for spacing.
-
-		confirmPrompt := pterm.DefaultInteractiveConfirm
-		confirmPrompt.DefaultText = fmt.Sprintf("Do you want to create the IAM Identity Provider OIDC and IAM Role using the following identity? %s", *identity.Arn)
-		confirmPrompt.DefaultValue = false
-
-		confirmed, err := confirmPrompt.Show()
+		confirmed, err := upterm.Confirm(fmt.Sprintf("Do you want to create the IAM Identity Provider OIDC and IAM Role using the following identity? %s", *identity.Arn), false)
 		if err != nil {
 			return errors.Wrap(err, "failed to get user confirmation")
 		}
-
-		pterm.Println() // Blank line for spacing.
 
 		if !confirmed {
 			pterm.Error.Println("Operation cancelled by user; creation aborted.")

@@ -57,12 +57,7 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
 
 	if !c.Yes {
-		pterm.Println() // Blank line
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = "Do you still want to proceed?"
-		confirm.DefaultValue = false
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm("Do you still want to proceed?", false)
 		if !result {
 			return nil
 		}

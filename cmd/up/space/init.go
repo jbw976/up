@@ -208,9 +208,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 
 	if c.helmParams["account"] == defaultAcct {
 		pterm.Warning.Println("No Upbound organization name was provided. Spaces initialized without an organization cannot be attached to the Upbound console! This cannot be changed later.")
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct)
-		result, _ := confirm.Show()
+		result, _ := upterm.Confirm(fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct), false)
 		if !result {
 			pterm.Error.Println("Not proceeding without an Upbound organization; pass the --organization flag or create a profile (`up login` or `up profile create`).")
 			return nil
@@ -234,11 +232,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 		}
 
 		if !c.Yes {
-			pterm.Println() // Blank line
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = "Would you like to install them now?"
-			result, _ := confirm.Show()
-			pterm.Println() // Blank line
+			result, _ := upterm.Confirm("Would you like to install them now?", false)
 			if !result {
 				pterm.Error.Println("prerequisites must be met in order to proceed with installation")
 				return nil

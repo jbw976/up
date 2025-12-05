@@ -4,13 +4,13 @@
 package profile
 
 import (
-	"github.com/pterm/pterm"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -65,8 +65,7 @@ func (c *createCmd) Run(flags upbound.Flags, upCtx *upbound.Context) error {
 			return errors.Wrap(err, "failed to check kuebconfig for spaces extension")
 		}
 		if ext != nil {
-			confirm := pterm.DefaultInteractiveConfirm
-			proceed, err := confirm.Show(spaceContextConfirmationText)
+			proceed, err := upterm.Confirm(spaceContextConfirmationText, false)
 			if err != nil {
 				return err
 			}

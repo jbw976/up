@@ -17,6 +17,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
+	"github.com/upbound/up/internal/upterm"
 )
 
 type removeCmd struct {
@@ -40,7 +41,7 @@ func (c *removeCmd) Run(cl client.Client) error {
 	// Confirm the user wants to remove their license.
 	if !c.Force {
 		confirmMsg := fmt.Sprintf("Are you sure you want to remove the license secret %s/%s?", l.Spec.SecretRef.Namespace, l.Spec.SecretRef.Name)
-		proceed, err := pterm.DefaultInteractiveConfirm.Show(confirmMsg)
+		proceed, err := upterm.Confirm(confirmMsg, false)
 		if err != nil {
 			return err
 		}

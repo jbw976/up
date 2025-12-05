@@ -17,6 +17,7 @@ import (
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
 
@@ -78,7 +79,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 
 	if !c.Force {
 		confirmMsg := fmt.Sprintf("Are you sure you want to destroy %s?", ctp.ShortDescription())
-		proceed, err := pterm.DefaultInteractiveConfirm.Show(confirmMsg)
+		proceed, err := upterm.Confirm(confirmMsg, false)
 		if err != nil {
 			return err
 		}

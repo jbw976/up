@@ -29,6 +29,7 @@ import (
 	"github.com/upbound/up/internal/schemas/generator"
 	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/yaml"
 
 	_ "embed"
@@ -184,13 +185,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 		if exists {
 			// Prompt the user for confirmation to merge
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.apisFS, filePath))
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
+			result, _ := upterm.Confirm(fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.apisFS, filePath)), false)
 
 			if !result {
 				return errors.New("operation cancelled by user")
