@@ -98,3 +98,10 @@ for example to test a v1 project on a v2 control plane:
 ```shell
 up project run --control-plane-version=v1.20.1-up.1
 ```
+
+Apply `imageconfig.yaml` before installing the configuration and
+`providerconfig.yaml` after installing the configuration:
+
+```shell
+up project run --init-resources=imageconfig.yaml --extra-resources=providerconfig.yaml
+```

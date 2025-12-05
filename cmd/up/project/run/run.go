@@ -17,12 +17,14 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
+	"github.com/crossplane/crossplane/v2/cmd/crank/render"
 
 	upboundpkgv1alpha1 "github.com/upbound/up-sdk-go/apis/pkg/v1alpha1"
 	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
@@ -37,6 +39,7 @@ import (
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/functions"
+	"github.com/upbound/up/internal/yaml"
 
 	_ "embed"
 )
@@ -69,6 +72,8 @@ type Cmd struct {
 	Ingress             bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
 	IngressPort         string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
 	ClusterAdmin        bool          `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
+	InitResources       []string      `help:"Paths to additional resource manifests that should be applied before installing the project."                                                        type:"path"`
+	ExtraResources      []string      `help:"Paths to additional resource manifests that should be applied after installing the project."                                                         type:"path"`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -77,6 +82,11 @@ type Cmd struct {
 	keychain           authn.Keychain
 	concurrency        uint
 	pusher             project.Pusher
+
+	// Parsed version of InitResources, filled by AfterApply.
+	initResources []runtime.RawExtension
+	// Parsed version of ExtraResources, filled by AfterApply.
+	extraResources []runtime.RawExtension
 
 	// Allow these functions to be injected for testing purposes.
 	ensureDevControlPlane func(context.Context, *upbound.Context, ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error)
@@ -121,6 +131,35 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, f
 	}
 	prj.Default()
 	c.proj = prj
+
+	for _, m := range c.InitResources {
+		yamls, err := render.LoadYAMLStream(afero.NewOsFs(), m)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read init resources from %s", m)
+		}
+
+		for _, bs := range yamls {
+			var e runtime.RawExtension
+			if err := yaml.Unmarshal(bs, &e); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal init resource from %s", m)
+			}
+			c.initResources = append(c.initResources, e)
+		}
+	}
+	for _, m := range c.ExtraResources {
+		yamls, err := render.LoadYAMLStream(afero.NewOsFs(), m)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read extra resources from %s", m)
+		}
+
+		for _, bs := range yamls {
+			var e runtime.RawExtension
+			if err := yaml.Unmarshal(bs, &e); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal extra resource from %s", m)
+			}
+			c.extraResources = append(c.extraResources, e)
+		}
+	}
 
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.transport = http.DefaultTransport
@@ -283,6 +322,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		return err
 	}
 
+	if err := upterm.WrapWithSuccessSpinner("Applying init resources", upterm.CheckmarkSuccessSpinner, func() error {
+		return kube.ApplyResources(ctx, devCtp.Client(), c.initResources)
+	}, c.printer); err != nil {
+		return err
+	}
+
 	readyCtx := ctx
 	if c.Timeout != 0 {
 		timeoutCtx, cancel := context.WithTimeout(ctx, c.Timeout)
@@ -293,6 +338,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	if err := c.asyncWrapper(func(ch async.EventChannel) error {
 		return c.installConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
 	}); err != nil {
+		return err
+	}
+
+	if err := upterm.WrapWithSuccessSpinner("Applying extra resources", upterm.CheckmarkSuccessSpinner, func() error {
+		return kube.ApplyResources(ctx, devCtp.Client(), c.extraResources)
+	}, c.printer); err != nil {
 		return err
 	}
 

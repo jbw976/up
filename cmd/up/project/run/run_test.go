@@ -14,6 +14,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -52,9 +55,12 @@ func TestRun(t *testing.T) {
 	assert.NilError(t, err)
 
 	tcs := map[string]struct {
-		devCtp    ctp.DevControlPlane
-		pusher    project.Pusher
-		installFn func(context.Context, client.Client, string, name.Tag, async.EventChannel) error
+		devCtp            ctp.DevControlPlane
+		pusher            project.Pusher
+		installFn         func(context.Context, client.Client, string, name.Tag, async.EventChannel) error
+		initResources     []runtime.RawExtension
+		extraResources    []runtime.RawExtension
+		expectedResources []client.Object
 	}{
 		"Push": {
 			devCtp: ctp.NewMockDevControlPlane(fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(), nil),
@@ -72,6 +78,74 @@ func TestRun(t *testing.T) {
 					return errors.Errorf("wrong tag: expected %q got %q", pusherTag, tag)
 				}
 				return nil
+			},
+		},
+		"InitResources": {
+			devCtp: ctp.NewMockDevControlPlane(fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(), nil),
+			pusher: &mockPusher{
+				tag:         pusherTag,
+				expectedTag: expectedTag,
+			},
+			installFn: func(_ context.Context, _ client.Client, name string, tag name.Tag, _ async.EventChannel) error {
+				if name != "configuration-getting-started" {
+					return errors.Errorf("wrong configuration name: expected %q got %q", "configuration-getting-started", name)
+				}
+				if tag.String() != pusherTag.String() {
+					return errors.Errorf("wrong tag: expected %q got %q", pusherTag, tag)
+				}
+				return nil
+			},
+			initResources: []runtime.RawExtension{{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap","namespace":"default"},"data":{"key":"value"}}`),
+			}},
+			expectedResources: []client.Object{
+				&corev1.ConfigMap{
+					TypeMeta: v1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"key": "value",
+					},
+				},
+			},
+		},
+		"ExtraResources": {
+			devCtp: ctp.NewMockDevControlPlane(fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(), nil),
+			pusher: &mockPusher{
+				tag:         pusherTag,
+				expectedTag: expectedTag,
+			},
+			installFn: func(_ context.Context, _ client.Client, name string, tag name.Tag, _ async.EventChannel) error {
+				if name != "configuration-getting-started" {
+					return errors.Errorf("wrong configuration name: expected %q got %q", "configuration-getting-started", name)
+				}
+				if tag.String() != pusherTag.String() {
+					return errors.Errorf("wrong tag: expected %q got %q", pusherTag, tag)
+				}
+				return nil
+			},
+			extraResources: []runtime.RawExtension{{
+				Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap","namespace":"default"},"data":{"key":"value"}}`),
+			}},
+			expectedResources: []client.Object{
+				&corev1.ConfigMap{
+					TypeMeta: v1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"key": "value",
+					},
+				},
 			},
 		},
 		"Sideload": {
@@ -147,6 +221,8 @@ func TestRun(t *testing.T) {
 				concurrency:        1,
 				asyncWrapper:       async.IgnoreEvents,
 				pusher:             tc.pusher,
+				initResources:      tc.initResources,
+				extraResources:     tc.extraResources,
 				ensureDevControlPlane: func(_ context.Context, _ *upbound.Context, _ ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error) {
 					return tc.devCtp, nil
 				},
@@ -159,6 +235,15 @@ func TestRun(t *testing.T) {
 
 			err = c.Run(t.Context(), upCtx)
 			assert.NilError(t, err)
+
+			// Check that any extra resources were created.
+			cl := tc.devCtp.Client()
+			for _, res := range tc.expectedResources {
+				var u unstructured.Unstructured
+				u.SetGroupVersionKind(res.GetObjectKind().GroupVersionKind())
+				err := cl.Get(t.Context(), client.ObjectKeyFromObject(res), &u)
+				assert.NilError(t, err)
+			}
 		})
 	}
 }
