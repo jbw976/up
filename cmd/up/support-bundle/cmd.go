@@ -8,4 +8,5 @@ package supportbundle
 type Cmd struct {
 	Collect  collectCmd  `cmd:"" help:"Collect a support bundle from the current kube context."`
 	Template templateCmd `cmd:"" help:"Output the default SupportBundle YAML configuration template."`
+	Serve    serveCmd    `cmd:"" help:"Serve support bundle files via a local Kubernetes API server for live viewing."`
 }
