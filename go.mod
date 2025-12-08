@@ -19,6 +19,7 @@ require (
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/charmbracelet/huh v0.8.0
+	github.com/charmbracelet/huh/spinner v0.0.0-20251124111010-6575a6e28cb3
 	github.com/crossplane/crossplane-runtime/v2 v2.2.0-rc.0
 	github.com/crossplane/crossplane/v2 v2.2.0-rc.0.0.20251119010707-c47845f706f9
 	github.com/crossplane/crossplane/v2/xcrd v0.0.0

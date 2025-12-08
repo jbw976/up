@@ -165,7 +165,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
+	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
@@ -203,7 +203,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating Function Folder",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			if err := filesystem.CopyFilesBetweenFs(functionSpecificFs, c.functionFS); err != nil {
 				return errors.Wrap(err, "failed to copy files to function target")
@@ -236,7 +235,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	if c.PipelinePath != "" {
 		err = upterm.WrapWithSuccessSpinner(
 			"Adding Pipeline Step",
-			upterm.CheckmarkSuccessSpinner,
 			func() error {
 				pipe, err := c.readAndUnmarshalPipeline()
 				if err != nil {

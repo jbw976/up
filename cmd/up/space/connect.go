@@ -36,7 +36,6 @@ import (
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/version"
 )
 
@@ -143,7 +142,18 @@ func (c *connectCmd) Run(ctx context.Context, mgr *helm.Installer, kClient *kube
 		return errors.Errorf("account of the space %q and account of the profile %q mismatch; use `--organization=%s` to connect to the right organization", sc.Account, upCtx.Organization, sc.Account)
 	}
 
-	connectSpinner, err := upterm.CheckmarkSuccessSpinner.Start("Connecting Space to Upbound Console...")
+	connectSpinner := pterm.
+		DefaultSpinner.
+		WithStyle(&pterm.Style{pterm.FgDarkGray}).
+		WithMessageStyle(&pterm.Style{pterm.FgDefault})
+	connectSpinner.SuccessPrinter = &pterm.PrefixPrinter{
+		MessageStyle: &pterm.Style{pterm.FgDefault},
+		Prefix: pterm.Prefix{
+			Style: &pterm.Style{pterm.FgLightMagenta},
+			Text:  " ✓ ",
+		},
+	}
+	connectSpinner, err = connectSpinner.Start("Connecting Space to Upbound Console...")
 	if err != nil {
 		return err
 	}

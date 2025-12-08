@@ -214,7 +214,7 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 	defer cancel()
 
 	var output string
-	if err = upterm.WrapWithSuccessSpinner("Rendering", upterm.CheckmarkSuccessSpinner, func() error {
+	if err = upterm.WrapWithSuccessSpinner("Rendering", func() error {
 		output, err = render.Render(renderCtx, log, efns, options)
 		if err != nil {
 			return errors.Wrap(err, "unable to render function")

@@ -102,7 +102,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	oidcProviderARN := ""
 	if err = upterm.WrapWithSuccessSpinner(
 		"Find or Create IAM Identity Provider OIDC",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			oidcProviderARN, err = oidcProvider(ctx, iamClient, c.OIDCProviderName)
 			if err != nil {
@@ -118,7 +117,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	var role *iam.CreateRoleOutput
 	if err = upterm.WrapWithSuccessSpinner(
 		"Create IAM Role with IAM Policy",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			sub := c.ctp.Name
 			if c.Sub != "" {
@@ -153,7 +151,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	providerConfig := c.buildProviderConfig(*role.Role.Arn)
 	if err = upterm.WrapWithSuccessSpinner(
 		"Create ProviderConfig in ControlPlane",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			if err := cl.Patch(ctx, providerConfig, client.Apply, client.ForceOwnership, client.FieldOwner("up-ctp-auth-providerconfig")); err != nil {
 				return errors.Wrap(err, "failed to create or update ProviderConfig")

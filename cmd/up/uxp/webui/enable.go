@@ -53,7 +53,6 @@ func (c *enableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error {
 
 	if err := upterm.WrapWithSuccessSpinner(
 		"Enabling UXP web UI",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			currentVersion, err := mgr.GetCurrentVersion()
 			if err != nil {

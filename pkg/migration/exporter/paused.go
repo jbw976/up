@@ -7,24 +7,29 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
-	xpmeta "github.com/crossplane/crossplane-runtime/v2/pkg/meta"
-	"github.com/upbound/up/pkg/migration"
-	"github.com/upbound/up/pkg/migration/category"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+	xpmeta "github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+
+	"github.com/upbound/up/pkg/migration"
+	"github.com/upbound/up/pkg/migration/category"
 )
 
+// ResourcePauser pauses resources.
 type ResourcePauser interface {
 	PauseResources(ctx context.Context, categoryName string) error
 }
 
+// DefaultResourcePauser implements ResourcePauser using annotations.
 type DefaultResourcePauser struct {
 	dynamicClient   dynamic.Interface
 	discoveryClient discovery.DiscoveryInterface
 }
 
+// NewDefaultResourcePauser returns an initialized DefaultResourcePauser.
 func NewDefaultResourcePauser(dynamicClient dynamic.Interface, discoveryClient discovery.DiscoveryInterface) *DefaultResourcePauser {
 	return &DefaultResourcePauser{
 		dynamicClient:   dynamicClient,
@@ -32,9 +37,11 @@ func NewDefaultResourcePauser(dynamicClient dynamic.Interface, discoveryClient d
 	}
 }
 
+// PauseResources pauses resources based on annotations.
 func (rp *DefaultResourcePauser) PauseResources(ctx context.Context, categoryName string) error {
 	pauseMsg := fmt.Sprintf("Pausing all %s resources before export... ", categoryName)
-	s, _ := migration.DefaultSpinner.Start(pauseMsg)
+	s := migration.DefaultSpinner(pauseMsg)
+	s.Start()
 	cm := category.NewAPICategoryModifier(rp.dynamicClient, rp.discoveryClient)
 
 	// Modify all resources of the specified category to add the "crossplane.io/paused: true" annotation.
@@ -55,10 +62,12 @@ func (rp *DefaultResourcePauser) PauseResources(ctx context.Context, categoryNam
 		return nil
 	})
 	if err != nil {
-		s.Fail(pauseMsg + stepFailed)
+		s.UpdateText(pauseMsg + stepFailed)
+		s.Fail()
 		return errors.Wrapf(err, "cannot pause %s resources", categoryName)
 	}
-	s.Success(pauseMsg + fmt.Sprintf("%d resources paused! ⏸️", count))
+	s.UpdateText(pauseMsg + fmt.Sprintf("%d resources paused! ⏸️", count))
+	s.Success()
 
 	return nil
 }

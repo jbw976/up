@@ -107,7 +107,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 	var imgMap project.ImageTagMap
 	err = upterm.WrapWithSuccessSpinner(
 		fmt.Sprintf("Loading packages from %s", c.PackageFile),
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			imgMap, err = c.loadPackages()
 			return err

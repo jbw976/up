@@ -109,7 +109,7 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 	}
 
 	pterm.Println("Importing control plane state...")
-	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
+	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
 
 	if err = i.Import(ctx); err != nil {
 		return err

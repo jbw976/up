@@ -102,7 +102,6 @@ type installCmd struct {
 func (c *installCmd) Run(p upterm.ObjectPrinter) error {
 	if err := upterm.WrapWithSuccessSpinner(
 		"Installing UXP",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			params, err := c.parser.Parse()
 			if err != nil {

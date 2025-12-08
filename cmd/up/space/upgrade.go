@@ -199,7 +199,6 @@ func (c *upgradeCmd) Run(ctx context.Context) error {
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 2),
-		upterm.CheckmarkSuccessSpinner,
 		pullSecret,
 		c.printer,
 	); err != nil {
@@ -247,7 +246,6 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("%s Space from v%s to v%s", verb, c.oldVersion, version), 2, 2),
-		upterm.CheckmarkSuccessSpinner,
 		upgrade,
 		c.printer,
 	); err != nil {

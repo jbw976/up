@@ -107,10 +107,8 @@ func (c *collectCmd) Run(ctx context.Context) error {
 		additionalRedactors = defaults.Redactors()
 	}
 
-	spinner, err := upterm.CheckmarkSuccessSpinner.Start("Collecting support bundle...")
-	if err != nil {
-		return errors.Wrap(err, "failed to start spinner")
-	}
+	spinner := upterm.NewSuccessSpinner("Collecting support bundle...")
+	spinner.Start()
 
 	processors := []processor.Func{
 		processor.RedactConfigMaps,
@@ -130,17 +128,18 @@ func (c *collectCmd) Run(ctx context.Context) error {
 		OutputPath:          c.Output,
 		Processors:          processors,
 		ProgressCallback: func(message string) {
-			spinner.UpdateText(fmt.Sprintf("Collecting: %s", message))
+			spinner.Logf("Collecting: %s", message)
 		},
 	}
 
 	response, err := collector.Collect(ctx, opts)
 	if err != nil {
-		spinner.Fail("Failed to collect support bundle")
+		spinner.Fail()
 		return errors.Wrap(err, "failed to collect support bundle")
 	}
+	spinner.Success()
 
-	spinner.Success(fmt.Sprintf("Support bundle collected successfully: %s", response.ArchivePath))
+	fmt.Printf("\nSupport bundle collected successfully: %s\n", response.ArchivePath) //nolint:forbidigo // It's a CLI.
 	return nil
 }
 

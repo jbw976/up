@@ -91,7 +91,6 @@ type upgradeCmd struct {
 func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
 	if err := upterm.WrapWithSuccessSpinner(
 		"Upgrading UXP",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			params, err := c.parser.Parse()
 			if err != nil {

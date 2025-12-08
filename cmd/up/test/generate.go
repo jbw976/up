@@ -176,7 +176,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
+	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
@@ -194,7 +194,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating Test Folder",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			testSpecificFs, err := c.generateFiles()
 			if err != nil {

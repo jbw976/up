@@ -322,7 +322,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		return err
 	}
 
-	if err := upterm.WrapWithSuccessSpinner("Applying init resources", upterm.CheckmarkSuccessSpinner, func() error {
+	if err := upterm.WrapWithSuccessSpinner("Applying init resources", func() error {
 		return kube.ApplyResources(ctx, devCtp.Client(), c.initResources)
 	}, c.printer); err != nil {
 		return err
@@ -341,7 +341,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		return err
 	}
 
-	if err := upterm.WrapWithSuccessSpinner("Applying extra resources", upterm.CheckmarkSuccessSpinner, func() error {
+	if err := upterm.WrapWithSuccessSpinner("Applying extra resources", func() error {
 		return kube.ApplyResources(ctx, devCtp.Client(), c.extraResources)
 	}, c.printer); err != nil {
 		return err
@@ -405,7 +405,7 @@ func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap
 			return tag, errors.Wrap(err, "failed to construct image tag")
 		}
 
-		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", upterm.CheckmarkSuccessSpinner, func() error {
+		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
 			return sl.Sideload(ctx, imgMap, tag)
 		}, c.printer)
 

@@ -160,7 +160,6 @@ func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	var d pkgmetav1.Dependency
 	if err := upterm.WrapWithSuccessSpinner(
 		"Adding dependency...",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			var err error
 			d, err = c.m.AddByRef(ctx, c.Package)
@@ -180,7 +179,6 @@ func (c *addCmd) addAPIDependency(ctx context.Context, printer upterm.ObjectPrin
 	// Add the API dependency
 	if err := upterm.WrapWithSuccessSpinner(
 		"Adding API dependency...",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			// Add to dependency manager (this also updates the project file)
 			return c.m.AddAPIDependency(ctx, *c.apiDep)

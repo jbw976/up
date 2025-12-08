@@ -120,8 +120,6 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, qu
 
 // Run executes the create command.
 func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client, printer upterm.ObjectPrinter) error { //nolint:gocyclo // TODO: simplify this
-	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
-
 	var srcCtp spacesv1beta1.ControlPlane
 	if err := spacesClient.Get(ctx, types.NamespacedName{Name: c.SourceName, Namespace: c.Group}, &srcCtp); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -148,7 +146,6 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	// wait for simulated ctp to be able to accept changes
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulated control plane to start", 1, totalSteps),
-		upterm.CheckmarkSuccessSpinner,
 		waitForConditionStep(ctx, spacesClient, run, simulation.AcceptingChanges(), wait.WithTimeout(controlPlaneReadyTimeout)),
 		printer,
 	); err != nil {
@@ -163,7 +160,6 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	// apply changeset
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Applying the changeset to the simulation control plane", 2, totalSteps),
-		stepSpinner,
 		c.applyChangesetStep(simConfig),
 		printer,
 	); err != nil {
@@ -178,7 +174,6 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	// wait for simulation to complete
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
-		stepSpinner,
 		// Give ourselves a little extra time so that the simulation can be
 		// completed and the status is updated before our wait times out.
 		waitForConditionStep(ctx, spacesClient, run, simulation.Complete(), wait.WithTimeout(*c.CompleteAfter+1*time.Minute)),
@@ -187,16 +182,20 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		return err
 	}
 
-	// compute + print diff
-	s, _ := stepSpinner.Start(upterm.StepCounter("Computing simulated differences", 4, totalSteps))
-
 	c.debugPrintf(kongCtx.Stderr, "total changes on the Simulation object: %d\n", len(run.Simulation().Status.Changes))
 
-	diffSet, err := run.DiffSet(ctx, upCtx, []schema.GroupKind{})
-	if err != nil {
+	// compute + print diff
+	var diffSet []diff.ResourceDiff
+	if err := upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Computing simulated differences", 4, totalSteps),
+		func() error {
+			diffSet, err = run.DiffSet(ctx, upCtx, []schema.GroupKind{})
+			return err
+		},
+		printer,
+	); err != nil {
 		return err
 	}
-	s.Success()
 
 	c.debugPrintf(kongCtx.Stderr, "created resource diff set of size: %d\n", len(diffSet))
 
@@ -204,7 +203,6 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		// terminate simulation
 		if err := upterm.WrapWithSuccessSpinner(
 			upterm.StepCounter("Terminating simulation", 5, totalSteps),
-			stepSpinner,
 			func() error {
 				return run.Terminate(ctx, spacesClient)
 			},
