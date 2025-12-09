@@ -6,8 +6,11 @@ package upterm
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	bspinner "github.com/charmbracelet/bubbles/spinner"
@@ -158,9 +161,28 @@ func (m *MultiSpinner) Start() {
 		tea.WithoutSignalHandler(),
 	)
 
-	go func() {
-		_, _ = m.program.Run()
+	go runProgramWithSignalHandler(m.program)
+}
+
+func runProgramWithSignalHandler(p *tea.Program) {
+	// We don't want bubbletea to handle signals, but we do want to restore the
+	// terminal to its normal state before we exit on an interrupt.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer func() {
+		signal.Stop(sigCh)
+		close(sigCh)
 	}()
+	go func() {
+		_, ok := <-sigCh
+		if ok {
+			_ = p.ReleaseTerminal()
+			// Normal "interrupted" error code.
+			os.Exit(130)
+		}
+	}()
+
+	_, _ = p.Run()
 }
 
 // Stop stops the spinners.
@@ -282,9 +304,7 @@ func (ss *SuccessSpinner) Start() {
 		tea.WithoutSignalHandler(),
 	)
 
-	go func() {
-		_, _ = ss.program.Run()
-	}()
+	go runProgramWithSignalHandler(ss.program)
 }
 
 // Stop stops the spinners.
