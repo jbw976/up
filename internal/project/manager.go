@@ -55,6 +55,137 @@ type ProcessedAPIDependency struct {
 	Source   string
 }
 
+// NewDependencyManager returns an initialized dependency manager.
+func NewDependencyManager(upCtx *upbound.Context, proj *v2alpha1.Project, projFS afero.Fs, opts ...ManagerOption) (*DependencyManager, error) {
+	options := &managerOptions{
+		projFile: "upbound.yaml",
+		fetcher:  image.NewLocalFetcher(image.WithKeychain(upCtx.RegistryKeychain())),
+		schemaRunner: runner.NewRealSchemaRunner(
+			runner.WithImageConfig(proj.Spec.ImageConfig),
+		),
+		schemaGenerators: generator.AllLanguages(),
+		schemaFS:         afero.NewBasePathFs(projFS, ".up"),
+		cacheFS:          afero.NewBasePathFs(afero.NewOsFs(), "~/.up/cache"),
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	cch, err := cache.NewLocal("/", cache.WithFS(options.cacheFS))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create xpkg cache")
+	}
+
+	res := image.NewResolver(
+		image.WithImageConfig(proj.Spec.ImageConfig),
+		image.WithFetcher(options.fetcher),
+	)
+
+	deps, err := dmanager.New(
+		dmanager.WithCache(cch),
+		dmanager.WithResolver(res),
+		dmanager.WithSkipCacheUpdateIfExists(true),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create dependency manager")
+	}
+
+	schemas := smanager.New(
+		options.schemaFS,
+		options.schemaGenerators,
+		options.schemaRunner,
+	)
+
+	apiDepCache, err := apidependency.NewLocalCache(
+		"/apideps",
+		apidependency.WithFS(options.cacheFS),
+		apidependency.WithLogger(upCtx.Log),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create API dependency cache")
+	}
+
+	// Use configured git auth provider or default to anonymous HTTPS
+	// SSH fallback is handled in the source.go when HTTPS auth fails
+	gitAuth := options.gitAuthProvider
+	if gitAuth == nil {
+		gitAuth = &git.HTTPSAuthProvider{}
+	}
+
+	return &DependencyManager{
+		proj:            proj,
+		projFS:          projFS,
+		projFile:        options.projFile,
+		deps:            deps,
+		schemas:         schemas,
+		apiDepProcessor: apidependency.NewProcessor(&git.DefaultCloner{}, gitAuth, apiDepCache),
+	}, nil
+}
+
+type managerOptions struct {
+	projFile         string
+	schemaFS         afero.Fs
+	cacheFS          afero.Fs
+	fetcher          image.Fetcher
+	schemaGenerators []generator.Interface
+	schemaRunner     runner.SchemaRunner
+	gitAuthProvider  git.AuthProvider
+}
+
+// ManagerOption configures the dependency manager.
+type ManagerOption func(*managerOptions)
+
+// WithProjectFile sets the path to the project file within the project
+// filesystem.
+func WithProjectFile(path string) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.projFile = path
+	}
+}
+
+// WithSchemaFS sets the filesystem to use for schemas.
+func WithSchemaFS(fs afero.Fs) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.schemaFS = fs
+	}
+}
+
+// WithCacheFS sets the filesystem to use for the xpkg cache.
+func WithCacheFS(fs afero.Fs) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.cacheFS = fs
+	}
+}
+
+// WithFetcher sets the fetcher to use for fetching packages.
+func WithFetcher(f image.Fetcher) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.fetcher = f
+	}
+}
+
+// WithSchemaRunner sets the runner to use when generating schemas.
+func WithSchemaRunner(r runner.SchemaRunner) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.schemaRunner = r
+	}
+}
+
+// WithSchemaGenerators sets the schema generators to call.
+func WithSchemaGenerators(gs []generator.Interface) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.schemaGenerators = gs
+	}
+}
+
+// WithGitAuthProvider sets the auth provider for git operations.
+func WithGitAuthProvider(p git.AuthProvider) ManagerOption {
+	return func(opts *managerOptions) {
+		opts.gitAuthProvider = p
+	}
+}
+
 // Add adds the given dependency to the project, caching and generating schemas
 // for it and all its transitive dependencies.
 func (m *DependencyManager) Add(ctx context.Context, d pkgmetav1.Dependency) error {
@@ -258,122 +389,6 @@ func getSourceDescription(dep v2alpha1.APIDependencies) string {
 // SchemaManager returns the schema manager.
 func (m *DependencyManager) SchemaManager() *smanager.Manager {
 	return m.schemas
-}
-
-// NewDependencyManager returns an initialized dependency manager.
-func NewDependencyManager(upCtx *upbound.Context, proj *v2alpha1.Project, projFS afero.Fs, opts ...ManagerOption) (*DependencyManager, error) {
-	options := &managerOptions{
-		projFile: "upbound.yaml",
-		fetcher:  image.NewLocalFetcher(image.WithKeychain(upCtx.RegistryKeychain())),
-		schemaRunner: runner.NewRealSchemaRunner(
-			runner.WithImageConfig(proj.Spec.ImageConfig),
-		),
-		schemaGenerators: generator.AllLanguages(),
-		schemaFS:         afero.NewBasePathFs(projFS, ".up"),
-		cacheFS:          afero.NewBasePathFs(afero.NewOsFs(), "~/.up/cache"),
-	}
-
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	cch, err := cache.NewLocal("/", cache.WithFS(options.cacheFS))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create xpkg cache")
-	}
-
-	res := image.NewResolver(
-		image.WithImageConfig(proj.Spec.ImageConfig),
-		image.WithFetcher(options.fetcher),
-	)
-
-	deps, err := dmanager.New(
-		dmanager.WithCache(cch),
-		dmanager.WithResolver(res),
-		dmanager.WithSkipCacheUpdateIfExists(true),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create dependency manager")
-	}
-
-	schemas := smanager.New(
-		options.schemaFS,
-		options.schemaGenerators,
-		options.schemaRunner,
-	)
-
-	apiDepCache, err := apidependency.NewLocalCache(
-		"/apideps",
-		apidependency.WithFS(options.cacheFS),
-		apidependency.WithLogger(upCtx.Log),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create API dependency cache")
-	}
-
-	return &DependencyManager{
-		proj:            proj,
-		projFS:          projFS,
-		projFile:        options.projFile,
-		deps:            deps,
-		schemas:         schemas,
-		apiDepProcessor: apidependency.NewProcessor(&git.DefaultCloner{}, &git.HTTPSAuthProvider{}, apiDepCache),
-	}, nil
-}
-
-type managerOptions struct {
-	projFile         string
-	schemaFS         afero.Fs
-	cacheFS          afero.Fs
-	fetcher          image.Fetcher
-	schemaGenerators []generator.Interface
-	schemaRunner     runner.SchemaRunner
-}
-
-// ManagerOption configures the dependency manager.
-type ManagerOption func(*managerOptions)
-
-// WithProjectFile sets the path to the project file within the project
-// filesystem.
-func WithProjectFile(path string) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.projFile = path
-	}
-}
-
-// WithSchemaFS sets the filesystem to use for schemas.
-func WithSchemaFS(fs afero.Fs) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.schemaFS = fs
-	}
-}
-
-// WithCacheFS sets the filesystem to use for the xpkg cache.
-func WithCacheFS(fs afero.Fs) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.cacheFS = fs
-	}
-}
-
-// WithFetcher sets the fetcher to use for fetching packages.
-func WithFetcher(f image.Fetcher) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.fetcher = f
-	}
-}
-
-// WithSchemaRunner sets the runner to use when generating schemas.
-func WithSchemaRunner(r runner.SchemaRunner) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.schemaRunner = r
-	}
-}
-
-// WithSchemaGenerators sets the schema generators to call.
-func WithSchemaGenerators(gs []generator.Interface) ManagerOption {
-	return func(opts *managerOptions) {
-		opts.schemaGenerators = gs
-	}
 }
 
 // NormalizeDependency converts dependencies to the modern format where

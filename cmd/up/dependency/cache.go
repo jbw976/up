@@ -14,6 +14,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
+	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -33,7 +34,9 @@ type updateCacheCmd struct {
 	// TODO(@tnthornton) remove cacheDir flag. Having a user supplied flag
 	// can result in broken behavior between xpls and dep. CacheDir should
 	// only be supplied by the Config.
-	CacheDir string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
+	CacheDir    string `default:"~/.up/cache/"   env:"CACHE_DIR"                                                             help:"Directory used for caching package images."                                                      type:"path"`
+	GitToken    string `env:"UP_GIT_TOKEN"       help:"Token for git HTTPS authentication (GitHub PAT, GitLab token, etc.)."`
+	GitUsername string `default:"x-access-token" env:"UP_GIT_USERNAME"                                                       help:"Username for git HTTPS authentication. Use your Bitbucket username for Bitbucket app passwords."`
 }
 
 //go:embed help/update-cache.md
@@ -65,9 +68,11 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	c.proj = prj
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
-	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
-		project.WithCacheFS(cchFS),
-	)
+
+	// Configure git auth provider based on environment/flags
+	managerOpts := common.BuildManagerOptions(cchFS, c.GitToken, c.GitUsername)
+
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS, managerOpts...)
 	if err != nil {
 		return err
 	}

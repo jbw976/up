@@ -32,13 +32,15 @@ import (
 
 // Cmd is the `up project build` command.
 type Cmd struct {
-	ProjectFile    string `default:"upbound.yaml"                                                                           help:"Path to project definition file."                              short:"f"`
+	ProjectFile    string `default:"upbound.yaml"                                                                           help:"Path to project definition file."                                     short:"f"`
 	Repository     string `help:"Repository for the built package. Overrides the repository specified in the project file." optional:""`
-	OutputDir      string `default:"_output"                                                                                help:"Path to the output directory, where packages will be written." short:"o"`
+	OutputDir      string `default:"_output"                                                                                help:"Path to the output directory, where packages will be written."        short:"o"`
 	NoBuildCache   bool   `default:"false"                                                                                  help:"Don't cache image layers while building."`
-	BuildCacheDir  string `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."                            type:"path"`
-	MaxConcurrency uint   `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                                             help:"Maximum number of functions to build at once."`
-	CacheDir       string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                      help:"Directory used for caching dependencies."      type:"path"`
+	BuildCacheDir  string `default:"~/.up/build-cache"                                                                      help:"Path to the build cache directory."                                   type:"path"`
+	MaxConcurrency uint   `default:"8"                                                                                      env:"UP_MAX_CONCURRENCY"                                                    help:"Maximum number of functions to build at once."`
+	CacheDir       string `default:"~/.up/cache/"                                                                           env:"CACHE_DIR"                                                             help:"Directory used for caching dependencies."                                                        type:"path"`
+	GitToken       string `env:"UP_GIT_TOKEN"                                                                               help:"Token for git HTTPS authentication (GitHub PAT, GitLab token, etc.)."`
+	GitUsername    string `default:"x-access-token"                                                                         env:"UP_GIT_USERNAME"                                                       help:"Username for git HTTPS authentication. Use your Bitbucket username for Bitbucket app passwords."`
 
 	outputFS afero.Fs
 	projFS   afero.Fs
@@ -83,9 +85,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer 
 	c.outputFS = afero.NewOsFs()
 
 	cchFS := afero.NewBasePathFs(afero.NewOsFs(), c.CacheDir)
-	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS,
-		project.WithCacheFS(cchFS),
-	)
+
+	// Configure git auth provider based on environment/flags
+	managerOpts := common.BuildManagerOptions(cchFS, c.GitToken, c.GitUsername)
+
+	m, err := project.NewDependencyManager(upCtx, c.proj, c.projFS, managerOpts...)
 	if err != nil {
 		return err
 	}
