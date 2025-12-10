@@ -14,9 +14,12 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/yaml"
 )
 
@@ -39,23 +42,16 @@ type ObjectPrinter struct {
 	Pretty bool
 	DryRun bool
 	Format config.Format
-
-	TablePrinter *pterm.TablePrinter
 }
 
 // DefaultObjPrinter is the default object printer.
 //
 //nolint:gochecknoglobals // TODO(adamwg): Make this a function returning the default printer.
 var DefaultObjPrinter = ObjectPrinter{
-	Quiet:        false,
-	Pretty:       true,
-	DryRun:       false,
-	Format:       config.FormatDefault,
-	TablePrinter: pterm.DefaultTable.WithSeparator("   "),
-}
-
-func init() {
-	pterm.EnableStyling()
+	Quiet:  false,
+	Pretty: true,
+	DryRun: false,
+	Format: config.FormatDefault,
 }
 
 // Print will print a single option or an array/slice of objects.
@@ -146,22 +142,37 @@ func (p *ObjectPrinter) printDefault(obj any, fieldNames []string, extractFields
 }
 
 func (p *ObjectPrinter) printDefaultList(obj any, fieldNames []string, extractFields func(any) []string) error {
+	t := table.New().
+		Headers(fieldNames...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			st := table.DefaultStyles(row, col).
+				MarginLeft(1).
+				MarginRight(1)
+			if row == table.HeaderRow && p.Pretty {
+				st = st.Foreground(style.UpboundBrandColor)
+			}
+
+			return st
+		})
+	if !p.Pretty {
+		t = t.Border(lipgloss.ASCIIBorder())
+	}
+
 	s := reflect.ValueOf(obj)
 	l := s.Len()
-
-	data := make([][]string, l+1)
-	data[0] = fieldNames
+	data := table.NewStringData()
 	for i := range l {
-		data[i+1] = extractFields(s.Index(i).Interface())
+		data.Append(extractFields(s.Index(i).Interface()))
 	}
-	return p.TablePrinter.WithHasHeader().WithData(data).Render()
+	t = t.Data(data)
+
+	fmt.Println(t.Render()) //nolint:forbidigo // Output library.
+
+	return nil
 }
 
 func (p *ObjectPrinter) printDefaultObj(obj any, fieldNames []string, extractFields func(any) []string) error {
-	data := make([][]string, 2)
-	data[0] = fieldNames
-	data[1] = extractFields(obj)
-	return p.TablePrinter.WithHasHeader().WithData(data).Render()
+	return p.printDefaultList([]any{obj}, fieldNames, extractFields)
 }
 
 // NewNopObjectPrinter returns a Printer that does nothing.
