@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -32,7 +31,6 @@ import (
 const (
 	msgUpgrading                   = "Upgrading"
 	msgDowngrading                 = "Downgrading"
-	errParseUpgradeParameters      = "unable to parse upgrade parameters"
 	errFailedGettingCurrentVersion = "failed to retrieve current version"
 	errInvalidVersionFmt           = "invalid version %q"
 	errAborted                     = "aborted"
@@ -44,9 +42,9 @@ const (
 // upgradeCmd upgrades Upbound.
 type upgradeCmd struct {
 	upbound.RequiresContext
+	install.CommonParams
 
 	Registry registry.AuthorizedFlags `embed:""`
-	install.CommonParams
 
 	// NOTE(hasheddan): version is currently required for upgrade with OCI image
 	// as latest strategy is undetermined.

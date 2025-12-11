@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package test contains commands for working with tests project.
 package test
 
 import (

@@ -55,7 +55,8 @@ const (
 type resource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              map[string]interface{} `json:"spec"`
+
+	Spec map[string]any `json:"spec"`
 }
 
 type generateCmd struct {
@@ -168,7 +169,7 @@ func (c *generateCmd) processXRDFile() error {
 }
 
 // readXRDFile reads and unmarshals the XRD file, returning either v1 or v2 XRD.
-func (c *generateCmd) readXRDFile() (interface{}, error) {
+func (c *generateCmd) readXRDFile() (any, error) {
 	xrdRaw, err := afero.ReadFile(c.projFS, c.relXrdFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relXrdFilePath))
@@ -202,7 +203,7 @@ func (c *generateCmd) readXRDFile() (interface{}, error) {
 }
 
 // createCRDFromXRD creates a CRD from the XRD (supports both v1 and v2).
-func (c *generateCmd) createCRDFromXRD(xrd interface{}) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *generateCmd) createCRDFromXRD(xrd any) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
 	var xrdName string
@@ -264,17 +265,17 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 		return res, errors.Wrapf(err, "failed to unmarshal generated schema")
 	}
 
-	res.ObjectMeta.Name = strings.ToLower(res.Kind)
+	res.Name = strings.ToLower(res.Kind)
 
 	// Set namespace based on resource type and CRD scope
 	switch c.Type {
 	case xrcString, claimString:
 		// XRC/Claims are always namespace-scoped
-		res.ObjectMeta.Namespace = defaultNamespace
+		res.Namespace = defaultNamespace
 	case xrString:
 		// For XRs, check the CRD scope to determine if namespace is needed
 		if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
-			res.ObjectMeta.Namespace = defaultNamespace
+			res.Namespace = defaultNamespace
 		}
 		// If cluster-scoped, no namespace is set
 	}
@@ -473,12 +474,12 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 		ObjectMeta: metav1.ObjectMeta{
 			Name: strings.ToLower(name),
 		},
-		Spec: map[string]interface{}{},
+		Spec: map[string]any{},
 	}
 
 	// Set namespace for XRC/Claims (v1) or for XRs when namespace is provided (v1 and v2)
 	if resourceType == xrcString || resourceType == claimString || (resourceType == xrString && namespace != "") {
-		res.ObjectMeta.Namespace = strings.ToLower(validatedNamespace)
+		res.Namespace = strings.ToLower(validatedNamespace)
 	}
 
 	return res, nil
@@ -496,7 +497,7 @@ func (c *generateCmd) outputResource(res resource) error {
 	case outputFile:
 		filePath := c.Path
 		if filePath == "" {
-			filePath = fmt.Sprintf("%s/%s.yaml", strings.ToLower(res.Kind), strings.ToLower(res.ObjectMeta.Name))
+			filePath = fmt.Sprintf("%s/%s.yaml", strings.ToLower(res.Kind), strings.ToLower(res.Name))
 		}
 
 		// Check if the example file already exists

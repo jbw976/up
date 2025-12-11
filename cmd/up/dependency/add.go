@@ -53,54 +53,6 @@ type addCmd struct {
 	apiDep   *v2alpha1.APIDependencies
 }
 
-// parseAPIDependency parses the package argument and flags to build an API dependency structure.
-func (c *addCmd) parseAPIDependency() error {
-	// Parse the package argument to determine the API dependency type
-	if version, found := strings.CutPrefix(c.Package, "k8s:"); found {
-		// k8s dependency - format: k8s:vX.Y.Z
-		if version == "" {
-			return errors.New("k8s version is required (e.g., k8s:v1.33.0)")
-		}
-		c.apiDep = &v2alpha1.APIDependencies{
-			Type: v2alpha1.APIDependencyTypeK8s,
-			K8s: &v2alpha1.APIK8sReference{
-				Version: version,
-			},
-		}
-		return nil
-	}
-
-	// CRD dependency
-	c.apiDep = &v2alpha1.APIDependencies{
-		Type: v2alpha1.APIDependencyTypeCRD,
-	}
-
-	// Determine if it's Git or HTTP based on --git-ref flag
-	if c.GitRef != "" {
-		// Git-based CRD
-		if c.Package == "" {
-			return errors.New("repository URL is required for git-based CRD dependencies")
-		}
-		c.apiDep.Git = &v2alpha1.APIGitReference{
-			Repository: c.Package,
-			Ref:        c.GitRef,
-			Path:       c.GitPath,
-		}
-	} else {
-		// HTTP-based CRD
-		if c.Package == "" {
-			return errors.New("URL is required for HTTP-based CRD dependencies")
-		}
-		if !strings.HasPrefix(c.Package, "http://") && !strings.HasPrefix(c.Package, "https://") {
-			return errors.New("URL must start with http:// or https://")
-		}
-		c.apiDep.HTTP = &v2alpha1.APIHTTPReference{
-			URL: c.Package,
-		}
-	}
-	return nil
-}
-
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
@@ -171,6 +123,54 @@ func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 	}
 	pterm.Success.Printfln("%s:%s added", ptr.Deref(d.Package, ""), d.Version)
 
+	return nil
+}
+
+// parseAPIDependency parses the package argument and flags to build an API dependency structure.
+func (c *addCmd) parseAPIDependency() error {
+	// Parse the package argument to determine the API dependency type
+	if version, found := strings.CutPrefix(c.Package, "k8s:"); found {
+		// k8s dependency - format: k8s:vX.Y.Z
+		if version == "" {
+			return errors.New("k8s version is required (e.g., k8s:v1.33.0)")
+		}
+		c.apiDep = &v2alpha1.APIDependencies{
+			Type: v2alpha1.APIDependencyTypeK8s,
+			K8s: &v2alpha1.APIK8sReference{
+				Version: version,
+			},
+		}
+		return nil
+	}
+
+	// CRD dependency
+	c.apiDep = &v2alpha1.APIDependencies{
+		Type: v2alpha1.APIDependencyTypeCRD,
+	}
+
+	// Determine if it's Git or HTTP based on --git-ref flag
+	if c.GitRef != "" {
+		// Git-based CRD
+		if c.Package == "" {
+			return errors.New("repository URL is required for git-based CRD dependencies")
+		}
+		c.apiDep.Git = &v2alpha1.APIGitReference{
+			Repository: c.Package,
+			Ref:        c.GitRef,
+			Path:       c.GitPath,
+		}
+	} else {
+		// HTTP-based CRD
+		if c.Package == "" {
+			return errors.New("URL is required for HTTP-based CRD dependencies")
+		}
+		if !strings.HasPrefix(c.Package, "http://") && !strings.HasPrefix(c.Package, "https://") {
+			return errors.New("URL must start with http:// or https://")
+		}
+		c.apiDep.HTTP = &v2alpha1.APIHTTPReference{
+			URL: c.Package,
+		}
+	}
 	return nil
 }
 

@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -67,8 +66,6 @@ const (
 	defaultImagePullSecret = "upbound-pull-secret"
 	ns                     = "upbound-system"
 
-	errReadTokenFile          = "unable to read token file"
-	errReadTokenFileData      = "unable to extract parameters from token file"
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
@@ -78,9 +75,9 @@ const (
 // initCmd installs Upbound Spaces.
 type initCmd struct {
 	upbound.RequiresContext
+	install.CommonParams
 
 	Registry registry.AuthorizedFlags `embed:""`
-	install.CommonParams
 
 	Version       string `arg:""                                           help:"Upbound Spaces version to install."`
 	Yes           bool   `help:"Answer yes to all questions"               name:"yes"                                type:"bool"`
@@ -99,7 +96,7 @@ type initCmd struct {
 func init() {
 	// NOTE(tnthornton) we override the runtime.ErrorHandlers so that Helm
 	// doesn't leak Println logs.
-	kruntime.ErrorHandlers = []kruntime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...interface{}) {}} //nolint:reassign // disable logging
+	kruntime.ErrorHandlers = []kruntime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...any) {}} //nolint:reassign // disable logging
 
 	kruntime.Must(upboundv1alpha1.AddToScheme(scheme.Scheme))
 }

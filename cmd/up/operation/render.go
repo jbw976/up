@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package operation contains functions for local operation rendering
 package operation
 
 import (

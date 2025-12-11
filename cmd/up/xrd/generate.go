@@ -51,8 +51,9 @@ const (
 type inputYAML struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              map[string]interface{} `json:"spec"`
-	Status            map[string]interface{} `json:"status"`
+
+	Spec   map[string]any `json:"spec"`
+	Status map[string]any `json:"status"`
 }
 
 // parsedXRD represents the common parsed data from XR YAML.
@@ -232,7 +233,7 @@ func parseAndValidateXRD(yamlData []byte, customPlural string) (*parsedXRD, erro
 	}
 
 	// Ensure only allowed top-level keys: apiVersion, kind, metadata, spec, and status
-	var topLevelKeys map[string]interface{}
+	var topLevelKeys map[string]any
 	err = yaml.Unmarshal(yamlData, &topLevelKeys)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal YAML to check top-level keys")

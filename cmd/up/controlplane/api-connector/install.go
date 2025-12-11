@@ -63,6 +63,8 @@ const (
 // installCmd connects the current cluster to a control plane in an account on
 // Upbound.
 type installCmd struct {
+	install.CommonParams
+
 	parser             install.ParameterParser
 	consumerClient     client.Client
 	consumerRestConfig *rest.Config
@@ -96,8 +98,6 @@ type installCmd struct {
 
 	// Advanced/Developer flags
 	HelmDirectory string `help:"Directory to store the Helm chart. If not provided, the default will be used." hidden:"true"`
-
-	install.CommonParams
 }
 
 //go:embed help/install.md

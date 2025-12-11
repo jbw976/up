@@ -232,6 +232,41 @@ func (w *Wizard) GenerateAIToolingCfg(state State) error {
 	return nil
 }
 
+// PrintNextSteps outputs a series of info messages to the user about the next
+// steps to take after the wizard is complete.
+func (w *Wizard) PrintNextSteps(state State) {
+	pterm.Info.Println("Next steps:")
+
+	nextSteps := []string{}
+
+	nextSteps = append(nextSteps, fmt.Sprintf("Edit the example file at %q", filepath.Join(w.Paths.Examples, w.examplePath(state))))
+
+	if state.GenerateXRD {
+		nextSteps = append(nextSteps, fmt.Sprintf("Regenerate the XRD using `up xrd generate --path %s %s`", w.xrdPath(state), filepath.Join(w.Paths.Examples, w.examplePath(state))))
+	} else {
+		nextSteps = append(nextSteps, fmt.Sprintf("Generate an XRD using `up xrd generate --path %s %s`", w.xrdPath(state), filepath.Join(w.Paths.Examples, w.examplePath(state))))
+	}
+
+	if state.GenerateFunction {
+		nextSteps = append(nextSteps, fmt.Sprintf("Edit the function files inside %q", filepath.Join(w.Paths.Functions, w.functionName(state))))
+	} else {
+		nextSteps = append(nextSteps, fmt.Sprintf("Generate a function using `up function generate %s %s`", w.functionName(state), filepath.Join(w.Paths.APIs, w.compPath(state))))
+	}
+
+	nextSteps = append(nextSteps, "Build the project using `up project build` or run it using `up project run`")
+
+	if state.GenerateTest {
+		nextSteps = append(nextSteps,
+			fmt.Sprintf("Edit the test files at %q", filepath.Join(w.Paths.Tests, w.testName(state))),
+			"Run the tests using `up test run tests/*`",
+		)
+	}
+
+	for i, step := range nextSteps {
+		pterm.Info.Println(fmt.Sprintf("%d. %s", i+1, step))
+	}
+}
+
 func (w *Wizard) examplePath(state State) string {
 	return fmt.Sprintf("%s/%s.yaml", strings.ToLower(state.Kind), strings.ToLower(state.MetadataName))
 }
@@ -278,39 +313,4 @@ func (w *Wizard) getAITool(tool AIToolingProvider) string {
 		return "copilot"
 	}
 	return ""
-}
-
-// PrintNextSteps outputs a series of info messages to the user about the next
-// steps to take after the wizard is complete.
-func (w *Wizard) PrintNextSteps(state State) {
-	pterm.Info.Println("Next steps:")
-
-	nextSteps := []string{}
-
-	nextSteps = append(nextSteps, fmt.Sprintf("Edit the example file at %q", filepath.Join(w.Paths.Examples, w.examplePath(state))))
-
-	if state.GenerateXRD {
-		nextSteps = append(nextSteps, fmt.Sprintf("Regenerate the XRD using `up xrd generate --path %s %s`", w.xrdPath(state), filepath.Join(w.Paths.Examples, w.examplePath(state))))
-	} else {
-		nextSteps = append(nextSteps, fmt.Sprintf("Generate an XRD using `up xrd generate --path %s %s`", w.xrdPath(state), filepath.Join(w.Paths.Examples, w.examplePath(state))))
-	}
-
-	if state.GenerateFunction {
-		nextSteps = append(nextSteps, fmt.Sprintf("Edit the function files inside %q", filepath.Join(w.Paths.Functions, w.functionName(state))))
-	} else {
-		nextSteps = append(nextSteps, fmt.Sprintf("Generate a function using `up function generate %s %s`", w.functionName(state), filepath.Join(w.Paths.APIs, w.compPath(state))))
-	}
-
-	nextSteps = append(nextSteps, "Build the project using `up project build` or run it using `up project run`")
-
-	if state.GenerateTest {
-		nextSteps = append(nextSteps,
-			fmt.Sprintf("Edit the test files at %q", filepath.Join(w.Paths.Tests, w.testName(state))),
-			"Run the tests using `up test run tests/*`",
-		)
-	}
-
-	for i, step := range nextSteps {
-		pterm.Info.Println(fmt.Sprintf("%d. %s", i+1, step))
-	}
 }

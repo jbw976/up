@@ -86,6 +86,8 @@ func (c *installCmd) AfterApply(insCtx *install.Context) error {
 
 // installCmd installs UXP.
 type installCmd struct {
+	install.CommonParams
+
 	mgr     install.Manager
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
@@ -94,8 +96,6 @@ type installCmd struct {
 	Unstable     bool   `help:"Allow installing unstable versions."`
 	DisableWebUI bool   `help:"Disable the UXP web UI."                                                  optional:""`
 	ClusterAdmin bool   `help:"Install UXP with cluster admin permissions. NOT FOR PRODUCTION PURPOSES." optional:""`
-
-	install.CommonParams
 }
 
 // Run executes the install command.
