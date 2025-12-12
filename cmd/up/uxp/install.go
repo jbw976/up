@@ -92,10 +92,11 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version      string `arg:""                                                                          help:"UXP version to install." optional:""`
-	Unstable     bool   `help:"Allow installing unstable versions."`
-	DisableWebUI bool   `help:"Disable the UXP web UI."                                                  optional:""`
-	ClusterAdmin bool   `help:"Install UXP with cluster admin permissions. NOT FOR PRODUCTION PURPOSES." optional:""`
+	Version version `arg:"" help:"UXP version to install. Should be >= 2.0.0-up.1, use the helm chart to install uxp v1." optional:""`
+
+	Unstable     bool `help:"Allow installing unstable versions."`
+	DisableWebUI bool `help:"Disable the UXP web UI."                                                  optional:""`
+	ClusterAdmin bool `help:"Install UXP with cluster admin permissions. NOT FOR PRODUCTION PURPOSES." optional:""`
 }
 
 // Run executes the install command.
@@ -107,7 +108,7 @@ func (c *installCmd) Run(p upterm.Printer) error {
 			if err != nil {
 				return errors.Wrap(err, errParseInstallParameters)
 			}
-			return c.mgr.Install(c.Version, params)
+			return c.mgr.Install(string(c.Version), params)
 		},
 	); err != nil {
 		return err
