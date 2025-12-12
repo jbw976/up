@@ -29,6 +29,7 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
 	projectapis "github.com/upbound/up/pkg/apis/project"
@@ -181,14 +182,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 		// If the file exists, prompt the user for confirmation to overwrite
 		if exists {
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-
-			confirm.DefaultText = fmt.Sprintf("The Operation file '%s' already exists. Do you want to overwrite its contents?", fullPath)
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
+			result, _ := upterm.Confirm(fmt.Sprintf("The Operation file '%s' already exists. Do you want to overwrite its contents?", fullPath), false)
 
 			if !result {
 				return errors.New("operation cancelled by user")

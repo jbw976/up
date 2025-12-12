@@ -170,7 +170,7 @@ func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context) error 
 				return errors.Wrapf(err, "error parsing image")
 			}
 
-			err = upterm.WrapWithSuccessSpinner("Schema Generation", upterm.CheckmarkSuccessSpinner, func() error {
+			err = upterm.WrapWithSuccessSpinner("Schema Generation", func() error {
 				img, err = c.runSchemaGeneration(gCtx, parsedPkg, img, configFile.Config)
 				return err
 			}, c.printer)
@@ -204,7 +204,7 @@ func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context) error 
 	}
 
 	// Push the new multi-arch index using remote.WriteIndex
-	err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Pushing Target Multi-Arch Image %s", c.TargetImage), upterm.CheckmarkSuccessSpinner, func() error {
+	err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Pushing Target Multi-Arch Image %s", c.TargetImage), func() error {
 		return remote.WriteIndex(
 			targetRef,
 			multiArchIndex,

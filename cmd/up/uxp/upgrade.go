@@ -74,6 +74,8 @@ func (c *upgradeCmd) AfterApply(insCtx *install.Context) error {
 
 // upgradeCmd upgrades UXP.
 type upgradeCmd struct {
+	install.CommonParams
+
 	mgr     install.Manager
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
@@ -83,15 +85,12 @@ type upgradeCmd struct {
 	Rollback bool `help:"Rollback to previously installed version on failed upgrade."`
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
 	Unstable bool `help:"Allow installing unstable versions."`
-
-	install.CommonParams
 }
 
 // Run executes the upgrade command.
 func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
 	if err := upterm.WrapWithSuccessSpinner(
 		"Upgrading UXP",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			params, err := c.parser.Parse()
 			if err != nil {

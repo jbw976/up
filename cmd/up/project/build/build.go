@@ -170,7 +170,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 
 	err = upterm.WrapWithSuccessSpinner(
 		fmt.Sprintf("Writing packages to %s", outFile),
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			f, err := c.outputFS.Create(outFile)
 			if err != nil {

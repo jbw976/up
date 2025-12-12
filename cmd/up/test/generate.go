@@ -168,12 +168,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	}
 
 	if !isEmpty {
-		pterm.Println()
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath))
-		confirm.DefaultValue = false
-		result, _ := confirm.Show()
-		pterm.Println()
+		result, _ := upterm.Confirm(fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath)), false)
 
 		if !result {
 			pterm.Error.Println("The operation was cancelled.")
@@ -181,7 +176,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
+	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
@@ -199,7 +194,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating Test Folder",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			testSpecificFs, err := c.generateFiles()
 			if err != nil {

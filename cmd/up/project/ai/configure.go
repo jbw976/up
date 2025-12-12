@@ -128,7 +128,6 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating AI Tool Configurations",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			for _, fs := range cfgFS {
 				if err := filesystem.CopyFilesBetweenFs(fs, c.projFS); err != nil {

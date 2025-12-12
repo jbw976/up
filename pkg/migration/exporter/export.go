@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package exporter contains the migration exporter.
 package exporter
 
 import (
@@ -11,9 +12,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -26,6 +27,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	"k8s.io/client-go/util/retry"
+
+	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/pkg/migration"
 	"github.com/upbound/up/pkg/migration/meta/v1alpha1"
@@ -79,15 +82,16 @@ func NewControlPlaneStateExporter(crdClient apiextensionsclientset.Interface, dy
 }
 
 // Export exports the state of the control plane.
-func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolint:gocyclo // This is the high level export command, so it's expected to be a bit complex.
-
+//
+//nolint:gocognit // This is the high level export command, so it's expected to be a bit complex.
+func (e *ControlPlaneStateExporter) Export(ctx context.Context) error {
 	// TODO(turkenh): Check if we can use `afero.NewMemMapFs()` just like import and avoid the need for a temporary directory.
 	fs := afero.Afero{Fs: afero.NewOsFs()}
 
 	// Check if the output path points to an existing directory
 	fileInfo, err := fs.Stat(e.options.OutputArchive)
 	if err == nil && fileInfo.IsDir() {
-		return errors.Errorf("output path %q is a directory. Please specify a file path for the exported archive.", e.options.OutputArchive)
+		return errors.Errorf("output path %q is a directory; please specify a file path for the exported archive", e.options.OutputArchive)
 	}
 
 	// We are using a temporary directory to store the exported state before
@@ -113,7 +117,8 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 
 	// Scan the control plane for types to export.
 	scanMsg := "Scanning control plane for types to export... "
-	s, _ := migration.DefaultSpinner.Start(scanMsg)
+	s := migration.DefaultSpinner(scanMsg)
+	s.Start()
 
 	var crdList []apiextensionsv1.CustomResourceDefinition
 	if err := retry.OnError(retry.DefaultRetry, func(err error) bool {
@@ -123,7 +128,8 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		crdList, fetchErr = fetchAllCRDs(ctx, e.crdClient)
 		return fetchErr
 	}); err != nil {
-		s.Fail(scanMsg + stepFailed)
+		s.UpdateText(scanMsg + stepFailed)
+		s.Fail()
 		return errors.Wrap(err, "cannot fetch CRDs")
 	}
 
@@ -138,28 +144,22 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 			// Ignore CRDs that we don't want to export.
 			continue
 		}
-		skip := false
 		// - Excluded crossplane resources - Specified by the user.
-		for _, r := range e.options.ExcludeResources {
-			if crd.ObjectMeta.Name == r {
-				// Ignore CRDs that we don't want to export.
-				skip = true
-				break
-			}
-		}
-		if skip {
+		if slices.Contains(e.options.ExcludeResources, crd.Name) {
 			continue
 		}
 
 		exportList = append(exportList, crd)
 	}
 
-	s.Success(scanMsg + fmt.Sprintf("%d types found! 👀", len(exportList)))
+	s.UpdateText(scanMsg + fmt.Sprintf("%d types found! 👀", len(exportList)))
+	s.Success()
 	//////////////////////
 
 	// Export Crossplane resources.
 	exportCRsMsg := fmt.Sprintf("Exporting %d Crossplane resources...", len(exportList))
-	s, _ = migration.DefaultSpinner.Start(exportCRsMsg)
+	s = migration.DefaultSpinner(exportCRsMsg)
+	s.Start()
 
 	crCounts := make(map[string]int, len(exportList))
 
@@ -170,10 +170,7 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		var inCount int
 		var gvr schema.GroupVersionResource
 
-		err := retry.OnError(retry.DefaultRetry, func(err error) bool {
-			// Retry on connection refused errors, these could be transient.
-			return net.IsConnectionRefused(err)
-		}, func() (exportErr error) {
+		err := retry.OnError(retry.DefaultRetry, net.IsConnectionRefused, func() (exportErr error) {
 			gvr, inCount, exportErr = e.exportCrossplaneResources(ctx, crd, fs, tmpDir)
 			return exportErr
 		})
@@ -186,7 +183,8 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		}
 
 		if err != nil {
-			s.Fail(inExportCRsMsg + stepFailed)
+			s.UpdateText(inExportCRsMsg + stepFailed)
+			s.Fail()
 			return errors.Wrapf(err, "cannot export Crossplane resource %q", crd.GetName())
 		}
 
@@ -198,12 +196,14 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		total += count
 	}
 
-	s.Success(exportCRsMsg + fmt.Sprintf("%d resources exported! 📤", total))
+	s.UpdateText(exportCRsMsg + fmt.Sprintf("%d resources exported! 📤", total))
+	s.Success()
 	//////////////////////
 
 	// Export native resources.
 	exportNativeMsg := fmt.Sprintf("Exporting %d native resources...", len(e.options.IncludeExtraResources))
-	s, _ = migration.DefaultSpinner.Start(exportNativeMsg)
+	s = migration.DefaultSpinner(exportNativeMsg)
+	s.Start()
 
 	nativeCounts := make(map[string]int, len(e.options.IncludeExtraResources))
 
@@ -216,10 +216,7 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 
 		var inCount int
 
-		err := retry.OnError(retry.DefaultRetry, func(err error) bool {
-			// Retry on connection refused errors, these could be transient.
-			return net.IsConnectionRefused(err)
-		}, func() (exportErr error) {
+		err := retry.OnError(retry.DefaultRetry, net.IsConnectionRefused, func() (exportErr error) {
 			inCount, exportErr = e.exportNativeResource(ctx, r, fs, tmpDir)
 			return exportErr
 		})
@@ -232,7 +229,8 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		}
 
 		if err != nil {
-			s.Fail(inExportNativeMsg + stepFailed)
+			s.UpdateText(inExportNativeMsg + stepFailed)
+			s.Fail()
 			return errors.Wrapf(err, "cannot export native resource %q", r)
 		}
 
@@ -244,7 +242,8 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 		total += count
 	}
 
-	s.Success(exportNativeMsg + fmt.Sprintf("%d resources exported! 📤", total))
+	s.UpdateText(exportNativeMsg + fmt.Sprintf("%d resources exported! 📤", total))
+	s.Success()
 	//////////////////////
 
 	// Export a top level metadata file. This file contains details like when the export was done,
@@ -259,17 +258,21 @@ func (e *ControlPlaneStateExporter) Export(ctx context.Context) error { // nolin
 
 	// Archive the exported state.
 	archiveMsg := "Archiving exported state... "
-	s, _ = migration.DefaultSpinner.Start(archiveMsg)
+	s = migration.DefaultSpinner(archiveMsg)
+	s.Start()
 	if err = e.archive(ctx, fs, tmpDir); err != nil {
-		s.Fail(archiveMsg + stepFailed)
+		s.UpdateText(archiveMsg + stepFailed)
+		s.Fail()
 		return errors.Wrap(err, "cannot archive exported state")
 	}
-	s.Success(archiveMsg + fmt.Sprintf("archived to %q! 📦", e.options.OutputArchive))
+	s.UpdateText(archiveMsg + fmt.Sprintf("archived to %q! 📦", e.options.OutputArchive))
+	s.Success()
 	//////////////////////
 
 	return nil
 }
 
+//nolint:funcorder // We don't care.
 func (e *ControlPlaneStateExporter) exportCrossplaneResources(ctx context.Context, crd apiextensionsv1.CustomResourceDefinition, fs afero.Afero, tmpDir string) (schema.GroupVersionResource, int, error) {
 	gvr, err := e.customResourceGVR(crd)
 	if err != nil {
@@ -301,6 +304,7 @@ func (e *ControlPlaneStateExporter) exportCrossplaneResources(ctx context.Contex
 	return gvr, count, nil
 }
 
+//nolint:funcorder // We don't care.
 func (e *ControlPlaneStateExporter) exportNativeResource(ctx context.Context, r string, fs afero.Afero, tmpDir string) (int, error) {
 	gvr, err := e.resourceMapper.ResourceFor(schema.ParseGroupResource(r).WithVersion(""))
 	if err != nil {
@@ -317,6 +321,7 @@ func (e *ControlPlaneStateExporter) exportNativeResource(ctx context.Context, r 
 	return count, nil
 }
 
+// IncludedExtraResource adds a resource to include.
 func (e *ControlPlaneStateExporter) IncludedExtraResource(gr string) bool {
 	for r := range e.extraResources() {
 		if gr == r {
@@ -369,7 +374,6 @@ func (e *ControlPlaneStateExporter) customResourceGVR(in apiextensionsv1.CustomR
 		Group: in.Spec.Group,
 		Kind:  in.Spec.Names.Kind,
 	})
-
 	if err != nil {
 		return schema.GroupVersionResource{}, errors.Wrapf(err, "cannot get REST mapping for %q", in.GetName())
 	}
@@ -388,17 +392,17 @@ func (e *ControlPlaneStateExporter) archive(ctx context.Context, fs afero.Afero,
 	}()
 
 	// Apply the appropriate permissions to the output file
-	if err = fs.Chmod(e.options.OutputArchive, 0600); err != nil {
+	if err = fs.Chmod(e.options.OutputArchive, 0o600); err != nil {
 		return errors.Wrapf(err, "cannot set permissions for %q", e.options.OutputArchive)
 	}
 
 	// Create a new gzip writer
 	gw := gzip.NewWriter(out)
-	defer gw.Close()
+	defer func() { _ = gw.Close() }()
 
 	// Create a new tar writer
 	tw := tar.NewWriter(gw)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	// Walk the directory and add each file to the tar archive
 	err = filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
@@ -440,11 +444,11 @@ func (e *ControlPlaneStateExporter) archive(ctx context.Context, fs afero.Afero,
 		}
 
 		// Open the file
-		f, err := os.Open(file)
+		f, err := os.Open(file) //nolint:gosec // Not dangerous, we promise.
 		if err != nil {
 			return errors.Wrapf(err, "cannot open file %q", file)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		// Create a new tar header with the relative path
 		header, err := tar.FileInfoHeader(fi, relPath)

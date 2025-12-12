@@ -63,6 +63,8 @@ const (
 // installCmd connects the current cluster to a control plane in an account on
 // Upbound.
 type installCmd struct {
+	install.CommonParams
+
 	parser             install.ParameterParser
 	consumerClient     client.Client
 	consumerRestConfig *rest.Config
@@ -96,8 +98,6 @@ type installCmd struct {
 
 	// Advanced/Developer flags
 	HelmDirectory string `help:"Directory to store the Helm chart. If not provided, the default will be used." hidden:"true"`
-
-	install.CommonParams
 }
 
 //go:embed help/install.md
@@ -215,8 +215,6 @@ func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context, printer up
 }
 
 func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // its a state machine
-	stepSpinner := upterm.CheckmarkSuccessSpinner.WithShowTimer(true)
-
 	provisioner := newProvisioner(c.sdkConfig, p, printer)
 	params, err := c.parser.Parse()
 	if err != nil {
@@ -229,7 +227,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 		// Step 1: Check if connection already exists. Fail early if it does.
 		if err := upterm.WrapWithSuccessSpinner(
 			upterm.StepCounter("Checking if connection already exists", 1, totalSteps),
-			stepSpinner,
 			func() error {
 				// First and foremost - check if we have a connection with same name already as
 				// further action will bork if we have a connection with same name.
@@ -258,7 +255,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			p.Printfln("Creating a robot named %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
 			if err := upterm.WrapWithSuccessSpinner(
 				upterm.StepCounter("Reading organization configuration", 2, totalSteps),
-				stepSpinner,
 				func() error {
 					if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
 						return errors.Wrap(err, "failed to seed organizations")
@@ -273,7 +269,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			// Step 2.2: Create a robot and a token.
 			if err := upterm.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating robot", 3, totalSteps),
-				stepSpinner,
 				func() error {
 					if err := provisioner.seedRobots(ctx, c.name); err != nil {
 						return errors.Wrap(err, "failed to seed robots")
@@ -288,7 +283,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			// Step 2.3: Create a token.
 			if err := upterm.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating token", 3, totalSteps),
-				stepSpinner,
 				func() error {
 					return provisioner.seedToken(ctx)
 				},
@@ -300,7 +294,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			// Step 2.4: Seed access to the namespace.
 			if err := upterm.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
-				stepSpinner,
 				func() error {
 					return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
 				},
@@ -314,7 +307,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 	// Step 3: Install the connector.
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Installing the connector", 5, totalSteps),
-		stepSpinner,
 		func() error {
 			installOptions := installOptions{
 				namespace: defaultInstallationNamespace,
@@ -345,7 +337,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 	// Step 4: Create a connection secret.
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Creating connection secret", 5, totalSteps),
-		stepSpinner,
 		func() error {
 			return provisioner.seedConnectionSecret(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
 		},
@@ -357,7 +348,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 	// Step 5: Create a connection.
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Creating connection", 5, totalSteps),
-		stepSpinner,
 		func() error {
 			return provisioner.seedConnection(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace)
 		},

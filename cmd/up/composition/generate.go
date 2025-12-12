@@ -29,6 +29,7 @@ import (
 	xcrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/yaml"
 	projectv2alpha1 "github.com/upbound/up/pkg/apis/project/v2alpha1"
@@ -163,18 +164,11 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 
 		// If the file exists, prompt the user for confirmation to overwrite
 		if exists {
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-
 			baseApisFS, ok := c.apisFS.(*afero.BasePathFs)
 			if !ok {
 				return errors.New("failed to construct the path")
 			}
-			confirm.DefaultText = fmt.Sprintf("The Composition file '%s' already exists. Do you want to overwrite its contents?", afero.FullBaseFsPath(baseApisFS, filePath))
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
+			result, _ := upterm.Confirm(fmt.Sprintf("The Composition file '%s' already exists. Do you want to overwrite its contents?", afero.FullBaseFsPath(baseApisFS, filePath)), false)
 
 			if !result {
 				return errors.New("operation cancelled by user")

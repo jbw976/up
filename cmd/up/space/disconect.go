@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -31,7 +30,6 @@ import (
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upbound"
-	"github.com/upbound/up/internal/upterm"
 )
 
 type disconnectCmd struct {
@@ -99,7 +97,18 @@ func (c *disconnectCmd) Run(ctx context.Context, upCtx *upbound.Context, ac *acc
 	if c.Space != "" {
 		msg = fmt.Sprintf("Disconnecting Space %q from Upbound Console...", c.Space)
 	}
-	disconnectSpinner, err := upterm.CheckmarkSuccessSpinner.Start(msg)
+	disconnectSpinner := pterm.
+		DefaultSpinner.
+		WithStyle(&pterm.Style{pterm.FgDarkGray}).
+		WithMessageStyle(&pterm.Style{pterm.FgDefault})
+	disconnectSpinner.SuccessPrinter = &pterm.PrefixPrinter{
+		MessageStyle: &pterm.Style{pterm.FgDefault},
+		Prefix: pterm.Prefix{
+			Style: &pterm.Style{pterm.FgLightMagenta},
+			Text:  " ✓ ",
+		},
+	}
+	disconnectSpinner, err := disconnectSpinner.Start(msg)
 	if err != nil {
 		return err
 	}

@@ -51,7 +51,6 @@ func (c *disableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error 
 
 	if err := upterm.WrapWithSuccessSpinner(
 		"Disabling UXP web UI",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			currentVersion, err := mgr.GetCurrentVersion()
 			if err != nil {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/pterm/pterm"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // FunctionLanguage represents the programming language used for function implementation.
@@ -203,7 +203,8 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 		var err error
 		switch state.Step {
 		case StepUseTemplate:
-			choice, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(availableTemplates)).Show("Would you like to use an existing template?")
+			opts := collectOptions(availableTemplates)
+			choice, err := upterm.Selection("Would you like to use an existing template?", opts, opts[0])
 			if err != nil {
 				return err
 			}
@@ -214,7 +215,8 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepChooseTemplateLanguage:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select language used for composition functions")
+			opts := collectOptions(SupportedLanguagesMap)
+			result, err := upterm.Selection("Select language used for composition functions", opts, opts[0])
 			if err != nil {
 				return err
 			}
@@ -231,10 +233,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				}
 			}
 
-			result, err := pterm.DefaultInteractiveSelect.
-				WithOptions(opts).
-				WithDefaultOption(def).
-				Show("Select language used for tests")
+			result, err := upterm.Selection("Select language used for tests", opts, def)
 			if err != nil {
 				return err
 			}
@@ -242,31 +241,31 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 			state.Step = StepAITooling
 			navigated = true
 		case StepKind:
-			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.Kind).Show("Kind of the resource")
+			val, err := upterm.Prompt("Kind of the resource", state.Kind)
 			if err != nil {
 				return err
 			}
 			state.Kind = val
 		case StepAPIGroup:
-			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.APIGroup).Show("API Group")
+			val, err := upterm.Prompt("API Group", state.APIGroup)
 			if err != nil {
 				return err
 			}
 			state.APIGroup = val
 		case StepAPIVersion:
-			val, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(state.APIVersion).Show("API Version")
+			val, err := upterm.Prompt("API Version", state.APIVersion)
 			if err != nil {
 				return err
 			}
 			state.APIVersion = val
 		case StepXRScope:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions([]string{"Namespace", "Cluster"}).Show("Should the XRs be namespace- or cluster-scoped?")
+			result, err := upterm.Selection("Should the XRs be namespace- or cluster-scoped?", []string{"Namespace", "Cluster"}, "Namespace")
 			if err != nil {
 				return err
 			}
 			state.ClusterScoped = result == "Cluster"
 		case StepGenerateXRD:
-			state.GenerateXRD, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate XRD?")
+			state.GenerateXRD, err = upterm.Confirm("Generate XRD?", true)
 			if err != nil {
 				return err
 			}
@@ -275,7 +274,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepGenerateComp:
-			state.GenerateComp, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate Composition?")
+			state.GenerateComp, err = upterm.Confirm("Generate Composition?", true)
 			if err != nil {
 				return err
 			}
@@ -284,7 +283,7 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepGenerateFunction:
-			state.GenerateFunction, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate Function?")
+			state.GenerateFunction, err = upterm.Confirm("Generate Function?", true)
 			if err != nil {
 				return err
 			}
@@ -293,13 +292,14 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepFuncLang:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select composition function language")
+			opts := collectOptions(SupportedLanguagesMap)
+			result, err := upterm.Selection("Select composition function language", opts, opts[0])
 			if err != nil {
 				return err
 			}
 			state.FuncLang = SupportedLanguagesMap[result]
 		case StepGenerateTest:
-			state.GenerateTest, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate test?")
+			state.GenerateTest, err = upterm.Confirm("Generate test?", true)
 			if err != nil {
 				return err
 			}
@@ -308,13 +308,14 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepTestLang:
-			result, err := pterm.DefaultInteractiveSelect.WithOptions(collectOptions(SupportedLanguagesMap)).Show("Select test language")
+			opts := collectOptions(SupportedLanguagesMap)
+			result, err := upterm.Selection("Select test language", opts, opts[0])
 			if err != nil {
 				return err
 			}
 			state.TestLang = SupportedLanguagesMap[result]
 		case StepAITooling:
-			state.GenerateAITooling, err = pterm.DefaultInteractiveConfirm.WithDefaultValue(true).Show("Generate AI Tooling Configurations?")
+			state.GenerateAITooling, err = upterm.Confirm("Generate AI Tooling Configurations?", true)
 			if err != nil {
 				return err
 			}
@@ -323,7 +324,8 @@ func askUser(state *State, statePath string) error { //nolint:gocognit // this i
 				navigated = true
 			}
 		case StepAIToolingChoice:
-			result, err := pterm.DefaultInteractiveMultiselect.WithOptions(collectOptions(SupportedAIToolingProvidersMap)).Show("Select the tooling provider(s)")
+			opts := collectOptions(SupportedAIToolingProvidersMap)
+			result, err := upterm.MultiSelection("Select the tooling provider(s)", opts, nil)
 			if err != nil {
 				return err
 			}

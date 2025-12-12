@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -67,8 +66,6 @@ const (
 	defaultImagePullSecret = "upbound-pull-secret"
 	ns                     = "upbound-system"
 
-	errReadTokenFile          = "unable to read token file"
-	errReadTokenFileData      = "unable to extract parameters from token file"
 	errReadParametersFile     = "unable to read parameters file"
 	errParseInstallParameters = "unable to parse install parameters"
 	errCreateImagePullSecret  = "failed to create image pull secret"
@@ -78,9 +75,9 @@ const (
 // initCmd installs Upbound Spaces.
 type initCmd struct {
 	upbound.RequiresContext
+	install.CommonParams
 
 	Registry registry.AuthorizedFlags `embed:""`
-	install.CommonParams
 
 	Version       string `arg:""                                           help:"Upbound Spaces version to install."`
 	Yes           bool   `help:"Answer yes to all questions"               name:"yes"                                type:"bool"`
@@ -99,7 +96,7 @@ type initCmd struct {
 func init() {
 	// NOTE(tnthornton) we override the runtime.ErrorHandlers so that Helm
 	// doesn't leak Println logs.
-	kruntime.ErrorHandlers = []kruntime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...interface{}) {}} //nolint:reassign // disable logging
+	kruntime.ErrorHandlers = []kruntime.ErrorHandler{func(_ context.Context, _ error, _ string, _ ...any) {}} //nolint:reassign // disable logging
 
 	kruntime.Must(upboundv1alpha1.AddToScheme(scheme.Scheme))
 }
@@ -208,9 +205,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 
 	if c.helmParams["account"] == defaultAcct {
 		pterm.Warning.Println("No Upbound organization name was provided. Spaces initialized without an organization cannot be attached to the Upbound console! This cannot be changed later.")
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct)
-		result, _ := confirm.Show()
+		result, _ := upterm.Confirm(fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct), false)
 		if !result {
 			pterm.Error.Println("Not proceeding without an Upbound organization; pass the --organization flag or create a profile (`up login` or `up profile create`).")
 			return nil
@@ -234,11 +229,7 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 		}
 
 		if !c.Yes {
-			pterm.Println() // Blank line
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = "Would you like to install them now?"
-			result, _ := confirm.Show()
-			pterm.Println() // Blank line
+			result, _ := upterm.Confirm("Would you like to install them now?", false)
 			if !result {
 				pterm.Error.Println("prerequisites must be met in order to proceed with installation")
 				return nil
@@ -280,7 +271,6 @@ func installPrereqs(status *prerequisites.Status, printer upterm.ObjectPrinter) 
 				i+1,
 				len(status.NotInstalled),
 			),
-			upterm.CheckmarkSuccessSpinner,
 			p.Install,
 			printer,
 		); err != nil {
@@ -299,7 +289,6 @@ func (c *initCmd) applySecret(ctx context.Context) error {
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 3),
-		upterm.CheckmarkSuccessSpinner,
 		createPullSecret,
 		c.printer,
 	); err != nil {
@@ -341,7 +330,6 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 
 	if err := upterm.WrapWithSuccessSpinner(
 		upterm.StepCounter("Initializing Space components", 2, 3),
-		upterm.CheckmarkSuccessSpinner,
 		install,
 		c.printer,
 	); err != nil {
@@ -350,28 +338,32 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 		return err
 	}
 
-	hcSpinner, _ := upterm.CheckmarkSuccessSpinner.Start(upterm.StepCounter("Starting Space Components", 3, 3))
-
 	version, _ := semver.NewVersion(c.Version)
 	requiresUXP, _ := semver.NewConstraint("< v1.7.0-0")
 
-	if requiresUXP.Check(version) {
-		errC, err := kube.DynamicWatch(ctx, c.dClient.Resource(hostclusterGVR), &watcherTimeout, func(u *unstructured.Unstructured) (bool, error) {
-			up := resources.HostCluster{Unstructured: *u}
-			if resource.IsConditionTrue(up.GetCondition(xpv1.TypeReady)) {
-				return true, nil
+	return upterm.WrapWithSuccessSpinner(
+		upterm.StepCounter("Starting Space Components", 3, 3),
+		func() error {
+			if !requiresUXP.Check(version) {
+				return nil
 			}
-			return false, nil
-		})
-		if err != nil {
-			return err
-		}
-		if err := <-errC; err != nil {
-			return err
-		}
-	}
-	hcSpinner.Success()
-	return nil
+			errC, err := kube.DynamicWatch(ctx, c.dClient.Resource(hostclusterGVR), &watcherTimeout, func(u *unstructured.Unstructured) (bool, error) {
+				up := resources.HostCluster{Unstructured: *u}
+				if resource.IsConditionTrue(up.GetCondition(xpv1.TypeReady)) {
+					return true, nil
+				}
+				return false, nil
+			})
+			if err != nil {
+				return err
+			}
+			if err := <-errC; err != nil {
+				return err
+			}
+			return nil
+		},
+		c.printer,
+	)
 }
 
 func (c *initCmd) ensureProfile(upCtx *upbound.Context) (string, error) {

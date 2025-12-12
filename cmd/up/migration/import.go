@@ -100,12 +100,7 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 			pterm.Println("- " + err.Error())
 		}
 		if !c.Yes {
-			pterm.Println() // Blank line
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = "Do you still want to proceed?"
-			confirm.DefaultValue = false
-			result, _ := confirm.Show()
-			pterm.Println() // Blank line
+			result, _ := upterm.Confirm("Do you still want to proceed?", false)
 			if !result {
 				pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
 				return nil
@@ -114,7 +109,7 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 	}
 
 	pterm.Println("Importing control plane state...")
-	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
+	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
 
 	if err = i.Import(ctx); err != nil {
 		return err

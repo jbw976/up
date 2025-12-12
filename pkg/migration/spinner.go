@@ -3,34 +3,30 @@
 
 package migration
 
-// DefaultSpinner is the default spinner used by all the other subpackages, by
-// default it's just a no-op.
-var DefaultSpinner Spinner = noopSpinner{}
+// DefaultSpinner is the default spinner constructor used by all the other
+// subpackages, by default it's just a no-op.
+var DefaultSpinner = func(msg string) Spinner {
+	return noopSpinner{}
+}
 
 // noopSpinner is a spinner that does nothing.
 type noopSpinner struct{}
 
-func (noopSpinner) Start(_ ...interface{}) (Printer, error) {
-	return &noopPrinter{}, nil
-}
+func (noopSpinner) Start() {}
 
-// noopPrinter is a spinner printer that does nothing.
-type noopPrinter struct{}
+func (noopSpinner) Success() {}
 
-func (n noopPrinter) Success(_ ...interface{}) {}
+func (noopSpinner) Fail() {}
 
-func (n noopPrinter) Fail(_ ...interface{}) {}
+func (noopSpinner) UpdateText(_ string) {}
 
-func (n noopPrinter) UpdateText(_ string) {}
+func (noopSpinner) Logf(_ string, _ ...any) {}
 
 // Spinner is an interface for creating Printers.
 type Spinner interface {
-	Start(text ...interface{}) (Printer, error)
-}
-
-// Printer is an interface for printing through a spinner.
-type Printer interface {
-	Success(msg ...interface{})
-	Fail(msg ...interface{})
-	UpdateText(text string)
+	Start()
+	Success()
+	Fail()
+	UpdateText(string)
+	Logf(string, ...any)
 }

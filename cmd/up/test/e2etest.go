@@ -245,7 +245,6 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 
 	if err := upterm.WrapWithSuccessSpinner(
 		"Applying Init Resources",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.InitResources)
 		},
@@ -263,7 +262,6 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 
 	if err := upterm.WrapWithSuccessSpinner(
 		"Applying Extra Resources",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.ExtraResources)
 		},

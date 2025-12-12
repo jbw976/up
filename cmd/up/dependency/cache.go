@@ -82,7 +82,6 @@ func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) 
 	if len(c.proj.Spec.DependsOn) > 0 {
 		if err := upterm.WrapWithSuccessSpinner(
 			fmt.Sprintf("Updating %d dependencies...", len(c.proj.Spec.DependsOn)),
-			upterm.CheckmarkSuccessSpinner,
 			func() error {
 				return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 			},
@@ -104,7 +103,6 @@ func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) 
 	if len(c.proj.Spec.APIDependencies) > 0 {
 		if err := upterm.WrapWithSuccessSpinner(
 			fmt.Sprintf("Updating %d api-dependencies...", len(c.proj.Spec.APIDependencies)),
-			upterm.CheckmarkSuccessSpinner,
 			func() error {
 				return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
 			},

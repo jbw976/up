@@ -6,7 +6,7 @@
 package async
 
 import (
-	"github.com/pterm/pterm"
+	"fmt"
 
 	"github.com/upbound/up/internal/upterm"
 )
@@ -36,26 +36,22 @@ func WrapWithSuccessSpinnersPretty(fn func(ch EventChannel) error) error {
 		close(updateChan)
 		doneChan <- err
 	}()
-	multi := &pterm.DefaultMultiPrinter
-	multi, _ = multi.Start()
-	spinners := make(map[string]*pterm.SpinnerPrinter)
+	multi := &upterm.MultiSpinner{}
+	multi.Start()
+
 	for update := range updateChan {
-		spinner, ok := spinners[update.Text]
-		if !ok {
-			spinner, _ = upterm.NewCheckmarkSuccessSpinner(multi.NewWriter()).Start(update.Text)
-			spinners[update.Text] = spinner
-		}
 		switch update.Status {
 		case EventStatusStarted:
-			// Spinner should already be running.
+			multi.Add(update.Text)
 		case EventStatusSuccess:
-			spinner.Success(update.Text)
+			multi.Success(update.Text)
 		case EventStatusFailure:
-			spinner.Fail(update.Text)
+			multi.Fail(update.Text)
 		}
 	}
 	err := <-doneChan
-	_, _ = multi.Stop()
+
+	multi.Stop()
 	return err
 }
 
@@ -82,18 +78,18 @@ func WrapWithSuccessSpinnersNonPretty(fn func(ch EventChannel) error) error {
 		switch update.Status {
 		case EventStatusStarted:
 			if !printed[update.Text] {
-				pterm.Println(update.Text + " …")
+				fmt.Println(update.Text + "...") //nolint:forbidigo // This is an output library.
 				printed[update.Text] = true
 				statusMap[update.Text] = "started"
 			}
 		case EventStatusSuccess:
 			if prevStatus != "success" {
-				pterm.Println(update.Text + " ✓")
+				fmt.Println("✓ " + update.Text) //nolint:forbidigo // This is an output library.
 				statusMap[update.Text] = "success"
 			}
 		case EventStatusFailure:
 			if prevStatus != "failure" {
-				pterm.Println(update.Text + " ✗")
+				fmt.Println("✗ " + update.Text) //nolint:forbidigo // This is an output library.
 				statusMap[update.Text] = "failure"
 			}
 		}

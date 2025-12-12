@@ -88,18 +88,10 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 
 	// Prompt for user confirmation if the identity is available.
 	if !c.Yes {
-		pterm.Println() // Print a blank line for spacing.
-
-		confirmPrompt := pterm.DefaultInteractiveConfirm
-		confirmPrompt.DefaultText = fmt.Sprintf("Do you want to create the IAM Identity Provider OIDC and IAM Role using the following identity? %s", *identity.Arn)
-		confirmPrompt.DefaultValue = false
-
-		confirmed, err := confirmPrompt.Show()
+		confirmed, err := upterm.Confirm(fmt.Sprintf("Do you want to create the IAM Identity Provider OIDC and IAM Role using the following identity? %s", *identity.Arn), false)
 		if err != nil {
 			return errors.Wrap(err, "failed to get user confirmation")
 		}
-
-		pterm.Println() // Blank line for spacing.
 
 		if !confirmed {
 			pterm.Error.Println("Operation cancelled by user; creation aborted.")
@@ -110,7 +102,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	oidcProviderARN := ""
 	if err = upterm.WrapWithSuccessSpinner(
 		"Find or Create IAM Identity Provider OIDC",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			oidcProviderARN, err = oidcProvider(ctx, iamClient, c.OIDCProviderName)
 			if err != nil {
@@ -126,7 +117,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	var role *iam.CreateRoleOutput
 	if err = upterm.WrapWithSuccessSpinner(
 		"Create IAM Role with IAM Policy",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			sub := c.ctp.Name
 			if c.Sub != "" {
@@ -161,7 +151,6 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 	providerConfig := c.buildProviderConfig(*role.Role.Arn)
 	if err = upterm.WrapWithSuccessSpinner(
 		"Create ProviderConfig in ControlPlane",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			if err := cl.Patch(ctx, providerConfig, client.Apply, client.ForceOwnership, client.FieldOwner("up-ctp-auth-providerconfig")); err != nil {
 				return errors.Wrap(err, "failed to create or update ProviderConfig")
@@ -258,7 +247,7 @@ func oidcProvider(ctx context.Context, client *iam.Client, providerName string) 
 	}
 
 	// Provider not found, get thumbprint and create one
-	thumbprint, err := getSHA1Thumbprint(providerName)
+	thumbprint, err := getSHA1Thumbprint(ctx, providerName)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get thumbprint for %s", providerName)
 	}
@@ -278,17 +267,17 @@ func oidcProvider(ctx context.Context, client *iam.Client, providerName string) 
 // buildProviderConfig creates a ProviderConfig manifest for AWS provider.
 func (c *awsCmd) buildProviderConfig(roleARN string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "aws.upbound.io/v1beta1",
 			"kind":       "ProviderConfig",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": c.ProviderConfigName,
 			},
-			"spec": map[string]interface{}{
-				"credentials": map[string]interface{}{
+			"spec": map[string]any{
+				"credentials": map[string]any{
 					"source": "Upbound",
-					"upbound": map[string]interface{}{
-						"webIdentity": map[string]interface{}{
+					"upbound": map[string]any{
+						"webIdentity": map[string]any{
 							"roleARN": roleARN,
 						},
 					},
@@ -309,17 +298,17 @@ func (c *awsCmd) buildTrustPolicy(oidcProviderARN, org, controlplane string) (st
 		subValue = fmt.Sprintf("mcp:%s/%s:provider:provider-aws", org, controlplane)
 	}
 
-	policy := map[string]interface{}{
+	policy := map[string]any{
 		"Version": "2012-10-17",
-		"Statement": []map[string]interface{}{
+		"Statement": []map[string]any{
 			{
 				"Effect": "Allow",
-				"Principal": map[string]interface{}{
+				"Principal": map[string]any{
 					"Federated": oidcProviderARN,
 				},
 				"Action": "sts:AssumeRoleWithWebIdentity",
-				"Condition": map[string]interface{}{
-					conditionKey: map[string]interface{}{
+				"Condition": map[string]any{
+					conditionKey: map[string]any{
 						fmt.Sprintf("%s:sub", c.OIDCProviderName): subValue,
 						fmt.Sprintf("%s:aud", c.OIDCProviderName): "sts.amazonaws.com",
 					},
@@ -336,13 +325,18 @@ func (c *awsCmd) buildTrustPolicy(oidcProviderARN, org, controlplane string) (st
 	return string(policyBytes), nil
 }
 
-func getSHA1Thumbprint(host string) (string, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:443", host), nil)
+func getSHA1Thumbprint(ctx context.Context, host string) (string, error) {
+	d := &tls.Dialer{}
+	conn, err := d.DialContext(ctx, "tcp", fmt.Sprintf("%s:443", host))
 	if err != nil {
 		return "", err
 	}
 
-	certs := conn.ConnectionState().PeerCertificates
+	tconn, ok := conn.(*tls.Conn)
+	if !ok {
+		return "", errors.New("tls connection has wrong type")
+	}
+	certs := tconn.ConnectionState().PeerCertificates
 	if len(certs) == 0 {
 		return "", fmt.Errorf("no certificates found")
 	}

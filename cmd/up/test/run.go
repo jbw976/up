@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package test contains commands for working with tests project.
 package test
 
 import (
@@ -210,7 +209,6 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 	var parsedTests []any
 	if err = upterm.WrapWithSuccessSpinner(
 		"Parsing tests",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			if err := apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
 				return errors.Wrap(err, "unable to generate meta apis schemas")
@@ -295,8 +293,7 @@ func (c *runCmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 		return err
 	}
 
-	confirm := pterm.DefaultInteractiveConfirm
-	proceed, err := confirm.Show(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName))
+	proceed, err := upterm.Confirm(fmt.Sprintf(useCurrentContextConfirmFmt, ctxName), false)
 	if err != nil {
 		return err
 	}
@@ -350,7 +347,7 @@ func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context,
 			return tag, errors.Wrap(err, "failed to construct image tag")
 		}
 
-		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", upterm.CheckmarkSuccessSpinner, func() error {
+		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
 			return sl.Sideload(ctx, imgMap, tag)
 		}, c.printer)
 

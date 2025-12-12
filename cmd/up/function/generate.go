@@ -157,12 +157,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	if !isEmpty {
 		// Prompt the user for confirmation to overwrite
-		pterm.Println() // Blank line
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath))
-		confirm.DefaultValue = false
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm(fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath)), false)
 
 		if !result {
 			pterm.Error.Println("The operation was cancelled. The function folder must be empty to proceed with the generation.")
@@ -170,7 +165,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", upterm.CheckmarkSuccessSpinner, func() error {
+	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
@@ -208,7 +203,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	err = upterm.WrapWithSuccessSpinner(
 		"Generating Function Folder",
-		upterm.CheckmarkSuccessSpinner,
 		func() error {
 			if err := filesystem.CopyFilesBetweenFs(functionSpecificFs, c.functionFS); err != nil {
 				return errors.Wrap(err, "failed to copy files to function target")
@@ -241,7 +235,6 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 	if c.PipelinePath != "" {
 		err = upterm.WrapWithSuccessSpinner(
 			"Adding Pipeline Step",
-			upterm.CheckmarkSuccessSpinner,
 			func() error {
 				pipe, err := c.readAndUnmarshalPipeline()
 				if err != nil {

@@ -93,33 +93,18 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
 	})
 
 	if !c.Yes && e.IncludedExtraResource("secrets") {
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = secretsWarning
-		confirm.DefaultValue = true
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm(secretsWarning, true)
 		if !result {
 			return nil
 		}
 	}
 
 	pterm.Println("Exporting control plane state...")
-
-	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
+	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
 
 	if err = e.Export(ctx); err != nil {
 		return err
 	}
 	pterm.Println("\nSuccessfully exported control plane state!")
 	return nil
-}
-
-// NOTE(phisco): this is required to avoid having the pkg/migration depend on upterm to
-// allow exporting it.
-type spinner struct {
-	*pterm.SpinnerPrinter
-}
-
-func (s spinner) Start(text ...interface{}) (migration.Printer, error) {
-	return s.SpinnerPrinter.Start(text...)
 }

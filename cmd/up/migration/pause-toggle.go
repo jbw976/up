@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -53,16 +52,10 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 	// Determine action
 	action, operationFunc := c.getActionAndFunc()
 
-	pterm.Printfln("%s resources...", action)
-	migration.DefaultSpinner = &spinner{upterm.CheckmarkSuccessSpinner}
+	fmt.Printf("%s resources...\n", action) //nolint:forbidigo // In a CLI.
 
 	if !c.Yes {
-		pterm.Println() // Blank line
-		confirm := pterm.DefaultInteractiveConfirm
-		confirm.DefaultText = "Do you still want to proceed?"
-		confirm.DefaultValue = false
-		result, _ := confirm.Show()
-		pterm.Println() // Blank line
+		result, _ := upterm.Confirm("Do you still want to proceed?", false)
 		if !result {
 			return nil
 		}
@@ -70,16 +63,19 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 
 	// Start scanning spinner
 	scanMsg := "Scanning control plane for types... "
-	s, _ := migration.DefaultSpinner.Start(scanMsg)
+	s := upterm.NewSuccessSpinner(scanMsg)
+	s.Start()
 	cfg := migCtx.Kubeconfig
 
 	// Create Kubernetes clients
 	dynamicClient, discoveryClient, err := createKubeClients(cfg)
 	if err != nil {
-		s.Fail("Failed to initialize Kubernetes clients")
+		s.UpdateText("Failed to initialize Kubernetes clients")
+		s.Fail()
 		return err
 	}
-	s.Success("Control plane scan completed 👀")
+	s.UpdateText("Control plane scan completed 👀")
+	s.Success()
 
 	// Define categories to be modified
 	categories := []string{"composite", "claim", "managed"}
@@ -88,19 +84,21 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 	// Process each category separately
 	for _, category := range categories {
 		categoryMsg := fmt.Sprintf("%s %s resources...", action, category)
-		categorySpinner, _ := migration.DefaultSpinner.Start(categoryMsg)
+		sp := upterm.NewSuccessSpinner(categoryMsg)
+		sp.Start()
 
 		count, err := operationFunc(ctx, category, cm)
 		if err != nil {
-			categorySpinner.Fail(fmt.Sprintf("Failed to %s %s resources ❌", strings.ToLower(action), category))
+			sp.UpdateText(fmt.Sprintf("Failed to %s %s resources ❌", strings.ToLower(action), category))
+			sp.Fail()
 			return fmt.Errorf("failed to %s %s resources: %w", strings.ToLower(action), category, err)
 		}
 
-		categorySpinner.Success(fmt.Sprintf("%d %s resources %sd! ✅", count, category, strings.ToLower(action)))
+		sp.UpdateText(fmt.Sprintf("%d %s resources %sd! ✅", count, category, strings.ToLower(action)))
+		sp.Success()
 	}
 
-	pterm.Println() // Blank line
-	pterm.Printfln("All relevant resources successfully %sd!", strings.ToLower(action))
+	fmt.Printf("\nAll relevant resources successfully %sd!\n", strings.ToLower(action)) //nolint:forbidigo // In a CLI.
 	return nil
 }
 

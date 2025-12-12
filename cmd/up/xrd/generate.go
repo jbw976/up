@@ -29,6 +29,7 @@ import (
 	"github.com/upbound/up/internal/schemas/generator"
 	"github.com/upbound/up/internal/schemas/manager"
 	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/yaml"
 
 	_ "embed"
@@ -50,8 +51,9 @@ const (
 type inputYAML struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              map[string]interface{} `json:"spec"`
-	Status            map[string]interface{} `json:"status"`
+
+	Spec   map[string]any `json:"spec"`
+	Status map[string]any `json:"status"`
 }
 
 // parsedXRD represents the common parsed data from XR YAML.
@@ -184,13 +186,7 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 		if exists {
 			// Prompt the user for confirmation to merge
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.apisFS, filePath))
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
+			result, _ := upterm.Confirm(fmt.Sprintf("The CompositeResourceDefinition (XRD) file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.apisFS, filePath)), false)
 
 			if !result {
 				return errors.New("operation cancelled by user")
@@ -237,7 +233,7 @@ func parseAndValidateXRD(yamlData []byte, customPlural string) (*parsedXRD, erro
 	}
 
 	// Ensure only allowed top-level keys: apiVersion, kind, metadata, spec, and status
-	var topLevelKeys map[string]interface{}
+	var topLevelKeys map[string]any
 	err = yaml.Unmarshal(yamlData, &topLevelKeys)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal YAML to check top-level keys")

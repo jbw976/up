@@ -24,6 +24,7 @@ import (
 	icrd "github.com/upbound/up/internal/crd"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	ixrd "github.com/upbound/up/internal/xrd"
 	"github.com/upbound/up/internal/yaml"
 
@@ -54,7 +55,8 @@ const (
 type resource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              map[string]interface{} `json:"spec"`
+
+	Spec map[string]any `json:"spec"`
 }
 
 type generateCmd struct {
@@ -82,7 +84,6 @@ type generateCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Read the project file.
@@ -168,7 +169,7 @@ func (c *generateCmd) processXRDFile() error {
 }
 
 // readXRDFile reads and unmarshals the XRD file, returning either v1 or v2 XRD.
-func (c *generateCmd) readXRDFile() (interface{}, error) {
+func (c *generateCmd) readXRDFile() (any, error) {
 	xrdRaw, err := afero.ReadFile(c.projFS, c.relXrdFilePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relXrdFilePath))
@@ -202,7 +203,7 @@ func (c *generateCmd) readXRDFile() (interface{}, error) {
 }
 
 // createCRDFromXRD creates a CRD from the XRD (supports both v1 and v2).
-func (c *generateCmd) createCRDFromXRD(xrd interface{}) (*apiextensionsv1.CustomResourceDefinition, error) {
+func (c *generateCmd) createCRDFromXRD(xrd any) (*apiextensionsv1.CustomResourceDefinition, error) {
 	var crd *apiextensionsv1.CustomResourceDefinition
 	var err error
 	var xrdName string
@@ -264,17 +265,17 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 		return res, errors.Wrapf(err, "failed to unmarshal generated schema")
 	}
 
-	res.ObjectMeta.Name = strings.ToLower(res.Kind)
+	res.Name = strings.ToLower(res.Kind)
 
 	// Set namespace based on resource type and CRD scope
 	switch c.Type {
 	case xrcString, claimString:
 		// XRC/Claims are always namespace-scoped
-		res.ObjectMeta.Namespace = defaultNamespace
+		res.Namespace = defaultNamespace
 	case xrString:
 		// For XRs, check the CRD scope to determine if namespace is needed
 		if crd.Spec.Scope == apiextensionsv1.NamespaceScoped {
-			res.ObjectMeta.Namespace = defaultNamespace
+			res.Namespace = defaultNamespace
 		}
 		// If cluster-scoped, no namespace is set
 	}
@@ -315,12 +316,7 @@ func (c *generateCmd) getInteractiveType() string {
 		return c.Type
 	}
 
-	confirm := pterm.DefaultInteractiveSelect.
-		WithOptions([]string{xrc, xr}).
-		WithDefaultOption(xrc).
-		WithDefaultText("What do you want to create?")
-
-	choice, err := confirm.Show()
+	choice, err := upterm.Selection("What do you want to create?", []string{xrc, xr}, xrc)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting choice:", err)
 		return ""
@@ -345,11 +341,7 @@ func (c *generateCmd) getInteractiveScope() string {
 		return c.Scope
 	}
 
-	confirm := pterm.DefaultInteractiveConfirm.
-		WithDefaultText("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)").
-		WithDefaultValue(false)
-
-	wantClusterScoped, err := confirm.Show()
+	wantClusterScoped, err := upterm.Confirm("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)", false)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting scoping choice:", err)
 		return scopeNamespace // Default to namespace scoped.
@@ -367,23 +359,16 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 		return c.Kind
 	}
 
-	var input pterm.InteractiveTextInputPrinter
+	prompt := "What is your Composite Resource (XR) kind?"
+	def := "Cluster"
 	if resourceType == xrcString {
-		input = *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is your Composite Resource Claim (XRC) kind?").
-			WithDefaultValue("Cluster")
-	} else {
-		// For V2 projects, use "Cluster" as default for XR; for V1 projects, use "XCluster"
-		defaultValue := "XCluster"
-		if c.proj.IsV2() {
-			defaultValue = "Cluster"
-		}
-		input = *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is your Composite Resource (XR) kind?").
-			WithDefaultValue(defaultValue)
+		prompt = "What is your Composite Resource Claim (XRC) kind?"
+	} else if c.proj.IsV1() {
+		// For V1 projects, use "XCluster" as default for XR.
+		def = "XCluster"
 	}
 
-	name, err := input.Show()
+	name, err := upterm.Prompt(prompt, def)
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting Claim or Composite Resource name:", err)
 		return ""
@@ -398,11 +383,7 @@ func (c *generateCmd) getInteractiveGroup() string {
 		return c.APIGroup
 	}
 
-	input := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the API group named?").
-		WithDefaultValue("customer.upbound.io")
-
-	group, err := input.Show()
+	group, err := upterm.Prompt("What is the API group named?", "customer.upbound.io")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting API Group:", err)
 		return ""
@@ -417,11 +398,7 @@ func (c *generateCmd) getInteractiveVersion() string {
 		return c.APIVersion
 	}
 
-	input := pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the API Version named?").
-		WithDefaultValue("v1alpha1")
-
-	version, err := input.Show()
+	version, err := upterm.Prompt("What is the API Version named?", "v1alpha1")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting API Version:", err)
 		return ""
@@ -436,11 +413,7 @@ func (c *generateCmd) getInteractiveMetadataName() string {
 		return c.Name
 	}
 
-	input := *pterm.DefaultInteractiveTextInput.
-		WithDefaultText("What is the metadata name?").
-		WithDefaultValue("example")
-
-	name, err := input.Show()
+	name, err := upterm.Prompt("What is the metadata name?", "example")
 	if err != nil {
 		pterm.Error.Println("An error occurred while getting metadata.name:", err)
 		return ""
@@ -458,11 +431,7 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 	// For v1 projects: XRC/Claims always ask for namespace, XRs don't have namespace
 	// For v2 projects: XRs ask for namespace if they are namespace scoped.
 	if resourceType == xrcString || resourceType == claimString || c.Scope == scopeNamespace {
-		input := *pterm.DefaultInteractiveTextInput.
-			WithDefaultText("What is the metadata namespace?").
-			WithDefaultValue(defaultNamespace)
-
-		namespace, err := input.Show()
+		namespace, err := upterm.Prompt("What is the metadata namespace?", defaultNamespace)
 		if err != nil {
 			pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
 			return ""
@@ -505,12 +474,12 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 		ObjectMeta: metav1.ObjectMeta{
 			Name: strings.ToLower(name),
 		},
-		Spec: map[string]interface{}{},
+		Spec: map[string]any{},
 	}
 
 	// Set namespace for XRC/Claims (v1) or for XRs when namespace is provided (v1 and v2)
 	if resourceType == xrcString || resourceType == claimString || (resourceType == xrString && namespace != "") {
-		res.ObjectMeta.Namespace = strings.ToLower(validatedNamespace)
+		res.Namespace = strings.ToLower(validatedNamespace)
 	}
 
 	return res, nil
@@ -528,7 +497,7 @@ func (c *generateCmd) outputResource(res resource) error {
 	case outputFile:
 		filePath := c.Path
 		if filePath == "" {
-			filePath = fmt.Sprintf("%s/%s.yaml", strings.ToLower(res.Kind), strings.ToLower(res.ObjectMeta.Name))
+			filePath = fmt.Sprintf("%s/%s.yaml", strings.ToLower(res.Kind), strings.ToLower(res.Name))
 		}
 
 		// Check if the example file already exists
@@ -538,15 +507,12 @@ func (c *generateCmd) outputResource(res resource) error {
 		}
 
 		if exists {
-			// Prompt the user for confirmation to merge
-			pterm.Println() // Blank line for spacing
-			confirm := pterm.DefaultInteractiveConfirm
-			confirm.DefaultText = fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.exampleFS, filePath))
-			confirm.DefaultValue = false
-
-			result, _ := confirm.Show() // Display confirmation prompt
-			pterm.Println()             // Blank line for spacing
-
+			// Ignore any error, since false will be returned and we'll abort
+			// anyway.
+			result, _ := upterm.Confirm(
+				fmt.Sprintf("The example file '%s' already exists. Do you want to override its contents?", filesystem.FullPath(c.exampleFS, filePath)),
+				false,
+			)
 			if !result {
 				return errors.New("operation cancelled by user")
 			}
