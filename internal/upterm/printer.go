@@ -173,60 +173,6 @@ func (p *ObjectPrinter) printDefaultObj(obj any, fieldNames []string, extractFie
 	return p.printDefaultList([]any{obj}, fieldNames, extractFields)
 }
 
-// NewNopObjectPrinter returns a Printer that does nothing.
-func NewNopObjectPrinter() Printer { return nopObjectPrinter{} }
-
-type nopObjectPrinter struct{}
-
-// Print prints.
-func (p nopObjectPrinter) Print(_ any, _ []string, _ func(any) []string) error {
-	return nil
-}
-
-// PrintTemplate prints with a template.
-func (p nopObjectPrinter) PrintTemplate(_ any, _ string) error {
-	return nil
-}
-
-// NewNopTextPrinter returns a TextPrinter that does nothing.
-func NewNopTextPrinter() pterm.TextPrinter { return nopTextPrinter{} }
-
-type nopTextPrinter struct{}
-
-func (p nopTextPrinter) Sprint(_ ...interface{}) string              { return "" }
-func (p nopTextPrinter) Sprintln(_ ...interface{}) string            { return "" }
-func (p nopTextPrinter) Sprintf(_ string, _ ...interface{}) string   { return "" }
-func (p nopTextPrinter) Sprintfln(_ string, _ ...interface{}) string { return "" }
-func (p nopTextPrinter) Print(_ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
-func (p nopTextPrinter) Println(_ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
-func (p nopTextPrinter) Printf(_ string, _ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
-func (p nopTextPrinter) Printfln(_ string, _ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
-func (p nopTextPrinter) PrintOnError(_ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
-func (p nopTextPrinter) PrintOnErrorf(_ string, _ ...interface{}) *pterm.TextPrinter {
-	tp := pterm.TextPrinter(nopTextPrinter{})
-	return &tp
-}
-
 // PrintColoredError prints errors colored.
 func PrintColoredError(finalErr error) {
 	errorLines := strings.Split(finalErr.Error(), "\n")

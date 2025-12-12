@@ -5,6 +5,7 @@ package space
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/alecthomas/kong"
@@ -57,12 +58,12 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, upCtx *upbound.Context) error {
 	a, err := upbound.GetOrganization(ctx, c.ac, upCtx.Organization)
 	var uerr *uerrors.Error
 	if errors.As(err, &uerr) {
 		if uerr.Status == http.StatusUnauthorized {
-			p.Println("You must be logged in and authorized to list Upbound Cloud Spaces")
+			fmt.Println("You must be logged in and authorized to list Upbound Cloud Spaces")
 			return uerr
 		}
 	}
@@ -78,7 +79,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, p pterm.TextP
 	}
 
 	if len(l.Items) == 0 {
-		p.Println("No spaces found")
+		fmt.Println("No spaces found")
 		return nil
 	}
 

@@ -171,11 +171,14 @@ func TestListCommand(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		printer := &upterm.ObjectPrinter{
+			Quiet: true,
+		}
+
 		t.Run(name, func(t *testing.T) {
 			err := tc.args.cmd.Run(
 				context.Background(),
-				upterm.NewNopObjectPrinter(),
-				upterm.NewNopTextPrinter(),
+				printer,
 				tc.args.upCtx,
 			)
 
