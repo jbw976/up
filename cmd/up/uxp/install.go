@@ -92,7 +92,7 @@ type installCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version version `arg:"" help:"UXP version to install. Should be >= 2.0.0-up.1, use the helm chart to install uxp v1." optional:""`
+	Version version `arg:"" help:"UXP version to install. Should be >= 2.0.0-up.0, use the helm chart to install uxp v1." optional:""`
 
 	Unstable     bool `help:"Allow installing unstable versions."`
 	DisableWebUI bool `help:"Disable the UXP web UI."                                                  optional:""`

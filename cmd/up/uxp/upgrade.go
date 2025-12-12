@@ -80,7 +80,7 @@ type upgradeCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version version `arg:"" help:"UXP version to install. Should be >= 2.0.0-up.1, use the helm chart to install uxp v1." optional:""`
+	Version version `arg:"" help:"UXP version to upgrade. Should be >= 2.0.0-up.0, use the helm chart to install uxp v1." optional:""`
 
 	Rollback bool `help:"Rollback to previously installed version on failed upgrade."`
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
