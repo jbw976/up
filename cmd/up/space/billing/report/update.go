@@ -19,13 +19,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	gcpopt "google.golang.org/api/option"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	itar "github.com/upbound/up/internal/tar"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -98,7 +98,7 @@ func (c *updateCmd) AfterApply() error {
 	return nil
 }
 
-func (c *updateCmd) Run(p pterm.TextPrinter) error {
+func (c *updateCmd) Run(p upterm.Printer) error {
 	ctx := context.Background()
 
 	c.printParams(p)
@@ -122,7 +122,7 @@ func (c *updateCmd) Run(p pterm.TextPrinter) error {
 	return nil
 }
 
-func (c *updateCmd) printParams(p pterm.TextPrinter) {
+func (c *updateCmd) printParams(p upterm.Printer) {
 	p.Printfln("Source file: %s", c.Source)
 	if c.isTargetInCloudStorage() {
 		p.Printfln("Target object: %s", c.Target)
@@ -141,7 +141,7 @@ func (c *updateCmd) printParams(p pterm.TextPrinter) {
 // path to the local copy and a function that deletes it. If the target doesn't
 // exist at its original location, the local copy is initialized as an empty
 // report.
-func (c *updateCmd) prepareLocalTarget(ctx context.Context, p pterm.TextPrinter) (string, func(), error) {
+func (c *updateCmd) prepareLocalTarget(ctx context.Context, p upterm.Printer) (string, func(), error) {
 	if c.isTargetInCloudStorage() {
 		p.Printfln("Downloading target from cloud storage...")
 		path, err := c.downloadFromCloudStorage(ctx)
@@ -170,7 +170,7 @@ func (c *updateCmd) prepareLocalTarget(ctx context.Context, p pterm.TextPrinter)
 // finalizeRemoteTarget moves a temporary local copy of an updated target report
 // to the remote target location, replacing the original if it exists. It
 // deletes the temporary local copy.
-func (c *updateCmd) finalizeRemoteTarget(ctx context.Context, p pterm.TextPrinter, tmpUpdatedPath string) error {
+func (c *updateCmd) finalizeRemoteTarget(ctx context.Context, p upterm.Printer, tmpUpdatedPath string) error {
 	if !c.isTargetInCloudStorage() {
 		// Target is a local file. Move the updated report to replace the
 		// target.
@@ -344,7 +344,7 @@ func (c *updateCmd) gcsClient(ctx context.Context) (*storage.Client, error) {
 // updateLocalTarget returns a path to a tempfile containing a gzipped tarball
 // of the consolidated report at targetPath updated with the contents of the
 // report at sourcePath.
-func (c *updateCmd) updateLocalTarget(p pterm.TextPrinter, sourcePath, targetPath string) (string, error) {
+func (c *updateCmd) updateLocalTarget(p upterm.Printer, sourcePath, targetPath string) (string, error) {
 	p.Printfln("Updating target report...")
 
 	// Create a temporary working directory for extracting data.

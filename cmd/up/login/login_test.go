@@ -14,7 +14,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
@@ -23,6 +22,7 @@ import (
 	inputmocks "github.com/upbound/up/internal/input/mocks"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 func TestRun(t *testing.T) {
@@ -75,7 +75,8 @@ func TestRun(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.err, tc.cmd.Run(t.Context(), pterm.DefaultBasicText.WithWriter(io.Discard), tc.ctx), test.EquateErrors()); diff != "" {
+			pr := upterm.NewTestPrinter()
+			if diff := cmp.Diff(tc.err, tc.cmd.Run(t.Context(), pr, tc.ctx), test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nRun(...): -want error, +got error:\n%s", tc.reason, diff)
 			}
 		})

@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/crd"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -34,7 +34,6 @@ func (c *convertCmd) Help() string {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *convertCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	c.fs = afero.NewOsFs()
@@ -44,7 +43,7 @@ func (c *convertCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *convertCmd) Run(p pterm.TextPrinter) error {
+func (c *convertCmd) Run(p upterm.Printer) error {
 	// Read the XRD file
 	xrdData, err := afero.ReadFile(c.fs, c.File)
 	if err != nil {

@@ -6,10 +6,7 @@ package user
 import (
 	"context"
 
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up-sdk-go/service/organizations"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
@@ -21,7 +18,7 @@ type inviteCmd struct {
 }
 
 // Run executes the invite command.
-func (c *inviteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *inviteCmd) Run(ctx context.Context, printer upterm.Printer, oc *organizations.Client) error {
 	orgID, err := oc.GetOrgID(ctx, c.OrgName)
 	if err != nil {
 		return err
@@ -34,6 +31,6 @@ func (c *inviteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pte
 		return err
 	}
 
-	p.Printfln("%s invited", c.Email)
+	printer.Printfln("%s invited", c.Email)
 	return nil
 }

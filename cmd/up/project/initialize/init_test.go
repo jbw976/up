@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package project contains commands for working with development projects.
 package initialize
 
 import (
@@ -13,7 +12,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +23,7 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/yaml"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
@@ -253,7 +252,7 @@ func TestRun_Scratch(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, upterm.NewTestPrinter())
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return
@@ -501,7 +500,7 @@ func TestRun_Example(t *testing.T) {
 				Organization:     tc.args.Organization,
 			}
 
-			err = cmd.Run(t.Context(), upCtx, &pterm.DefaultBasicText)
+			err = cmd.Run(t.Context(), upCtx, upterm.NewTestPrinter())
 			if tc.expectedError != "" {
 				assert.ErrorContains(t, err, tc.expectedError)
 				return

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
@@ -22,9 +21,11 @@ import (
 	opsv1alpha1 "github.com/crossplane/crossplane/v2/apis/ops/v1alpha1"
 	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
 	"github.com/upbound/up/internal/yaml"
 )
@@ -182,8 +183,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				output: "yaml",
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedOperationYAML, '\n', '\n'),
+				stdout: append(expectedOperationYAML, '\n'),
 				err:    "",
 			},
 		},
@@ -193,8 +193,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				output: "json",
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedOperationJSON, '\n', '\n'),
+				stdout: append(expectedOperationJSON, '\n'),
 				err:    "",
 			},
 		},
@@ -221,8 +220,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				cron:   "0 * * * *",
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedCronOperationYAML, '\n', '\n'),
+				stdout: append(expectedCronOperationYAML, '\n'),
 				err:    "",
 			},
 		},
@@ -233,8 +231,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				cron:   "0 * * * *",
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedCronOperationJSON, '\n', '\n'),
+				stdout: append(expectedCronOperationJSON, '\n'),
 				err:    "",
 			},
 		},
@@ -275,8 +272,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				},
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedWatchOperationYAML, '\n', '\n'),
+				stdout: append(expectedWatchOperationYAML, '\n'),
 				err:    "",
 			},
 		},
@@ -294,8 +290,7 @@ func TestGenerateCmdRun(t *testing.T) {
 				},
 			},
 			want: want{
-				// pterm adds two newlines in Println.
-				stdout: append(expectedWatchOperationJSON, '\n', '\n'),
+				stdout: append(expectedWatchOperationJSON, '\n'),
 				err:    "",
 			},
 		},
@@ -348,7 +343,8 @@ func TestGenerateCmdRun(t *testing.T) {
 			}
 
 			var stdout bytes.Buffer
-			err = cmd.Run(t.Context(), &pterm.BasicTextPrinter{Writer: &stdout})
+			pr := upterm.NewPrinter(&stdout, &stdout, config.FormatYAML, false)
+			err = cmd.Run(t.Context(), pr)
 			if tc.want.err != "" {
 				assert.Error(t, err, tc.want.err)
 				return

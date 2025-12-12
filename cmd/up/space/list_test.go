@@ -97,7 +97,7 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
@@ -121,7 +121,7 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
@@ -143,7 +143,7 @@ func TestListCommand(t *testing.T) {
 					ac: accounts.NewClient(&up.Config{
 						Client: &fake.MockClient{
 							MockNewRequest: fake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal([]byte(accResp), &obj)
 							},
 						},
@@ -171,9 +171,7 @@ func TestListCommand(t *testing.T) {
 	}
 
 	for name, tc := range cases {
-		printer := &upterm.ObjectPrinter{
-			Quiet: true,
-		}
+		printer := upterm.NewTestPrinter()
 
 		t.Run(name, func(t *testing.T) {
 			err := tc.args.cmd.Run(

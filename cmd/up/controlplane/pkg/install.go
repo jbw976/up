@@ -11,7 +11,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/dep"
 	"github.com/upbound/up/internal/xpkg/dep/resolver/image"
@@ -75,7 +75,7 @@ type installCmd struct {
 }
 
 // Run executes the install command.
-func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, client client.Client) error {
+func (c *installCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context, client client.Client) error {
 	// Resolve tag to handle latest cases
 	d := dep.New(c.Package)
 	tag, err := c.i.ResolveTag(ctx, d)
@@ -112,13 +112,13 @@ func (c *installCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upboun
 
 	// Create the resource
 	resource := &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": "pkg.crossplane.io/v1",
 			"kind":       c.kind,
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": c.Name,
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"package":            updatedRef.Name(),
 				"packagePullSecrets": packagePullSecrets,
 			},

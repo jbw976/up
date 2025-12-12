@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // BeforeApply sets default values for the delete command, before assignment and validation.
@@ -26,7 +26,7 @@ func (c *leaveCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *leaveCmd) AfterApply(p pterm.TextPrinter) error {
+func (c *leaveCmd) AfterApply(p upterm.Printer) error {
 	if c.Force {
 		return nil
 	}
@@ -55,7 +55,7 @@ type leaveCmd struct {
 }
 
 // Run executes the delete command.
-func (c *leaveCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
+func (c *leaveCmd) Run(ctx context.Context, p upterm.Printer, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err

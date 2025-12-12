@@ -6,54 +6,45 @@ package diff
 import (
 	"fmt"
 
-	"github.com/pterm/pterm"
-)
+	"github.com/charmbracelet/lipgloss"
 
-const (
-	// changeColorCreated is the color to use when displaying an created field.
-	changeColorCreate = pterm.FgGreen
-
-	// changeColorUpdate is the color to use when displaying an updated field.
-	changeColorUpdate = pterm.FgYellow
-
-	// changeColorDelete is the color to use when displaying an deleted field.
-	changeColorDelete = pterm.FgRed
+	"github.com/upbound/up/internal/style"
 )
 
 // outputStyles defines how the output will be styled depending on the change
 // type.
 type outputStyles interface {
-	Create(...any) string
-	Update(...any) string
-	Delete(...any) string
+	Create(a ...any) string
+	Update(a ...any) string
+	Delete(a ...any) string
 }
 
 var _ outputStyles = &termColors{}
 
 // termColors formats the output with terminal foreground colors.
 type termColors struct {
-	create pterm.Color
-	update pterm.Color
-	delete pterm.Color
+	create lipgloss.Style
+	update lipgloss.Style
+	delete lipgloss.Style
 }
 
 func (c termColors) Create(v ...any) string {
-	return c.create.Sprint(v...)
+	return c.create.Render(fmt.Sprint(v...))
 }
 
 func (c termColors) Update(v ...any) string {
-	return c.update.Sprint(v...)
+	return c.update.Render(fmt.Sprint(v...))
 }
 
 func (c termColors) Delete(v ...any) string {
-	return c.delete.Sprint(v...)
+	return c.delete.Render(fmt.Sprint(v...))
 }
 
-func NewDefaultTermColors() termColors {
+func newDefaultTermColors() termColors {
 	return termColors{
-		create: changeColorCreate,
-		update: changeColorUpdate,
-		delete: changeColorDelete,
+		create: lipgloss.NewStyle().Foreground(style.GreenColor),
+		update: lipgloss.NewStyle().Foreground(style.YellowColor),
+		delete: lipgloss.NewStyle().Foreground(style.RedColor),
 	}
 }
 

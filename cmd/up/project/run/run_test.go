@@ -206,8 +206,7 @@ func TestRun(t *testing.T) {
 			)
 			assert.NilError(t, err)
 
-			printer := upterm.DefaultObjPrinter
-			printer.Quiet = true
+			printer := upterm.NewTestPrinter()
 			c := &Cmd{
 				Flags: Flags{
 					ProjectFile:  "upbound.yaml",
@@ -219,7 +218,6 @@ func TestRun(t *testing.T) {
 				projFS:             projFS,
 				functionIdentifier: functions.FakeIdentifier,
 				concurrency:        1,
-				asyncWrapper:       async.IgnoreEvents,
 				pusher:             tc.pusher,
 				initResources:      tc.initResources,
 				extraResources:     tc.extraResources,
@@ -228,12 +226,11 @@ func TestRun(t *testing.T) {
 				},
 				installConfiguration: tc.installFn,
 
-				m:       mgr,
-				proj:    prj,
-				printer: printer,
+				m:    mgr,
+				proj: prj,
 			}
 
-			err = c.Run(t.Context(), upCtx)
+			err = c.Run(t.Context(), upCtx, printer)
 			assert.NilError(t, err)
 
 			// Check that any extra resources were created.

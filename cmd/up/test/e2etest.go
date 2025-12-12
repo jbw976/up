@@ -43,7 +43,7 @@ import (
 // cleanup.
 const e2eTestResourceAnnotation = "cli.upbound.io/e2etest"
 
-func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest) (int, int, int, error) {
+func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests []e2etest.E2ETest, printer upterm.Printer) (int, int, int, error) {
 	var err error
 	c.Repository, err = project.DetermineRepository(upCtx, c.proj.Project, c.Repository)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 	)
 
 	var imgMap project.ImageTagMap
-	if err = c.asyncWrapper(func(ch async.EventChannel) error {
+	if err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		imgMap, err = b.Build(ctx, upCtx, c.proj.Project, c.projFS,
 			project.BuildWithEventChannel(ch),
 			project.BuildWithImageLabels(common.ImageLabels(c)),
@@ -97,7 +97,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 
 	for _, test := range tests {
 		total++
-		err = c.executeE2ETest(ctx, upCtx, c.proj, imgMap, test)
+		err = c.executeE2ETest(ctx, upCtx, c.proj, imgMap, test, printer)
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
@@ -109,7 +109,7 @@ func (c *runCmd) runE2ETests(ctx context.Context, upCtx *upbound.Context, tests 
 	return total, success, errs, finalErr
 }
 
-func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, proj *project.WithVersion, imgMap project.ImageTagMap, test e2etest.E2ETest) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, proj *project.WithVersion, imgMap project.ImageTagMap, test e2etest.E2ETest, printer upterm.Printer) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	// Create a cancellable context for this test execution that we can
 	// cancel when a signal is received to stop any in-flight operations.
 	ctx, cancel := context.WithCancel(ctx)
@@ -120,7 +120,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		return errors.Wrap(err, "failed to create control plane")
 	}
 	var devCtp ctp.DevControlPlane
-	if err := c.asyncWrapper(func(ch async.EventChannel) error {
+	if err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
 		if c.UseCurrentContext {
 			devCtp, err = ctp.NewKubeconfigDevControlPlane(ctx, upCtx)
@@ -159,7 +159,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		return errors.Wrap(err, "failed to create control plane")
 	}
 
-	generatedTag, err := c.pushOrLoadPackages(ctx, upCtx, imgMap, devCtp)
+	generatedTag, err := c.pushOrLoadPackages(ctx, upCtx, imgMap, devCtp, printer)
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 
 		select {
 		case <-sigChan:
-			c.textPrinter.Println("Received signal, cleaning up...")
+			printer.Println("Received signal, cleaning up...")
 
 			// Cancel the main context to stop any in-flight operations
 			// like ApplyResources that might be stuck in a retry loop.
@@ -215,10 +215,10 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				}
 			}()
 
-			c.e2eCleanup(cleanupCtx, devCtp, test)
+			c.e2eCleanup(cleanupCtx, devCtp, test, printer)
 
 		case <-retChan:
-			c.e2eCleanup(cleanupCtx, devCtp, test)
+			c.e2eCleanup(cleanupCtx, devCtp, test, printer)
 		}
 	}()
 
@@ -243,29 +243,27 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		}
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		"Applying Init Resources",
 		func() error {
 			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.InitResources)
 		},
-		c.printer,
 	); err != nil {
 		return errors.Wrap(err, "failed to apply init resources")
 	}
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		return kube.InstallConfiguration(ctx, devCtp.Client(), proj.Name, generatedTag, ch)
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to install package")
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		"Applying Extra Resources",
 		func() error {
 			return kube.ApplyResources(ctx, devCtp.Client(), test.Spec.ExtraResources)
 		},
-		c.printer,
 	); err != nil {
 		return errors.Wrap(err, "failed to apply extra resources")
 	}
@@ -356,11 +354,11 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 }
 
 // executeCleanup performs cleanup of test resources and returns the result.
-func (c *runCmd) executeCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest) (*ctp.CleanupResult, error) {
+func (c *runCmd) executeCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, printer upterm.Printer) (*ctp.CleanupResult, error) {
 	var result *ctp.CleanupResult
 	var cleanupErr error
 
-	_ = c.asyncWrapper(func(ch async.EventChannel) error {
+	_ = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		// Use CleanupTimeoutSeconds from test spec, default to 600 seconds (10 minutes)
 		cleanupTimeout := 600
 		if test.Spec.CleanupTimeoutSeconds != nil {
@@ -377,9 +375,9 @@ func (c *runCmd) executeCleanup(ctx context.Context, devCtp ctp.DevControlPlane,
 }
 
 // reportCleanupResult prints the cleanup result to the console.
-func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detailed bool) {
+func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detailed bool, printer upterm.Printer) {
 	if err != nil {
-		c.textPrinter.Printfln("Cleanup error: %v", err)
+		printer.Printfln("Cleanup error: %v", err)
 		return
 	}
 
@@ -389,18 +387,18 @@ func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detai
 
 	if detailed {
 		// Detailed output for interrupted cleanup
-		c.textPrinter.Printfln("Cleanup summary: %d deleted, %d remaining after %d attempts",
+		printer.Printfln("Cleanup summary: %d deleted, %d remaining after %d attempts",
 			result.DeletedCount, result.RemainingCount, result.Attempts)
 
 		if len(result.Resources) > 0 {
-			c.textPrinter.Println("Resource cleanup details:")
-			if err := c.printResources(result.Resources); err != nil {
-				c.textPrinter.Printfln("Error printing resources: %v", err)
+			printer.Println("Resource cleanup details:")
+			if err := c.printResources(result.Resources, printer); err != nil {
+				printer.Printfln("Error printing resources: %v", err)
 			}
 		}
 	} else {
 		// Summary output for normal completion
-		c.textPrinter.Printfln("Cleanup completed: %d deleted, %d remaining",
+		printer.Printfln("Cleanup completed: %d deleted, %d remaining",
 			result.DeletedCount, result.RemainingCount)
 
 		// Only show the table if there are remaining resources
@@ -412,9 +410,9 @@ func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detai
 		}
 
 		if remainingCount > 0 {
-			c.textPrinter.Println("Warning: Some resources could not be removed:")
-			if err := c.printResources(result.Resources); err != nil {
-				c.textPrinter.Printfln("Error printing resources: %v", err)
+			printer.Println("Warning: Some resources could not be removed:")
+			if err := c.printResources(result.Resources, printer); err != nil {
+				printer.Printfln("Error printing resources: %v", err)
 			}
 		}
 	}
@@ -422,21 +420,21 @@ func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detai
 
 // e2eCleanup cleans up test resources and the dev control plane. It returns an
 // exit code for the process, depending on how cleanup finishes.
-func (c *runCmd) e2eCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest) {
+func (c *runCmd) e2eCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, printer upterm.Printer) {
 	if c.SkipControlPlaneCleanup {
-		c.textPrinter.Println("Skipping cleanup due to --skip-control-plane-cleanup flag")
+		printer.Println("Skipping cleanup due to --skip-control-plane-cleanup flag")
 		return
 	}
 
-	c.textPrinter.Println("Cleaning up test resources...")
-	result, cleanupErr := c.executeCleanup(ctx, devCtp, test)
-	c.reportCleanupResult(result, cleanupErr, true)
+	printer.Println("Cleaning up test resources...")
+	result, cleanupErr := c.executeCleanup(ctx, devCtp, test, printer)
+	c.reportCleanupResult(result, cleanupErr, true, printer)
 
-	c.textPrinter.Println("Tearing down test control plane...")
+	printer.Println("Tearing down test control plane...")
 	if err := devCtp.Teardown(ctx, c.Force); err != nil {
-		c.textPrinter.Printfln("Error during control plane deletion: %v", err)
+		printer.Printfln("Error during control plane deletion: %v", err)
 	}
-	c.textPrinter.Println("Test control plane deleted")
+	printer.Println("Test control plane deleted")
 }
 
 func extractResourceFields(obj any) []string {
@@ -462,7 +460,7 @@ func extractResourceFields(obj any) []string {
 	return []string{name, externalName, r.Status, displayMessage}
 }
 
-func (c *runCmd) printResources(resources []ctp.GenericResource) error {
+func (c *runCmd) printResources(resources []ctp.GenericResource, printer upterm.Printer) error {
 	if len(resources) == 0 {
 		return nil
 	}
@@ -474,5 +472,5 @@ func (c *runCmd) printResources(resources []ctp.GenericResource) error {
 	}
 
 	resourceFieldNames := []string{"NAME", "EXTERNAL-NAME", "STATUS", "MESSAGE"}
-	return c.printer.Print(items, resourceFieldNames, extractResourceFields)
+	return printer.PrintObject(items, resourceFieldNames, extractResourceFields)
 }

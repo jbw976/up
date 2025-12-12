@@ -22,7 +22,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/pkg/browser"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -129,7 +129,7 @@ func (c *LoginCmd) Help() string {
 }
 
 // Run executes the login command.
-func (c *LoginCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *LoginCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context) error {
 	// simple auth using explicit flags
 	if c.Username != "" || c.Token != "" {
 		return c.simpleAuth(ctx, upCtx)
@@ -550,7 +550,7 @@ func (c *LoginCmd) simpleAuth(ctx context.Context, upCtx *upbound.Context) error
 	return errors.Wrap(setSession(ctx, upCtx, res, profType, auth.ID, c.Token), errLoginFailed)
 }
 
-func (c *LoginCmd) handleDeviceLogin(upCtx *upbound.Context, token chan<- string, p pterm.TextPrinter) error {
+func (c *LoginCmd) handleDeviceLogin(upCtx *upbound.Context, token chan<- string, p upterm.Printer) error {
 	ep := getEndpoint(*upCtx.AccountsEndpoint, *upCtx.APIEndpoint, "")
 
 	if c.QRCode {

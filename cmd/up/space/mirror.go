@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
@@ -21,6 +20,7 @@ import (
 
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/registry"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -66,7 +66,6 @@ type mirrorCmd struct {
 
 	fetchManifest      func(ref string, opts ...crane.Option) ([]byte, error)
 	getValuesFromChart func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
-	defaultPrint       func(format string, a ...any)
 
 	path string
 }
@@ -105,20 +104,19 @@ func (c *mirrorCmd) AfterApply() error {
 
 	c.fetchManifest = crane.Manifest
 	c.getValuesFromChart = oci.GetValuesFromChart
-	c.defaultPrint = pterm.Printfln
 
 	return nil
 }
 
 // Run executes the mirror command.
-func (c *mirrorCmd) Run() error {
+func (c *mirrorCmd) Run(p upterm.Printer) error {
 	artifacts, err := initPathNavigator()
 	if err != nil {
 		return errors.Wrap(err, "unable to get artifact list")
 	}
 
 	for _, repo := range artifacts {
-		if err := c.mirror(repo); err != nil {
+		if err := c.mirror(p, repo); err != nil {
 			return errors.Wrap(err, "mirror artifacts failed")
 		}
 	}
@@ -126,21 +124,21 @@ func (c *mirrorCmd) Run() error {
 	return nil
 }
 
-func (c *mirrorCmd) mirror(repo repository) (rErr error) {
+func (c *mirrorCmd) mirror(p upterm.Printer, repo repository) (rErr error) {
 	chart, tag, err := c.parseChartReference(repo.Chart)
 	if err != nil {
 		return err
 	}
 
-	if err := c.mirrorArtifact(chart, tag); err != nil {
+	if err := c.mirrorArtifact(p, chart, tag); err != nil {
 		return errors.Wrap(err, "failed to mirror artifact")
 	}
 
-	if err := c.mirrorSubResources(chart, tag, repo.SubResources); err != nil {
+	if err := c.mirrorSubResources(p, chart, tag, repo.SubResources); err != nil {
 		return errors.Wrap(err, "failed to mirror subresources")
 	}
 
-	if err := c.mirrorImages(repo.Images); err != nil {
+	if err := c.mirrorImages(p, repo.Images); err != nil {
 		return errors.Wrap(err, "failed to mirror images")
 	}
 
@@ -167,7 +165,7 @@ func (c *mirrorCmd) parseChartReference(chartRef string) (chart string, tag stri
 	return chart, tag, nil
 }
 
-func (c *mirrorCmd) mirrorSubResources(chart, tag string, subResources []subResource) error {
+func (c *mirrorCmd) mirrorSubResources(p upterm.Printer, chart, tag string, subResources []subResource) error {
 	for _, subResource := range subResources {
 		if subResource.PathNavigator == nil {
 			continue
@@ -177,17 +175,17 @@ func (c *mirrorCmd) mirrorSubResources(chart, tag string, subResources []subReso
 		if err != nil {
 			return errors.Wrap(err, "unable to extract")
 		}
-		if err := c.processSubResource(subResource, versions); err != nil {
+		if err := c.processSubResource(p, subResource, versions); err != nil {
 			return errors.Wrap(err, "unable to process sub resources")
 		}
 	}
 	return nil
 }
 
-func (c *mirrorCmd) processSubResource(subResource subResource, versions []string) error {
+func (c *mirrorCmd) processSubResource(p upterm.Printer, subResource subResource, versions []string) error {
 	for _, version := range versions {
 		if len(subResource.Chart) > 0 {
-			if err := c.mirrorArtifact(subResource.Chart, version); err != nil {
+			if err := c.mirrorArtifact(p, subResource.Chart, version); err != nil {
 				return errors.Wrapf(err, "mirroring chart image %s", subResource.Chart)
 			}
 		}
@@ -196,7 +194,7 @@ func (c *mirrorCmd) processSubResource(subResource subResource, versions []strin
 			if !strings.HasPrefix(version, "v") {
 				versionWithV = "v" + version
 			}
-			if err := c.mirrorArtifact(subResource.Image, versionWithV); err != nil {
+			if err := c.mirrorArtifact(p, subResource.Image, versionWithV); err != nil {
 				return errors.Wrap(err, "unable to mirror artifact")
 			}
 		}
@@ -204,7 +202,7 @@ func (c *mirrorCmd) processSubResource(subResource subResource, versions []strin
 	return nil
 }
 
-func (c *mirrorCmd) mirrorImages(images []imageReference) error {
+func (c *mirrorCmd) mirrorImages(p upterm.Printer, images []imageReference) error {
 	baseVersion, err := semver.NewVersion(c.Version)
 	if err != nil {
 		return errors.Wrapf(err, "error parsing space version")
@@ -216,7 +214,7 @@ func (c *mirrorCmd) mirrorImages(images []imageReference) error {
 		if _, ok := processed[i]; ok {
 			continue
 		}
-		matches, err := c.processImage(image, baseVersion)
+		matches, err := c.processImage(p, image, baseVersion)
 		if err != nil {
 			return errors.Wrap(err, "unable to process image")
 		}
@@ -228,7 +226,7 @@ func (c *mirrorCmd) mirrorImages(images []imageReference) error {
 	return nil
 }
 
-func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Version) (bool, error) {
+func (c *mirrorCmd) processImage(p upterm.Printer, image imageReference, baseVersion *semver.Version) (bool, error) {
 	include := true
 	if image.CompatibleChartVersion != "" {
 		constraint, err := semver.NewConstraint(image.CompatibleChartVersion)
@@ -250,10 +248,10 @@ func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Versi
 		version = parts[1]
 	}
 
-	return true, c.mirrorArtifact(imageName, version)
+	return true, c.mirrorArtifact(p, imageName, version)
 }
 
-func (c *mirrorCmd) mirrorArtifact(image, version string) error {
+func (c *mirrorCmd) mirrorArtifact(p upterm.Printer, image, version string) error {
 	var artifact artifactHandler
 
 	switch {
@@ -263,7 +261,6 @@ func (c *mirrorCmd) mirrorArtifact(image, version string) error {
 			registry:      c.DestinationRegistry,
 			opts:          c.craneOpts,
 			fetchManifest: c.fetchManifest,
-			defaultPrint:  c.defaultPrint,
 		}
 	case len(c.path) > 0:
 		artifact = &localMirror{
@@ -277,7 +274,7 @@ func (c *mirrorCmd) mirrorArtifact(image, version string) error {
 		}
 	}
 
-	return artifact.handle(fmt.Sprintf("%s:%s", image, version))
+	return artifact.handle(p, fmt.Sprintf("%s:%s", image, version))
 }
 
 func initPathNavigator() (repo []repository, rErr error) {
@@ -314,7 +311,7 @@ func initPathNavigator() (repo []repository, rErr error) {
 }
 
 type artifactHandler interface {
-	handle(artifact string) error
+	handle(p upterm.Printer, artifact string) error
 }
 
 type dryRunMirror struct {
@@ -322,18 +319,17 @@ type dryRunMirror struct {
 	registry      string
 	opts          []crane.Option
 	fetchManifest func(artifact string, opts ...crane.Option) ([]byte, error)
-	defaultPrint  func(format string, a ...any)
 }
 
-func (h *dryRunMirror) handle(artifact string) error {
+func (h *dryRunMirror) handle(p upterm.Printer, artifact string) error {
 	if _, err := h.fetchManifest(artifact, h.opts...); err != nil {
 		return errors.Wrapf(err, "artifact is not available in registry %s", artifact)
 	}
 	if h.folder != "" {
-		h.defaultPrint("crane pull %s %s.tgz", artifact, filepath.Join(h.folder, oci.GetArtifactName(artifact)))
+		p.Printfln("crane pull %s %s.tgz", artifact, filepath.Join(h.folder, oci.GetArtifactName(artifact)))
 	}
 	if h.registry != "" {
-		h.defaultPrint("crane copy %s %s/%s", artifact, h.registry, oci.RemoveDomainAndOrg(artifact))
+		p.Printfln("crane copy %s %s/%s", artifact, h.registry, oci.RemoveDomainAndOrg(artifact))
 	}
 	return nil
 }
@@ -343,7 +339,7 @@ type localMirror struct {
 	opts   []crane.Option
 }
 
-func (h *localMirror) handle(artifact string) error {
+func (h *localMirror) handle(p upterm.Printer, artifact string) error {
 	path := filepath.Join(h.folder, fmt.Sprintf("%s.tgz", oci.GetArtifactName(artifact)))
 
 	img, err := crane.Pull(artifact, h.opts...)
@@ -353,7 +349,7 @@ func (h *localMirror) handle(artifact string) error {
 	if err := crane.Save(img, artifact, path); err != nil {
 		return errors.Wrapf(err, "error saving image %s", path)
 	}
-	pterm.Printfln("Successfully mirrored artifact '%s' to destination '%s'", artifact, path)
+	p.Printfln("Successfully mirrored artifact '%s' to destination '%s'", artifact, path)
 	return nil
 }
 
@@ -362,12 +358,12 @@ type registryMirror struct {
 	opts     []crane.Option
 }
 
-func (h *registryMirror) handle(artifact string) error {
+func (h *registryMirror) handle(p upterm.Printer, artifact string) error {
 	registry := fmt.Sprintf("%s/%s", h.registry, oci.RemoveDomainAndOrg(artifact))
 	if err := crane.Copy(artifact, registry, h.opts...); err != nil {
 		return errors.Wrapf(err, "copy/push failed %s", artifact)
 	}
-	pterm.Printfln("Successfully mirrored artifact '%s' to destination '%s'", artifact, registry)
+	p.Printfln("Successfully mirrored artifact '%s' to destination '%s'", artifact, registry)
 	return nil
 }
 

@@ -1,15 +1,11 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package token contains commands for working with personal user tokens.
 package token
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -20,19 +16,13 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // getCmd get a personal access token on Upbound.
 type getCmd struct {
 	TokenName string `arg:"" help:"Name of token." required:""`
 }
 
 // Run executes the get personal access token command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, uc *users.Client, ui *userinfo.Client, upCtx *upbound.Context) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.Printer, uc *users.Client, ui *userinfo.Client, upCtx *upbound.Context) error {
 	// get the userID
 	r, err := ui.Get(ctx)
 	if err != nil {
@@ -44,7 +34,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		p.Printfln("No personal access tokens found for user %s", upCtx.Profile.ID)
+		printer.Printfln("No personal access tokens found for user %s", upCtx.Profile.ID)
 		return nil
 	}
 
@@ -63,5 +53,5 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.
 	if theToken == nil {
 		return errors.Errorf(errFindTokenFmt, c.TokenName, upCtx.Profile.ID)
 	}
-	return printer.Print(*theToken, fieldNames, extractFields)
+	return printer.PrintObject(*theToken, fieldNames, extractFields)
 }

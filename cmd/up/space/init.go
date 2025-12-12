@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/pterm/pterm"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -90,7 +89,6 @@ type initCmd struct {
 	dClient    dynamic.Interface
 	pullSecret *pullsecret.Manager
 	features   *feature.Flags
-	printer    upterm.ObjectPrinter
 }
 
 func init() {
@@ -108,7 +106,7 @@ func (c *initCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *initCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
+func (c *initCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
@@ -126,7 +124,7 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinte
 
 	// set the defaults
 	cloud := c.Set[defaults.ClusterTypeStr]
-	defs, err := defaults.GetConfig(c.kClient, cloud)
+	defs, err := defaults.GetConfig(c.kClient, cloud, p)
 	if err != nil {
 		return err
 	}
@@ -145,7 +143,7 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinte
 	if !c.PublicIngress {
 		defs.PublicIngress = false
 	} else {
-		pterm.Info.Println("Public ingress will be exposed")
+		p.PrintWarning("Public ingress will be exposed")
 	}
 
 	c.pullSecret = pullsecret.NewManagerFromFlags(kClient, defaultImagePullSecret, ns, c.Registry)
@@ -189,25 +187,25 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinte
 	c.features = &feature.Flags{}
 	spacefeature.EnableFeatures(c.features, c.helmParams)
 
-	prereqs, err := prerequisites.New(kubeconfig, defs, c.features, c.Version)
+	prereqs, err := prerequisites.New(kubeconfig, defs, c.features, c.Version, p)
 	if err != nil {
 		return err
 	}
 	c.prereqs = prereqs
-	c.printer = printer
+
 	return nil
 }
 
 // Run executes the install command.
-func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // lot of checks
+func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocyclo // lot of checks
 	overrideRegistry(c.Registry.Repository.String(), c.helmParams)
 	ensureAccount(upCtx, c.helmParams)
 
 	if c.helmParams["account"] == defaultAcct {
-		pterm.Warning.Println("No Upbound organization name was provided. Spaces initialized without an organization cannot be attached to the Upbound console! This cannot be changed later.")
+		printer.PrintWarning("No Upbound organization name was provided. Spaces initialized without an organization cannot be attached to the Upbound console! This cannot be changed later.")
 		result, _ := upterm.Confirm(fmt.Sprintf("Would you like to proceed with the default Upbound organization %q?", defaultAcct), false)
 		if !result {
-			pterm.Error.Println("Not proceeding without an Upbound organization; pass the --organization flag or create a profile (`up login` or `up profile create`).")
+			printer.PrintError("Not proceeding without an Upbound organization; pass the --organization flag or create a profile (`up login` or `up profile create`).")
 			return nil
 		}
 	}
@@ -215,39 +213,39 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 	// check if required prerequisites are installed
 	status, err := c.prereqs.Check()
 	if err != nil {
-		pterm.Error.Println("error checking prerequisites status")
+		printer.PrintError("error checking prerequisites status:", err)
 		return err
 	}
 
 	// At least 1 prerequisite is not installed, check if we should install the
 	// missing ones for the client.
 	if len(status.NotInstalled) > 0 {
-		pterm.Warning.Printfln("One or more required prerequisites are not installed:")
-		pterm.Println()
+		printer.PrintWarning("One or more required prerequisites are not installed:")
+		printer.Println()
 		for _, p := range status.NotInstalled {
-			pterm.Println(fmt.Sprintf("❌ %s", p.GetName()))
+			printer.Println(fmt.Sprintf("❌ %s", p.GetName()))
 		}
 
 		if !c.Yes {
 			result, _ := upterm.Confirm("Would you like to install them now?", false)
 			if !result {
-				pterm.Error.Println("prerequisites must be met in order to proceed with installation")
+				printer.PrintError("prerequisites must be met in order to proceed with installation")
 				return nil
 			}
 		}
-		if err := installPrereqs(status, c.printer); err != nil {
+		if err := installPrereqs(status, printer); err != nil {
 			return err
 		}
 	}
 
-	pterm.Info.Printfln("Required prerequisites met!")
-	pterm.Info.Printfln("Proceeding with Upbound Spaces installation...")
+	printer.PrintInfo("Required prerequisites met!")
+	printer.PrintInfo("Proceeding with Upbound Spaces installation...")
 
-	if err := c.applySecret(ctx); err != nil {
+	if err := c.applySecret(ctx, printer); err != nil {
 		return err
 	}
 
-	if err := c.deploySpace(ctx, c.helmParams); err != nil {
+	if err := c.deploySpace(ctx, c.helmParams, printer); err != nil {
 		return err
 	}
 
@@ -256,44 +254,38 @@ func (c *initCmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nol
 		return err
 	}
 
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("Your Upbound Space is Ready! Using new Upbound profile %q for your new Space.", profileName)
+	printer.PrintSuccess(fmt.Sprintf("Your Upbound Space is Ready! Using new Upbound profile %q for your new Space.", profileName))
 
-	outputNextSteps()
+	outputNextSteps(printer)
 
 	return nil
 }
 
-func installPrereqs(status *prerequisites.Status, printer upterm.ObjectPrinter) error {
+func installPrereqs(status *prerequisites.Status, printer upterm.Printer) error {
 	for i, p := range status.NotInstalled {
-		if err := upterm.WrapWithSuccessSpinner(
+		if err := printer.WrapWithSuccessSpinner(
 			upterm.StepCounter(
 				fmt.Sprintf("Installing %s", p.GetName()),
 				i+1,
 				len(status.NotInstalled),
 			),
 			p.Install,
-			printer,
 		); err != nil {
-			pterm.Println()
-			pterm.Println()
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *initCmd) applySecret(ctx context.Context) error {
+func (c *initCmd) applySecret(ctx context.Context, printer upterm.Printer) error {
 	createPullSecret := func() error {
 		return errors.Wrap(c.pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 3),
 		createPullSecret,
-		c.printer,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 	return nil
@@ -316,7 +308,7 @@ func upVersionBounds(ch *chart.Chart) error {
 	return checkVersion(fmt.Sprintf("unsupported up version %q", version.Version()), constraints, version.Version())
 }
 
-func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error {
+func (c *initCmd) deploySpace(ctx context.Context, params map[string]any, printer upterm.Printer) error {
 	install := func() error {
 		if err := c.helmMgr.Install(strings.TrimPrefix(c.Version, "v"), params, initVersionBounds, upVersionBounds); err != nil {
 			return err
@@ -324,24 +316,17 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 		return nil
 	}
 
-	if c.printer.Quiet {
-		return install()
-	}
-
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Initializing Space components", 2, 3),
 		install,
-		c.printer,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 
 	version, _ := semver.NewVersion(c.Version)
 	requiresUXP, _ := semver.NewConstraint("< v1.7.0-0")
 
-	return upterm.WrapWithSuccessSpinner(
+	return printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Starting Space Components", 3, 3),
 		func() error {
 			if !requiresUXP.Check(version) {
@@ -362,7 +347,6 @@ func (c *initCmd) deploySpace(ctx context.Context, params map[string]any) error 
 			}
 			return nil
 		},
-		c.printer,
 	)
 }
 
@@ -414,9 +398,9 @@ func (c *initCmd) ensureProfile(upCtx *upbound.Context) (string, error) {
 	return kubeconfig.CurrentContext, nil
 }
 
-func outputNextSteps() {
-	pterm.Println()
-	pterm.Info.WithPrefix(upterm.EyesPrefix).Println("Next Steps 👇")
-	pterm.Println()
-	pterm.Println("👉 Check out Upbound Spaces docs @ https://docs.upbound.io/concepts/upbound-spaces")
+func outputNextSteps(p upterm.Printer) {
+	p.Println()
+	p.PrintInfo("Next Steps 👇")
+	p.Println()
+	p.Println("👉 Check out Upbound Spaces docs @ https://docs.upbound.io/concepts/upbound-spaces")
 }

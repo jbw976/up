@@ -28,7 +28,6 @@ import (
 	xpkgv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	"github.com/upbound/up/cmd/up/project/common"
-	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/schemas/generator"
@@ -322,15 +321,14 @@ func TestBuild(t *testing.T) {
 				outputFS:           outFS,
 				functionIdentifier: functions.FakeIdentifier,
 				concurrency:        1,
-				asyncWrapper:       async.IgnoreEvents,
-				printer:            upterm.DefaultObjPrinter,
 
 				m:    mgr,
 				proj: prj,
 			}
 
 			// Build the package.
-			err = c.Run(t.Context(), upCtx)
+			printer := upterm.NewTestPrinter()
+			err = c.Run(t.Context(), upCtx, printer)
 			assert.NilError(t, err)
 
 			// List the built packages load them from the output file.
@@ -488,23 +486,23 @@ func TestBuild(t *testing.T) {
 			// get the default.
 			vproj, _ := project.ParseWithVersion(projFS, "upbound.yaml")
 			if vproj.IsV2() {
-				assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
+				assert.DeepEqual(t, cfgMeta.Spec.Crossplane, &xpmetav1.CrossplaneConstraints{
 					Version: ">=v2.0.0-rc.0",
 				})
 			} else {
-				assert.DeepEqual(t, cfgMeta.Spec.MetaSpec.Crossplane, &xpmetav1.CrossplaneConstraints{
+				assert.DeepEqual(t, cfgMeta.Spec.Crossplane, &xpmetav1.CrossplaneConstraints{
 					Version: ">=v1.19.0 || >=v2.0.0-rc.0",
 				})
 			}
 
 			// Validate that the configuration depends on all the project
 			// dependencies and the embedded functions.
-			assert.Assert(t, cmp.Len(cfgMeta.Spec.MetaSpec.DependsOn, len(c.proj.Spec.DependsOn)+len(fnImages)))
+			assert.Assert(t, cmp.Len(cfgMeta.Spec.DependsOn, len(c.proj.Spec.DependsOn)+len(fnImages)))
 			for _, dep := range c.proj.Spec.DependsOn {
-				assert.Assert(t, cmp.Contains(cfgMeta.Spec.MetaSpec.DependsOn, dep))
+				assert.Assert(t, cmp.Contains(cfgMeta.Spec.DependsOn, dep))
 			}
 			for _, dep := range fnDeps {
-				assert.Assert(t, cmp.Contains(cfgMeta.Spec.MetaSpec.DependsOn, dep))
+				assert.Assert(t, cmp.Contains(cfgMeta.Spec.DependsOn, dep))
 			}
 
 			objs := pkg.Objects()

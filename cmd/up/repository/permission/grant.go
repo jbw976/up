@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/repositorypermission"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // grantCmd grant repositorypermission for an team on Upbound.
@@ -36,7 +36,7 @@ func (c *grantCmd) Validate() error {
 }
 
 // Run executes the create command.
-func (c *grantCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
+func (c *grantCmd) Run(ctx context.Context, p upterm.Printer, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("permission validation failed for team %q in account %q: %w", c.TeamName, upCtx.Organization, err)
 	}

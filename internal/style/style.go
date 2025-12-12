@@ -29,6 +29,20 @@ var (
 	//
 	//nolint:gochecknoglobals // We'd make these consts if we could.
 	DimColor = lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"}
+
+	// Common colors; these come from the Upbound design library:
+	// https://www.sketch.com/s/7fc17452-1ac3-4c0a-b146-1287fe4d45aa
+
+	// GreenColor is green.
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	GreenColor = lipgloss.AdaptiveColor{Light: "#4caf50", Dark: "#94cf96"}
+	// YellowColor is yellow.
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	YellowColor = lipgloss.AdaptiveColor{Light: "#eac835", Dark: "#f2de86"}
+	// RedColor is red.
+	//nolint:gochecknoglobals // We'd make these consts if we could.
+	RedColor = lipgloss.AdaptiveColor{Light: "#f44336", Dark: "#f88e86"}
+	// Commonly used colors.
 )
 
 var (

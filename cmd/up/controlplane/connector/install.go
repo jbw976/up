@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/version"
 )
 
@@ -80,6 +80,8 @@ func (c *installCmd) AfterApply(upCtx *upbound.Context) error {
 // installCmd connects the current cluster to a control plane in an account on
 // Upbound.
 type installCmd struct {
+	install.CommonParams
+
 	mgr     install.Manager
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
@@ -91,12 +93,10 @@ type installCmd struct {
 	ClusterName           string `help:"Name of the cluster connecting to the control plane. If not provided, the namespace argument value will be used."`
 	InstallationNamespace string `default:"kube-system"                                                                                                   env:"MCP_CONNECTOR_NAMESPACE" help:"Kubernetes namespace for MCP Connector. Default is kube-system." short:"n"`
 	ControlPlaneSecret    string `help:"Name of the secret that contains the kubeconfig for a control plane."`
-
-	install.CommonParams
 }
 
 // Run executes the connect command.
-func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *installCmd) Run(p upterm.Printer, upCtx *upbound.Context) error {
 	token, err := c.getToken(p, upCtx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get token")
@@ -146,7 +146,7 @@ func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 	return nil
 }
 
-func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (string, error) {
+func (c *installCmd) getToken(p upterm.Printer, upCtx *upbound.Context) (string, error) {
 	if c.Token != "" {
 		return c.Token, nil
 	}
@@ -186,7 +186,7 @@ func (c *installCmd) getToken(p pterm.TextPrinter, upCtx *upbound.Context) (stri
 		return "", errors.Wrap(err, "failed to create token")
 	}
 	p.Printfln("Created a token named %s.", c.ClusterName)
-	return fmt.Sprint(resp.DataSet.Meta["jwt"]), nil
+	return fmt.Sprint(resp.Meta["jwt"]), nil
 }
 
 func urlMustParse(s string) *url.URL {

@@ -7,7 +7,6 @@ package migration
 import (
 	"context"
 
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -62,7 +61,7 @@ func (c *importCmd) BeforeApply() error {
 	return nil
 }
 
-func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { //nolint:gocyclo // Just a lot of error handling.
+func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context, printer upterm.Printer) error {
 	cfg := migCtx.Kubeconfig
 
 	if !c.SkipTargetCheck && !isAllowedImportTarget(cfg.Host) {
@@ -95,26 +94,26 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context) error { 
 
 	errs := i.PreflightChecks(ctx)
 	if len(errs) > 0 {
-		pterm.Println("Preflight checks failed:")
+		printer.Println("Preflight checks failed:")
 		for _, err := range errs {
-			pterm.Println("- " + err.Error())
+			printer.Println("- " + err.Error())
 		}
 		if !c.Yes {
 			result, _ := upterm.Confirm("Do you still want to proceed?", false)
 			if !result {
-				pterm.Error.Println("Preflight checks must pass in order to proceed with the import.")
+				printer.PrintError("Preflight checks must pass in order to proceed with the import.")
 				return nil
 			}
 		}
 	}
 
-	pterm.Println("Importing control plane state...")
+	printer.Println("Importing control plane state...")
 	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
 
 	if err = i.Import(ctx); err != nil {
 		return err
 	}
-	pterm.Println("\nfully imported control plane state!")
+	printer.Println("\nfully imported control plane state!")
 
 	return nil
 }

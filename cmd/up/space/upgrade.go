@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/blang/semver/v4"
-	"github.com/pterm/pterm"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
@@ -57,7 +56,6 @@ type upgradeCmd struct {
 	helmParams map[string]any
 	kClient    kubernetes.Interface
 	pullSecret *pullsecret.Manager
-	printer    upterm.ObjectPrinter
 	features   *feature.Flags
 	oldVersion string
 	downgrade  bool
@@ -70,7 +68,7 @@ func (c *upgradeCmd) BeforeApply() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *upgradeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocyclo // lot of checks
+func (c *upgradeCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error { //nolint:gocyclo // lot of checks
 	if err := c.Registry.AfterApply(); err != nil {
 		return err
 	}
@@ -137,7 +135,7 @@ func (c *upgradeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPri
 		}
 		c.downgrade = from.GT(to)
 
-		if err := c.validateVersions(from, to); err != nil {
+		if err := c.validateVersions(from, to, p); err != nil {
 			return err
 		}
 	}
@@ -145,73 +143,69 @@ func (c *upgradeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPri
 	c.features = &feature.Flags{}
 	spacefeature.EnableFeatures(c.features, c.helmParams)
 
-	prereqs, err := prerequisites.New(kubeconfig, nil, c.features, c.Version)
+	prereqs, err := prerequisites.New(kubeconfig, nil, c.features, c.Version, p)
 	if err != nil {
 		return err
 	}
 	c.prereqs = prereqs
 
-	c.printer = printer
 	return nil
 }
 
 // Run executes the upgrade command.
-func (c *upgradeCmd) Run(ctx context.Context) error {
+func (c *upgradeCmd) Run(ctx context.Context, printer upterm.Printer) error {
 	overrideRegistry(c.Registry.Repository.String(), c.helmParams)
 
 	// check if required prerequisites are installed
 	status, err := c.prereqs.Check()
 	if err != nil {
-		pterm.Error.Println("error checking prerequisites status")
+		printer.PrintError("error checking prerequisites status")
 		return err
 	}
 
 	// At least 1 prerequisite is not installed, check if we should install the
 	// missing ones for the client.
 	if len(status.NotInstalled) > 0 {
-		pterm.Warning.Printfln("One or more required prerequisites are not installed:")
-		pterm.Println()
+		printer.PrintWarning("One or more required prerequisites are not installed:")
+		printer.Println()
 		for _, p := range status.NotInstalled {
-			pterm.Println(fmt.Sprintf("❌ %s", p.GetName()))
+			printer.Println(fmt.Sprintf("❌ %s", p.GetName()))
 		}
 
 		if !c.Yes {
 			result, _ := upterm.Confirm("Would you like to install them now?", false)
 			if !result {
-				pterm.Error.Println("prerequisites must be met in order to proceed with upgrade")
+				printer.PrintError("prerequisites must be met in order to proceed with upgrade")
 				return nil
 			}
 		}
-		if err := installPrereqs(status, c.printer); err != nil {
+		if err := installPrereqs(status, printer); err != nil {
 			return err
 		}
 	}
 
-	pterm.Info.Printfln("Required prerequisites met!")
-	pterm.Info.Printfln("Proceeding with Upbound Spaces upgrade...")
+	printer.PrintInfo("Required prerequisites met!")
+	printer.PrintInfo("Proceeding with Upbound Spaces upgrade...")
 
 	// Create or update image pull secret.
 	pullSecret := func() error {
 		return errors.Wrap(c.pullSecret.CreateOrUpdate(ctx), errCreateImagePullSecret)
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("Creating pull secret %s", defaultImagePullSecret), 1, 2),
 		pullSecret,
-		c.printer,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 
-	if err := c.upgradeUpbound(c.helmParams); err != nil {
+	if err := c.upgradeUpbound(c.helmParams, printer); err != nil {
 		return err
 	}
 
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Println("Your Upbound Space is Ready after Upgrade!")
+	printer.PrintSuccess("Your Upbound Space is Ready after Upgrade!")
 
-	outputNextSteps()
+	outputNextSteps(printer)
 
 	return nil
 }
@@ -228,7 +222,7 @@ func upgradeUpVersionBounds(_ string, ch *chart.Chart) error {
 	return upVersionBounds(ch)
 }
 
-func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
+func (c *upgradeCmd) upgradeUpbound(params map[string]any, printer upterm.Printer) error {
 	version := strings.TrimPrefix(c.Version, "v")
 	upgrade := func() error {
 		if err := c.helmMgr.Upgrade(version, params, upgradeUpVersionBounds, upgradeFromVersionBounds, upgradeVersionBounds); err != nil {
@@ -242,13 +236,10 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 		verb = msgDowngrading
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter(fmt.Sprintf("%s Space from v%s to v%s", verb, c.oldVersion, version), 2, 2),
 		upgrade,
-		c.printer,
 	); err != nil {
-		pterm.Println()
-		pterm.Println()
 		return err
 	}
 
@@ -256,14 +247,14 @@ func (c *upgradeCmd) upgradeUpbound(params map[string]any) error {
 }
 
 // validateVersions checks whether the upgrade/downgrade is allowed based on version changes.
-func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
+func (c *upgradeCmd) validateVersions(from, to semver.Version, p upterm.Printer) error {
 	switch {
 	case c.downgrade:
-		return warnAndConfirm(warnDowngrade)
+		return warnAndConfirm(p, warnDowngrade)
 	case to.Major > from.Major:
-		return warnAndConfirm(warnMajorUpgrade)
+		return warnAndConfirm(p, warnMajorUpgrade)
 	case to.Minor > from.Minor+1:
-		return warnAndConfirm(warnMinorVersionSkip)
+		return warnAndConfirm(p, warnMinorVersionSkip)
 	default:
 		// No warning means the validation passed
 		return nil
@@ -271,8 +262,8 @@ func (c *upgradeCmd) validateVersions(from, to semver.Version) error {
 }
 
 // warnAndConfirm displays a warning and prompts for confirmation.
-func warnAndConfirm(warning string, args ...any) error {
-	pterm.Warning.Printfln(warning, args...) // Display the warning message
+func warnAndConfirm(p upterm.Printer, warning string, args ...any) error {
+	p.PrintWarning(fmt.Sprintf(warning, args...)) // Display the warning message
 
 	if result, _ := upterm.Confirm("Are you sure you want to proceed?", false); !result {
 		return errors.New(errAborted)

@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package controlplane contains functions for handling controlplane actions
 package controlplane
 
 import (
@@ -162,7 +161,7 @@ func formatAge(age *time.Duration) string {
 	return duration.HumanDuration(*age)
 }
 
-func tabularPrint(obj any, printer upterm.ObjectPrinter) error {
+func tabularPrint(obj any, printer upterm.ResultPrinter) error {
 	spacefieldNames := []string{
 		"GROUP",
 		"NAME",
@@ -172,5 +171,5 @@ func tabularPrint(obj any, printer upterm.ObjectPrinter) error {
 		"MESSAGE",
 		"AGE",
 	}
-	return printer.Print(obj, spacefieldNames, extractSpaceFields)
+	return printer.PrintObject(obj, spacefieldNames, extractSpaceFields)
 }

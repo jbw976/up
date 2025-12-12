@@ -4,15 +4,16 @@
 package ctx
 
 import (
-	"fmt"
-
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/upbound/up/internal/kube"
+	"github.com/upbound/up/internal/upterm"
 )
 
-type printWriter struct{}
+type printWriter struct {
+	printer upterm.Printer
+}
 
 var _ kube.ContextWriter = &printWriter{}
 
@@ -23,6 +24,6 @@ func (p *printWriter) Write(config *clientcmdapi.Config) error {
 		return err
 	}
 
-	fmt.Print(string(b)) //nolint:forbidigo // The printWriter is allowed to print.
+	p.printer.PrintResult(string(b))
 	return nil
 }

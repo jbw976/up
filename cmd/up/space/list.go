@@ -5,11 +5,8 @@ package space
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -34,7 +31,7 @@ type listCmd struct {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *listCmd) AfterApply(upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKConfig()
 	if err != nil {
 		return err
@@ -52,8 +49,6 @@ func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) erro
 	}
 	c.kc = kc
 
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-
 	return nil
 }
 
@@ -63,7 +58,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, upCtx *upboun
 	var uerr *uerrors.Error
 	if errors.As(err, &uerr) {
 		if uerr.Status == http.StatusUnauthorized {
-			fmt.Println("You must be logged in and authorized to list Upbound Cloud Spaces")
+			printer.Println("You must be logged in and authorized to list Upbound Cloud Spaces")
 			return uerr
 		}
 	}
@@ -79,12 +74,12 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, upCtx *upboun
 	}
 
 	if len(l.Items) == 0 {
-		fmt.Println("No spaces found")
+		printer.Println("No spaces found")
 		return nil
 	}
 
 	fieldNames := []string{"NAME", "MODE", "PROVIDER", "REGION"}
-	return printer.Print(l.Items, fieldNames, extractSpaceListFields)
+	return printer.PrintObject(l.Items, fieldNames, extractSpaceListFields)
 }
 
 func extractSpaceListFields(obj any) []string {
@@ -102,7 +97,7 @@ func extractSpaceListFields(obj any) []string {
 		region = string(*space.Spec.Region)
 	}
 
-	mode := space.ObjectMeta.Labels[upboundv1alpha1.SpaceModeLabelKey]
+	mode := space.Labels[upboundv1alpha1.SpaceModeLabelKey]
 
 	return []string{
 		space.GetObjectMeta().GetName(),

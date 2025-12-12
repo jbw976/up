@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,7 +39,7 @@ import (
 	"github.com/upbound/up-sdk-go/apis/common"
 	queryv1alpha2 "github.com/upbound/up-sdk-go/apis/query/v1alpha2"
 	"github.com/upbound/up/cmd/up/query/resource"
-	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // afterApply constructs and binds Upbound-specific context to any subcommands
@@ -69,7 +68,7 @@ func (c *cmd) afterApply() error {
 	return nil
 }
 
-func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, queryTemplate resource.QueryObject, kubeconfig *rest.Config, notFound NotFound) error { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, queryTemplate resource.QueryObject, kubeconfig *rest.Config, notFound NotFound, p upterm.Printer) error { //nolint:gocognit // mostly taken from kubectl get. We don't want to divert.
 	tgns, errs := ParseTypesAndNames(c.Resources...)
 	if len(errs) > 0 {
 		return kerrors.NewAggregate(errs)
@@ -123,7 +122,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 		var page int
 		for {
 			spec := spec.DeepCopy()
-			spec.QueryTopLevelResources.QueryResources.Page.Cursor = cursor
+			spec.Page.Cursor = cursor
 			query := queryTemplate.DeepCopyQueryObject().SetSpec(spec)
 
 			// print query for debugging
@@ -150,7 +149,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 			}
 			resp := query.GetResponse()
 			for _, w := range resp.Warnings {
-				pterm.Warning.Printfln("Warning: %s", w)
+				p.PrintWarning(w)
 			}
 
 			// collect objects
@@ -259,7 +258,7 @@ func (c *cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 	return c.printGeneric(kongCtx, infos)
 }
 
-func (c *cmd) humanReadablePrintObjects(kongCtx *kong.Context, infos []*cliresource.Info, printWithKind bool, notFound NotFound) error { //nolint:gocyclo // mostly taken from kubectl get. We don't want to divert.
+func (c *cmd) humanReadablePrintObjects(kongCtx *kong.Context, infos []*cliresource.Info, printWithKind bool, notFound NotFound) error { //nolint:gocognit // mostly taken from kubectl get. We don't want to divert.
 	objs := make([]kruntime.Object, len(infos))
 	for i, info := range infos {
 		objs[i] = info.Object
@@ -394,20 +393,20 @@ func (c *cmd) printGeneric(kongCtx *kong.Context, infos []*cliresource.Info) err
 
 		// take the items and create a new list for display
 		list := &unstructured.UnstructuredList{
-			Object: map[string]interface{}{
+			Object: map[string]any{
 				"kind":       "List",
 				"apiVersion": "v1",
-				"metadata":   map[string]interface{}{},
+				"metadata":   map[string]any{},
 			},
 		}
 		if listMeta, err := meta.ListAccessor(obj); err == nil {
-			list.Object["metadata"] = map[string]interface{}{
+			list.Object["metadata"] = map[string]any{
 				"resourceVersion": listMeta.GetResourceVersion(),
 			}
 		}
 
 		for _, item := range items {
-			list.Items = append(list.Items, *item.(*unstructured.Unstructured))
+			list.Items = append(list.Items, *item.(*unstructured.Unstructured)) //nolint:forcetypeassert // From above.
 		}
 		if err := printer.PrintObj(list, kongCtx.Stdout); err != nil {
 			errs = append(errs, err)
@@ -468,10 +467,10 @@ func createQuerySpec(nname types.NamespacedName, gk metav1.GroupKind, categories
 			obj = &common.JSON{Object: true} // everything
 		}
 	case "name":
-		obj = &common.JSON{Object: map[string]interface{}{
+		obj = &common.JSON{Object: map[string]any{
 			"kind":       true,
 			"apiVersion": true,
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      true,
 				"namespace": true,
 			},
@@ -513,8 +512,10 @@ func shouldGetNewPrinterForMapping(printer printers.ResourcePrinter, lastMapping
 	return printer == nil || lastMapping == nil || mapping == nil || mapping.Resource != lastMapping.Resource
 }
 
+// RESTScopeNameFunc is a REST scope name.
 type RESTScopeNameFunc string
 
+// Name returns the name.
 func (f RESTScopeNameFunc) Name() meta.RESTScopeName {
 	if f == "" {
 		return meta.RESTScopeNameRoot
@@ -576,10 +577,10 @@ func checkQueryAPIAvailability(kubeconfig *rest.Config) error { //nolint:gocyclo
 	}
 
 	if !foundV1alpha1 && foundLaterVersion {
-		return errors.Errorf("server does not support the %s/%s API anymore. Update 'up' to a later version.", queryv1alpha2.Group, queryv1alpha2.Version)
+		return errors.Errorf("server does not support the %s/%s API anymore; update 'up' to a later version", queryv1alpha2.Group, queryv1alpha2.Version)
 	}
 	if !foundV1alpha1 && !foundLaterVersion {
-		return errors.Errorf("server does not support the %s/%s API. Make sure the 'apollo' tech preview feature is enabled on the Space.", queryv1alpha2.Group, queryv1alpha2.Version)
+		return errors.Errorf("server does not support the %s/%s API; make sure the 'apollo' tech preview feature is enabled on the Space", queryv1alpha2.Group, queryv1alpha2.Version)
 	}
 
 	return nil

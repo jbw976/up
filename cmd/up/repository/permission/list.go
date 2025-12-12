@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -27,14 +25,8 @@ type listCmd struct {
 	TeamName string `arg:"" help:"Name of the team." required:""`
 }
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	// Get account details
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
@@ -76,19 +68,19 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return errors.Wrap(err, "cannot list permissions")
 	}
 	if len(resp.Permissions) == 0 {
-		p.Printfln("No repository permissions found for team %s in account %s", c.TeamName, upCtx.Organization)
+		printer.Printfln("No repository permissions found for team %s in account %s", c.TeamName, upCtx.Organization)
 		return nil
 	}
 
 	fieldNames := []string{"TEAM", "REPOSITORY", "PERMISSION", "CREATED", "UPDATED"}
-	return printer.Print(resp.Permissions, fieldNames, func(obj any) []string {
+	return printer.PrintObject(resp.Permissions, fieldNames, func(obj any) []string {
 		return extractFields(obj, teamIDToName)
 	})
 }
 
 // extractFields extracts the fields for printing.
 func extractFields(obj any, teamIDToName map[uuid.UUID]string) []string {
-	p := obj.(repositorypermission.Permission) //nolint:forcetypeassert // Type assertion will always be true because of what's passed to printer.Print above.
+	p, _ := obj.(repositorypermission.Permission)
 
 	updated := "n/a"
 	if p.UpdatedAt != nil {

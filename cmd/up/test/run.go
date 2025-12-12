@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	chainsawapis "github.com/kyverno/chainsaw/pkg/apis"
@@ -23,7 +24,6 @@ import (
 	chainsawchecks "github.com/kyverno/chainsaw/pkg/engine/checks"
 	chainsawerrors "github.com/kyverno/chainsaw/pkg/engine/operations/errors"
 	chainsawcompilers "github.com/kyverno/kyverno-json/pkg/core/compilers"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +38,7 @@ import (
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/schemas/runner"
+	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/test"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -89,10 +90,6 @@ type runCmd struct {
 	keychain           authn.Keychain
 	concurrency        uint
 	proj               *project.WithVersion
-
-	textPrinter  pterm.TextPrinter
-	printer      upterm.ObjectPrinter
-	asyncWrapper async.WrapperFunc
 }
 
 //go:embed help/run.md
@@ -103,7 +100,7 @@ func (c *runCmd) Help() string {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter, textPrinter pterm.TextPrinter) error {
+func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	// Read the project file.
@@ -181,24 +178,11 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, print
 	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
-	c.printer = printer
-	c.textPrinter = textPrinter
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
-
 	return nil
 }
 
 // Run is the body of the command.
-func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger) error {
-	upterm.DefaultObjPrinter.Pretty = true
-
+func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer, log logging.Logger) error {
 	if c.UseCurrentContext && !c.Force {
 		if err := c.confirmUseCurrentContext(upCtx); err != nil {
 			return err
@@ -207,7 +191,7 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 
 	var err error
 	var parsedTests []any
-	if err = upterm.WrapWithSuccessSpinner(
+	if err = printer.WrapWithSuccessSpinner(
 		"Parsing tests",
 		func() error {
 			if err := apis.GenerateSchema(ctx, c.m.SchemaManager()); err != nil {
@@ -224,13 +208,12 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 
 			return nil
 		},
-		c.printer,
 	); err != nil {
 		return err
 	}
 
 	if len(parsedTests) == 0 {
-		pterm.Error.Println("No test files found")
+		printer.PrintError("No test files found")
 		return nil
 	}
 
@@ -247,9 +230,9 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 			return errors.Wrap(err, "unable to validate e2e tests")
 		}
 
-		ttotal, tsuccess, terr, err = c.runE2ETests(ctx, upCtx, tests)
+		ttotal, tsuccess, terr, err = c.runE2ETests(ctx, upCtx, tests, printer)
 		if err != nil {
-			displayTestResults(ttotal, tsuccess, terr)
+			displayTestResults(printer, ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute e2e tests")
 		}
 	case c.Operation:
@@ -258,9 +241,9 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 			return errors.Wrap(err, "unable to validate operation tests")
 		}
 
-		ttotal, tsuccess, terr, err = c.runOperationTests(ctx, upCtx, log, tests)
+		ttotal, tsuccess, terr, err = c.runOperationTests(ctx, upCtx, log, tests, printer)
 		if err != nil {
-			displayTestResults(ttotal, tsuccess, terr)
+			displayTestResults(printer, ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute operation tests")
 		}
 	default:
@@ -268,14 +251,14 @@ func (c *runCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Lo
 		if err != nil {
 			return errors.Wrap(err, "unable to validate composition tests")
 		}
-		ttotal, tsuccess, terr, err = c.runCompositionTests(ctx, upCtx, log, tests)
+		ttotal, tsuccess, terr, err = c.runCompositionTests(ctx, upCtx, log, tests, printer)
 		if err != nil {
-			displayTestResults(ttotal, tsuccess, terr)
+			displayTestResults(printer, ttotal, tsuccess, terr)
 			return errors.Wrap(err, "unable to execute composition tests")
 		}
 	}
 
-	displayTestResults(ttotal, tsuccess, terr)
+	displayTestResults(printer, ttotal, tsuccess, terr)
 	// Return an error if there were failed tests
 	if terr > 0 {
 		return err
@@ -339,7 +322,7 @@ func setEnvVars(vars map[string]string) (cleanup func(), err error) {
 	return cleanup, nil
 }
 
-func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane) (name.Tag, error) {
+func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane, printer upterm.Printer) (name.Tag, error) {
 	if sl, ok := devCtp.(ctp.SideloadingControlPlane); ok {
 		tagStr := fmt.Sprintf("%s:v0.0.0-%d", c.proj.Spec.Repository, time.Now().Unix())
 		tag, err := name.NewTag(tagStr, name.StrictValidation)
@@ -347,15 +330,15 @@ func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context,
 			return tag, errors.Wrap(err, "failed to construct image tag")
 		}
 
-		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
+		err = printer.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
 			return sl.Sideload(ctx, imgMap, tag)
-		}, c.printer)
+		})
 
 		return tag, err
 	}
 
 	var generatedTag name.Tag
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		pusher := project.NewPusher(
 			project.PushWithUpboundContext(upCtx),
 			project.PushWithTransport(c.transport),
@@ -376,11 +359,10 @@ func (c *runCmd) pushOrLoadPackages(ctx context.Context, upCtx *upbound.Context,
 	return generatedTag, err
 }
 
-func displayTestResults(ttotal, tsuccess, terr int) {
-	pterm.DisableStyling()
-	printlnFunc := pterm.Success.Println
+func displayTestResults(p upterm.Printer, ttotal, tsuccess, terr int) {
+	printlnFunc := p.PrintSuccess
 	if terr > 0 {
-		printlnFunc = pterm.Error.Println
+		printlnFunc = p.PrintError
 	}
 
 	printlnFunc()
@@ -391,7 +373,7 @@ func displayTestResults(ttotal, tsuccess, terr int) {
 	printlnFunc("Failed tests:        ", terr)
 }
 
-func assertions(ctx context.Context, output, testName string, expectedAssertions []runtime.RawExtension, ch async.EventChannel) error {
+func assertions(ctx context.Context, output, testName string, expectedAssertions []runtime.RawExtension, ch async.EventChannel, p upterm.Printer) error {
 	statusStage := fmt.Sprintf("Assert %s", testName)
 	ch.SendEvent(statusStage, async.EventStatusStarted)
 
@@ -408,7 +390,7 @@ func assertions(ctx context.Context, output, testName string, expectedAssertions
 
 	if len(assertionErrors) > 0 {
 		finalErr := formatErrors(assertionErrors)
-		upterm.PrintColoredError(finalErr)
+		p.Print(formatDiffError(finalErr))
 		ch.SendEvent(statusStage, async.EventStatusFailure)
 		return finalErr
 	}
@@ -416,6 +398,37 @@ func assertions(ctx context.Context, output, testName string, expectedAssertions
 	ch.SendEvent(statusStage, async.EventStatusSuccess)
 
 	return nil
+}
+
+func formatDiffError(err error) string {
+	var (
+		red    = lipgloss.NewStyle().Foreground(style.RedColor)
+		yellow = lipgloss.NewStyle().Foreground(style.YellowColor)
+		green  = lipgloss.NewStyle().Foreground(style.GreenColor)
+	)
+
+	errorLines := strings.SplitSeq(err.Error(), "\n")
+
+	bld := &strings.Builder{}
+	for line := range errorLines {
+		switch {
+		case strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "----"):
+			bld.WriteString(red.Render(line)) // Expected
+		case strings.HasPrefix(line, "+++"):
+			bld.WriteString(green.Render(line)) // Actual
+		case strings.HasPrefix(line, "@@"):
+			bld.WriteString(yellow.Render(line)) // Context lines
+		case strings.HasPrefix(line, "- "):
+			bld.WriteString(red.Render(line)) // Removed lines
+		case strings.HasPrefix(line, "+ "):
+			bld.WriteString(green.Render(line)) // Added lines
+		default:
+			bld.WriteString(line) // Default text
+		}
+		bld.WriteString("\n")
+	}
+
+	return bld.String()
 }
 
 func parseManifests(output string) []string {

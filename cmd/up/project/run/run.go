@@ -14,7 +14,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +29,6 @@ import (
 	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kube"
@@ -92,10 +90,6 @@ type Cmd struct {
 	ensureDevControlPlane func(context.Context, *upbound.Context, ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error)
 	installConfiguration  func(context.Context, client.Client, string, name.Tag, async.EventChannel) error
 
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
-	printer      upterm.ObjectPrinter
-
 	kubeconfigPath string
 
 	proj *project.WithVersion
@@ -110,7 +104,7 @@ func (c *Cmd) Help() string {
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, flags upbound.Flags) error {
+func (c *Cmd) AfterApply(upCtx *upbound.Context, flags upbound.Flags) error {
 	c.kubeconfigPath = flags.Kube.Kubeconfig
 	c.concurrency = max(1, c.MaxConcurrency)
 
@@ -182,22 +176,11 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter, f
 	}
 	c.m = m
 
-	c.printer = printer
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
-
 	return nil
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocognit // This could be refactored a bit, but isn't too bad.
 	if c.UseCurrentContext && !c.Force {
 		if err := c.confirmUseCurrentContext(upCtx); err != nil {
 			return err
@@ -236,7 +219,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		imgMap project.ImageTagMap
 		devCtp ctp.DevControlPlane
 	)
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		opts := []ctp.EnsureDevControlPlaneOption{
@@ -317,14 +300,14 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		}
 	}
 
-	generatedTag, err := c.pushOrLoadPackages(ctx, imgMap, devCtp)
+	generatedTag, err := c.pushOrLoadPackages(ctx, imgMap, devCtp, printer)
 	if err != nil {
 		return err
 	}
 
-	if err := upterm.WrapWithSuccessSpinner("Applying init resources", func() error {
+	if err := printer.WrapWithSuccessSpinner("Applying init resources", func() error {
 		return kube.ApplyResources(ctx, devCtp.Client(), c.initResources)
-	}, c.printer); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -335,21 +318,19 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		readyCtx = timeoutCtx
 	}
 
-	if err := c.asyncWrapper(func(ch async.EventChannel) error {
+	if err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		return c.installConfiguration(readyCtx, devCtp.Client(), c.proj.Name, generatedTag, ch)
 	}); err != nil {
 		return err
 	}
 
-	if err := upterm.WrapWithSuccessSpinner("Applying extra resources", func() error {
+	if err := printer.WrapWithSuccessSpinner("Applying extra resources", func() error {
 		return kube.ApplyResources(ctx, devCtp.Client(), c.extraResources)
-	}, c.printer); err != nil {
+	}); err != nil {
 		return err
 	}
 
-	if !c.printer.Quiet {
-		pterm.Println(devCtp.Info())
-	}
+	printer.Println(devCtp.Info())
 
 	if !c.UseCurrentContext && !c.NoUpdateKubeconfig {
 		ctpKubeconfig, err := devCtp.Kubeconfig().RawConfig()
@@ -361,17 +342,15 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		if err := w.Write(&ctpKubeconfig); err != nil {
 			return err
 		}
-		pterm.Printfln("Kubeconfig updated. Current context is %q.", ctpKubeconfig.CurrentContext)
+		printer.Printfln("Kubeconfig updated. Current context is %q.", ctpKubeconfig.CurrentContext)
 	}
 
-	if !c.printer.Quiet {
-		vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
-		if err != nil {
-			return errors.New("this is not a project directory")
-		}
-		if vPrj.IsV1() {
-			pterm.Info.Println("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
-		}
+	vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+	if vPrj.IsV1() {
+		printer.PrintInfo("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
 	}
 
 	return nil
@@ -397,7 +376,7 @@ func (c *Cmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 	return nil
 }
 
-func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane) (name.Tag, error) {
+func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane, printer upterm.Printer) (name.Tag, error) {
 	if sl, ok := devCtp.(ctp.SideloadingControlPlane); ok {
 		tagStr := fmt.Sprintf("%s:v0.0.0-%d", c.proj.Spec.Repository, time.Now().Unix())
 		tag, err := name.NewTag(tagStr, name.StrictValidation)
@@ -405,15 +384,15 @@ func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap
 			return tag, errors.Wrap(err, "failed to construct image tag")
 		}
 
-		err = upterm.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
+		err = printer.WrapWithSuccessSpinner("Loading packages into control plane", func() error {
 			return sl.Sideload(ctx, imgMap, tag)
-		}, c.printer)
+		})
 
 		return tag, err
 	}
 
 	var generatedTag name.Tag
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),

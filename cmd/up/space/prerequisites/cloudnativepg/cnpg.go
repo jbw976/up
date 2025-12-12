@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	apixv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/upterm"
 )
 
 const (
@@ -52,11 +52,12 @@ type CNPGOperator struct {
 	mgr       install.Manager
 	crdclient *apixv1client.ApiextensionsV1Client
 	kclient   kubernetes.Interface
+	printer   upterm.Printer
 }
 
 // New constructs a new OpenTelemetryCollectorMgr instance that can used to install the
 // opentelemetry-operator chart.
-func New(config *rest.Config) (*CNPGOperator, error) {
+func New(config *rest.Config, p upterm.Printer) (*CNPGOperator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*cnpgURL,
@@ -78,6 +79,7 @@ func New(config *rest.Config) (*CNPGOperator, error) {
 		mgr:       mgr,
 		crdclient: crdclient,
 		kclient:   kclient,
+		printer:   p,
 	}, nil
 }
 
@@ -119,28 +121,6 @@ func (o *CNPGOperator) Install() error {
 	return o.waitUntilReady()
 }
 
-// waitUntilReady waits until the cnpg pod is ready, or
-// until the timeout.
-func (o *CNPGOperator) waitUntilReady() error {
-	return errors.Wrap(wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := o.kclient.CoreV1().Pods(chartNamespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/name=cloudnative-pg",
-		})
-		if err != nil {
-			pterm.Info.Printf("Cannot list pods in namespace %q: %v \n", chartNamespace, err)
-			return false, err
-		}
-		if pods == nil || len(pods.Items) != 1 {
-			pterm.Info.Println("Cannot find the cloudnative-pg pod...")
-			return false, err
-		}
-		if podutils.IsPodReady(&pods.Items[0]) {
-			return true, nil
-		}
-		return false, nil
-	}), "failed to wait for cloudnative-pg pod to be ready")
-}
-
 // IsInstalled checks if cnpg operator has been installed in the target cluster.
 func (o *CNPGOperator) IsInstalled() (bool, error) {
 	_, err := o.crdclient.
@@ -157,4 +137,26 @@ func (o *CNPGOperator) IsInstalled() (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// waitUntilReady waits until the cnpg pod is ready, or
+// until the timeout.
+func (o *CNPGOperator) waitUntilReady() error {
+	return errors.Wrap(wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := o.kclient.CoreV1().Pods(chartNamespace).List(ctx, metav1.ListOptions{
+			LabelSelector: "app.kubernetes.io/name=cloudnative-pg",
+		})
+		if err != nil {
+			o.printer.PrintInfo(fmt.Sprintf("Cannot list pods in namespace %q: %v", chartNamespace, err))
+			return false, err
+		}
+		if pods == nil || len(pods.Items) != 1 {
+			o.printer.PrintInfo("Cannot find the cloudnative-pg pod...")
+			return false, err
+		}
+		if podutils.IsPodReady(&pods.Items[0]) {
+			return true, nil
+		}
+		return false, nil
+	}), "failed to wait for cloudnative-pg pod to be ready")
 }

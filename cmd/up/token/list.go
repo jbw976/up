@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package token contains commands for working with personal user tokens.
 package token
 
 import (
@@ -9,8 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/upbound/up-sdk-go/service/common"
@@ -23,17 +20,11 @@ import (
 //nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "CREATED"}
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // listCmd list all tokens from current user.
 type listCmd struct{}
 
 // Run executes the list personal access tokens command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ui *userinfo.Client, uc *users.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, ui *userinfo.Client, uc *users.Client, upCtx *upbound.Context) error {
 	// get the userID
 	u, err := ui.Get(ctx)
 	if err != nil {
@@ -45,10 +36,10 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		p.Printfln("No personal access tokens found for user %s", upCtx.Profile.ID)
+		printer.Printfln("No personal access tokens found for user %s", upCtx.Profile.ID)
 		return nil
 	}
-	return printer.Print(ts.DataSet, fieldNames, extractFields)
+	return printer.PrintObject(ts.DataSet, fieldNames, extractFields)
 }
 
 func extractFields(obj any) []string {

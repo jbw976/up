@@ -6,8 +6,6 @@ package group
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,15 +16,8 @@ import (
 // listCmd list groups in a space.
 type listCmd struct{}
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-
-	return nil
-}
-
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client ctrlclient.Client) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.ResultPrinter, client ctrlclient.Client) error {
 	// list groups
 	var (
 		nss        corev1.NamespaceList
@@ -37,5 +28,5 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client 
 		return err
 	}
 
-	return printer.Print(nss.Items, fieldNames, extractGroupFields)
+	return printer.PrintObject(nss.Items, fieldNames, extractGroupFields)
 }

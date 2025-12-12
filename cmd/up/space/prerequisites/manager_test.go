@@ -4,6 +4,7 @@
 package prerequisites
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/upbound/up/cmd/up/space/prerequisites/providers/helm"
 	"github.com/upbound/up/cmd/up/space/prerequisites/providers/kubernetes"
 	"github.com/upbound/up/cmd/up/space/prerequisites/uxp"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // Mock implementations or test helpers would be needed for uxp, kubernetes, helm, certmanager, ingressnginx, and opentelemetrycollector.
@@ -121,7 +123,8 @@ func TestNew(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			features := tc.args.setupFeatures() // Initialize feature flags using setup function
-			manager, err := New(tc.args.config, tc.args.defs, features, tc.args.versionStr)
+			p := upterm.NewTestPrinter()
+			manager, err := New(tc.args.config, tc.args.defs, features, tc.args.versionStr, p)
 
 			if tc.want.expectError {
 				if err == nil {
@@ -163,14 +166,7 @@ func TestNew(t *testing.T) {
 					t.Fatalf("expected %d prerequisites, got %d", len(tc.want.expectedPrereqs), len(prereqTypes))
 				}
 				for _, expectedPrereq := range tc.want.expectedPrereqs {
-					found := false
-					for _, prereq := range prereqTypes {
-						if expectedPrereq == prereq {
-							found = true
-							break
-						}
-					}
-					if !found {
+					if !slices.Contains(prereqTypes, expectedPrereq) {
 						t.Fatalf("expected prerequisite %q not found", expectedPrereq)
 					}
 				}

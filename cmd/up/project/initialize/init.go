@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package initialize provides commands for initializing new development projects.
+// Package initialize contains commands for initializing development projects.
 package initialize
 
 import (
@@ -15,7 +15,6 @@ import (
 	gotemplate "text/template"
 
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/upbound/up/internal/git"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 
 	_ "embed"
@@ -168,6 +168,67 @@ func (c *Cmd) AfterApply(cmdRunner runner.CommandRunner) error {
 	return nil
 }
 
+// Run executes the project initialization process, handling template cloning,
+// language selection, and project file generation.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p upterm.Printer) error {
+	var wiz *wizardResult
+
+	if !c.Scratch && c.Template == "" {
+		var err error
+		wiz, err = c.runWizard(upCtx, p)
+		if err != nil {
+			return err
+		}
+
+		c.Scratch = wiz.state.Template == string(wizard.BlankProjectTemplate)
+		c.Template = wiz.state.Template
+		c.Language = string(wiz.state.FuncLang)
+		c.TestLanguage = string(wiz.state.TestLang)
+	}
+
+	p.Printfln("Initializing project from template %q...", c.Template)
+	ref, err := c.initializeProjectFromTemplate(upCtx, p)
+	if err != nil {
+		return err
+	}
+	repoURL := template.ResolveTemplateURL(c.Template).URL
+
+	// if we got here from the wizard, we need to generate the resources
+	if wiz != nil {
+		err = wiz.wizard.GenerateResources(wiz.state)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := c.updateProject(ctx, upCtx); err != nil {
+		return err
+	}
+
+	p.PrintSuccess(fmt.Sprintf(
+		"Successfully initialized project %q in directory %q from %s (%s)",
+		c.Name, filesystem.FullPath(c.projFS, ""), repoURL, ref.Name().Short(),
+	))
+
+	// if we got here from the wizard, we need to print the next steps
+	if wiz != nil && c.Scratch {
+		wiz.wizard.PrintNextSteps(wiz.state, p)
+	}
+
+	if !c.Scratch {
+		notes, err := c.getProjectNotes()
+		if err != nil {
+			return err
+		}
+		if notes != "" {
+			p.PrintInfo("Notes:")
+			p.PrintInfo(notes)
+		}
+	}
+
+	return nil
+}
+
 // we support local file, https, and ssh transport protocols. Infer the protocol from the template url.
 func (c *Cmd) detectProtocol() error {
 	repoURL := c.Template
@@ -207,71 +268,12 @@ func (c *Cmd) detectProtocol() error {
 	return nil
 }
 
-// Run executes the project initialization process, handling template cloning,
-// language selection, and project file generation.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p pterm.TextPrinter) error {
-	var wiz *wizardResult
-
-	if !c.Scratch && c.Template == "" {
-		var err error
-		wiz, err = c.runWizard()
-		if err != nil {
-			return err
-		}
-
-		c.Scratch = wiz.state.Template == string(wizard.BlankProjectTemplate)
-		c.Template = wiz.state.Template
-		c.Language = string(wiz.state.FuncLang)
-		c.TestLanguage = string(wiz.state.TestLang)
-	}
-
-	pterm.Info.Printfln("Initializing project from template %q...", c.Template)
-	ref, err := c.initializeProjectFromTemplate(upCtx, p)
-	if err != nil {
-		return err
-	}
-	repoURL := template.ResolveTemplateURL(c.Template).URL
-
-	// if we got here from the wizard, we need to generate the resources
-	if wiz != nil {
-		err = wiz.wizard.GenerateResources(wiz.state)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := c.updateProject(ctx, upCtx); err != nil {
-		return err
-	}
-
-	pterm.Success.Printfln("Successfully initialized project %q in directory %q from %s (%s)",
-		c.Name, filesystem.FullPath(c.projFS, ""), repoURL, ref.Name().Short())
-
-	// if we got here from the wizard, we need to print the next steps
-	if wiz != nil && c.Scratch {
-		wiz.wizard.PrintNextSteps(wiz.state)
-	}
-
-	if !c.Scratch {
-		notes, err := c.getProjectNotes()
-		if err != nil {
-			return err
-		}
-		if notes != "" {
-			pterm.Info.Println("Notes:")
-			pterm.Info.Println(notes)
-		}
-	}
-
-	return nil
-}
-
 type wizardResult struct {
 	wizard *wizard.Wizard
 	state  wizard.State
 }
 
-func (c *Cmd) runWizard() (*wizardResult, error) {
+func (c *Cmd) runWizard(upCtx *upbound.Context, p upterm.Printer) (*wizardResult, error) {
 	w := &wizard.Wizard{
 		StatePath:   c.statePath,
 		Runner:      c.runner,
@@ -285,12 +287,12 @@ func (c *Cmd) runWizard() (*wizardResult, error) {
 	}
 
 	var err error
-	result.state, err = w.Run()
+	result.state, err = w.Run(upCtx, p)
 
 	return result, err
 }
 
-func (c *Cmd) initializeProjectFromTemplate(upCtx *upbound.Context, p pterm.TextPrinter) (*plumbing.Reference, error) {
+func (c *Cmd) initializeProjectFromTemplate(upCtx *upbound.Context, p upterm.Printer) (*plumbing.Reference, error) {
 	// Resolve template URL
 	templateURL := template.ResolveTemplateURL(c.Template)
 
@@ -338,7 +340,7 @@ func (c *Cmd) updateProject(ctx context.Context, upCtx *upbound.Context) error {
 	}
 
 	if err := project.Update(c.projFS, c.projFile, func(proj *v2alpha1.Project) {
-		proj.ObjectMeta.Name = c.Name
+		proj.Name = c.Name
 	}); err != nil {
 		return errors.Wrap(err, "failed to update project metadata")
 	}

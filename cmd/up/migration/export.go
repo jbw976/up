@@ -6,7 +6,6 @@ package migration
 import (
 	"context"
 
-	"github.com/pterm/pterm"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -59,7 +58,7 @@ func (c *exportCmd) BeforeApply() error {
 	return nil
 }
 
-func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
+func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context, printer upterm.Printer) error {
 	cfg := migCtx.Kubeconfig
 
 	crdClient, err := apiextensionsclientset.NewForConfig(cfg)
@@ -99,12 +98,12 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context) error {
 		}
 	}
 
-	pterm.Println("Exporting control plane state...")
+	printer.Println("Exporting control plane state...")
 	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
 
 	if err = e.Export(ctx); err != nil {
 		return err
 	}
-	pterm.Println("\nSuccessfully exported control plane state!")
+	printer.Println("\nSuccessfully exported control plane state!")
 	return nil
 }

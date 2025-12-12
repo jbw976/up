@@ -68,7 +68,7 @@ func (c *collectCmd) AfterApply() error {
 }
 
 // Run executes the support bundle collection.
-func (c *collectCmd) Run(ctx context.Context) error {
+func (c *collectCmd) Run(ctx context.Context, p upterm.Printer) error {
 	restConfig, err := kube.GetKubeConfig(c.Kubeconfig)
 	if err != nil {
 		return errors.Wrap(err, "failed to get kubeconfig")
@@ -139,7 +139,9 @@ func (c *collectCmd) Run(ctx context.Context) error {
 	}
 	spinner.Success()
 
-	fmt.Printf("\nSupport bundle collected successfully: %s\n", response.ArchivePath) //nolint:forbidigo // It's a CLI.
+	p.Println()
+	p.Printfln("Support bundle collected successfully: %s", response.ArchivePath)
+
 	return nil
 }
 

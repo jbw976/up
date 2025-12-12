@@ -6,13 +6,12 @@ package profile
 import (
 	"context"
 
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	ctxcmd "github.com/upbound/up/cmd/up/ctx"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -33,7 +32,7 @@ func (c *useCmd) Help() string {
 }
 
 // Run executes the Use command.
-func (c *useCmd) Run(ctx context.Context, upCtx *upbound.Context, flags upbound.Flags, p pterm.TextPrinter) error {
+func (c *useCmd) Run(ctx context.Context, upCtx *upbound.Context, flags upbound.Flags, p upterm.Printer) error {
 	if err := upCtx.Cfg.SetDefaultUpboundProfile(c.Name); err != nil {
 		return err
 	}

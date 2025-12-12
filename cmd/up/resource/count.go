@@ -79,5 +79,5 @@ func (c *countCmd) printCounts(printer upterm.Printer, counts *counter.ResourceC
 		{ResourceType: "Composed Resources", Count: counts.ComposedResources},
 		{ResourceType: "Total Resources", Count: counts.TotalResources},
 	}
-	return printer.Print(rows, fieldNames, extractFields)
+	return printer.PrintObject(rows, fieldNames, extractFields)
 }

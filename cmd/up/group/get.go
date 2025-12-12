@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,15 +20,8 @@ type getCmd struct {
 	Name string `arg:"" help:"Name of group." required:""`
 }
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-
-	return nil
-}
-
 // Run executes the list command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client client.Client) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ResultPrinter, client client.Client) error {
 	// list groups
 	var (
 		ns         corev1.Namespace
@@ -46,5 +37,5 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client c
 		return fmt.Errorf("namespace %q is not a group", c.Name)
 	}
 
-	return printer.Print(ns, fieldNames, extractGroupFields)
+	return printer.PrintObject(ns, fieldNames, extractGroupFields)
 }

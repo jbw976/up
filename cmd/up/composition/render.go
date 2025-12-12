@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -18,7 +17,6 @@ import (
 	v1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/upbound"
@@ -76,18 +74,14 @@ type renderCmd struct {
 
 	m *project.DependencyManager
 	r manager.ImageResolver
-
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *renderCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
-	c.concurrency = max(1, c.MaxConcurrency)
-
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
+func (c *renderCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	ctx := context.Background()
+
+	c.concurrency = max(1, c.MaxConcurrency)
 
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -152,22 +146,12 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, pr
 	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
-
 	return nil
 }
 
-func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger, printer upterm.ObjectPrinter) error {
+func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging.Logger, printer upterm.Printer) error {
 	var efns []v1.Function
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
 			Project:            c.proj,
 			ProjFS:             c.projFS,
@@ -214,19 +198,18 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 	defer cancel()
 
 	var output string
-	if err = upterm.WrapWithSuccessSpinner("Rendering", func() error {
+	if err = printer.WrapWithSuccessSpinner("Rendering", func() error {
 		output, err = render.Render(renderCtx, log, efns, options)
 		if err != nil {
 			return errors.Wrap(err, "unable to render function")
 		}
 		return nil
 	},
-		printer,
 	); err != nil {
 		return err
 	}
 
-	pterm.Print(output)
+	printer.PrintResult(output)
 	return nil
 }
 

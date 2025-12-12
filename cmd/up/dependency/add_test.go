@@ -358,8 +358,7 @@ func (tc *addTestCase) Run(t *testing.T) {
 	assert.NilError(t, err)
 
 	// Add the dependency.
-	printer := upterm.DefaultObjPrinter
-	printer.Quiet = true
+	printer := upterm.NewTestPrinter()
 	cmd := &addCmd{
 		m:           mgr,
 		proj:        inputProj,

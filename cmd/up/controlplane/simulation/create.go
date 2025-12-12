@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,7 +28,6 @@ import (
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/requires"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/simulation"
@@ -79,8 +77,6 @@ type CreateCmd struct {
 	Wait              bool            `default:"true"                                                                                              help:"Wait for the simulation to complete. If set to false, the command will exit immediately after the changeset is applied"`
 	TerminateOnFinish bool            `default:"false"                                                                                             help:"Terminate the simulation after the completion criteria is met"`
 
-	quiet config.QuietFlag
-
 	debugLevel int
 }
 
@@ -103,7 +99,7 @@ func (c *CreateCmd) Validate() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, quiet config.QuietFlag) error {
+func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	if c.Group == "" {
 		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
@@ -113,13 +109,12 @@ func (c *CreateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, qu
 	}
 
 	c.debugPrintf(kongCtx.Stderr, "debug logging enabled\n")
-	c.quiet = quiet
 	c.debugLevel = upCtx.DebugLevel
 	return nil
 }
 
 // Run executes the create command.
-func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.TextPrinter, upCtx *upbound.Context, spacesClient client.Client, printer upterm.ObjectPrinter) error { //nolint:gocyclo // TODO: simplify this
+func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, spacesClient client.Client, printer upterm.Printer) error { //nolint:gocyclo // TODO: simplify this
 	var srcCtp spacesv1beta1.ControlPlane
 	if err := spacesClient.Get(ctx, types.NamespacedName{Name: c.SourceName, Namespace: c.Group}, &srcCtp); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -141,13 +136,12 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 		return errors.Wrap(err, "error starting simulation")
 	}
 
-	p.Printfln("Simulation %q created", run.Simulation().Name)
+	printer.Printfln("Simulation %q created", run.Simulation().Name)
 
 	// wait for simulated ctp to be able to accept changes
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulated control plane to start", 1, totalSteps),
 		waitForConditionStep(ctx, spacesClient, run, simulation.AcceptingChanges(), wait.WithTimeout(controlPlaneReadyTimeout)),
-		printer,
 	); err != nil {
 		return err
 	}
@@ -158,26 +152,24 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 	}
 
 	// apply changeset
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Applying the changeset to the simulation control plane", 2, totalSteps),
 		c.applyChangesetStep(simConfig),
-		printer,
 	); err != nil {
 		return err
 	}
 
 	if !c.Wait {
-		p.Printf("The simulation was started and the changeset was applied")
+		printer.Printfln("The simulation was started and the changeset was applied")
 		return nil
 	}
 
 	// wait for simulation to complete
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Waiting for simulation to complete", 3, totalSteps),
 		// Give ourselves a little extra time so that the simulation can be
 		// completed and the status is updated before our wait times out.
 		waitForConditionStep(ctx, spacesClient, run, simulation.Complete(), wait.WithTimeout(*c.CompleteAfter+1*time.Minute)),
-		printer,
 	); err != nil {
 		return err
 	}
@@ -186,13 +178,12 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 
 	// compute + print diff
 	var diffSet []diff.ResourceDiff
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Computing simulated differences", 4, totalSteps),
 		func() error {
 			diffSet, err = run.DiffSet(ctx, upCtx, []schema.GroupKind{})
 			return err
 		},
-		printer,
 	); err != nil {
 		return err
 	}
@@ -201,18 +192,17 @@ func (c *CreateCmd) Run(ctx context.Context, kongCtx *kong.Context, p pterm.Text
 
 	if c.TerminateOnFinish {
 		// terminate simulation
-		if err := upterm.WrapWithSuccessSpinner(
+		if err := printer.WrapWithSuccessSpinner(
 			upterm.StepCounter("Terminating simulation", 5, totalSteps),
 			func() error {
 				return run.Terminate(ctx, spacesClient)
 			},
-			printer,
 		); err != nil {
 			return err
 		}
 	}
 
-	if err := c.outputDiff(kongCtx, diffSet); err != nil {
+	if err := c.outputDiff(printer, diffSet); err != nil {
 		return errors.Wrap(err, "failed to write diff to output")
 	}
 
@@ -283,7 +273,7 @@ func (c *CreateCmd) applyChangesetStep(config *rest.Config) func() error {
 
 // outputDiff outputs the diff to the location, and in the format, specified by
 // the command line arguments.
-func (c *CreateCmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff) error {
+func (c *CreateCmd) outputDiff(printer upterm.Printer, diffSet []diff.ResourceDiff) error {
 	stdout := c.Output == ""
 
 	// todo(redbackthomson): Use a different printer for JSON or YAML output
@@ -292,12 +282,9 @@ func (c *CreateCmd) outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDif
 	_ = writer.Write(diffSet)
 
 	if stdout {
-		if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
-			return errors.Wrap(err, "failed to write output")
-		}
-		if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
-			return errors.Wrap(err, "failed to write output")
-		}
+		printer.Println()
+		printer.Println()
+		printer.PrintResult(buf.String())
 		return nil
 	}
 

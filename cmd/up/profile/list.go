@@ -6,20 +6,12 @@ package profile
 import (
 	"sort"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
-
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
 
 type listCmd struct{}
 
@@ -31,7 +23,7 @@ func (c *listCmd) Help() string {
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upbound.Context) error {
+func (c *listCmd) Run(p upterm.Printer, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println("No profiles found")
@@ -59,19 +51,23 @@ func (c *listCmd) Run(p pterm.TextPrinter, pt *pterm.TablePrinter, upCtx *upboun
 		return err
 	}
 
-	data := make([][]string, len(redacted)+1)
+	data := make([][]string, len(redacted))
 	cursor := ""
 
-	data[0] = []string{"CURRENT", "NAME", "TYPE", "ORGANIZATION"}
+	fieldNames := []string{"CURRENT", "NAME", "TYPE", "ORGANIZATION"}
 	for i, name := range profileNames {
 		if name == dprofile {
 			cursor = "*"
 		}
 		prof := redacted[name]
-		data[i+1] = []string{cursor, name, string(prof.Type), prof.Organization}
+		data[i] = []string{cursor, name, string(prof.Type), prof.Organization}
 
 		cursor = "" // reset cursor
 	}
 
-	return pt.WithHasHeader().WithData(data).Render()
+	return p.PrintObject(data, fieldNames, extractFields)
+}
+
+func extractFields(p any) []string {
+	return p.([]string) //nolint:forcetypeassert // Constructed above.
 }

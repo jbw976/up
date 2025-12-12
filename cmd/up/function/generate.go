@@ -17,7 +17,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
 	"golang.org/x/mod/module"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/kcl"
 	"github.com/upbound/up/internal/project"
@@ -76,14 +74,11 @@ type generateCmd struct {
 	proj              *v2alpha1.Project
 
 	m *project.DependencyManager
-
-	quiet config.QuietFlag
 }
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, quiet config.QuietFlag) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
+func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	ctx := context.Background()
 
 	// Read the project file.
@@ -128,11 +123,10 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, 
 
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
-	c.quiet = quiet
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // TODO: refactor
+func (c *generateCmd) Run(ctx context.Context, printer upterm.Printer) error { //nolint:gocognit // TODO: refactor
 	var (
 		err                error
 		functionSpecificFs afero.Fs
@@ -151,7 +145,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 	isEmpty, err := filesystem.IsFsEmpty(c.functionFS)
 	if err != nil {
-		pterm.Error.Println("Failed to check if the filesystem is empty:", err)
+		printer.PrintError("Failed to check if the filesystem is empty:", err)
 		return err
 	}
 
@@ -160,18 +154,18 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		result, _ := upterm.Confirm(fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath)), false)
 
 		if !result {
-			pterm.Error.Println("The operation was cancelled. The function folder must be empty to proceed with the generation.")
+			printer.PrintError("The operation was cancelled. The function folder must be empty to proceed with the generation.")
 			return errors.New("operation cancelled by user")
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
+	err = printer.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
 		}
 		return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
-	}, printer)
+	})
 	if err != nil {
 		return err
 	}
@@ -201,7 +195,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		return errors.Errorf("unsupported language: %s", c.Language)
 	}
 
-	err = upterm.WrapWithSuccessSpinner(
+	err = printer.WrapWithSuccessSpinner(
 		"Generating Function Folder",
 		func() error {
 			if err := filesystem.CopyFilesBetweenFs(functionSpecificFs, c.functionFS); err != nil {
@@ -227,13 +221,13 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 			}
 
 			return nil
-		}, printer)
+		})
 	if err != nil {
 		return err
 	}
 
 	if c.PipelinePath != "" {
-		err = upterm.WrapWithSuccessSpinner(
+		err = printer.WrapWithSuccessSpinner(
 			"Adding Pipeline Step",
 			func() error {
 				pipe, err := c.readAndUnmarshalPipeline()
@@ -260,14 +254,13 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 
 				return nil
 			},
-			printer,
 		)
 		if err != nil {
 			return err
 		}
 	}
 
-	pterm.Printfln("successfully created Function and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
+	printer.Printfln("successfully created Function and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
 	return nil
 }
 

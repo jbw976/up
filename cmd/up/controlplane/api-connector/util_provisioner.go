@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pterm/pterm"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,21 +61,19 @@ type provisioner struct {
 	teamsClient         *teams.Client
 	tokensClient        *tokens.Client
 
-	printer       pterm.TextPrinter
-	objectPrinter upterm.ObjectPrinter
+	printer upterm.Printer
 
 	// These are used to store results for later use.
 	results provisionerResults
 }
 
-func newProvisioner(cfg *up.Config, printer pterm.TextPrinter, objectPrinter upterm.ObjectPrinter) *provisioner {
+func newProvisioner(cfg *up.Config, printer upterm.Printer) *provisioner {
 	return &provisioner{
 		robotsClient:        robots.NewClient(cfg),
 		organizationsClient: organizations.NewClient(cfg),
 		teamsClient:         teams.NewClient(cfg),
 		tokensClient:        tokens.NewClient(cfg),
 		printer:             printer,
-		objectPrinter:       objectPrinter,
 	}
 }
 
@@ -170,7 +167,7 @@ func (p *provisioner) seedToken(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create token")
 	}
-	jwtToken, ok := token.DataSet.Meta["jwt"]
+	jwtToken, ok := token.Meta["jwt"]
 	if !ok {
 		return errors.New("failed to get JWT token")
 	}

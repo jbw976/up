@@ -35,6 +35,7 @@ import (
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/undo"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/version"
 )
 
@@ -663,7 +664,14 @@ func warnAndConfirmWithSpinner(spinner *pterm.SpinnerPrinter, warning string, ar
 	defer func() {
 		spinner.IsActive = true
 	}()
-	return warnAndConfirm(warning, args...)
+
+	pterm.Warning.Printfln(warning, args...) // Display the warning message
+
+	if result, _ := upterm.Confirm("Are you sure you want to proceed?", false); !result {
+		return errors.New(errAborted)
+	}
+
+	return nil
 }
 
 // SpacesConfig struct represents the configuration settings for the spaces.

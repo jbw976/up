@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +23,7 @@ type removeCmd struct {
 	Force bool `help:"Do not ask for confirmation before removing the license."`
 }
 
-func (c *removeCmd) Run(cl client.Client) error {
+func (c *removeCmd) Run(cl client.Client, p upterm.Printer) error {
 	ctx := context.Background()
 
 	var l v1alpha1.SpaceLicense
@@ -36,7 +35,7 @@ func (c *removeCmd) Run(cl client.Client) error {
 
 	if l.Spec.SecretRef == nil {
 		// Cluster is using the default community edition license.
-		pterm.Println("Current license is the default community license, which cannot be removed.")
+		p.Println("Current license is the default community license, which cannot be removed.")
 		return nil
 	}
 
@@ -76,7 +75,7 @@ func (c *removeCmd) Run(cl client.Client) error {
 		return errors.Wrap(err, "failed to delete license secret")
 	}
 
-	pterm.Println("Successfully removed license. Use `up space license show` to check license status.")
+	p.Println("Successfully removed license. Use `up space license show` to check license status.")
 
 	return nil
 }

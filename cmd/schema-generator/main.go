@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pterm/pterm"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
@@ -35,10 +35,10 @@ import (
 )
 
 type cli struct {
-	Format config.Format    `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
-	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"                short:"q"`
-	Pretty *bool            `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
-	DryRun bool             `help:"dry-run output."      name:"dry-run"`
+	Format config.Format `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  bool          `help:"Suppress all output." name:"quiet"                short:"q"`
+	Pretty *bool         `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
+	DryRun bool          `help:"dry-run output."      name:"dry-run"`
 
 	SourceImage string `help:"The source image to pull."    required:""`
 	TargetImage string `help:"The target image to push to." required:""`
@@ -49,8 +49,6 @@ type cli struct {
 	JSONExcludes   []string `help:"List of CRD filenames to exclude from JSON schema generation."`
 
 	Flags upbound.Flags `embed:""`
-
-	printer upterm.ObjectPrinter
 }
 
 const customHelpMessage = `
@@ -85,19 +83,14 @@ func (c *cli) AfterApply(ctx *kong.Context) error {
 		pretty = term.IsTerminal(int(os.Stdout.Fd()))
 	}
 
-	pterm.EnableStyling()
-	if !pretty {
-		pterm.DisableStyling()
+	stdout := ctx.Stdout
+	if c.Quiet {
+		stdout = io.Discard
 	}
 
-	printer := upterm.DefaultObjPrinter
-	printer.Format = c.Format
-	printer.Pretty = pretty
-	printer.Quiet = c.Quiet
+	printer := upterm.NewPrinter(stdout, ctx.Stdout, c.Format, pretty)
+	ctx.BindTo(printer, (*upterm.Printer)(nil))
 
-	ctx.Bind(printer)
-	ctx.BindTo(&printer, (*upterm.Printer)(nil))
-	c.printer = printer
 	return nil
 }
 
@@ -116,12 +109,12 @@ func main() {
 	}
 }
 
-func (c *cli) Run(upCtx *upbound.Context) error {
+func (c *cli) Run(upCtx *upbound.Context, printer upterm.Printer) error {
 	ctx := context.Background()
-	return c.generateSchema(ctx, upCtx)
+	return c.generateSchema(ctx, upCtx, printer)
 }
 
-func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // schemas
+func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocyclo // schemas
 	var (
 		processedImages []v1.Image
 		mu              sync.Mutex
@@ -169,10 +162,10 @@ func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context) error 
 				return errors.Wrapf(err, "error parsing image")
 			}
 
-			err = upterm.WrapWithSuccessSpinner("Schema Generation", func() error {
+			err = printer.WrapWithSuccessSpinner("Schema Generation", func() error {
 				img, err = c.runSchemaGeneration(gCtx, parsedPkg, img, configFile.Config)
 				return err
-			}, c.printer)
+			})
 			if err != nil {
 				return errors.Wrapf(err, "error generating schema for architecture %v", desc.Platform)
 			}
@@ -203,12 +196,12 @@ func (c *cli) generateSchema(ctx context.Context, upCtx *upbound.Context) error 
 	}
 
 	// Push the new multi-arch index using remote.WriteIndex
-	err = upterm.WrapWithSuccessSpinner(fmt.Sprintf("Pushing Target Multi-Arch Image %s", c.TargetImage), func() error {
+	err = printer.WrapWithSuccessSpinner(fmt.Sprintf("Pushing Target Multi-Arch Image %s", c.TargetImage), func() error {
 		return remote.WriteIndex(
 			targetRef,
 			multiArchIndex,
 			keychain)
-	}, c.printer)
+	})
 	if err != nil {
 		return errors.Wrapf(err, "error pushing multi-arch image to registry %v", c.TargetImage)
 	}

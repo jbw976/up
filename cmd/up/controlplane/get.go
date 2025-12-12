@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,8 +21,7 @@ import (
 )
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
+func (c *getCmd) AfterApply(upCtx *upbound.Context) error {
 	// default to group pointed by current context
 	if c.Group == "" {
 		ns, err := upCtx.GetCurrentContextNamespace()
@@ -45,7 +42,7 @@ type getCmd struct {
 }
 
 // Run executes the get command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, client client.Client) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ResultPrinter, client client.Client) error {
 	var ctp spacesv1beta1.ControlPlane
 	if err := client.Get(ctx, types.NamespacedName{Namespace: c.Group, Name: c.Name}, &ctp); err != nil {
 		if kerrors.IsNotFound(err) {

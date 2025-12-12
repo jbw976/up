@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package test contains commands for working with tests project.
 package test
 
 import (
@@ -13,13 +12,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/yaml"
+
+	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/upterm"
 )
 
 func TestAssertions(t *testing.T) {
@@ -90,7 +91,7 @@ metadata:
 
 			// Convert expected YAML into runtime.RawExtensions
 			for _, yamlStr := range tt.expectedYAML {
-				var expectedObj map[string]interface{}
+				var expectedObj map[string]any
 				err := yaml.Unmarshal([]byte(yamlStr), &expectedObj)
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
@@ -104,7 +105,14 @@ metadata:
 				expectedAssertions = append(expectedAssertions, runtime.RawExtension{Raw: expectedJSON})
 			}
 
-			err := assertions(ctx, tt.output, "test", expectedAssertions, nil)
+			err := assertions(
+				ctx,
+				tt.output,
+				"test",
+				expectedAssertions,
+				nil,
+				upterm.NewTestPrinter(),
+			)
 
 			if tt.expectErr {
 				if err == nil {
@@ -122,27 +130,13 @@ metadata:
 }
 
 // captureOutput captures printed output from pterm.
-func captureOutput(f func()) string {
+func captureOutput(f func(p upterm.Printer)) string {
 	// Create a buffer to capture output.
 	var buf bytes.Buffer
-	writer := &buf
-
-	// Save original outputs
-	originalSuccessWriter := pterm.Success.Writer
-	originalErrorWriter := pterm.Error.Writer
-
-	// Set pterm output to the buffer.
-	pterm.SetDefaultOutput(writer)
-	pterm.Success.Writer = writer
-	pterm.Error.Writer = writer
+	p := upterm.NewPrinter(&buf, &buf, config.FormatDefault, false)
 
 	// Execute the function while capturing output.
-	f()
-
-	// Reset pterm output (Avoid using nil, as it will cause a panic).
-	pterm.SetDefaultOutput(writer)
-	pterm.Success.Writer = originalSuccessWriter
-	pterm.Error.Writer = originalErrorWriter
+	f(p)
 
 	// Normalize output (trim extra spaces and fix line breaks).
 	return strings.TrimSpace(strings.ReplaceAll(buf.String(), " \n", "\n"))
@@ -212,8 +206,8 @@ SUCCESS: Failed tests:         0`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := captureOutput(func() {
-				displayTestResults(tt.ttotal, tt.tsuccess, tt.terr)
+			output := captureOutput(func(p upterm.Printer) {
+				displayTestResults(p, tt.ttotal, tt.tsuccess, tt.terr)
 			})
 
 			if tt.expected != output {
@@ -396,24 +390,24 @@ func TestIsMatchingManifest(t *testing.T) {
 		{
 			name: "MatchingAll",
 			expected: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "test",
-						"annotations": map[string]interface{}{
+						"annotations": map[string]any{
 							"crossplane.io/composition-resource-name": "test",
 						},
 					},
 				},
 			},
 			rendered: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "test",
-						"annotations": map[string]interface{}{
+						"annotations": map[string]any{
 							"crossplane.io/composition-resource-name": "test",
 						},
 					},
@@ -427,22 +421,22 @@ func TestIsMatchingManifest(t *testing.T) {
 		{
 			name: "MatchingWithoutName",
 			expected: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
-						"annotations": map[string]interface{}{
+					"metadata": map[string]any{
+						"annotations": map[string]any{
 							"crossplane.io/composition-resource-name": "test",
 						},
 					},
 				},
 			},
 			rendered: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
-						"annotations": map[string]interface{}{
+					"metadata": map[string]any{
+						"annotations": map[string]any{
 							"crossplane.io/composition-resource-name": "test",
 						},
 					},
@@ -456,19 +450,19 @@ func TestIsMatchingManifest(t *testing.T) {
 		{
 			name: "MismatchingName",
 			expected: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "test-configmap",
 					},
 				},
 			},
 			rendered: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "different-name",
 					},
 				},
@@ -479,19 +473,19 @@ func TestIsMatchingManifest(t *testing.T) {
 		{
 			name: "MissingAnnotation",
 			expected: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "test-configmap",
 					},
 				},
 			},
 			rendered: unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "ec2.aws.upbound.io/v1beta1",
 					"kind":       "SecurityGroupRule",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name": "test-configmap",
 					},
 				},

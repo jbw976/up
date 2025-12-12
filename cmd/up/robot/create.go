@@ -7,13 +7,12 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
 	"github.com/upbound/up-sdk-go/service/robots"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // createCmd creates a robot on Upbound.
@@ -26,7 +25,7 @@ type createCmd struct {
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, rc *robots.Client, upCtx *upbound.Context) error {
+func (c *createCmd) Run(ctx context.Context, p upterm.Printer, ac *accounts.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err

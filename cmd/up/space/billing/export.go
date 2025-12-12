@@ -22,11 +22,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/pterm/pterm"
 	gcpopt "google.golang.org/api/option"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
+	"github.com/upbound/up/internal/upterm"
 	usageaws "github.com/upbound/up/internal/usage/aws"
 	"github.com/upbound/up/internal/usage/azure"
 	"github.com/upbound/up/internal/usage/event"
@@ -149,7 +149,7 @@ func (c *exportCmd) Validate() error {
 	return nil
 }
 
-func (c *exportCmd) Run(p pterm.TextPrinter) error {
+func (c *exportCmd) Run(p upterm.Printer) error {
 	p.Printfln(
 		"Exporting billing report for Upbound account %s from %s to %s.",
 		c.Account,
@@ -165,7 +165,7 @@ func (c *exportCmd) Run(p pterm.TextPrinter) error {
 	}
 
 	if err := c.collectReport(); err != nil {
-		c.cleanupOnError()
+		c.cleanupOnError(p)
 		return err
 	}
 
@@ -174,9 +174,9 @@ func (c *exportCmd) Run(p pterm.TextPrinter) error {
 	return nil
 }
 
-func (c *exportCmd) cleanupOnError() {
+func (c *exportCmd) cleanupOnError(p upterm.Printer) {
 	if err := os.Remove(c.outAbs); err != nil {
-		pterm.Error.Printfln("error cleaning up: %s", err)
+		p.PrintError("error cleaning up:", err)
 	}
 }
 

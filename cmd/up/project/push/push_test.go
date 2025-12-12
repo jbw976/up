@@ -19,7 +19,6 @@ import (
 
 	xpmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
-	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
@@ -72,14 +71,13 @@ func TestPush(t *testing.T) {
 				to:   testRegistry.RegistryStr(),
 			}
 			c := &Cmd{
-				ProjectFile:  "upbound.yaml",
-				Repository:   tc.repo,
-				Tag:          "v0.0.3",
-				projFS:       tc.projFS,
-				packageFS:    afero.NewBasePathFs(tc.projFS, "_output"),
-				transport:    transport,
-				concurrency:  1,
-				asyncWrapper: async.IgnoreEvents,
+				ProjectFile: "upbound.yaml",
+				Repository:  tc.repo,
+				Tag:         "v0.0.3",
+				projFS:      tc.projFS,
+				packageFS:   afero.NewBasePathFs(tc.projFS, "_output"),
+				transport:   transport,
+				concurrency: 1,
 			}
 
 			ep, err := url.Parse("https://donotuse.example.com")
@@ -88,7 +86,8 @@ func TestPush(t *testing.T) {
 				Domain:           &url.URL{},
 				RegistryEndpoint: ep,
 			}
-			err = c.Run(t.Context(), upCtx, upterm.DefaultObjPrinter)
+			printer := upterm.NewTestPrinter()
+			err = c.Run(t.Context(), upCtx, printer)
 			assert.NilError(t, err)
 
 			// Pull the configuration image from the server and unpack its

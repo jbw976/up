@@ -6,13 +6,15 @@ package defaults
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
-	"github.com/pterm/pterm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+
+	"github.com/upbound/up/internal/upterm"
 )
 
 // CloudType is a type of (usually cloud-hosted) Kubernetes cluster.
@@ -41,18 +43,14 @@ const (
 
 // Defaults returns the defaults for a given type of cluster.
 func (ct *CloudType) Defaults() CloudConfig {
-	publicIngress := true
-	if *ct == Generic || *ct == Kind {
-		publicIngress = false
-	}
 	return CloudConfig{
-		PublicIngress: publicIngress,
+		PublicIngress: *ct != Generic && *ct != Kind,
 	}
 }
 
 // GetConfig returns the Spaces configuration to use for a cluster based on its
 // type, inferred from its Kubernetes client.
-func GetConfig(kClient kubernetes.Interface, override string) (*CloudConfig, error) {
+func GetConfig(kClient kubernetes.Interface, override string, p upterm.Printer) (*CloudConfig, error) {
 	if kClient == nil {
 		return nil, errors.New("no kubernetes client")
 	}
@@ -63,9 +61,9 @@ func GetConfig(kClient kubernetes.Interface, override string) (*CloudConfig, err
 		cloud = detectKubernetes(kClient)
 	}
 	if cloud == Generic || cloud == Kind {
-		pterm.Info.Printfln("Setting defaults for vanilla Kubernetes (type %s)", string(cloud))
+		p.PrintInfo(fmt.Sprintf("Setting defaults for vanilla Kubernetes (type %s)", cloud))
 	} else {
-		pterm.Info.Printfln("Applying settings for Managed Kubernetes on %s", strings.ToUpper(string(cloud)))
+		p.PrintInfo(fmt.Sprintf("Applying settings for Managed Kubernetes on %s", strings.ToUpper(string(cloud))))
 	}
 	return &CloudConfig{
 		PublicIngress: cloud.Defaults().PublicIngress,

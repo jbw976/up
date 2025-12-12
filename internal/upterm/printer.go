@@ -8,151 +8,269 @@ package upterm
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"io"
 	"reflect"
-	"strings"
 	"text/tabwriter"
 	"text/template"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
-	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/yaml"
 )
 
-// Printer describes interactions for working with the ObjectPrinter below.
-// NOTE(tnthornton) ideally this would be called "ObjectPrinter".
-// TODO(tnthornton) rename this to ObjectPrinter.
-type Printer interface {
-	Print(obj any, fieldNames []string, extractFields func(any) []string) error
-
-	// PrintTemplate prints the object using the provided Go template, if format
-	// is set to default, otherwise prints to JSON or YAML.
-	PrintTemplate(obj any, template string) error
-}
-
-// The ObjectPrinter is intended to make it easy to print individual structs
-// and lists of structs for the 'get' and 'list' commands. It can print as
-// a human-readable table, or computer-readable (JSON or YAML).
-type ObjectPrinter struct {
-	Quiet  config.QuietFlag
-	Pretty bool
-	Format config.Format
-}
-
-// DefaultObjPrinter is the default object printer.
+// Printer prints to the console.
 //
-//nolint:gochecknoglobals // TODO(adamwg): Make this a function returning the default printer.
-var DefaultObjPrinter = ObjectPrinter{
-	Quiet:  false,
-	Pretty: true,
-	Format: config.FormatDefault,
+//nolint:interfacebloat // We want to pass around a single thing, configured appropriately, so this interface is intentionally big.
+type Printer interface {
+	ResultPrinter
+	SpinnerPrinter
+
+	// Print prints in the manner of fmt.Print.
+	Print(a ...any)
+	// Println prints in the manner of fmt.Println.
+	Println(a ...any)
+	// Printf formats and prints in the manner of fmt.Printf.
+	Printf(format string, a ...any)
+	// Printfnl formatss and prints in the manner of fmt.Printf, followed by a
+	// newline.
+	Printfln(format string, a ...any)
+
+	// PrintInfo prints styled info.
+	PrintInfo(a ...any)
+	// PrintInfo prints a styled success message.
+	PrintSuccess(a ...any)
+	// PrintWarning prints a styled warning.
+	PrintWarning(a ...any)
+	// PrintError prints a styled error.
+	PrintError(a ...any)
 }
 
-// Print will print a single option or an array/slice of objects.
-// When printing with default table output, it will only print a given set
-// of fields. To specify those fields, the caller should provide the human-readable
-// names for those fields (used for column headers) and a function that can be called
-// on a single struct that returns those fields as strings.
-// When printing JSON or YAML, this will print *all* fields, regardless of
-// the list of fields.
-func (p *ObjectPrinter) Print(obj any, fieldNames []string, extractFields func(any) []string) error {
-	// If user specified quiet, skip printing entirely
-	if p.Quiet {
-		return nil
-	}
+// ResultPrinter prints the result of a command.
+type ResultPrinter interface {
+	// PrintObject prints extracted fields from an object.
+	PrintObject(obj any, fieldNames []string, extractFields func(any) []string) error
 
-	// Print the object with the appropriate formatting.
-	switch p.Format {
+	// PrintObjectTemplate prints the object using the provided Go template, if
+	// format is set to default, otherwise prints to JSON or YAML.
+	PrintObjectTemplate(obj any, template string) error
+
+	// PrintResult prints an arbitrary result, in the manner of
+	// fmt.Println. Prefer the PrintObject methods whenever possible since they
+	// respect desired output format. PrintResult prints its arguments without
+	// further formatting.
+	PrintResult(a ...any)
+}
+
+// NewPrinter returns a configured printer. Regular output is printed to out;
+// results are printed to result.
+func NewPrinter(out, result io.Writer, format config.Format, pretty bool) Printer {
+	var op ResultPrinter
+	switch format {
 	case config.FormatJSON:
-		return printJSON(obj)
+		op = &jsonResultPrinter{
+			pretty: pretty,
+			out:    result,
+		}
 	case config.FormatYAML:
-		return printYAML(obj)
+		op = &yamlResultPrinter{
+			out: result,
+		}
 	case config.FormatDefault:
 		fallthrough
 	default:
-		return p.printDefault(obj, fieldNames, extractFields)
+		op = &tableResultPrinter{
+			out:    result,
+			pretty: pretty,
+		}
 	}
-}
 
-// PrintTemplate prints an object using a go template.
-func (p *ObjectPrinter) PrintTemplate(obj any, tmpl string) error {
-	// If user specified quiet, skip printing entirely
-	if p.Quiet {
-		return nil
-	}
-	// Print the object with the appropriate formatting.
-	switch p.Format {
-	case config.FormatJSON:
-		return printJSON(obj)
-	case config.FormatYAML:
-		return printYAML(obj)
-	case config.FormatDefault:
-		fallthrough
+	switch {
+	case pretty:
+		return &prettyPrinter{
+			ResultPrinter: op,
+			SpinnerPrinter: &defaultSpinnerPrinter{
+				pretty: pretty,
+				out:    out,
+			},
+			out: out,
+		}
 	default:
-		templ, err := template.New("out").Parse(tmpl)
-		if err != nil {
-			return err
-		}
-
-		w := tabwriter.NewWriter(os.Stdout, 8, 1, 1, ' ', 0)
-		if err := templ.Execute(w, obj); err != nil {
-			return err
-		}
-		if _, err := w.Write([]byte("\n")); err != nil {
-			return err
-		}
-		if err := w.Flush(); err != nil {
-			return err
+		return &plainPrinter{
+			ResultPrinter: op,
+			SpinnerPrinter: &defaultSpinnerPrinter{
+				pretty: pretty,
+				out:    out,
+			},
+			out: out,
 		}
 	}
-	return nil
 }
 
-func printJSON(obj any) error {
-	js, err := json.MarshalIndent(obj, "", "    ")
-	if err != nil {
-		return err
+// NewTestPrinter returns a printer that suppresses all output, suitable for use
+// in unit tests.
+func NewTestPrinter() Printer {
+	return NewPrinter(io.Discard, io.Discard, config.FormatDefault, false)
+}
+
+// prettyPrinter prints in a pretty format suitable for modern terminals.
+type prettyPrinter struct {
+	ResultPrinter
+	SpinnerPrinter
+
+	out io.Writer
+}
+
+func (p *prettyPrinter) Print(a ...any) {
+	_, _ = fmt.Fprint(p.out, a...)
+}
+
+func (p *prettyPrinter) Println(a ...any) {
+	_, _ = fmt.Fprintln(p.out, a...)
+}
+
+func (p *prettyPrinter) Printf(format string, a ...any) {
+	_, _ = fmt.Fprintf(p.out, format, a...)
+}
+
+func (p *prettyPrinter) Printfln(format string, a ...any) { //nolint:goprintffuncname // This name is fine.
+	_, _ = fmt.Fprintf(p.out, format+"\n", a...)
+}
+
+func (p *prettyPrinter) PrintInfo(a ...any) {
+	p.Print("ℹ️ ")
+	p.Println(a...)
+}
+
+func (p *prettyPrinter) PrintSuccess(a ...any) {
+	st := lipgloss.NewStyle().Foreground(style.GreenColor)
+	styled := make([]any, len(a))
+	for i, elem := range a {
+		styled[i] = st.Render(fmt.Sprint(elem))
 	}
-	_, err = fmt.Println(string(js)) //nolint:forbidigo // This is a printing library.
-	return err
+
+	p.Print("🙌 ")
+	p.Println(styled...)
 }
 
-func printYAML(obj any) error {
-	ys, err := yaml.Marshal(obj)
-	if err != nil {
-		return err
+func (p *prettyPrinter) PrintWarning(a ...any) {
+	st := lipgloss.NewStyle().Foreground(style.YellowColor)
+	styled := make([]any, len(a))
+	for i, elem := range a {
+		styled[i] = st.Render(fmt.Sprint(elem))
 	}
-	_, err = fmt.Println(string(ys)) //nolint:forbidigo // This is a printing library.
-	return err
+
+	p.Print("⚠️ ")
+	p.Println(styled...)
 }
 
-func (p *ObjectPrinter) printDefault(obj any, fieldNames []string, extractFields func(any) []string) error {
+func (p *prettyPrinter) PrintError(a ...any) {
+	st := lipgloss.NewStyle().Foreground(style.RedColor)
+	styled := make([]any, len(a))
+	for i, elem := range a {
+		styled[i] = st.Render(fmt.Sprint(elem))
+	}
+
+	p.Print("⛔ ")
+	p.Println(styled...)
+}
+
+// plainPrinter prints in a plain format suitable for non-TTY outputs.
+type plainPrinter struct {
+	ResultPrinter
+	SpinnerPrinter
+
+	out io.Writer
+}
+
+func (p *plainPrinter) Print(a ...any) {
+	_, _ = fmt.Fprint(p.out, a...)
+}
+
+func (p *plainPrinter) Println(a ...any) {
+	_, _ = fmt.Fprintln(p.out, a...)
+}
+
+func (p *plainPrinter) Printf(format string, a ...any) {
+	_, _ = fmt.Fprintf(p.out, format, a...)
+}
+
+func (p *plainPrinter) Printfln(format string, a ...any) { //nolint:goprintffuncname // This name is fine.
+	_, _ = fmt.Fprintf(p.out, format+"\n", a...)
+}
+
+func (p *plainPrinter) PrintInfo(a ...any) {
+	p.Print("INFO: ")
+	p.Println(a...)
+}
+
+func (p *plainPrinter) PrintSuccess(a ...any) {
+	p.Print("SUCCESS: ")
+	p.Println(a...)
+}
+
+func (p *plainPrinter) PrintWarning(a ...any) {
+	p.Print("WARNING: ")
+	p.Println(a...)
+}
+
+func (p *plainPrinter) PrintError(a ...any) {
+	p.Print("ERROR: ")
+	p.Println(a...)
+}
+
+// tableResultPrinter prints objects as tables.
+type tableResultPrinter struct {
+	pretty bool
+	out    io.Writer
+}
+
+func (p *tableResultPrinter) PrintObject(obj any, fieldNames []string, extractFields func(any) []string) error {
 	t := reflect.TypeOf(obj)
 	k := t.Kind()
 	if k == reflect.Array || k == reflect.Slice {
-		return p.printDefaultList(obj, fieldNames, extractFields)
+		return p.printList(obj, fieldNames, extractFields)
 	}
-	return p.printDefaultObj(obj, fieldNames, extractFields)
+	return p.printObj(obj, fieldNames, extractFields)
 }
 
-func (p *ObjectPrinter) printDefaultList(obj any, fieldNames []string, extractFields func(any) []string) error {
+func (p *tableResultPrinter) PrintObjectTemplate(obj any, tmpl string) error {
+	templ, err := template.New("out").Parse(tmpl)
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(p.out, 8, 1, 1, ' ', 0)
+	if err := templ.Execute(w, obj); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte("\n")); err != nil {
+		return err
+	}
+
+	return w.Flush()
+}
+
+func (p *tableResultPrinter) PrintResult(a ...any) {
+	_, _ = fmt.Fprintln(p.out, a...)
+}
+
+func (p *tableResultPrinter) printList(obj any, fieldNames []string, extractFields func(any) []string) error {
 	t := table.New().
 		Headers(fieldNames...).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			st := table.DefaultStyles(row, col).
 				MarginLeft(1).
 				MarginRight(1)
-			if row == table.HeaderRow && p.Pretty {
+			if row == table.HeaderRow && p.pretty {
 				st = st.Foreground(style.UpboundBrandColor)
 			}
 
 			return st
 		})
-	if !p.Pretty {
+	if !p.pretty {
 		t = t.Border(lipgloss.ASCIIBorder())
 	}
 
@@ -164,33 +282,68 @@ func (p *ObjectPrinter) printDefaultList(obj any, fieldNames []string, extractFi
 	}
 	t = t.Data(data)
 
-	fmt.Println(t.Render()) //nolint:forbidigo // Output library.
+	_, _ = fmt.Fprintln(p.out, t.Render())
 
 	return nil
 }
 
-func (p *ObjectPrinter) printDefaultObj(obj any, fieldNames []string, extractFields func(any) []string) error {
-	return p.printDefaultList([]any{obj}, fieldNames, extractFields)
+func (p *tableResultPrinter) printObj(obj any, fieldNames []string, extractFields func(any) []string) error {
+	return p.printList([]any{obj}, fieldNames, extractFields)
 }
 
-// PrintColoredError prints errors colored.
-func PrintColoredError(finalErr error) {
-	errorLines := strings.Split(finalErr.Error(), "\n")
+// jsonResultPrinter prints objects as JSON.
+type jsonResultPrinter struct {
+	pretty bool
+	out    io.Writer
+}
 
-	for _, line := range errorLines {
-		switch {
-		case strings.HasPrefix(line, "---") && !strings.HasPrefix(line, "----"):
-			pterm.FgRed.Println(line) // Expected
-		case strings.HasPrefix(line, "+++"):
-			pterm.FgGreen.Println(line) // Actual
-		case strings.HasPrefix(line, "@@"):
-			pterm.FgYellow.Println(line) // Context lines
-		case strings.HasPrefix(line, "- "):
-			pterm.FgRed.Println(line) // Removed lines
-		case strings.HasPrefix(line, "+ "):
-			pterm.FgGreen.Println(line) // Added lines
-		default:
-			pterm.Println(line) // Default text
-		}
+func (p *jsonResultPrinter) PrintObject(obj any, _ []string, _ func(any) []string) error {
+	if p.pretty {
+		return printJSONPretty(p.out, obj)
 	}
+	return printJSON(p.out, obj)
+}
+
+func (p *jsonResultPrinter) PrintObjectTemplate(obj any, _ string) error {
+	return printJSON(p.out, obj)
+}
+
+func (p *jsonResultPrinter) PrintResult(a ...any) {
+	_, _ = fmt.Fprintln(p.out, a...)
+}
+
+func printJSONPretty(out io.Writer, obj any) error {
+	e := json.NewEncoder(out)
+	e.SetIndent("", "    ")
+	return e.Encode(obj)
+}
+
+func printJSON(out io.Writer, obj any) error {
+	return json.NewEncoder(out).Encode(obj)
+}
+
+// yamlResultPrinter prints objects as YAML.
+type yamlResultPrinter struct {
+	out io.Writer
+}
+
+func (p *yamlResultPrinter) PrintObject(obj any, _ []string, _ func(any) []string) error {
+	return printYAML(p.out, obj)
+}
+
+func (p *yamlResultPrinter) PrintObjectTemplate(obj any, _ string) error {
+	return printYAML(p.out, obj)
+}
+
+func (p *yamlResultPrinter) PrintResult(a ...any) {
+	_, _ = fmt.Fprintln(p.out, a...)
+}
+
+func printYAML(out io.Writer, obj any) error {
+	ys, err := yaml.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(out, string(ys))
+	return err
 }

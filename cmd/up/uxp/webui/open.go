@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/pkg/browser"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +31,7 @@ import (
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/license"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 const (
@@ -67,7 +67,7 @@ type openCmd struct {
 	Browser bool   `default:"true"                                                         help:"Open the web UI in a browser window." negatable:""`
 }
 
-func (c *openCmd) Run(ctx context.Context, upCtx *upbound.Context, cfg *rest.Config) error {
+func (c *openCmd) Run(ctx context.Context, upCtx *upbound.Context, cfg *rest.Config, p upterm.Printer) error {
 	cl, err := client.New(cfg, client.Options{})
 	if err != nil {
 		return errors.Wrap(err, errCreateClient)
@@ -84,10 +84,10 @@ func (c *openCmd) Run(ctx context.Context, upCtx *upbound.Context, cfg *rest.Con
 	// Try to determine if the kubeconfig context is a local dev cluster with an
 	// ingress. If it is then we don't need to port forward.
 	if url, ok := c.localClusterIngressURL(ctx, upCtx); ok {
-		return c.open(url)
+		return c.open(p, url)
 	}
 
-	pf, url, ready, err := c.portForwarder(ctx, cfg, cl)
+	pf, url, ready, err := c.portForwarder(ctx, cfg, cl, p)
 	if err != nil {
 		return errors.Wrap(err, errCreatePortForward)
 	}
@@ -101,14 +101,14 @@ func (c *openCmd) Run(ctx context.Context, upCtx *upbound.Context, cfg *rest.Con
 	case err := <-pfErr:
 		return errors.Wrap(err, errStartPortForward)
 	case <-ready:
-		pterm.Println("Port forwarding started; interrupt to stop")
+		p.Println("Port forwarding started; interrupt to stop")
 	}
 
-	if err := c.open(url); err != nil {
+	if err := c.open(p, url); err != nil {
 		// Add a blank line to distinguish the error message from regular
 		// output.
-		pterm.Println()
-		pterm.Println(err)
+		p.Println()
+		p.Println(err)
 		// Continue executing. The port-forward is reachable from the URL
 		// printed earlier.
 	}
@@ -147,8 +147,8 @@ func (c *openCmd) localClusterIngressURL(ctx context.Context, upCtx *upbound.Con
 	return icluster.WebUIAddress(), true
 }
 
-func (c *openCmd) open(url string) error {
-	pterm.Printfln("The web UI is available at: %s", url)
+func (c *openCmd) open(p upterm.Printer, url string) error {
+	p.Printfln("The web UI is available at: %s", url)
 	if c.Browser {
 		if err := browser.OpenURL(url); err != nil {
 			return errors.Wrap(err, "failed to open web UI in browser")
@@ -160,8 +160,8 @@ func (c *openCmd) open(url string) error {
 // portForwarder returns a *portforward.PortForwarder to a web-ui pod, the
 // URL it listens on, and a channel that is closed when the PortForwarder is
 // ready.
-func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client.Client) (*portforward.PortForwarder, string, chan struct{}, error) {
-	localPort, err := c.localPort(ctx)
+func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client.Client, p upterm.Printer) (*portforward.PortForwarder, string, chan struct{}, error) {
+	localPort, err := c.localPort(ctx, p)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -225,7 +225,7 @@ func (c *openCmd) portForwarder(ctx context.Context, cfg *rest.Config, cl client
 }
 
 // localPort returns an unused local port.
-func (c *openCmd) localPort(ctx context.Context) (int, error) {
+func (c *openCmd) localPort(ctx context.Context, p upterm.Printer) (int, error) {
 	if c.Port != 0 {
 		return c.Port, nil
 	}
@@ -237,7 +237,7 @@ func (c *openCmd) localPort(ctx context.Context) (int, error) {
 	}
 	defer func() {
 		if err := listener.Close(); err != nil {
-			pterm.Println(fmt.Sprintf("Error closing listener: %s", err))
+			p.Println(fmt.Sprintf("Error closing listener: %s", err))
 		}
 	}()
 

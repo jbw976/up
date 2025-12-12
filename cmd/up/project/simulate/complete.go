@@ -1,13 +1,11 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package simulate provides the `up project simulate` command.
 package simulate
 
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,7 +16,6 @@ import (
 	xpkgv1beta1 "github.com/crossplane/crossplane/v2/apis/pkg/v1beta1"
 
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/simulation"
 	"github.com/upbound/up/internal/upbound"
@@ -36,13 +33,10 @@ type completeCmd struct {
 	ControlPlaneGroup string `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context." short:"g"`
 
 	spaceClient client.Client
-
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *completeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *completeCmd) AfterApply(upCtx *upbound.Context) error {
 	spaceClientConfig, err := intctx.GetSpacesKubeconfig(context.Background(), upCtx)
 	if err != nil {
 		return errors.Wrap(err, "cannot get kubeconfig for space")
@@ -64,20 +58,11 @@ func (c *completeCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPr
 		c.ControlPlaneGroup = ns
 	}
 
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
 	return nil
 }
 
 // Run is the body of the command.
-func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error {
+func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error {
 	sim, err := simulation.GetExisting(ctx, c.spaceClient, types.NamespacedName{
 		Namespace: c.ControlPlaneGroup,
 		Name:      c.Name,
@@ -109,7 +94,7 @@ func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *
 		return err
 	}
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		stageStatus := "Waiting for Simulation to complete"
 		ch.SendEvent(stageStatus, async.EventStatusStarted)
 		err := sim.WaitForCondition(ctx, c.spaceClient, simulation.Complete())
@@ -131,7 +116,7 @@ func (c *completeCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *
 		return err
 	}
 
-	if err := outputDiff(kongCtx, diffSet, c.Output); err != nil {
+	if err := outputDiff(printer, diffSet, c.Output); err != nil {
 		return err
 	}
 

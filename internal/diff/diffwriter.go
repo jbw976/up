@@ -61,6 +61,41 @@ type prettyPrintWriter struct {
 	styles outputStyles
 }
 
+// Write writes the diffed resources as a pretty-printed table out to the
+// associated buffer.
+func (p *prettyPrintWriter) Write(resources []ResourceDiff) error {
+	p.writeSummary(resources)
+
+	// todo(redbackthomson): Sort by gvk, name and change type (delete, create,
+	// update)
+	for _, change := range resources {
+		ref := change.SimulationChange.ObjectReference
+
+		switch change.SimulationChange.Change { //nolint:exhaustive // intentionally not writing other change types.
+		case spacesv1alpha1.SimulationChangeTypeCreate:
+			_, _ = fmt.Fprintf(p.w, changeCreateFmt, "", p.styles.Create(formatObjectReference(ref)))
+			continue
+		case spacesv1alpha1.SimulationChangeTypeDelete:
+			_, _ = fmt.Fprintf(p.w, changeDeleteFmt, "", p.styles.Delete(formatObjectReference(ref)))
+			continue
+		}
+
+		_, _ = fmt.Fprintf(p.w, changeUpdateFmt, "", p.styles.Update(formatObjectReference(ref)))
+
+		// hide any changes to secrets
+		if change.SimulationChange.ObjectReference.Kind == "Secret" &&
+			change.SimulationChange.ObjectReference.APIVersion == "v1" {
+			continue
+		}
+
+		root := BuildDiffTree(change)
+		for i, child := range slices.Collect(maps.Values(root.children)) {
+			p.printNode("", i == (len(root.children)-1), []string{""}, child)
+		}
+	}
+	return nil
+}
+
 // getLoggedOutputByType returns the value that should be logged by the writer
 // depending on the type.
 func (p *prettyPrintWriter) getLoggedOutputByType(value any) string {
@@ -133,41 +168,6 @@ func (p *prettyPrintWriter) printNode(prefix string, isLast bool, path []string,
 	}
 }
 
-// Write writes the diffed resources as a pretty-printed table out to the
-// associated buffer.
-func (p *prettyPrintWriter) Write(resources []ResourceDiff) error {
-	p.writeSummary(resources)
-
-	// todo(redbackthomson): Sort by gvk, name and change type (delete, create,
-	// update)
-	for _, change := range resources {
-		ref := change.SimulationChange.ObjectReference
-
-		switch change.SimulationChange.Change { //nolint:exhaustive // intentionally not writing other change types.
-		case spacesv1alpha1.SimulationChangeTypeCreate:
-			_, _ = fmt.Fprintf(p.w, changeCreateFmt, "", p.styles.Create(formatObjectReference(ref)))
-			continue
-		case spacesv1alpha1.SimulationChangeTypeDelete:
-			_, _ = fmt.Fprintf(p.w, changeDeleteFmt, "", p.styles.Delete(formatObjectReference(ref)))
-			continue
-		}
-
-		_, _ = fmt.Fprintf(p.w, changeUpdateFmt, "", p.styles.Update(formatObjectReference(ref)))
-
-		// hide any changes to secrets
-		if change.SimulationChange.ObjectReference.Kind == "Secret" &&
-			change.SimulationChange.ObjectReference.APIVersion == "v1" {
-			continue
-		}
-
-		root := BuildDiffTree(change)
-		for i, child := range slices.Collect(maps.Values(root.children)) {
-			p.printNode("", i == (len(root.children)-1), []string{""}, child)
-		}
-	}
-	return nil
-}
-
 // writeSummary writes a summarised version of the differences to the associated
 // buffer.
 func (p *prettyPrintWriter) writeSummary(resources []ResourceDiff) {
@@ -211,7 +211,7 @@ func NewPrettyPrintWriter(w io.Writer, styling bool) Writer {
 	}
 
 	if styling {
-		p.styles = NewDefaultTermColors()
+		p.styles = newDefaultTermColors()
 	} else {
 		p.styles = noColors{}
 	}

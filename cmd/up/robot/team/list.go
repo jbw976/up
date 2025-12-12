@@ -6,9 +6,7 @@ package team
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -20,19 +18,13 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // listCmd lists all teams a specific robot belongs to.
 type listCmd struct {
 	RobotName string `arg:"" help:"Name of robot." required:""`
 }
 
 // Run executes the get robot command to get all team memberships for a specific robot.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *teams.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.ResultPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, tc *teams.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -105,7 +97,7 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acc
 		teamInfos = append(teamInfos, *team)
 	}
 
-	return printer.Print(teamInfos, []string{"TEAMS"}, extractFields)
+	return printer.PrintObject(teamInfos, []string{"TEAMS"}, extractFields)
 }
 
 func extractFields(obj any) []string {

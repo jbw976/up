@@ -7,14 +7,11 @@ import (
 	"context"
 	"sort"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up-sdk-go/service/organizations"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
 
+// Member is a member from the API.
 type Member struct {
 	Member organizations.Member
 	Invite organizations.Invite
@@ -25,14 +22,6 @@ const (
 	statusInvited = "INVITED"
 )
 
-var listFieldNames = []string{"USERNAME", "NAME", "EMAIL", "PERMISSION", "STATUS"}
-
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // listCmd lists users of an organization.
 // It lists both members and invites.
 type listCmd struct {
@@ -40,7 +29,7 @@ type listCmd struct {
 }
 
 // Run executes the list command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.ResultPrinter, oc *organizations.Client) error {
 	orgID, err := oc.GetOrgID(ctx, c.OrgName)
 	if err != nil {
 		return err
@@ -76,11 +65,12 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return allMembers[i].Invite.Email < allMembers[j].Invite.Email
 	})
 
-	return printer.Print(allMembers, listFieldNames, extractMemberFields)
+	listFieldNames := []string{"USERNAME", "NAME", "EMAIL", "PERMISSION", "STATUS"}
+	return printer.PrintObject(allMembers, listFieldNames, extractMemberFields)
 }
 
 func extractMemberFields(obj any) []string {
-	m := obj.(Member)
+	m, _ := obj.(Member)
 	// If the user name exists, this is a member, not an invite.
 	if m.Member.User.Username != "" {
 		return []string{m.Member.User.Username, m.Member.User.Name, m.Member.User.Email, string(m.Member.Permission), statusActive}

@@ -5,11 +5,11 @@ package dependency
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/utils/ptr"
 
@@ -56,7 +56,6 @@ type addCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Build API dependency structure if --api flag is specified.
@@ -102,7 +101,7 @@ func (c *addCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 }
 
 // Run executes the dep command.
-func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
+func (c *addCmd) Run(ctx context.Context, printer upterm.Printer) error {
 	// Handle API dependencies - inferred from --api flag
 	if c.API {
 		return c.addAPIDependency(ctx, printer)
@@ -110,18 +109,17 @@ func (c *addCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
 
 	// Handle standard package dependencies
 	var d pkgmetav1.Dependency
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		"Adding dependency...",
 		func() error {
 			var err error
 			d, err = c.m.AddByRef(ctx, c.Package)
 			return err
 		},
-		printer,
 	); err != nil {
 		return err
 	}
-	pterm.Success.Printfln("%s:%s added", ptr.Deref(d.Package, ""), d.Version)
+	printer.PrintSuccess(fmt.Sprintf("%s:%s added", ptr.Deref(d.Package, ""), d.Version))
 
 	return nil
 }
@@ -175,15 +173,14 @@ func (c *addCmd) parseAPIDependency() error {
 }
 
 // addAPIDependency handles adding API dependencies to the project.
-func (c *addCmd) addAPIDependency(ctx context.Context, printer upterm.ObjectPrinter) error {
+func (c *addCmd) addAPIDependency(ctx context.Context, printer upterm.Printer) error {
 	// Add the API dependency
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		"Adding API dependency...",
 		func() error {
 			// Add to dependency manager (this also updates the project file)
 			return c.m.AddAPIDependency(ctx, *c.apiDep)
 		},
-		printer,
 	); err != nil {
 		return err
 	}
@@ -195,7 +192,7 @@ func (c *addCmd) addAPIDependency(ctx context.Context, printer upterm.ObjectPrin
 
 	if len(processedAPIDeps) > 0 {
 		dep := processedAPIDeps[0]
-		pterm.Success.Printfln("API dependency added: %s (%s)", dep.Source, dep.Type)
+		printer.PrintSuccess(fmt.Sprintf("API dependency added: %s (%s)", dep.Source, dep.Type))
 	}
 
 	return nil

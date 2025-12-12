@@ -101,7 +101,7 @@ func formatAge(age *time.Duration) string {
 	return duration.HumanDuration(*age)
 }
 
-func tabularPrint(obj any, printer upterm.ObjectPrinter) error {
+func tabularPrint(obj any, printer upterm.ResultPrinter) error {
 	fieldNames := []string{"GROUP", "NAME", "SOURCE", "SIMULATED", "ACCEPTING-CHANGES", "STATE", "AGE"}
-	return printer.Print(obj, fieldNames, extractFields)
+	return printer.PrintObject(obj, fieldNames, extractFields)
 }

@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package version contains version cmd
 package version
 
 import (
@@ -156,5 +155,5 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 		))
 	}
 
-	return printer.PrintTemplate(v, versionTemplate)
+	return printer.PrintObjectTemplate(v, versionTemplate)
 }

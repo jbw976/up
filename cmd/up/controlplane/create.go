@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
 	"github.com/blang/semver/v4"
-	"github.com/pterm/pterm"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -18,6 +16,7 @@ import (
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // createCmd creates a control plane on Upbound.
@@ -54,8 +53,7 @@ func (c *createCmd) Validate() error {
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
+func (c *createCmd) AfterApply(upCtx *upbound.Context) error {
 	if c.Group == "" {
 		ns, err := upCtx.GetCurrentContextNamespace()
 		if err != nil {
@@ -67,7 +65,7 @@ func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, client client.Client) error {
+func (c *createCmd) Run(ctx context.Context, p upterm.Printer, client client.Client) error {
 	ctp := &spacesv1beta1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.Name,

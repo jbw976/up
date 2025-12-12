@@ -7,11 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // BeforeApply sets default values for the delete command, before assignment and validation.
@@ -21,7 +20,7 @@ func (c *deleteCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *deleteCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *deleteCmd) AfterApply(p upterm.Printer, upCtx *upbound.Context) error {
 	if c.Force {
 		return nil
 	}
@@ -48,7 +47,7 @@ type deleteCmd struct {
 }
 
 // Run executes the delete command.
-func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, rc *repositories.Client, upCtx *upbound.Context) error {
+func (c *deleteCmd) Run(ctx context.Context, p upterm.Printer, rc *repositories.Client, upCtx *upbound.Context) error {
 	if err := rc.Delete(ctx, upCtx.Organization, c.Name); err != nil {
 		return err
 	}

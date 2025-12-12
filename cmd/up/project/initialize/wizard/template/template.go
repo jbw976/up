@@ -17,13 +17,13 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/git"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // templateConfig defines the structure of template metadata.
@@ -73,13 +73,13 @@ type Cloner struct {
 	config          *templateConfig
 	gitCloner       git.Cloner
 	gitAuthProvider git.AuthProvider
-	printer         pterm.TextPrinter
+	printer         upterm.Printer
 	fs              afero.Fs
 	tempFs          afero.Fs
 }
 
 // NewCloner creates a new template cloner.
-func NewCloner(templateURL RepoURL, targetDir, language, testLanguage string, values map[string]string, gitCloner git.Cloner, gitAuthProvider git.AuthProvider, printer pterm.TextPrinter, debug bool) *Cloner {
+func NewCloner(templateURL RepoURL, targetDir, language, testLanguage string, values map[string]string, gitCloner git.Cloner, gitAuthProvider git.AuthProvider, printer upterm.Printer, debug bool) *Cloner {
 	targetBasePathFs := afero.NewBasePathFs(afero.NewOsFs(), targetDir)
 	return &Cloner{
 		templateURL:     templateURL,
@@ -244,15 +244,8 @@ func (c *Cloner) shouldInclude(relPath string) bool {
 
 // isFileIncludedByConfig checks explicit file configuration.
 func (c *Cloner) isFileIncludedByConfig(fileConfig fileConfig) bool {
-	if len(fileConfig.Languages) > 0 {
-		for _, lang := range fileConfig.Languages {
-			if lang == c.language {
-				return true
-			}
-		}
-		return false
-	}
-	return true
+	return len(fileConfig.Languages) == 0 ||
+		slices.Contains(fileConfig.Languages, c.language)
 }
 
 // hasLanguageSuffix checks if a directory name has any language suffix.
@@ -359,22 +352,12 @@ func (c *Cloner) applyPatternReplace(input, pattern, replacement string) string 
 
 // containsLanguage checks if current language is in the list.
 func (c *Cloner) containsLanguage(languages []string) bool {
-	for _, lang := range languages {
-		if lang == c.language {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(languages, c.language)
 }
 
 // containsTestLanguage checks if current test language is in the list.
 func (c *Cloner) containsTestLanguage(languages []string) bool {
-	for _, lang := range languages {
-		if lang == c.testLanguage {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(languages, c.testLanguage)
 }
 
 // processFile processes a single file (template rendering or copying).
@@ -444,9 +427,9 @@ func (c *Cloner) processTemplateFile(srcPath, targetPath string) error {
 }
 
 // getTemplateVariables returns variables for template processing.
-func (c *Cloner) getTemplateVariables() map[string]interface{} {
-	variables := make(map[string]interface{})
-	values := make(map[string]interface{})
+func (c *Cloner) getTemplateVariables() map[string]any {
+	variables := make(map[string]any)
+	values := make(map[string]any)
 
 	// Add configured variables
 	for key, value := range c.config.Values {
@@ -525,7 +508,7 @@ func (c *Cloner) cleanup() {
 	}
 }
 
-func (c *Cloner) debugf(format string, a ...interface{}) {
+func (c *Cloner) debugf(format string, a ...any) {
 	if c.debug {
 		c.printer.Printfln(format, a...)
 	}
