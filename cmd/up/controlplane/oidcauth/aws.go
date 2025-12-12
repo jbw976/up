@@ -46,6 +46,7 @@ type awsCmd struct {
 	ProviderConfigName string `default:"default"                                                                                                                       help:"Provider AWS ProviderConfigName"`
 	Sub                string `help:"Define the control plane name that the IAM Role trust policy will use in the 'sub' claim. Supports wildcards (using StringLike)."`
 	Yes                bool   `default:"false"                                                                                                                         help:"When set to true, automatically accepts any confirmation prompts."`
+	DryRun             bool   `help:"Print what changes would be made but do not take action."`
 
 	printer upterm.ObjectPrinter
 	quiet   upconfig.QuietFlag
@@ -70,7 +71,7 @@ func (c *awsCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter
 func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Context) error {
 	pterm.EnableStyling()
 
-	if c.printer.DryRun {
+	if c.DryRun {
 		return c.runDryRun(upCtx)
 	}
 

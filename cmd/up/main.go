@@ -93,7 +93,6 @@ func (c *cli) AfterApply(kongCtx *kong.Context) error {
 	}
 
 	printer := upterm.DefaultObjPrinter
-	printer.DryRun = c.DryRun
 	printer.Format = c.Format
 	printer.Pretty = pretty
 	printer.Quiet = c.Quiet
@@ -176,7 +175,6 @@ type cli struct {
 	Format config.Format    `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
 	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"                short:"q"`
 	Pretty *bool            `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
-	DryRun bool             `help:"dry-run output."      name:"dry-run"`
 
 	// Manage Upbound Resources
 	Organization  organization.Cmd  `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with Upbound organizations." name:"organization"`

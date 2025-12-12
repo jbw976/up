@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -22,7 +21,6 @@ import (
 
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/registry"
-	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -62,12 +60,13 @@ type mirrorCmd struct {
 	OutputDir           string `help:"The local directory path where exported artifacts will be saved as .tgz files." optional:"" short:"t"`
 	DestinationRegistry string `help:"The target container registry where the artifacts will be mirrored."            optional:"" short:"d"`
 	Version             string `help:"The specific Spaces version for which the artifacts will be mirrored."          required:"" short:"v"`
+	DryRun              bool   `help:"Print what would be mirrored but do not take action."`
 
 	craneOpts []crane.Option
 
 	fetchManifest      func(ref string, opts ...crane.Option) ([]byte, error)
 	getValuesFromChart func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
-	defaultPrint       func(format string, a ...interface{})
+	defaultPrint       func(format string, a ...any)
 
 	path string
 }
@@ -112,14 +111,14 @@ func (c *mirrorCmd) AfterApply() error {
 }
 
 // Run executes the mirror command.
-func (c *mirrorCmd) Run(printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) Run() error {
 	artifacts, err := initPathNavigator()
 	if err != nil {
 		return errors.Wrap(err, "unable to get artifact list")
 	}
 
 	for _, repo := range artifacts {
-		if err := c.mirror(printer, repo); err != nil {
+		if err := c.mirror(repo); err != nil {
 			return errors.Wrap(err, "mirror artifacts failed")
 		}
 	}
@@ -127,21 +126,21 @@ func (c *mirrorCmd) Run(printer upterm.ObjectPrinter) error {
 	return nil
 }
 
-func (c *mirrorCmd) mirror(printer upterm.ObjectPrinter, repo repository) (rErr error) {
+func (c *mirrorCmd) mirror(repo repository) (rErr error) {
 	chart, tag, err := c.parseChartReference(repo.Chart)
 	if err != nil {
 		return err
 	}
 
-	if err := c.mirrorArtifact(chart, tag, printer); err != nil {
+	if err := c.mirrorArtifact(chart, tag); err != nil {
 		return errors.Wrap(err, "failed to mirror artifact")
 	}
 
-	if err := c.mirrorSubResources(chart, tag, repo.SubResources, printer); err != nil {
+	if err := c.mirrorSubResources(chart, tag, repo.SubResources); err != nil {
 		return errors.Wrap(err, "failed to mirror subresources")
 	}
 
-	if err := c.mirrorImages(repo.Images, printer); err != nil {
+	if err := c.mirrorImages(repo.Images); err != nil {
 		return errors.Wrap(err, "failed to mirror images")
 	}
 
@@ -168,7 +167,7 @@ func (c *mirrorCmd) parseChartReference(chartRef string) (chart string, tag stri
 	return chart, tag, nil
 }
 
-func (c *mirrorCmd) mirrorSubResources(chart, tag string, subResources []subResource, printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) mirrorSubResources(chart, tag string, subResources []subResource) error {
 	for _, subResource := range subResources {
 		if subResource.PathNavigator == nil {
 			continue
@@ -178,17 +177,17 @@ func (c *mirrorCmd) mirrorSubResources(chart, tag string, subResources []subReso
 		if err != nil {
 			return errors.Wrap(err, "unable to extract")
 		}
-		if err := c.processSubResource(subResource, versions, printer); err != nil {
+		if err := c.processSubResource(subResource, versions); err != nil {
 			return errors.Wrap(err, "unable to process sub resources")
 		}
 	}
 	return nil
 }
 
-func (c *mirrorCmd) processSubResource(subResource subResource, versions []string, printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) processSubResource(subResource subResource, versions []string) error {
 	for _, version := range versions {
 		if len(subResource.Chart) > 0 {
-			if err := c.mirrorArtifact(subResource.Chart, version, printer); err != nil {
+			if err := c.mirrorArtifact(subResource.Chart, version); err != nil {
 				return errors.Wrapf(err, "mirroring chart image %s", subResource.Chart)
 			}
 		}
@@ -197,7 +196,7 @@ func (c *mirrorCmd) processSubResource(subResource subResource, versions []strin
 			if !strings.HasPrefix(version, "v") {
 				versionWithV = "v" + version
 			}
-			if err := c.mirrorArtifact(subResource.Image, versionWithV, printer); err != nil {
+			if err := c.mirrorArtifact(subResource.Image, versionWithV); err != nil {
 				return errors.Wrap(err, "unable to mirror artifact")
 			}
 		}
@@ -205,7 +204,7 @@ func (c *mirrorCmd) processSubResource(subResource subResource, versions []strin
 	return nil
 }
 
-func (c *mirrorCmd) mirrorImages(images []imageReference, printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) mirrorImages(images []imageReference) error {
 	baseVersion, err := semver.NewVersion(c.Version)
 	if err != nil {
 		return errors.Wrapf(err, "error parsing space version")
@@ -217,7 +216,7 @@ func (c *mirrorCmd) mirrorImages(images []imageReference, printer upterm.ObjectP
 		if _, ok := processed[i]; ok {
 			continue
 		}
-		matches, err := c.processImage(image, baseVersion, printer)
+		matches, err := c.processImage(image, baseVersion)
 		if err != nil {
 			return errors.Wrap(err, "unable to process image")
 		}
@@ -229,7 +228,7 @@ func (c *mirrorCmd) mirrorImages(images []imageReference, printer upterm.ObjectP
 	return nil
 }
 
-func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Version, printer upterm.ObjectPrinter) (bool, error) {
+func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Version) (bool, error) {
 	include := true
 	if image.CompatibleChartVersion != "" {
 		constraint, err := semver.NewConstraint(image.CompatibleChartVersion)
@@ -251,14 +250,14 @@ func (c *mirrorCmd) processImage(image imageReference, baseVersion *semver.Versi
 		version = parts[1]
 	}
 
-	return true, c.mirrorArtifact(imageName, version, printer)
+	return true, c.mirrorArtifact(imageName, version)
 }
 
-func (c *mirrorCmd) mirrorArtifact(image, version string, printer upterm.ObjectPrinter) error {
+func (c *mirrorCmd) mirrorArtifact(image, version string) error {
 	var artifact artifactHandler
 
 	switch {
-	case printer.DryRun:
+	case c.DryRun:
 		artifact = &dryRunMirror{
 			folder:        c.path,
 			registry:      c.DestinationRegistry,
@@ -323,7 +322,7 @@ type dryRunMirror struct {
 	registry      string
 	opts          []crane.Option
 	fetchManifest func(artifact string, opts ...crane.Option) ([]byte, error)
-	defaultPrint  func(format string, a ...interface{})
+	defaultPrint  func(format string, a ...any)
 }
 
 func (h *dryRunMirror) handle(artifact string) error {

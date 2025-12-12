@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
@@ -14,7 +13,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/oci"
-	"github.com/upbound/up/internal/upterm"
 )
 
 func TestMirror(t *testing.T) {
@@ -438,13 +436,14 @@ func TestMirror(t *testing.T) {
 
 			// Capture output
 			var capturedOutput []string
-			mockPrinter := func(format string, a ...interface{}) {
+			mockPrinter := func(format string, a ...any) {
 				capturedOutput = append(capturedOutput, fmt.Sprintf(format, a...))
 			}
 
 			// Create a new command instance
 			cmd := &mirrorCmd{
 				Version:             tc.version,
+				DryRun:              true,
 				path:                tc.outputDir,
 				DestinationRegistry: tc.destinationRegistry,
 				fetchManifest:       tc.mockFetchManifest,      // Inject the mock
@@ -452,11 +451,8 @@ func TestMirror(t *testing.T) {
 				defaultPrint:        mockPrinter,               // Inject the mock
 			}
 
-			printer := upterm.DefaultObjPrinter
-			printer.DryRun = true
-
 			// Run the mirror command
-			err := cmd.Run(printer)
+			err := cmd.Run()
 
 			// Validate results
 			if tc.expectedError != "" {

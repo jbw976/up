@@ -91,7 +91,6 @@ func (c *cli) AfterApply(ctx *kong.Context) error {
 	}
 
 	printer := upterm.DefaultObjPrinter
-	printer.DryRun = c.DryRun
 	printer.Format = c.Format
 	printer.Pretty = pretty
 	printer.Quiet = c.Quiet

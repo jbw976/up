@@ -40,7 +40,6 @@ type Printer interface {
 type ObjectPrinter struct {
 	Quiet  config.QuietFlag
 	Pretty bool
-	DryRun bool
 	Format config.Format
 }
 
@@ -50,7 +49,6 @@ type ObjectPrinter struct {
 var DefaultObjPrinter = ObjectPrinter{
 	Quiet:  false,
 	Pretty: true,
-	DryRun: false,
 	Format: config.FormatDefault,
 }
 
