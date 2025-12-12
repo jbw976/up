@@ -1,6 +1,8 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package yaml is an opinionated drop-in replacement for the k8s yaml library,
+// offering some additional functionality.
 package yaml
 
 import (
@@ -17,16 +19,26 @@ import (
 // first removing the metadata.creationTimestamp field if it is present and
 // null. Additional fields may be removed by passing options.
 func Marshal(obj any, opts ...MarshalOption) ([]byte, error) {
-	cfg := defaultMarshalOptions
+	cfg := marshalOptions{
+		removeNilFields: []fieldPath{
+			{"metadata", "creationTimestamp"},
+		},
+	}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
-	// Only pointers can be converted to unstructured.
 	typ := reflect.TypeOf(obj)
-	if typ.Kind() != reflect.Pointer {
-		// Have to use ptr.To here instead of just taking the address because
-		// obj is a stack variable.
+	switch typ.Kind() { //nolint:exhaustive // We have a perfectly good default case.
+	case reflect.Pointer:
+		// Don't need to do anything.
+	case reflect.Array, reflect.Slice, reflect.Map:
+		// ToUnstructured doesn't work on these.
+		return yaml.Marshal(obj)
+	default:
+		// Take a pointer so we can convert to unstructured. We have to use
+		// ptr.To here instead of just taking the address because obj is a stack
+		// variable.
 		obj = ptr.To(obj)
 	}
 
@@ -61,12 +73,6 @@ type marshalOptions struct {
 
 type fieldPath []string
 
-var defaultMarshalOptions = marshalOptions{
-	removeNilFields: []fieldPath{
-		{"metadata", "creationTimestamp"},
-	},
-}
-
 // RemoveField causes Marshal to remove the given field from the object before
 // marshaling. Field paths are dot-separated without a leading dot.
 func RemoveField(path string) MarshalOption {
@@ -96,6 +102,8 @@ func Unmarshal(y []byte, obj any, opts ...yaml.JSONOpt) error {
 // YAMLToJSON wraps the Kubernetes yaml package's YAMLToJSON, allowing this
 // package to serve as a drop-in replacement for the upstream package in most
 // cases.
+//
+//nolint:revive // Name matches the upstream package.
 func YAMLToJSON(y []byte) ([]byte, error) {
 	return yaml.YAMLToJSON(y)
 }

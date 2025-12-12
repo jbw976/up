@@ -31,7 +31,8 @@ type objectWithCreationTimestamp struct {
 
 type objectWithNestedFields struct {
 	metav1.ObjectMeta `json:"metadata"`
-	TopLevel          *objectWithoutMetadata `json:"topLevel"`
+
+	TopLevel *objectWithoutMetadata `json:"topLevel"`
 }
 
 func TestMarshal(t *testing.T) {
@@ -137,6 +138,32 @@ topLevel:
 			expectedYAML: `metadata:
   name: hello
   namespace: world
+`,
+		},
+		"Slice": {
+			input: []objectWithoutMetadata{
+				{
+					FieldA: "hello",
+					FieldB: "world",
+				},
+				{
+					FieldA: "foo",
+					FieldB: "bar",
+				},
+			},
+			expectedYAML: `- fieldA: hello
+  fieldB: world
+- fieldA: foo
+  fieldB: bar
+`,
+		},
+		"Map": {
+			input: map[string]string{
+				"hello": "world",
+				"foo":   "bar",
+			},
+			expectedYAML: `foo: bar
+hello: world
 `,
 		},
 	}
