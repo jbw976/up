@@ -128,7 +128,7 @@ func (c *collectCmd) Run(ctx context.Context) error {
 		OutputPath:          c.Output,
 		Processors:          processors,
 		ProgressCallback: func(message string) {
-			spinner.Logf("Collecting: %s", message)
+			spinner.UpdateText(fmt.Sprintf("Collecting: %s", message))
 		},
 	}
 

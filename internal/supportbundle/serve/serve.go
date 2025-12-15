@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os/signal"
 	"runtime"
@@ -31,8 +32,8 @@ type Options struct {
 	// BundlePath is the path to the support bundle directory or archive.
 	BundlePath string
 
-	// Host is the host and port to serve on (e.g., "localhost:8080").
-	Host string
+	// Addr is the host and port to serve on (e.g., "localhost:8080").
+	Addr string
 
 	// KubeconfigPath is where to write the kubeconfig file.
 	KubeconfigPath string
@@ -93,28 +94,39 @@ func Start(ctx context.Context, opts Options) error {
 
 	err = importer.ImportBundle(ctx, supportBundle, testEnv.Config, &outputAdapter{debug: opts.Debug, debugf: opts.Debugf})
 	if err != nil {
-		if opts.Debugf != nil {
-			opts.Debugf("bundle import incomplete, some resources may be missing: %v", err)
-		}
-		// Continue anyway - some resources may have been imported but maybe not all.
-	}
-
-	proxyHost := fmt.Sprintf("http://%s", opts.Host)
-	kubeconfigPath, err := kubernetes.WriteProxyKubeconfig(proxyHost, opts.KubeconfigPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to create kubeconfig")
-	}
-
-	if opts.OnServerReady != nil {
-		opts.OnServerReady(proxyHost, kubeconfigPath)
+		return errors.Wrap(err, "failed to import support bundle")
 	}
 
 	proxyHandler := proxy.New(testEnv.Config, supportBundle, rewriter.Default())
 
 	s := &http.Server{
-		Addr:              opts.Host,
 		Handler:           proxyHandler,
 		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	// Create listener first to ensure the port is available before notifying
+	lc := &net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", opts.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "failed to listen on %s", opts.Addr)
+	}
+
+	boundAddr := listener.Addr().String()
+	if host, port, err := net.SplitHostPort(opts.Addr); err == nil && port == "0" {
+		if _, realPort, err := net.SplitHostPort(boundAddr); err == nil {
+			boundAddr = net.JoinHostPort(host, realPort)
+		}
+	}
+
+	proxyHost := fmt.Sprintf("http://%s", boundAddr)
+	kubeconfigPath, err := kubernetes.WriteProxyKubeconfig(proxyHost, opts.KubeconfigPath)
+	if err != nil {
+		_ = listener.Close()
+		return errors.Wrap(err, "failed to create kubeconfig")
+	}
+
+	if opts.OnServerReady != nil {
+		opts.OnServerReady(proxyHost, kubeconfigPath)
 	}
 
 	go func() {
@@ -124,7 +136,7 @@ func Start(ctx context.Context, opts Options) error {
 		_ = s.Shutdown(shutdownCtx)
 	}()
 
-	return ignoreServerClosedError(s.ListenAndServe())
+	return ignoreServerClosedError(s.Serve(listener))
 }
 
 func ignoreServerClosedError(err error) error {

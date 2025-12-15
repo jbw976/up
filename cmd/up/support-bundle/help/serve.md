@@ -1,7 +1,9 @@
 The `up support-bundle serve` command serves support bundle files over HTTP for live viewing.
-It starts a local Kubernetes API server, imports the support bundle resources,
+It starts a local Kubernetes API server (not a full cluster), imports the support bundle resources,
 and provides a kubeconfig file that allows you to interact with the bundle using standard
 Kubernetes tools like `kubectl` or `k9s`.
+
+Note: This runs only the API server for viewing collected data, no workloads are actually running.
 
 ## Usage
 
@@ -15,11 +17,8 @@ up support-bundle serve [path] [flags]
 # Serve a support bundle tar.gz file
 up support-bundle serve ./upbound-support-bundle.tar.gz
 
-# Serve a support bundle from a directory
-up support-bundle serve ./support-bundle-directory
-
-# Serve on a custom host and port
-up support-bundle serve --host localhost:9090
+# Serve on a custom port
+up support-bundle serve --port 9090
 
 # Specify a custom kubeconfig output path
 up support-bundle serve --kubeconfig-path ./my-kubeconfig

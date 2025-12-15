@@ -6,6 +6,8 @@ package supportbundle
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/pterm/pterm"
 
@@ -20,10 +22,11 @@ var serveHelp string
 
 // serveCmd serves support bundle files over HTTP for live viewing.
 type serveCmd struct {
-	Path           string `arg:""                                default:"."                                              help:"Path to support bundle directory or archive."`
-	Host           string `default:"localhost:8080"              help:"Host and port to serve on (e.g., localhost:8080)."`
-	KubeconfigPath string `default:"./support-bundle-kubeconfig" help:"Where to write the kubeconfig file."               short:"k"`
-	EnvtestArch    string `default:""                            help:"Arch value for Kubernetes API Server assets."      short:"a"`
+	Path           string `arg:""                                default:"."                                                    help:"Path to support bundle directory or archive."`
+	Host           string `default:"127.0.0.1"                   help:"Host to serve on."                                       name:"host"`
+	Port           int    `default:"0"                           help:"Port to serve on. 0 means a random port will be chosen." name:"port"`
+	KubeconfigPath string `default:"./support-bundle-kubeconfig" help:"Where to write the kubeconfig file."                     short:"k"`
+	EnvtestArch    string `default:""                            help:"Arch value for Kubernetes API Server assets."            short:"a"`
 	Debug          bool   `help:"Enable debug output."           short:"d"`
 }
 
@@ -38,35 +41,37 @@ func (c *serveCmd) Run(ctx context.Context) error {
 		pterm.EnableDebugMessages()
 	}
 
-	spinner, err := upterm.CheckmarkSuccessSpinner.Start(fmt.Sprintf("Loading support bundle from: %s", c.Path))
-	if err != nil {
-		return err
-	}
+	spinner := upterm.NewSuccessSpinner(fmt.Sprintf("Loading support bundle from: %s", c.Path))
+	spinner.Start()
+
+	addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
 
 	opts := serve.Options{
 		BundlePath:     c.Path,
-		Host:           c.Host,
+		Addr:           addr,
 		KubeconfigPath: c.KubeconfigPath,
 		EnvtestArch:    c.EnvtestArch,
 		Debug:          c.Debug,
 		Debugf: func(format string, args ...any) {
 			pterm.Debug.Printfln(format, args...)
 		},
+		//nolint:forbidigo // It's a CLI.
 		OnServerReady: func(serverURL, kubeconfigPath string) {
 			spinner.Success()
-			pterm.Println()
-			pterm.Printfln("Serving support bundle at: %s", serverURL)
-			pterm.Println()
-			pterm.Printfln("KUBECONFIG=%s", kubeconfigPath)
-			pterm.Println()
-			pterm.Printfln("You can now view the support bundle content using kubectl or k9s:")
-			pterm.Printfln("  kubectl --kubeconfig=%s get pods --all-namespaces", kubeconfigPath)
-			pterm.Println()
-			pterm.Printfln("Press Ctrl+C to stop the server")
+			fmt.Printf("\nServing support bundle at: %s\n", serverURL)
+			fmt.Printf("\n")
+			fmt.Printf("KUBECONFIG=%s\n", kubeconfigPath)
+			fmt.Printf("\n")
+			fmt.Printf("You can now view the support bundle content using kubectl or k9s:\n")
+			fmt.Printf("\n")
+			fmt.Printf("  kubectl --kubeconfig=%s get pods --all-namespaces\n", kubeconfigPath)
+			fmt.Printf("\n")
+			fmt.Printf("Press Ctrl+C to stop the server\n")
+			fmt.Printf("\n")
 		},
 	}
 
-	err = serve.Start(ctx, opts)
+	err := serve.Start(ctx, opts)
 	if err != nil {
 		spinner.Fail()
 		return err
