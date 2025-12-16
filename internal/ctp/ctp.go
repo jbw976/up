@@ -1347,40 +1347,6 @@ type KubeconfigDevControlPlane struct {
 	client     client.Client
 }
 
-// Info returns human-readable information about the dev control plane.
-func (l *KubeconfigDevControlPlane) Info() string {
-	return fmt.Sprintf("Using existing kubeconfig context %q.", l.context)
-}
-
-// ShortDescription returns a short description of the control plane.
-func (l *KubeconfigDevControlPlane) ShortDescription() string {
-	return fmt.Sprintf("existing kubeconfig context %s", l.context)
-}
-
-// Client returns a controller-runtime client for the control plane.
-func (l *KubeconfigDevControlPlane) Client() client.Client {
-	return l.client
-}
-
-// Kubeconfig returns a kubeconfig for the control plane.
-func (l *KubeconfigDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
-	return l.kubeconfig
-}
-
-// Teardown does nothing for kubeconfig control planes.
-func (l *KubeconfigDevControlPlane) Teardown(_ context.Context, _ bool) error {
-	return nil
-}
-
-// Cleanup removes all Crossplane resources from the control plane.
-func (l *KubeconfigDevControlPlane) Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error) {
-	helper := &cleanupHelper{
-		client:     l.client,
-		kubeconfig: l.kubeconfig,
-	}
-	return helper.Cleanup(ctx, opts...)
-}
-
 // NewKubeconfigDevControlPlane returns an initialized
 // KubeconfigDevControlPlane.
 func NewKubeconfigDevControlPlane(ctx context.Context, upCtx *upbound.Context) (*KubeconfigDevControlPlane, error) {
@@ -1413,6 +1379,40 @@ func NewKubeconfigDevControlPlane(ctx context.Context, upCtx *upbound.Context) (
 		kubeconfig: upCtx.Kubecfg,
 		client:     cl,
 	}, checkUXPLicense(ctx, cl)
+}
+
+// Info returns human-readable information about the dev control plane.
+func (l *KubeconfigDevControlPlane) Info() string {
+	return fmt.Sprintf("Using existing kubeconfig context %q.", l.context)
+}
+
+// ShortDescription returns a short description of the control plane.
+func (l *KubeconfigDevControlPlane) ShortDescription() string {
+	return fmt.Sprintf("existing kubeconfig context %s", l.context)
+}
+
+// Client returns a controller-runtime client for the control plane.
+func (l *KubeconfigDevControlPlane) Client() client.Client {
+	return l.client
+}
+
+// Kubeconfig returns a kubeconfig for the control plane.
+func (l *KubeconfigDevControlPlane) Kubeconfig() clientcmd.ClientConfig {
+	return l.kubeconfig
+}
+
+// Teardown does nothing for kubeconfig control planes.
+func (l *KubeconfigDevControlPlane) Teardown(_ context.Context, _ bool) error {
+	return nil
+}
+
+// Cleanup removes all Crossplane resources from the control plane.
+func (l *KubeconfigDevControlPlane) Cleanup(ctx context.Context, opts ...CleanupOption) (*CleanupResult, error) {
+	helper := &cleanupHelper{
+		client:     l.client,
+		kubeconfig: l.kubeconfig,
+	}
+	return helper.Cleanup(ctx, opts...)
 }
 
 func checkUXPLicense(ctx context.Context, cl client.Client) error {
