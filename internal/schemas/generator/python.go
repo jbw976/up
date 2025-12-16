@@ -43,34 +43,6 @@ func (pythonGenerator) Language() string {
 	return "python"
 }
 
-// generatePythonSchemas runs the datamodel code generator with common arguments.
-func (p pythonGenerator) generatePythonSchemas(ctx context.Context, inputFS afero.Fs, baseFolder string, generator runner.SchemaRunner) error {
-	return generator.Generate(
-		ctx,
-		inputFS,
-		baseFolder,
-		"",
-		pythonImage,
-		[]string{
-			"--input-file-type",
-			"openapi",
-			"--disable-timestamp",
-			"--input",
-			".",
-			"--output-model-type",
-			"pydantic_v2.BaseModel",
-			"--target-python-version",
-			"3.12",
-			"--use-field-description",
-			"--enum-field-as-literal",
-			"all",
-			"--use-one-literal-as-default",
-			"--output",
-			pythonModelsFolder,
-		},
-	)
-}
-
 // GenerateFromCRD generates Python schema files from the XRDs and CRDs fromFS.
 func (p pythonGenerator) GenerateFromCRD(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) { //nolint:gocognit // generation of schemas for python
 	crdFS := afero.NewMemMapFs()
@@ -174,6 +146,34 @@ func (p pythonGenerator) GenerateFromCRD(ctx context.Context, fromFS afero.Fs, g
 	return schemaFS, nil
 }
 
+// generatePythonSchemas runs the datamodel code generator with common arguments.
+func (p pythonGenerator) generatePythonSchemas(ctx context.Context, inputFS afero.Fs, baseFolder string, generator runner.SchemaRunner) error {
+	return generator.Generate(
+		ctx,
+		inputFS,
+		baseFolder,
+		"",
+		pythonImage,
+		[]string{
+			"--input-file-type",
+			"openapi",
+			"--disable-timestamp",
+			"--input",
+			".",
+			"--output-model-type",
+			"pydantic_v2.BaseModel",
+			"--target-python-version",
+			"3.12",
+			"--use-field-description",
+			"--enum-field-as-literal",
+			"all",
+			"--use-one-literal-as-default",
+			"--output",
+			pythonModelsFolder,
+		},
+	)
+}
+
 // postTransformCRD combines the reorganization of Python files and the adjustment of import paths into one pass.
 func postTransformCRD(fs afero.Fs, sourceDir, targetDir string) error { //nolint:gocognit // we need this python transforms
 	v1MetaCopied := false // Flag to track if v1.py has already been moved
@@ -242,8 +242,7 @@ func postTransformCRD(fs afero.Fs, sourceDir, targetDir string) error { //nolint
 		var apiVersion, rootFolder string
 		var preVersionSegments []string
 		for _, dirSegment := range dirSegments {
-			subSegments := strings.Split(dirSegment, "_")
-			for _, subSegment := range subSegments {
+			for subSegment := range strings.SplitSeq(dirSegment, "_") {
 				if xcrd.IsKnownAPIVersion(subSegment) {
 					apiVersion = subSegment
 					rootFolder = dirSegment
@@ -499,7 +498,7 @@ func shouldSkipOpenAPIFile(doc *openapi3.T) bool {
 			continue
 		}
 
-		var gvkList []map[string]interface{}
+		var gvkList []map[string]any
 		if err := json.Unmarshal(extBytes, &gvkList); err != nil {
 			continue
 		}
@@ -541,7 +540,7 @@ func processOpenAPIContent(doc *openapi3.T) *openapi3.T { //nolint:gocognit // s
 			continue
 		}
 
-		var gvkList []map[string]interface{}
+		var gvkList []map[string]any
 		if err := json.Unmarshal(rawBytes, &gvkList); err != nil {
 			continue
 		}
