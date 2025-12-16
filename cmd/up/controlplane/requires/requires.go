@@ -74,8 +74,9 @@ type Space struct{}
 func (c Space) Check(ctx context.Context, upCtx *upbound.Context) (client.Client, error) {
 	// Check whether we're in a space. We don't have to be, but if we are we
 	// verify that our context is a control plane.
-	_, _, err := intctx.GetCurrentGroup(ctx, upCtx)
+	_, grp, err := intctx.GetCurrentGroup(ctx, upCtx)
 	isSpace := err == nil
+	isGroup := grp != nil
 
 	if !isSpace {
 		return nil, errors.New("current kubeconfig context is not in an Upbound Space. Use 'up ctx' to set an Upbound context")
@@ -90,5 +91,14 @@ func (c Space) Check(ctx context.Context, upCtx *upbound.Context) (client.Client
 		return nil, errors.Wrap(err, "cannot get rest config for spaces client")
 	}
 
-	return client.New(restConfig, client.Options{})
+	cl, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, err
+	}
+
+	if isGroup {
+		return client.NewNamespacedClient(cl, grp.Name), nil
+	}
+
+	return cl, nil
 }
