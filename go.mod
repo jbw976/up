@@ -332,7 +332,7 @@ require (
 	k8s.io/component-helpers v0.34.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250704022524-ddb642e17a28 // indirect
 	k8s.io/kubelet v0.34.1 // indirect
-	k8s.io/kubernetes v1.34.1 // indirect
+	k8s.io/kubernetes v1.34.2 // indirect
 	k8s.io/metrics v0.34.1 // indirect
 	oras.land/oras-go v1.2.7 // indirect
 	periph.io/x/host/v3 v3.8.5 // indirect
