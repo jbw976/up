@@ -183,6 +183,7 @@ func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.
 			goReferenceK8sTypesForCRDs,
 			goRemoveK8s,
 			goKeepOnlyComponents,
+			goRemoveUnions,
 		)
 		if err != nil {
 			return nil, err
@@ -828,6 +829,49 @@ func goSimplifyK8sUnionProperties(props map[string]spec.Schema, unionTypes []str
 				}
 			}
 			goSimplifyK8sUnionProperties(prop.AdditionalProperties.Schema.Properties, unionTypes)
+		}
+
+		props[name] = prop
+	}
+}
+
+// goRemoveUnions removes oneOf/anyOf schemas that cause complex union types
+// with json.RawMessage and runtime dependencies. For schemas with both
+// properties and unions, we keep only the properties.
+func goRemoveUnions(s *spec3.OpenAPI) {
+	if s.Components == nil || s.Components.Schemas == nil {
+		return
+	}
+
+	for _, schema := range s.Components.Schemas {
+		goRemoveUnionsInSchema(schema)
+		goRemoveUnionsInProperties(schema.Properties)
+	}
+}
+
+func goRemoveUnionsInSchema(schema *spec.Schema) {
+	// If a schema has oneOf or anyOf, but also has properties defined,
+	// just keep the properties and remove the oneOf/anyOf
+	if (len(schema.OneOf) > 0 || len(schema.AnyOf) > 0) && len(schema.Properties) > 0 {
+		schema.OneOf = nil
+		schema.AnyOf = nil
+	}
+
+	// Process items if it's an array
+	if schema.Items != nil && schema.Items.Schema != nil {
+		goRemoveUnionsInSchema(schema.Items.Schema)
+		goRemoveUnionsInProperties(schema.Items.Schema.Properties)
+	}
+}
+
+func goRemoveUnionsInProperties(props map[string]spec.Schema) {
+	for name, prop := range props {
+		goRemoveUnionsInSchema(&prop)
+		goRemoveUnionsInProperties(prop.Properties)
+
+		if prop.Items != nil && prop.Items.Schema != nil {
+			goRemoveUnionsInSchema(prop.Items.Schema)
+			goRemoveUnionsInProperties(prop.Items.Schema.Properties)
 		}
 
 		props[name] = prop

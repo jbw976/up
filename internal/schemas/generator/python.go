@@ -270,7 +270,15 @@ func postTransformCRD(fs afero.Fs, sourceDir, targetDir string) error { //nolint
 
 		// Prepare destination path
 		newFileName := fmt.Sprintf("%s.py", apiVersion)
-		destinationDir := filepath.Join(targetDir, orderedPath, kind)
+		// Check if orderedPath already ends with kind to avoid duplication (e.g., gateway/gateway)
+		var destinationDir string
+		if orderedPath != "" && filepath.Base(orderedPath) == kind {
+			// orderedPath already ends with kind, don't append it again
+			destinationDir = filepath.Join(targetDir, orderedPath)
+		} else {
+			// Append kind to the path
+			destinationDir = filepath.Join(targetDir, orderedPath, kind)
+		}
 		destinationPath := filepath.Join(destinationDir, newFileName)
 
 		// Create the destination directory
