@@ -842,7 +842,6 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 	values := map[string]any{
 		"args": []string{
 			"--enable-dependency-version-upgrades",
-			"--enable-function-response-cache",
 		},
 		"registryCaBundleConfig": map[string]string{
 			"name": caConfigMap,
