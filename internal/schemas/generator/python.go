@@ -146,6 +146,105 @@ func (p pythonGenerator) GenerateFromCRD(ctx context.Context, fromFS afero.Fs, g
 	return schemaFS, nil
 }
 
+// GenerateFromOpenAPI generates Python schema files from OpenAPI specifications in fromFS.
+func (p pythonGenerator) GenerateFromOpenAPI(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) {
+	openapiFS := afero.NewMemMapFs()
+	schemaFS := afero.NewMemMapFs()
+	baseFolder := "workdir"
+
+	if err := openapiFS.MkdirAll(baseFolder, 0o755); err != nil {
+		return nil, err
+	}
+
+	var openapiPaths []string
+
+	// Walk the virtual filesystem to find and process OpenAPI JSON files
+	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only process JSON files
+		if !strings.HasSuffix(strings.ToLower(path), ".json") {
+			return nil
+		}
+
+		// Read the file content
+		bs, err := afero.ReadFile(fromFS, path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read file %q", path)
+		}
+
+		// Parse the OpenAPI document once
+		loader := openapi3.NewLoader()
+		doc, err := loader.LoadFromData(bs)
+		if err != nil {
+			// If parsing fails, use original content
+			processedContent := bs
+			targetPath := filepath.Join(baseFolder, path)
+			if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return errors.Wrapf(err, "failed to create directory for %q", targetPath)
+			}
+			if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
+				return errors.Wrapf(err, "failed to write file %q", targetPath)
+			}
+			return nil
+		}
+
+		// Check if we should skip this file based on its pattern
+		if shouldSkipOpenAPIFile(doc) {
+			return nil
+		}
+
+		// Process the OpenAPI content to add default values
+		processedDoc := processOpenAPIContent(doc)
+		processedContent, err := processedDoc.MarshalJSON()
+		if err != nil {
+			// If marshaling fails, use original content
+			processedContent = bs
+		}
+
+		// Write OpenAPI file to working directory
+		targetPath := filepath.Join(baseFolder, path)
+		if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return err
+		}
+		if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
+			return err
+		}
+		openapiPaths = append(openapiPaths, targetPath)
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if len(openapiPaths) == 0 {
+		// Return nil if no files were generated
+		return nil, nil
+	}
+
+	// Generate Python schemas using common function
+	if err := p.generatePythonSchemas(ctx, openapiFS, baseFolder, generator); err != nil {
+		return nil, err
+	}
+
+	if err := postTransformOpenAPI(openapiFS, pythonGeneratedFolder, pythonAdoptModelsStructure); err != nil {
+		return nil, err
+	}
+
+	// Copy the generated models to the schema filesystem
+	if err := filesystem.CopyFilesBetweenFs(afero.NewBasePathFs(openapiFS, pythonAdoptModelsStructure), afero.NewBasePathFs(schemaFS, pythonModelsFolder)); err != nil {
+		return nil, err
+	}
+
+	return schemaFS, nil
+}
+
 // generatePythonSchemas runs the datamodel code generator with common arguments.
 func (p pythonGenerator) generatePythonSchemas(ctx context.Context, inputFS afero.Fs, baseFolder string, generator runner.SchemaRunner) error {
 	return generator.Generate(
@@ -377,105 +476,6 @@ func adjustLeadingDots(importLine string, depth int) string {
 	}
 
 	return importLine
-}
-
-// GenerateFromOpenAPI generates Python schema files from OpenAPI specifications in fromFS.
-func (p pythonGenerator) GenerateFromOpenAPI(ctx context.Context, fromFS afero.Fs, generator runner.SchemaRunner) (afero.Fs, error) {
-	openapiFS := afero.NewMemMapFs()
-	schemaFS := afero.NewMemMapFs()
-	baseFolder := "workdir"
-
-	if err := openapiFS.MkdirAll(baseFolder, 0o755); err != nil {
-		return nil, err
-	}
-
-	var openapiPaths []string
-
-	// Walk the virtual filesystem to find and process OpenAPI JSON files
-	if err := afero.Walk(fromFS, "", func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		// Only process JSON files
-		if !strings.HasSuffix(strings.ToLower(path), ".json") {
-			return nil
-		}
-
-		// Read the file content
-		bs, err := afero.ReadFile(fromFS, path)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read file %q", path)
-		}
-
-		// Parse the OpenAPI document once
-		loader := openapi3.NewLoader()
-		doc, err := loader.LoadFromData(bs)
-		if err != nil {
-			// If parsing fails, use original content
-			processedContent := bs
-			targetPath := filepath.Join(baseFolder, path)
-			if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-				return errors.Wrapf(err, "failed to create directory for %q", targetPath)
-			}
-			if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
-				return errors.Wrapf(err, "failed to write file %q", targetPath)
-			}
-			return nil
-		}
-
-		// Check if we should skip this file based on its pattern
-		if shouldSkipOpenAPIFile(doc) {
-			return nil
-		}
-
-		// Process the OpenAPI content to add default values
-		processedDoc := processOpenAPIContent(doc)
-		processedContent, err := processedDoc.MarshalJSON()
-		if err != nil {
-			// If marshaling fails, use original content
-			processedContent = bs
-		}
-
-		// Write OpenAPI file to working directory
-		targetPath := filepath.Join(baseFolder, path)
-		if err := openapiFS.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-			return err
-		}
-		if err := afero.WriteFile(openapiFS, targetPath, processedContent, 0o644); err != nil {
-			return err
-		}
-		openapiPaths = append(openapiPaths, targetPath)
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	if len(openapiPaths) == 0 {
-		// Return nil if no files were generated
-		return nil, nil
-	}
-
-	// Generate Python schemas using common function
-	if err := p.generatePythonSchemas(ctx, openapiFS, baseFolder, generator); err != nil {
-		return nil, err
-	}
-
-	if err := postTransformOpenAPI(openapiFS, pythonGeneratedFolder, pythonAdoptModelsStructure); err != nil {
-		return nil, err
-	}
-
-	// Copy the generated models to the schema filesystem
-	if err := filesystem.CopyFilesBetweenFs(afero.NewBasePathFs(openapiFS, pythonAdoptModelsStructure), afero.NewBasePathFs(schemaFS, pythonModelsFolder)); err != nil {
-		return nil, err
-	}
-
-	return schemaFS, nil
 }
 
 // shouldSkipOpenAPIFile checks if the OpenAPI file should be skipped.
