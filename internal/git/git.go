@@ -71,6 +71,41 @@ func (a *SSHAuthProvider) GetAuthMethod() (transport.AuthMethod, error) {
 	return authMethod, nil
 }
 
+// SSHAgentAuthProvider provides authentication using the SSH agent.
+type SSHAgentAuthProvider struct {
+	Username string
+}
+
+// GetAuthMethod returns the SSH agent auth method.
+func (a *SSHAgentAuthProvider) GetAuthMethod() (transport.AuthMethod, error) {
+	username := a.Username
+	if username == "" {
+		username = "git"
+	}
+	return ssh.NewSSHAgentAuth(username)
+}
+
+// CompositeAuthProvider tries multiple auth providers in order until one succeeds.
+type CompositeAuthProvider struct {
+	Providers []AuthProvider
+}
+
+// GetAuthMethod returns the first successful auth method.
+func (c *CompositeAuthProvider) GetAuthMethod() (transport.AuthMethod, error) {
+	var lastErr error
+	for _, p := range c.Providers {
+		method, err := p.GetAuthMethod()
+		if err == nil {
+			return method, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, errors.New("no auth providers configured")
+}
+
 // Cloner can clone git repositories with (optional) authentication.
 type Cloner interface {
 	CloneRepository(store storage.Storer, fs billy.Filesystem, auth AuthProvider, opts CloneOptions) (*plumbing.Reference, error)
@@ -86,7 +121,7 @@ func CheckSHA256Hash(ref string) bool {
 	}
 
 	for _, c := range ref {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
