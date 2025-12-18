@@ -228,12 +228,13 @@ type tableResultPrinter struct {
 }
 
 func (p *tableResultPrinter) PrintObject(obj any, fieldNames []string, extractFields func(any) []string) error {
-	t := reflect.TypeOf(obj)
-	k := t.Kind()
-	if k == reflect.Array || k == reflect.Slice {
-		return p.printList(obj, fieldNames, extractFields)
+	k := reflect.TypeOf(obj).Kind()
+	if k != reflect.Array && k != reflect.Slice {
+		// Single object case - print it as a table with one row.
+		obj = []any{obj}
 	}
-	return p.printObj(obj, fieldNames, extractFields)
+
+	return p.printTable(obj, fieldNames, extractFields)
 }
 
 func (p *tableResultPrinter) PrintObjectTemplate(obj any, tmpl string) error {
@@ -269,7 +270,7 @@ func (p *tableResultPrinter) PrintResult(a ...any) {
 	_, _ = fmt.Fprintln(p.out, a...)
 }
 
-func (p *tableResultPrinter) printList(obj any, fieldNames []string, extractFields func(any) []string) error {
+func (p *tableResultPrinter) printTable(obj any, fieldNames []string, extractFields func(any) []string) error {
 	t := table.New().
 		Headers(fieldNames...).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -297,10 +298,6 @@ func (p *tableResultPrinter) printList(obj any, fieldNames []string, extractFiel
 	_, _ = fmt.Fprintln(p.out, t.Render())
 
 	return nil
-}
-
-func (p *tableResultPrinter) printObj(obj any, fieldNames []string, extractFields func(any) []string) error {
-	return p.printList([]any{obj}, fieldNames, extractFields)
 }
 
 // jsonResultPrinter prints objects as JSON.
