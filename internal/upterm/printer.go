@@ -242,7 +242,19 @@ func (p *tableResultPrinter) PrintObjectTemplate(obj any, tmpl string) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(p.out, 8, 1, 1, ' ', 0)
+	// Templates can use tabs to produce aligned output, with the following
+	// parameters:
+	w := tabwriter.NewWriter(
+		p.out,
+		// Minimum cell width of 8.
+		8,
+		// Tab width of 1 character.
+		1,
+		// Padding of 1 character added to cell content.
+		1,
+		' ',
+		0,
+	)
 	if err := templ.Execute(w, obj); err != nil {
 		return err
 	}
