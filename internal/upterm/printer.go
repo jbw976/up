@@ -326,7 +326,7 @@ func (p *jsonResultPrinter) PrintResult(a ...any) {
 
 func printJSONPretty(out io.Writer, obj any) error {
 	e := json.NewEncoder(out)
-	e.SetIndent("", "    ")
+	e.SetIndent("", "  ")
 	return e.Encode(obj)
 }
 
