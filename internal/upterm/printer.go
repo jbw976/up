@@ -21,7 +21,7 @@ import (
 	"github.com/upbound/up/internal/yaml"
 )
 
-// Printer prints to the console.
+// Printer provides printing support for CLI commands.
 //
 //nolint:interfacebloat // We want to pass around a single thing, configured appropriately, so this interface is intentionally big.
 type Printer interface {
