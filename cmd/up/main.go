@@ -169,10 +169,12 @@ func (r *RootCommandRunner) RunCommand(args []string) error {
 }
 
 type cli struct {
-	Format config.Format `default:"default"                                                                enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
-	Quiet  bool          `help:"Suppress all informational output. Command results will still be printed." name:"quiet"                short:"q"`
+	Format config.Format `default:"default"                                                                enum:"default,json,yaml" help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  bool          `help:"Suppress all informational output. Command results will still be printed." name:"quiet"             short:"q"`
 	Silent bool          `help:"Suppress all output."`
-	Pretty *bool         `env:"PRETTY"                                                                     help:"Pretty print output." name:"pretty"`
+	// Pretty is a pointer because we dynamically default it in AfterApply and
+	// need to know whether the user set it explicitly.
+	Pretty *bool `env:"PRETTY" help:"Pretty print output." name:"pretty"`
 
 	// Manage Upbound Resources
 	Organization  organization.Cmd  `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with Upbound organizations." name:"organization"`
