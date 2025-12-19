@@ -99,7 +99,7 @@ func (c *exportCmd) Run(ctx context.Context, migCtx *migration.Context, printer 
 	}
 
 	printer.Println("Exporting control plane state...")
-	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
+	migration.DefaultSpinner = func(msg string) migration.Spinner { return printer.NewSuccessSpinner(msg) }
 
 	if err = e.Export(ctx); err != nil {
 		return err
