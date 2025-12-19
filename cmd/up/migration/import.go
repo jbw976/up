@@ -108,7 +108,7 @@ func (c *importCmd) Run(ctx context.Context, migCtx *migration.Context, printer 
 	}
 
 	printer.Println("Importing control plane state...")
-	migration.DefaultSpinner = func(msg string) migration.Spinner { return upterm.NewSuccessSpinner(msg) }
+	migration.DefaultSpinner = func(msg string) migration.Spinner { return printer.NewSuccessSpinner(msg) }
 
 	if err = i.Import(ctx); err != nil {
 		return err

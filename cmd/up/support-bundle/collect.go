@@ -107,7 +107,7 @@ func (c *collectCmd) Run(ctx context.Context, p upterm.Printer) error {
 		additionalRedactors = defaults.Redactors()
 	}
 
-	spinner := upterm.NewSuccessSpinner("Collecting support bundle...")
+	spinner := p.NewSuccessSpinner("Collecting support bundle...")
 	spinner.Start()
 
 	processors := []processor.Func{

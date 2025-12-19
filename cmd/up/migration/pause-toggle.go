@@ -63,7 +63,7 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context, p u
 
 	// Start scanning spinner
 	scanMsg := "Scanning control plane for types... "
-	s := upterm.NewSuccessSpinner(scanMsg)
+	s := p.NewSuccessSpinner(scanMsg)
 	s.Start()
 	cfg := migCtx.Kubeconfig
 
@@ -84,7 +84,7 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context, p u
 	// Process each category separately
 	for _, category := range categories {
 		categoryMsg := fmt.Sprintf("%s %s resources...", action, category)
-		sp := upterm.NewSuccessSpinner(categoryMsg)
+		sp := p.NewSuccessSpinner(categoryMsg)
 		sp.Start()
 
 		count, err := operationFunc(ctx, category, cm)

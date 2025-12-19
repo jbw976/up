@@ -9,8 +9,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up/internal/supportbundle/serve"
 	"github.com/upbound/up/internal/upterm"
 
@@ -36,12 +34,8 @@ func (c *serveCmd) Help() string {
 }
 
 // Run executes the support bundle serve command.
-func (c *serveCmd) Run(ctx context.Context) error {
-	if c.Debug {
-		pterm.EnableDebugMessages()
-	}
-
-	spinner := upterm.NewSuccessSpinner(fmt.Sprintf("Loading support bundle from: %s", c.Path))
+func (c *serveCmd) Run(ctx context.Context, pr upterm.Printer) error {
+	spinner := pr.NewSuccessSpinner(fmt.Sprintf("Loading support bundle from: %s", c.Path))
 	spinner.Start()
 
 	addr := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
@@ -53,21 +47,23 @@ func (c *serveCmd) Run(ctx context.Context) error {
 		EnvtestArch:    c.EnvtestArch,
 		Debug:          c.Debug,
 		Debugf: func(format string, args ...any) {
-			pterm.Debug.Printfln(format, args...)
+			if c.Debug {
+				pr.Printfln(format, args...)
+			}
 		},
-		//nolint:forbidigo // It's a CLI.
 		OnServerReady: func(serverURL, kubeconfigPath string) {
 			spinner.Success()
-			fmt.Printf("\nServing support bundle at: %s\n", serverURL)
-			fmt.Printf("\n")
-			fmt.Printf("KUBECONFIG=%s\n", kubeconfigPath)
-			fmt.Printf("\n")
-			fmt.Printf("You can now view the support bundle content using kubectl or k9s:\n")
-			fmt.Printf("\n")
-			fmt.Printf("  kubectl --kubeconfig=%s get pods --all-namespaces\n", kubeconfigPath)
-			fmt.Printf("\n")
-			fmt.Printf("Press Ctrl+C to stop the server\n")
-			fmt.Printf("\n")
+			pr.Println()
+			pr.Printfln("Serving support bundle at: %s", serverURL)
+			pr.Println()
+			pr.Printfln("KUBECONFIG=%s", kubeconfigPath)
+			pr.Println("")
+			pr.Printfln("You can now view the support bundle content using kubectl or k9s:")
+			pr.Println()
+			pr.Printfln("  kubectl --kubeconfig=%s get pods --all-namespaces", kubeconfigPath)
+			pr.Println()
+			pr.Printfln("Press Ctrl+C to stop the server")
+			pr.Println()
 		},
 	}
 

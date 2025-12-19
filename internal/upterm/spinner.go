@@ -26,6 +26,9 @@ import (
 
 // SpinnerPrinter prints spinners to the console.
 type SpinnerPrinter interface {
+	// NewSuccessSpinner returns a new success spinner.
+	NewSuccessSpinner(msg string) *SuccessSpinner
+
 	// WrapWithSuccessSpinner adds spinners around message and run function.
 	WrapWithSuccessSpinner(msg string, f func() error) error
 
@@ -40,6 +43,10 @@ type SpinnerPrinter interface {
 type defaultSpinnerPrinter struct {
 	pretty bool
 	out    io.Writer
+}
+
+func (p *defaultSpinnerPrinter) NewSuccessSpinner(msg string) *SuccessSpinner {
+	return newSuccessSpinner(p.out, msg)
 }
 
 func (p *defaultSpinnerPrinter) WrapWithSuccessSpinner(msg string, f func() error) error {
@@ -220,7 +227,7 @@ func (m *MultiSpinner) Add(title string) {
 		}
 	}
 
-	m.spinners = append(m.spinners, NewSuccessSpinner(title))
+	m.spinners = append(m.spinners, newSuccessSpinner(m.out, title))
 }
 
 // Success marks an existing spinner in the multi-spinner as having succeeded.
@@ -300,7 +307,9 @@ func (m *MultiSpinner) Stop() {
 // updates its view accordingly. It is used by MultiSpinner, but can also be
 // used as a standalone spinner.
 type SuccessSpinner struct {
-	title   string
+	title string
+	out   io.Writer
+
 	success *bool
 	spinner bspinner.Model
 	log     []string
@@ -309,10 +318,11 @@ type SuccessSpinner struct {
 	program *tea.Program
 }
 
-// NewSuccessSpinner returns an initialized SuccessSpinner.
-func NewSuccessSpinner(msg string) *SuccessSpinner {
+// newSuccessSpinner returns an initialized SuccessSpinner.
+func newSuccessSpinner(w io.Writer, msg string) *SuccessSpinner {
 	return &SuccessSpinner{
 		title: msg,
+		out:   w,
 		spinner: bspinner.New(
 			bspinner.WithSpinner(bspinner.Dot),
 			bspinner.WithStyle(style.UpboundRootStyle),
@@ -398,6 +408,7 @@ func (ss *SuccessSpinner) Logf(format string, args ...any) {
 // Start starts the spinners.
 func (ss *SuccessSpinner) Start() {
 	ss.program = tea.NewProgram(ss,
+		tea.WithOutput(ss.out),
 		tea.WithInput(nil),
 		tea.WithoutSignalHandler(),
 	)
