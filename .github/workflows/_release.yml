@@ -73,7 +73,7 @@ jobs:
           if [ -z "$VERSION" ]; then
             # If a version wasn't given in the workflow call, generate one by
             # bumping the last tagged version appropriately.
-            VERSION=$(go run ./hack/bump-semver "$(git describe)" "$GITHUB_REF_NAME")
+            VERSION=$(go run ./hack/bump-semver "$(git describe --tags)" "$GITHUB_REF_NAME")
           fi
           git tag "$VERSION"
 
