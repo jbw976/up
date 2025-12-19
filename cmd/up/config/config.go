@@ -6,12 +6,12 @@ package config
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/feature"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -40,7 +40,7 @@ type setCmd struct {
 
 type getCmd struct{}
 
-func (c *getCmd) Run(p pterm.TextPrinter) error {
+func (c *getCmd) Run(p upterm.Printer) error {
 	src := config.NewFSSource()
 	if err := src.Initialize(); err != nil {
 		return errors.Wrap(err, "failed to initialize config")
@@ -76,7 +76,7 @@ func (c *setCmd) Help() string {
 }
 
 // Run sets a configuration value.
-func (c *setCmd) Run(p pterm.TextPrinter) error {
+func (c *setCmd) Run(p upterm.Printer) error {
 	// Get config source
 	src := config.NewFSSource()
 	if err := src.Initialize(); err != nil {

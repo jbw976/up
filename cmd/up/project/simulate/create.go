@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
@@ -31,7 +30,6 @@ import (
 	"github.com/upbound/up/cmd/up/project/common"
 	runcmd "github.com/upbound/up/cmd/up/project/run"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	intctx "github.com/upbound/up/internal/ctx"
 	"github.com/upbound/up/internal/diff"
 	"github.com/upbound/up/internal/filesystem"
@@ -73,14 +71,11 @@ type CreateCmd struct {
 
 	spaceClient client.Client
 
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
-
 	proj *v2alpha1.Project
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *CreateCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *CreateCmd) AfterApply(upCtx *upbound.Context) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	// Read the project file.
@@ -135,21 +130,11 @@ func (c *CreateCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrin
 		c.ControlPlaneGroup = ns
 	}
 
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
-
 	return nil
 }
 
 // Run is the body of the command.
-func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *kong.Context) error { //nolint:gocognit // long chain of commands
+func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocognit // long chain of commands
 	var err error
 
 	c.Repository, err = project.DetermineRepository(upCtx, c.proj, c.Repository)
@@ -190,7 +175,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	)
 
 	var imgMap project.ImageTagMap
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
@@ -263,7 +248,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 			project.PushWithMaxConcurrency(c.concurrency),
 		)
 
-		err = c.asyncWrapper(func(ch async.EventChannel) error {
+		err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 			opts := []project.PushOption{
 				project.PushWithEventChannel(ch),
 				project.PushWithCreatePublicRepositories(c.Public),
@@ -291,7 +276,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		readyCtx = timeoutCtx
 	}
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		return kube.InstallConfiguration(readyCtx, simClient, c.proj.Name, tag, ch)
 	})
 	if err != nil {
@@ -299,7 +284,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 	}
 
 	if !c.Wait {
-		err = c.asyncWrapper(func(ch async.EventChannel) error {
+		err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 			status := fmt.Sprintf("Simulation running as %s/%s", sim.Simulation().Namespace, sim.Simulation().Name)
 			ch.SendEvent(status, async.EventStatusStarted)
 			ch.SendEvent(status, async.EventStatusSuccess)
@@ -312,7 +297,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		return nil
 	}
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		eg, _ := errgroup.WithContext(ctx)
 
 		eg.Go(func() error {
@@ -340,7 +325,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		return err
 	}
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		stageStatus := "Waiting for Simulation to complete"
 		ch.SendEvent(stageStatus, async.EventStatusStarted)
 		// Give ourselves a little extra time so that the simulation can be
@@ -364,7 +349,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 		return err
 	}
 
-	if err := outputDiff(kongCtx, diffSet, c.Output); err != nil {
+	if err := outputDiff(printer, diffSet, c.Output); err != nil {
 		return err
 	}
 
@@ -379,7 +364,7 @@ func (c *CreateCmd) Run(ctx context.Context, upCtx *upbound.Context, kongCtx *ko
 
 // outputDiff outputs the diff to the location, and in the format, specified by
 // the command line arguments.
-func outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff, output string) error {
+func outputDiff(p upterm.Printer, diffSet []diff.ResourceDiff, output string) error {
 	stdout := output == ""
 
 	// todo(redbackthomson): Use a different printer for JSON or YAML output
@@ -388,12 +373,8 @@ func outputDiff(kongCtx *kong.Context, diffSet []diff.ResourceDiff, output strin
 	_ = writer.Write(diffSet)
 
 	if stdout {
-		if _, err := fmt.Fprintf(kongCtx.Stdout, "\n\n"); err != nil {
-			return errors.Wrap(err, "failed to write output")
-		}
-		if _, err := fmt.Fprint(kongCtx.Stdout, buf.String()); err != nil {
-			return errors.Wrap(err, "failed to write output")
-		}
+		p.Println()
+		p.PrintResult(buf.String())
 		return nil
 	}
 

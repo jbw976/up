@@ -27,10 +27,11 @@ import (
 	"github.com/upbound/up/internal/spaces"
 	"github.com/upbound/up/internal/style"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 const (
-	contextSwitchedFmt = "Switched kubeconfig context to: %s\n"
+	contextSwitchedFmt = "Switched kubeconfig context to: %s"
 )
 
 var errParseSpaceContext = errors.New("unable to parse space info from context")
@@ -85,7 +86,7 @@ func (m model) WithTermination(msg string, err error) model {
 }
 
 // Run runs the command.
-func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Context, p upterm.Printer) error {
 	// find profile and derive controlplane from kubeconfig
 	po := clientcmd.NewDefaultPathOptions()
 	conf, err := po.GetStartingConfig()
@@ -107,17 +108,17 @@ func (c *Cmd) Run(ctx context.Context, kongCtx *kong.Context, upCtx *upbound.Con
 
 	navCtx := &navContext{
 		ingressReader: cachedReader,
-		contextWriter: c.kubeContextWriter(upCtx),
+		contextWriter: c.kubeContextWriter(upCtx, p),
 	}
 
 	// non-interactive mode via positional argument
 	switch c.Argument {
 	case "-":
-		return c.RunSwap(ctx, upCtx)
+		return c.RunSwap(ctx, upCtx, p)
 	case "":
 		return c.RunInteractive(ctx, kongCtx, upCtx, navCtx, initialState)
 	default:
-		return c.RunNonInteractive(ctx, upCtx, navCtx, initialState)
+		return c.RunNonInteractive(ctx, upCtx, navCtx, initialState, p)
 	}
 }
 
@@ -131,7 +132,7 @@ func updateProfile(upCtx *upbound.Context, breadcrumbs Breadcrumbs) error {
 }
 
 // RunSwap runs the quick swap version of `up ctx`.
-func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // TODO: shorten
+func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context, p upterm.Printer) error {
 	last, err := kube.ReadLastContext()
 	if err != nil {
 		return err
@@ -162,9 +163,9 @@ func (c *Cmd) RunSwap(ctx context.Context, upCtx *upbound.Context) error { //nol
 		return err
 	}
 	if c.Short {
-		fmt.Println(state.Breadcrumbs()) //nolint:forbidigo // Interactive command.
+		p.Println(state.Breadcrumbs())
 	} else {
-		fmt.Printf(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString())) //nolint:forbidigo // Interactive command.
+		p.Printfln(contextSwitchedFmt, withUpboundPrefix(state.Breadcrumbs().styledString()))
 	}
 
 	return updateProfile(upCtx, state.Breadcrumbs())
@@ -228,9 +229,10 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 		}
 		conf.Clusters[preferredContext] = prev
 		for _, ctx := range conf.Contexts {
-			if ctx.Cluster == preferredContext+kube.UpboundPreviousContextSuffix {
+			switch ctx.Cluster {
+			case preferredContext + kube.UpboundPreviousContextSuffix:
 				ctx.Cluster = preferredContext
-			} else if ctx.Cluster == preferredContext {
+			case preferredContext:
 				ctx.Cluster = preferredContext + kube.UpboundPreviousContextSuffix
 			}
 		}
@@ -249,9 +251,10 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 		}
 		conf.AuthInfos[preferredContext] = prev
 		for _, ctx := range conf.Contexts {
-			if ctx.AuthInfo == preferredContext+kube.UpboundPreviousContextSuffix {
+			switch ctx.AuthInfo {
+			case preferredContext + kube.UpboundPreviousContextSuffix:
 				ctx.AuthInfo = preferredContext
-			} else if ctx.AuthInfo == preferredContext {
+			case preferredContext:
 				ctx.AuthInfo = preferredContext + kube.UpboundPreviousContextSuffix
 			}
 		}
@@ -261,14 +264,14 @@ func activateContext(conf *clientcmdapi.Config, sourceContext, preferredContext 
 }
 
 // RunNonInteractive runs the non-interactive version of `up ctx`.
-func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState) error {
+func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, navCtx *navContext, initialState NavigationState, p upterm.Printer) error {
 	config, breadcrumbs, err := getKubeconfigNonInteractive(ctx, upCtx, navCtx, initialState, c.Argument)
 	if err != nil {
 		return err
 	}
 
 	// final step if we moved: accept the state
-	msg := fmt.Sprintf("Kubeconfig context %q: %s\n", c.KubeContext, withUpboundPrefix(breadcrumbs.styledString()))
+	msg := fmt.Sprintf("Kubeconfig context %q: %s", c.KubeContext, withUpboundPrefix(breadcrumbs.styledString()))
 	if breadcrumbs.String() != initialState.Breadcrumbs().String() || c.File == "-" {
 		if err := navCtx.contextWriter.Write(config); err != nil {
 			return err
@@ -281,9 +284,9 @@ func (c *Cmd) RunNonInteractive(ctx context.Context, upCtx *upbound.Context, nav
 	}
 
 	if c.Short {
-		fmt.Println(breadcrumbs) //nolint:forbidigo // Interactive command.
+		p.Println(breadcrumbs)
 	} else {
-		fmt.Print(msg) //nolint:forbidigo // Interactive command.
+		p.Println(msg)
 	}
 
 	return updateProfile(upCtx, breadcrumbs)
@@ -338,7 +341,7 @@ func getKubeconfigNonInteractive(ctx context.Context, upCtx *upbound.Context, na
 		upCtx:      upCtx,
 		navContext: navCtx,
 	}
-	for _, s := range strings.Split(path, "/") {
+	for s := range strings.SplitSeq(path, "/") {
 		switch s {
 		case "":
 			// Ignore empty path components. This allows for trailing slashes,
@@ -435,9 +438,11 @@ func (c *Cmd) RunInteractive(ctx context.Context, kongCtx *kong.Context, upCtx *
 	return nil
 }
 
-func (c *Cmd) kubeContextWriter(upCtx *upbound.Context) kube.ContextWriter {
+func (c *Cmd) kubeContextWriter(upCtx *upbound.Context, p upterm.Printer) kube.ContextWriter {
 	if c.File == "-" {
-		return &printWriter{}
+		return &printWriter{
+			printer: p,
+		}
 	}
 
 	return kube.NewFileWriter(upCtx, c.File, c.KubeContext)

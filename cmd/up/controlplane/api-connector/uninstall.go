@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,11 +74,11 @@ type uninstallCmd struct {
 }
 
 // Run executes the uninstall command.
-func (c *uninstallCmd) Run(p pterm.TextPrinter, printer upterm.ObjectPrinter) error {
+func (c *uninstallCmd) Run(p upterm.Printer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	provisioner := newProvisioner(c.sdkConfig, p, printer)
+	provisioner := newProvisioner(c.sdkConfig, p)
 
 	err := provisioner.uninstallConnector(ctx, c.targetRestConfig, installOptions{
 		namespace: defaultInstallationNamespace,

@@ -6,10 +6,9 @@ package repository
 import (
 	"context"
 
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // createCmd creates a repository on Upbound.
@@ -21,7 +20,7 @@ type createCmd struct {
 }
 
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, rc *repositories.Client, upCtx *upbound.Context) error {
+func (c *createCmd) Run(ctx context.Context, p upterm.Printer, rc *repositories.Client, upCtx *upbound.Context) error {
 	// Defaults are public visibility and no indexing (publishing).
 	// The server does handle unset fields, but since this is a PUT endpoint we'll explicitly set every field in the request.
 	visibility := repositories.WithPublic()

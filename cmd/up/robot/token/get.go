@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -21,12 +19,6 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // getCmd get a robot token on Upbound.
 type getCmd struct {
 	RobotName string `arg:"" help:"Name of robot." required:""`
@@ -34,7 +26,7 @@ type getCmd struct {
 }
 
 // Run executes the get robot token command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ResultPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -89,5 +81,5 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 	if theToken == nil {
 		return errors.Errorf(errFindTokenFmt, c.TokenName, c.RobotName, upCtx.Organization)
 	}
-	return printer.Print(*theToken, fieldNames, extractFields)
+	return printer.PrintObject(*theToken, fieldNames, extractFields)
 }

@@ -129,6 +129,8 @@ linters:
               desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
             - pkg: gotest.tools/assert
               desc: "Use gotest.tools/v3/assert instead; see CONTRIBUTING.md"
+            - pkg: github.com/pterm/pterm
+              desc: "Use internal/upterm instead"
         use_crossplane_runtime_errors:
           list-mode: lax
           files:

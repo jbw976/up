@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package prerequisites manages Spaces preqrequisites.
 package prerequisites
 
 import (
@@ -19,9 +20,10 @@ import (
 	"github.com/upbound/up/cmd/up/space/prerequisites/providers/helm"
 	"github.com/upbound/up/cmd/up/space/prerequisites/providers/kubernetes"
 	"github.com/upbound/up/cmd/up/space/prerequisites/uxp"
+	"github.com/upbound/up/internal/upterm"
 )
 
-var errCreatePrerequisite = "failed to instantiate prerequisite manager"
+const errCreatePrerequisite = "failed to instantiate prerequisite manager"
 
 // Prerequisite defines the API that is used to interogate an installation
 // prerequisite.
@@ -45,7 +47,7 @@ type Status struct {
 }
 
 // New constructs a new Manager for working with installation Prerequisites.
-func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flags, versionStr string) (*Manager, error) { //nolint:gocyclo
+func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flags, versionStr string, p upterm.Printer) (*Manager, error) {
 	prereqs := []Prerequisite{}
 
 	version, err := semver.NewVersion(versionStr)
@@ -97,7 +99,7 @@ func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flag
 	prereqs = append(prereqs, ingress)
 
 	if features.Enabled(spacefeature.EnableAlphaSharedTelemetry) {
-		otelopr, err := opentelemetrycollector.New(config)
+		otelopr, err := opentelemetrycollector.New(config, p)
 		if err != nil {
 			return nil, errors.Wrap(err, errCreatePrerequisite)
 		}
@@ -105,7 +107,7 @@ func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flag
 	}
 
 	if features.Enabled(spacefeature.EnableAlphaQueryAPI) {
-		cnpg, err := cloudnativepg.New(config)
+		cnpg, err := cloudnativepg.New(config, p)
 		if err != nil {
 			return nil, errors.Wrap(err, errCreatePrerequisite)
 		}

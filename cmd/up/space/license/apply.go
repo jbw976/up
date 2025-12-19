@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +15,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/apis/admin/v1alpha1"
+	"github.com/upbound/up/internal/upterm"
 )
 
 type applyCmd struct {
@@ -35,7 +35,7 @@ func (c *applyCmd) AfterApply() error {
 	return nil
 }
 
-func (c *applyCmd) Run(cl client.Client) error {
+func (c *applyCmd) Run(cl client.Client, p upterm.Printer) error {
 	ctx := context.Background()
 
 	f, err := c.fs.Open(c.LicenseFile)
@@ -90,7 +90,7 @@ func (c *applyCmd) Run(cl client.Client) error {
 		return errors.Wrap(err, "failed to apply license resource")
 	}
 
-	pterm.Println("Successfully applied license. Use `up space license show` to check license status.")
+	p.Println("Successfully applied license. Use `up space license show` to check license status.")
 
 	return nil
 }

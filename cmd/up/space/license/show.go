@@ -28,7 +28,7 @@ var tmpl string
 type showCmd struct{}
 
 // Run is the body of the command.
-func (c *showCmd) Run(cl client.Client, printer upterm.ObjectPrinter) error {
+func (c *showCmd) Run(cl client.Client, printer upterm.Printer) error {
 	ctx := context.Background()
 
 	var l adminv1alpha1.SpaceLicense
@@ -72,7 +72,7 @@ func (c *showCmd) Run(cl client.Client, printer upterm.ObjectPrinter) error {
 		data["license"] = license
 	}
 
-	if err := printer.PrintTemplate(&data, tmpl); err != nil {
+	if err := printer.PrintObjectTemplate(&data, tmpl); err != nil {
 		return errors.Wrap(err, "failed to show license")
 	}
 

@@ -6,21 +6,11 @@ package organization
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/organizations"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
-
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
 
 // getCmd gets a single organization on Upbound.
 type getCmd struct {
@@ -28,7 +18,7 @@ type getCmd struct {
 }
 
 // Run executes the get command.
-func (c *getCmd) Run(printer upterm.ObjectPrinter, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *getCmd) Run(printer upterm.ResultPrinter, oc *organizations.Client) error {
 	// The get command accepts a name, but the get API call takes an ID
 	// Therefore we get all orgs and find the one the user requested
 	orgs, err := oc.List(context.Background())
@@ -37,7 +27,8 @@ func (c *getCmd) Run(printer upterm.ObjectPrinter, oc *organizations.Client, upC
 	}
 	for _, o := range orgs {
 		if o.Name == c.Name {
-			return printer.Print(o, fieldNames, extractFields)
+			fieldNames := []string{"ID", "NAME", "ROLE"}
+			return printer.PrintObject(o, fieldNames, extractFields)
 		}
 	}
 	return errors.Errorf("no organization named %s", c.Name)

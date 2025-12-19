@@ -48,11 +48,11 @@ func (c *pauseToggleCmd) BeforeApply() error {
 	return nil
 }
 
-func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) error {
+func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context, p upterm.Printer) error {
 	// Determine action
 	action, operationFunc := c.getActionAndFunc()
 
-	fmt.Printf("%s resources...\n", action) //nolint:forbidigo // In a CLI.
+	p.Printfln("%s resources...", action)
 
 	if !c.Yes {
 		result, _ := upterm.Confirm("Do you still want to proceed?", false)
@@ -98,7 +98,9 @@ func (c *pauseToggleCmd) Run(ctx context.Context, migCtx *migration.Context) err
 		sp.Success()
 	}
 
-	fmt.Printf("\nAll relevant resources successfully %sd!\n", strings.ToLower(action)) //nolint:forbidigo // In a CLI.
+	p.Println()
+	p.Printfln("All relevant resources successfully %sd!", strings.ToLower(action))
+
 	return nil
 }
 

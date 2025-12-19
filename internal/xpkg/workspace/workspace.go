@@ -18,7 +18,6 @@ import (
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/golang/tools/span"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +32,8 @@ import (
 	xpextv2 "github.com/crossplane/crossplane/v2/apis/apiextensions/v2"
 	pkgmetav1 "github.com/crossplane/crossplane/v2/apis/pkg/meta/v1"
 
+	"github.com/upbound/up/internal/config"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	pyaml "github.com/upbound/up/internal/xpkg/parser/yaml"
 	"github.com/upbound/up/internal/xpkg/workspace/meta"
@@ -97,7 +98,7 @@ func New(root string, opts ...Option) (*Workspace, error) {
 
 			root: root,
 
-			printer: &pterm.BasicTextPrinter{Writer: io.Discard},
+			printer: upterm.NewPrinter(io.Discard, io.Discard, config.FormatDefault, false),
 		},
 	}
 
@@ -136,7 +137,7 @@ func WithLogger(l logging.Logger) Option {
 
 // WithPrinter overrides the printer of the Workspace with the supplied
 // printer. By default a Workspace has no printer.
-func WithPrinter(p pterm.TextPrinter) Option {
+func WithPrinter(p upterm.Printer) Option {
 	return func(w *Workspace) {
 		w.view.printer = p
 	}
@@ -286,6 +287,73 @@ type parseContext struct {
 	rootNode bool
 }
 
+// nodeID constructs a NodeIdentifier from name and GVK.
+func nodeID(name string, gvk schema.GroupVersionKind) NodeIdentifier {
+	return NodeIdentifier{
+		name: name,
+		gvk:  gvk,
+	}
+}
+
+// View represents the current processed view of the workspace.
+type View struct {
+	// examples holds a quick access map of GVK -> []Nodes representing the
+	// example/**/*.yaml claims for the package.
+	examples map[schema.GroupVersionKind][]Node
+	// parser is the parser used for parsing packages.
+	parser *xparser.PackageParser
+	// metaLocation denotes the place the meta file exists at the time the
+	// workspace was created.
+	metaLocation string
+	meta         *meta.Meta
+	metaPath     string
+	uriToDetails map[span.URI]*Details
+	nodes        map[NodeIdentifier]Node
+	// xrClaimRefs defines an look up from XR GVK -> Claim GVK (if one is defined).
+	xrClaimRefs map[schema.GroupVersionKind]schema.GroupVersionKind
+	// root is the path of the workspace root.
+	root    string
+	printer upterm.Printer
+	// permissiveParser indicates whether to skip files or documents with parse errors.
+	permissiveParser bool
+}
+
+// FileDetails returns the map of file details found within the parsed workspace.
+func (v *View) FileDetails() map[span.URI]*Details {
+	return v.uriToDetails
+}
+
+// Meta returns the View's Meta.
+func (v *View) Meta() *meta.Meta {
+	return v.meta
+}
+
+// MetaLocation returns the meta file's directory (on disk) in the current View.
+func (v *View) MetaLocation() string {
+	return v.metaLocation
+}
+
+// MetaPath returns the path to the meta file in the current View.
+func (v *View) MetaPath() string {
+	return v.metaPath
+}
+
+// Nodes returns the View's Nodes.
+func (v *View) Nodes() map[NodeIdentifier]Node {
+	return v.nodes
+}
+
+// Examples returns the View's Nodes corresponding to the files found under
+// /examples.
+func (v *View) Examples() map[schema.GroupVersionKind][]Node {
+	return v.examples
+}
+
+// XRClaimsRefs returns a map of XR GVK -> XRC GVK.
+func (v *View) XRClaimsRefs() map[schema.GroupVersionKind]schema.GroupVersionKind {
+	return v.xrClaimRefs
+}
+
 // parseDoc recursively parses a YAML document into PackageNodes. Embedded nodes
 // are added to the parent's list of dependants.
 func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier, error) {
@@ -296,7 +364,7 @@ func (v *View) parseDoc(ctx context.Context, pCtx parseContext) (NodeIdentifier,
 	pCtx.docBytes = b
 
 	// first try to unmarshal as pure YAML, not expecting this to be a Kubernetes object.
-	var value interface{}
+	var value any
 	if err := k8syaml.Unmarshal(b, &value); err != nil {
 		return NodeIdentifier{}, err
 	}
@@ -428,7 +496,7 @@ func (v *View) parseMeta(ctx context.Context, pCtx parseContext) error {
 	v.meta = meta.New(p.GetMeta()[0])
 	v.metaPath = pCtx.path
 
-	v.printer.Printf("xpkg loaded package meta information from %s\n", v.relativePath(pCtx.path))
+	v.printer.Printfln("xpkg loaded package meta information from %s", v.relativePath(pCtx.path))
 
 	return nil
 }
@@ -490,73 +558,6 @@ func (v *View) appendID(path string, id NodeIdentifier) {
 	curr.NodeIDs[id] = struct{}{}
 
 	v.uriToDetails[uri] = curr
-}
-
-// nodeID constructs a NodeIdentifier from name and GVK.
-func nodeID(name string, gvk schema.GroupVersionKind) NodeIdentifier {
-	return NodeIdentifier{
-		name: name,
-		gvk:  gvk,
-	}
-}
-
-// View represents the current processed view of the workspace.
-type View struct {
-	// examples holds a quick access map of GVK -> []Nodes representing the
-	// example/**/*.yaml claims for the package.
-	examples map[schema.GroupVersionKind][]Node
-	// parser is the parser used for parsing packages.
-	parser *xparser.PackageParser
-	// metaLocation denotes the place the meta file exists at the time the
-	// workspace was created.
-	metaLocation string
-	meta         *meta.Meta
-	metaPath     string
-	uriToDetails map[span.URI]*Details
-	nodes        map[NodeIdentifier]Node
-	// xrClaimRefs defines an look up from XR GVK -> Claim GVK (if one is defined).
-	xrClaimRefs map[schema.GroupVersionKind]schema.GroupVersionKind
-	// root is the path of the workspace root.
-	root    string
-	printer pterm.TextPrinter
-	// permissiveParser indicates whether to skip files or documents with parse errors.
-	permissiveParser bool
-}
-
-// FileDetails returns the map of file details found within the parsed workspace.
-func (v *View) FileDetails() map[span.URI]*Details {
-	return v.uriToDetails
-}
-
-// Meta returns the View's Meta.
-func (v *View) Meta() *meta.Meta {
-	return v.meta
-}
-
-// MetaLocation returns the meta file's directory (on disk) in the current View.
-func (v *View) MetaLocation() string {
-	return v.metaLocation
-}
-
-// MetaPath returns the path to the meta file in the current View.
-func (v *View) MetaPath() string {
-	return v.metaPath
-}
-
-// Nodes returns the View's Nodes.
-func (v *View) Nodes() map[NodeIdentifier]Node {
-	return v.nodes
-}
-
-// Examples returns the View's Nodes corresponding to the files found under
-// /examples.
-func (v *View) Examples() map[schema.GroupVersionKind][]Node {
-	return v.examples
-}
-
-// XRClaimsRefs returns a map of XR GVK -> XRC GVK.
-func (v *View) XRClaimsRefs() map[schema.GroupVersionKind]schema.GroupVersionKind {
-	return v.xrClaimRefs
 }
 
 func (v *View) relativePath(path string) string {

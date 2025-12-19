@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -20,14 +19,15 @@ import (
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	compositiontest "github.com/upbound/up/pkg/apis/compositiontest/v1alpha1"
 )
 
-func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []compositiontest.CompositionTest) (int, int, int, error) {
+func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []compositiontest.CompositionTest, printer upterm.Printer) (int, int, int, error) {
 	total, success, errs := 0, 0, 0
 
 	var efns []v1.Function
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
 			Project: c.proj.Project,
 			// Use the original projFS here so schema generation knows the real
@@ -75,12 +75,12 @@ func (c *runCmd) runCompositionTests(ctx context.Context, upCtx *upbound.Context
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)
-			pterm.PrintOnError(err)
+			printer.Println(err)
 			continue
 		}
 
-		if err = c.asyncWrapper(func(ch async.EventChannel) error {
-			return assertions(ctx, output, test.Name, test.Spec.AssertResources, ch)
+		if err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
+			return assertions(ctx, output, test.Name, test.Spec.AssertResources, ch, printer)
 		}); err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)

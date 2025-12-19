@@ -5,12 +5,10 @@ package profile
 
 import (
 	"encoding/json"
-	"fmt"
-
-	"github.com/alecthomas/kong"
 
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -30,7 +28,7 @@ type output struct {
 }
 
 // Run executes the current command.
-func (c *currentCmd) Run(ctx *kong.Context, upCtx *upbound.Context) error {
+func (c *currentCmd) Run(upCtx *upbound.Context, p upterm.Printer) error {
 	name, prof, err := upCtx.Cfg.GetDefaultUpboundProfile()
 	if err != nil {
 		return err
@@ -45,6 +43,9 @@ func (c *currentCmd) Run(ctx *kong.Context, upCtx *upbound.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(ctx.Stdout, string(b))
+
+	// TODO(adamwg): Use PrintObject to respect the format flag.
+	p.PrintResult(string(b))
+
 	return err
 }

@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/common"
 	"github.com/upbound/up-sdk-go/service/organizations"
 	"github.com/upbound/up-sdk-go/service/robots"
+	"github.com/upbound/up/internal/upterm"
 )
 
 func TestProvisioner_SeedOrganizations(t *testing.T) {
@@ -53,7 +53,7 @@ func TestProvisioner_SeedOrganizations(t *testing.T) {
 					organizationsClient: organizations.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal(accResp, &obj)
 							},
 						},
@@ -71,7 +71,7 @@ func TestProvisioner_SeedOrganizations(t *testing.T) {
 					organizationsClient: organizations.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal([]byte("[]"), &obj)
 							},
 						},
@@ -87,7 +87,7 @@ func TestProvisioner_SeedOrganizations(t *testing.T) {
 					organizationsClient: organizations.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, _ interface{}) error {
+							MockDo: func(_ *http.Request, _ any) error {
 								return errors.New("error retrieving organizations")
 							},
 						},
@@ -161,12 +161,12 @@ func TestProvisioner_SeedRobots(t *testing.T) {
 					organizationsClient: organizations.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal(robotsResp, &obj)
 							},
 						},
 					}),
-					printer: &pterm.DefaultBasicText,
+					printer: upterm.NewTestPrinter(),
 					results: provisionerResults{
 						OrganizationID:   123,
 						OrganizationName: "test-org",
@@ -212,7 +212,7 @@ func TestProvisioner_SeedRobots(t *testing.T) {
 					organizationsClient: organizations.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal(robotsResp, &obj)
 							},
 						},
@@ -220,12 +220,12 @@ func TestProvisioner_SeedRobots(t *testing.T) {
 					robotsClient: robots.NewClient(&up.Config{
 						Client: &upboundfake.MockClient{
 							MockNewRequest: upboundfake.NewMockNewRequestFn(nil, nil),
-							MockDo: func(_ *http.Request, obj interface{}) error {
+							MockDo: func(_ *http.Request, obj any) error {
 								return json.Unmarshal(newRobotResp, &obj)
 							},
 						},
 					}),
-					printer: &pterm.DefaultBasicText,
+					printer: upterm.NewTestPrinter(),
 					results: provisionerResults{
 						OrganizationID:   123,
 						OrganizationName: "test-org",

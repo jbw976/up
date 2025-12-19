@@ -4,9 +4,9 @@
 package uxp
 
 import (
+	"fmt"
 	"io"
 
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
@@ -99,8 +99,8 @@ type installCmd struct {
 }
 
 // Run executes the install command.
-func (c *installCmd) Run(p upterm.ObjectPrinter) error {
-	if err := upterm.WrapWithSuccessSpinner(
+func (c *installCmd) Run(p upterm.Printer) error {
+	if err := p.WrapWithSuccessSpinner(
 		"Installing UXP",
 		func() error {
 			params, err := c.parser.Parse()
@@ -109,7 +109,6 @@ func (c *installCmd) Run(p upterm.ObjectPrinter) error {
 			}
 			return c.mgr.Install(c.Version, params)
 		},
-		p,
 	); err != nil {
 		return err
 	}
@@ -119,8 +118,8 @@ func (c *installCmd) Run(p upterm.ObjectPrinter) error {
 		return err
 	}
 
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("UXP %s installed", curVer)
-	pterm.Info.Println("If you have a UXP license, apply it now with `up uxp license apply`.")
+	p.PrintSuccess(fmt.Sprintf("UXP %s installed", curVer))
+	p.PrintInfo("If you have a UXP license, apply it now with `up uxp license apply`.")
 
 	return nil
 }

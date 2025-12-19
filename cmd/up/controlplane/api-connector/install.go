@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/rest"
@@ -207,15 +206,15 @@ func (c *installCmd) AfterApply(_ *kong.Context, upCtx *upbound.Context) error {
 }
 
 // Run executes the connect command.
-func (c *installCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *installCmd) Run(upCtx *upbound.Context, printer upterm.Printer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	return c.deploy(ctx, p, upCtx, printer)
+	return c.deploy(ctx, upCtx, printer)
 }
 
-func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, printer upterm.ObjectPrinter) error { //nolint:gocognit // its a state machine
-	provisioner := newProvisioner(c.sdkConfig, p, printer)
+func (c *installCmd) deploy(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocognit // its a state machine
+	provisioner := newProvisioner(c.sdkConfig, printer)
 	params, err := c.parser.Parse()
 	if err != nil {
 		return errors.Wrap(err, errParseInstallParameters)
@@ -225,7 +224,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 
 	if !c.SkipConnection {
 		// Step 1: Check if connection already exists. Fail early if it does.
-		if err := upterm.WrapWithSuccessSpinner(
+		if err := printer.WrapWithSuccessSpinner(
 			upterm.StepCounter("Checking if connection already exists", 1, totalSteps),
 			func() error {
 				// First and foremost - check if we have a connection with same name already as
@@ -236,7 +235,6 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 				}
 				return nil
 			},
-			printer,
 		); err != nil {
 			return err
 		}
@@ -252,8 +250,8 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 			provisioner.results.OrganizationName = c.organization
 		} else { // No token provided, so we need to create a robot and a token, and wire things up.
 			// Step 2.1: Read organization configuration.
-			p.Printfln("Creating a robot named %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
-			if err := upterm.WrapWithSuccessSpinner(
+			printer.Printfln("Creating a robot named %s in the organization %s.", nice(c.name), nice(upCtx.Profile.Organization))
+			if err := printer.WrapWithSuccessSpinner(
 				upterm.StepCounter("Reading organization configuration", 2, totalSteps),
 				func() error {
 					if err := provisioner.seedOrganizations(ctx, c.organization); err != nil {
@@ -261,13 +259,12 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 					}
 					return nil
 				},
-				printer,
 			); err != nil {
 				return err
 			}
 
 			// Step 2.2: Create a robot and a token.
-			if err := upterm.WrapWithSuccessSpinner(
+			if err := printer.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating robot", 3, totalSteps),
 				func() error {
 					if err := provisioner.seedRobots(ctx, c.name); err != nil {
@@ -275,29 +272,26 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 					}
 					return nil
 				},
-				printer,
 			); err != nil {
 				return err
 			}
 
 			// Step 2.3: Create a token.
-			if err := upterm.WrapWithSuccessSpinner(
+			if err := printer.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating token", 3, totalSteps),
 				func() error {
 					return provisioner.seedToken(ctx)
 				},
-				printer,
 			); err != nil {
 				return err
 			}
 
 			// Step 2.4: Seed access to the namespace.
-			if err := upterm.WrapWithSuccessSpinner(
+			if err := printer.WrapWithSuccessSpinner(
 				upterm.StepCounter("Creating access in the control plane", 4, totalSteps),
 				func() error {
 					return provisioner.seedAccess(ctx, c.spaceClient, c.controlPlaneName)
 				},
-				printer,
 			); err != nil {
 				return err
 			}
@@ -305,7 +299,7 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 	}
 
 	// Step 3: Install the connector.
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Installing the connector", 5, totalSteps),
 		func() error {
 			installOptions := installOptions{
@@ -322,12 +316,11 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 
 			return nil
 		},
-		printer,
 	); err != nil {
 		return err
 	}
 
-	p.Printfln("API Connector installed")
+	printer.Printfln("API Connector installed")
 
 	// If skip connection is provided, we are done.
 	if c.SkipConnection {
@@ -335,29 +328,27 @@ func (c *installCmd) deploy(ctx context.Context, p pterm.TextPrinter, upCtx *upb
 	}
 
 	// Step 4: Create a connection secret.
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Creating connection secret", 5, totalSteps),
 		func() error {
 			return provisioner.seedConnectionSecret(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace, c.spacesHostname, c.group, c.controlPlaneName)
 		},
-		printer,
 	); err != nil {
 		return err
 	}
 
 	// Step 5: Create a connection.
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := printer.WrapWithSuccessSpinner(
 		upterm.StepCounter("Creating connection", 5, totalSteps),
 		func() error {
 			return provisioner.seedConnection(ctx, c.consumerClient, c.controlPlaneName, defaultInstallationNamespace)
 		},
-		printer,
 	); err != nil {
 		return err
 	}
 
-	p.Printfln("Connected to the control plane %s.", nice(c.controlPlaneName))
-	p.Println("See connection status with the following command: \n\n$ kubectl get clusterconnections")
+	printer.Printfln("Connected to the control plane %s.", nice(c.controlPlaneName))
+	printer.Println("See connection status with the following command: \n\n$ kubectl get clusterconnections")
 
 	return nil
 }

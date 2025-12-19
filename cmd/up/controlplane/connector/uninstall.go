@@ -4,11 +4,10 @@
 package connector
 
 import (
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // AfterApply sets default values in command after assignment and validation.
@@ -44,7 +43,7 @@ type uninstallCmd struct {
 }
 
 // Run executes the uninstall command.
-func (c *uninstallCmd) Run(p pterm.TextPrinter) error {
+func (c *uninstallCmd) Run(p upterm.Printer) error {
 	if err := c.mgr.Uninstall(); err != nil {
 		return err
 	}

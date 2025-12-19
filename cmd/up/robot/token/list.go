@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -26,19 +24,13 @@ import (
 //nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "CREATED"}
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // listCmd creates a robot on Upbound.
 type listCmd struct {
 	RobotName string `arg:"" help:"Name of robot." predictor:"robots" required:""`
 }
 
 // Run executes the list robot tokens command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, ac *accounts.Client, oc *organizations.Client, rc *robots.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -77,10 +69,10 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(ts.DataSet) == 0 {
-		p.Printfln("No tokens found for robot %s in %s", c.RobotName, upCtx.Organization)
+		printer.Printfln("No tokens found for robot %s in %s", c.RobotName, upCtx.Organization)
 		return nil
 	}
-	return printer.Print(ts.DataSet, fieldNames, extractFields)
+	return printer.PrintObject(ts.DataSet, fieldNames, extractFields)
 }
 
 func extractFields(obj any) []string {

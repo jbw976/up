@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -75,11 +74,6 @@ var (
 
 // AfterApply configures global settings before executing commands.
 func (c *cli) AfterApply(kongCtx *kong.Context) error {
-	if c.Quiet {
-		kongCtx.Stdout, kongCtx.Stderr = io.Discard, io.Discard
-	}
-	kongCtx.BindTo(pterm.DefaultBasicText.WithWriter(kongCtx.Stdout), (*pterm.TextPrinter)(nil))
-
 	var pretty bool
 	if c.Pretty != nil {
 		pretty = *c.Pretty
@@ -87,26 +81,28 @@ func (c *cli) AfterApply(kongCtx *kong.Context) error {
 		pretty = term.IsTerminal(int(os.Stdout.Fd()))
 	}
 
-	pterm.EnableStyling()
-	if !pretty {
-		pterm.DisableStyling()
+	stdout := kongCtx.Stdout
+	resultOut := kongCtx.Stdout
+	if c.Quiet || c.Silent {
+		stdout = io.Discard
+	}
+	if c.Silent {
+		resultOut = io.Discard
 	}
 
-	printer := upterm.DefaultObjPrinter
-	printer.DryRun = c.DryRun
-	printer.Format = c.Format
-	printer.Pretty = pretty
-	printer.Quiet = c.Quiet
+	// Construct a printer and bind it to the context. Commands should take the
+	// printer as an arg and use it for all output.
+	printer := upterm.NewPrinter(stdout, resultOut, c.Format, pretty)
+	kongCtx.BindTo(printer, (*upterm.Printer)(nil))
+	kongCtx.BindTo(printer, (*upterm.ResultPrinter)(nil))
+	kongCtx.BindTo(printer, (*upterm.SpinnerPrinter)(nil))
 
-	kongCtx.Bind(printer)
-	kongCtx.BindTo(&printer, (*upterm.Printer)(nil))
-	kongCtx.Bind(c.Quiet)
 	kongCtx.BindTo(&RootCommandRunner{}, (*runner.CommandRunner)(nil))
 
 	// Initialize and bind OpenTelemetry client
 	f := sync.OnceFunc(func() {
 		if err := c.initOTEL(kongCtx); err != nil {
-			pterm.Error.Printfln("Error initializing telemetry: %v", err)
+			fmt.Printf("Error initializing telemetry: %v\n", err) //nolint:forbidigo // Last resort.
 			os.Exit(1)
 		}
 	})
@@ -173,10 +169,12 @@ func (r *RootCommandRunner) RunCommand(args []string) error {
 }
 
 type cli struct {
-	Format config.Format    `default:"default"           enum:"default,json,yaml"    help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
-	Quiet  config.QuietFlag `help:"Suppress all output." name:"quiet"                short:"q"`
-	Pretty *bool            `env:"PRETTY"                help:"Pretty print output." name:"pretty"`
-	DryRun bool             `help:"dry-run output."      name:"dry-run"`
+	Format config.Format `default:"default"                                                                enum:"default,json,yaml" help:"Format for get/list commands. Can be: json, yaml, default" name:"format"`
+	Quiet  bool          `help:"Suppress all informational output. Command results will still be printed." name:"quiet"             short:"q"`
+	Silent bool          `help:"Suppress all output."`
+	// Pretty is a pointer because we dynamically default it in AfterApply and
+	// need to know whether the user set it explicitly.
+	Pretty *bool `env:"PRETTY" help:"Pretty print output." name:"pretty"`
 
 	// Manage Upbound Resources
 	Organization  organization.Cmd  `aliases:"org"  cmd:""                           group:"Manage Upbound Resources"                                         help:"Interact with Upbound organizations." name:"organization"`
@@ -270,7 +268,7 @@ func main() {
 			err := globalOTELClient.Shutdown(shutdownCtx)
 			if err != nil {
 				if c.otelDebug {
-					pterm.Error.Printfln("Error shutting down OTEL client: %v", err)
+					fmt.Printf("Error shutting down OTEL client: %v\n", err) //nolint:forbidigo // Deubg output.
 				}
 			}
 		}

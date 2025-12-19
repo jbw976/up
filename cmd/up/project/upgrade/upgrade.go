@@ -8,13 +8,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/project"
+	"github.com/upbound/up/internal/upterm"
 	apiproject "github.com/upbound/up/pkg/apis/project"
 
 	_ "embed"
@@ -35,9 +34,7 @@ func (c *Cmd) Help() string {
 }
 
 // AfterApply constructs and binds Upbound-specific context.
-func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
-
+func (c *Cmd) AfterApply() error {
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
 	if err != nil {
@@ -51,7 +48,7 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context) error {
 }
 
 // Run executes the upgrade command.
-func (c *Cmd) Run(p pterm.TextPrinter) error {
+func (c *Cmd) Run(p upterm.Printer) error {
 	vproj, err := apiproject.ParseVersioned(c.projFS, c.ProjectFile)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse project")
@@ -62,17 +59,17 @@ func (c *Cmd) Run(p pterm.TextPrinter) error {
 	// Check if upgrade is needed
 	switch vproj.Version {
 	case apiproject.VersionV1Alpha1:
-		pterm.Println("Upgrading project from v1alpha1 to v2alpha1...")
+		p.Println("Upgrading project from v1alpha1 to v2alpha1...")
 
 		if err := project.UpgradeToV2(c.projFS, c.ProjectFile); err != nil {
 			return fmt.Errorf("failed to upgrade project: %w", err)
 		}
 
-		pterm.Success.Println("Successfully upgraded project to v2alpha1!")
-		pterm.Info.Println("Project is now compatible with Crossplane v2.0.0+")
+		p.PrintSuccess("Successfully upgraded project to v2alpha1!")
+		p.PrintInfo("Project is now compatible with Crossplane v2.0.0+")
 
 	case apiproject.VersionV2Alpha1:
-		pterm.Info.Printfln("Project is already at the latest version")
+		p.PrintInfo("Project is already at the latest version")
 		return nil
 
 	default:

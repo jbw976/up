@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -57,7 +56,7 @@ func (c *Cmd) AfterApply() error {
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, p upterm.Printer) error {
 	if c.ControlPlaneName == "" {
 		c.ControlPlaneName = "up-" + c.proj.Name
 	}
@@ -73,7 +72,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 	}
 
 	if !found {
-		pterm.Println("Development control plane not found.")
+		p.Println("Development control plane not found.")
 		return nil
 	}
 
@@ -92,6 +91,6 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error {
 		return errors.Wrap(err, "failed to stop control plane")
 	}
 
-	pterm.Println("Development control plane stopped.")
+	p.Println("Development control plane stopped.")
 	return nil
 }

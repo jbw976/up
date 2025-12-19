@@ -6,10 +6,8 @@ package project
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +38,6 @@ func Move(ctx context.Context, project *v2alpha1.Project, projectFS afero.Fs, ne
 
 	ws, err := workspace.New("/",
 		workspace.WithFS(projectFS),
-		workspace.WithPrinter(&pterm.BasicTextPrinter{Writer: io.Discard}),
 		workspace.WithPermissiveParser(),
 	)
 	if err != nil {

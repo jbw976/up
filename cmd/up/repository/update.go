@@ -7,11 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pterm/pterm"
-
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // BeforeApply sets default values for the command before assignment and validation.
@@ -21,7 +20,7 @@ func (u *updateCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the update operation.
-func (u *updateCmd) AfterApply(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (u *updateCmd) AfterApply(p upterm.Printer, upCtx *upbound.Context) error {
 	if u.Force {
 		return nil
 	}
@@ -51,7 +50,7 @@ type updateCmd struct {
 }
 
 // Run executes the update command.
-func (u *updateCmd) Run(ctx context.Context, p pterm.TextPrinter, rc *repositories.Client, upCtx *upbound.Context) error {
+func (u *updateCmd) Run(ctx context.Context, p upterm.Printer, rc *repositories.Client, upCtx *upbound.Context) error {
 	visibility := repositories.WithPublic()
 	if u.Private {
 		visibility = repositories.WithPrivate()

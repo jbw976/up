@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	apixv1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/upbound/up/internal/install"
 	"github.com/upbound/up/internal/install/helm"
+	"github.com/upbound/up/internal/upterm"
 )
 
 //nolint:gochecknoglobals // global variables for otel initialization.
@@ -59,11 +59,12 @@ type Operator struct {
 	mgr       install.Manager
 	crdclient *apixv1client.ApiextensionsV1Client
 	kclient   kubernetes.Interface
+	printer   upterm.Printer
 }
 
 // New constructs a new OpenTelemetryCollectorMgr instance that can used to install the
 // opentelemetry-operator chart.
-func New(config *rest.Config) (*Operator, error) {
+func New(config *rest.Config, p upterm.Printer) (*Operator, error) {
 	mgr, err := helm.NewManager(config,
 		chartName,
 		*otelMgrURL,
@@ -85,6 +86,7 @@ func New(config *rest.Config) (*Operator, error) {
 		mgr:       mgr,
 		crdclient: crdclient,
 		kclient:   kclient,
+		printer:   p,
 	}, nil
 }
 
@@ -127,28 +129,6 @@ func (o *Operator) Install() error {
 	return o.waitUntilReady()
 }
 
-// waitUntilReady waits until the opentelemetry-operator pod is ready, or
-// until the timeout.
-func (o *Operator) waitUntilReady() error {
-	return errors.Wrap(wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		pods, err := o.kclient.CoreV1().Pods(chartNamespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/name=opentelemetry-operator",
-		})
-		if err != nil {
-			pterm.Info.Printf("Cannot list pods in namespace %q: %v \n", chartNamespace, err)
-			return false, err
-		}
-		if pods == nil || len(pods.Items) != 1 {
-			pterm.Info.Println("Cannot find the opentelemetry-operator pod...")
-			return false, err
-		}
-		if podutils.IsPodReady(&pods.Items[0]) {
-			return true, nil
-		}
-		return false, nil
-	}), "failed to wait for opentelemetry-operator pod to be ready")
-}
-
 // IsInstalled checks if opentelemetry operator has been installed in the target cluster.
 func (o *Operator) IsInstalled() (bool, error) {
 	_, err := o.crdclient.
@@ -165,4 +145,26 @@ func (o *Operator) IsInstalled() (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// waitUntilReady waits until the opentelemetry-operator pod is ready, or
+// until the timeout.
+func (o *Operator) waitUntilReady() error {
+	return errors.Wrap(wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, err := o.kclient.CoreV1().Pods(chartNamespace).List(ctx, metav1.ListOptions{
+			LabelSelector: "app.kubernetes.io/name=opentelemetry-operator",
+		})
+		if err != nil {
+			o.printer.PrintInfo(fmt.Sprintf("Cannot list pods in namespace %q: %v \n", chartNamespace, err))
+			return false, err
+		}
+		if pods == nil || len(pods.Items) != 1 {
+			o.printer.PrintInfo("Cannot find the opentelemetry-operator pod...")
+			return false, err
+		}
+		if podutils.IsPodReady(&pods.Items[0]) {
+			return true, nil
+		}
+		return false, nil
+	}), "failed to wait for opentelemetry-operator pod to be ready")
 }

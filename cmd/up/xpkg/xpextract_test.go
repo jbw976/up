@@ -19,12 +19,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/test"
 
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 )
 
@@ -113,7 +113,7 @@ func TestXPExtractRun(t *testing.T) {
 				fetch:  tc.fetch,
 				name:   tc.name,
 				Output: tc.out,
-			}).Run(context.TODO(), pterm.DefaultBasicText.WithWriter(io.Discard))
+			}).Run(t.Context(), upterm.NewTestPrinter())
 			if diff := cmp.Diff(tc.want, err, test.EquateErrors()); diff != "" {
 				t.Errorf("\n%s\nRun(...): -want error, +got error:\n%s", tc.reason, diff)
 			}

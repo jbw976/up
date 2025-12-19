@@ -4,9 +4,9 @@
 package uxp
 
 import (
+	"fmt"
 	"io"
 
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
@@ -88,8 +88,8 @@ type upgradeCmd struct {
 }
 
 // Run executes the upgrade command.
-func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
-	if err := upterm.WrapWithSuccessSpinner(
+func (c *upgradeCmd) Run(p upterm.Printer) error {
+	if err := p.WrapWithSuccessSpinner(
 		"Upgrading UXP",
 		func() error {
 			params, err := c.parser.Parse()
@@ -98,7 +98,6 @@ func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
 			}
 			return c.mgr.Upgrade(c.Version, params)
 		},
-		p,
 	); err != nil {
 		return err
 	}
@@ -107,6 +106,6 @@ func (c *upgradeCmd) Run(p upterm.ObjectPrinter) error {
 	if err != nil {
 		return err
 	}
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Printfln("UXP upgraded to %s", curVer)
+	p.PrintSuccess(fmt.Sprintf("UXP upgraded to %s", curVer))
 	return nil
 }

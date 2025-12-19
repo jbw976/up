@@ -7,10 +7,11 @@ import (
 	"embed"
 	"testing"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
+
+	"github.com/upbound/up/internal/upterm"
 )
 
 //go:embed testdata/*
@@ -110,8 +111,7 @@ func TestConvertCmd_Run(t *testing.T) {
 			}
 
 			// Run the command
-			printer := &pterm.DefaultBasicText
-			err = cmd.Run(printer)
+			err = cmd.Run(upterm.NewTestPrinter())
 
 			// Check error expectation
 			if tc.want.err && err == nil {

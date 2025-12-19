@@ -23,13 +23,13 @@ var tmpl string
 type showCmd struct{}
 
 // Run is the body of the command.
-func (c *showCmd) Run(cl client.Client, printer upterm.ObjectPrinter) error {
+func (c *showCmd) Run(cl client.Client, printer upterm.ResultPrinter) error {
 	l, err := license.FromUXPv2(context.Background(), cl)
 	if err != nil {
 		return errors.Wrap(err, "failed to get license")
 	}
 
-	if err := printer.PrintTemplate(l, tmpl); err != nil {
+	if err := printer.PrintObjectTemplate(l, tmpl); err != nil {
 		return errors.Wrap(err, "failed to show license")
 	}
 

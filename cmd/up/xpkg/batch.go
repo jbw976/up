@@ -8,8 +8,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -17,13 +19,13 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/parser"
 
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 	"github.com/upbound/up/internal/xpkg/parser/examples"
 	"github.com/upbound/up/internal/xpkg/parser/yaml"
@@ -109,7 +111,7 @@ type batchCmd struct {
 }
 
 // Run executes the batch command.
-func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *batchCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context) error {
 	baseImgMap := make(map[string]v1.Image, len(c.Platform))
 	for _, p := range c.Platform {
 		tokens := strings.Split(p, "_")
@@ -144,7 +146,9 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 				}()
 			}
 			err := c.processService(p, upCtx, baseImgMap, s)
-			p.PrintOnErrorf(fmt.Sprintf("Publishing of smaller provider package has failed for service %q: %%v", s), err)
+			if err != nil {
+				p.Printfln("Publishing of smaller provider package has failed for service %q: %%v", s, err)
+			}
 			chErr <- errors.WithMessagef(err, errProcessFmt, s)
 		}()
 	}
@@ -171,7 +175,7 @@ func (c *batchCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 // the smaller provider controller binary (which is platform specific) on top
 // of the addendum layers and then pushes the built multi-arch package
 // (if `len(c.Platforms) > 1`) to the specified package repository.
-func (c *batchCmd) processService(p pterm.TextPrinter, upCtx *upbound.Context, baseImgMap map[string]v1.Image, s string) error { //nolint:gocognit // TODO: refactor
+func (c *batchCmd) processService(p upterm.Printer, upCtx *upbound.Context, baseImgMap map[string]v1.Image, s string) error { //nolint:gocognit // TODO: refactor
 	imgs := make([]v1.Image, 0, len(c.Platform))
 	// image layers added on top of the base image by xpkg push to be reused
 	// across the platforms so that they are computed only once.
@@ -243,15 +247,8 @@ func (c *batchCmd) processService(p pterm.TextPrinter, upCtx *upbound.Context, b
 
 // Optionally stores the provider package under the configured directory,
 // if the service name exists in the c.StorePackage slice.
-func (c *batchCmd) storePackage(tp pterm.TextPrinter, s string, imgs []v1.Image) error {
-	found := false
-	for _, pkg := range c.StorePackages {
-		if pkg == s {
-			found = true
-			break
-		}
-	}
-	if !found {
+func (c *batchCmd) storePackage(tp upterm.Printer, s string, imgs []v1.Image) error {
+	if !slices.Contains(c.StorePackages, s) {
 		return nil
 	}
 	for i, p := range c.Platform {
@@ -262,7 +259,7 @@ func (c *batchCmd) storePackage(tp pterm.TextPrinter, s string, imgs []v1.Image)
 	return nil
 }
 
-func (c *batchCmd) writePackage(tp pterm.TextPrinter, service, platform string, img v1.Image) error {
+func (c *batchCmd) writePackage(tp upterm.Printer, service, platform string, img v1.Image) error {
 	fName := fmt.Sprintf("%s-%s-%s.xpkg", c.ProviderName, service, c.getPackageVersion())
 	pkgPath, err := filepath.Abs(filepath.Join(c.OutputDir, platform, fName))
 	if err != nil {
@@ -288,7 +285,7 @@ func (c *batchCmd) getPackageVersion() string {
 	return tokens[len(tokens)-1]
 }
 
-func (c *batchCmd) pushWithRetry(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, s string) error {
+func (c *batchCmd) pushWithRetry(p upterm.Printer, upCtx *upbound.Context, imgs []v1.Image, s string) error {
 	t := c.getPackageURL(s)
 	tries := c.PushRetry + 1
 	retryMsg := ""
@@ -302,7 +299,9 @@ func (c *batchCmd) pushWithRetry(p pterm.TextPrinter, upCtx *upbound.Context, im
 			p.Printfln("Failed to push xpkg to %s. Total number of attempts: %d. Last error: %s", t, tries, err.Error())
 			return errors.Wrapf(err, errPushPackageFmt, s)
 		}
-		p.PrintOnErrorf(fmt.Sprintf("Failed to push xpkg to %s. Will retry...: %%v", t), err)
+		if err != nil {
+			p.Printfln("Failed to push xpkg to %s. Will retry...: %%v", t, err)
+		}
 		retryMsg = fmt.Sprintf(" Retry count: %d", i+1)
 	}
 	return nil
@@ -400,9 +399,10 @@ func (c *batchCmd) addProviderBinaryLayer(img v1.Image, p, s string) (v1.Image, 
 
 func (c *batchCmd) getExamplesGroup(service string) string {
 	p := c.ExamplesGroupOverride[service]
-	if p == wildcard {
+	switch p {
+	case wildcard:
 		p = ""
-	} else if p == "" {
+	case "":
 		p = service
 	}
 	return filepath.Join(c.ExamplesRoot, p)
@@ -507,10 +507,7 @@ func (c *batchCmd) getPackageMetadata(service string) (string, error) {
 	data := make(map[string]string, len(c.TemplateVar)+2)
 	data["Service"] = service
 	data["Name"] = c.getPackageRepo(service)
-	// copy substitutions passed from the command-line
-	for k, v := range c.TemplateVar {
-		data[k] = v
-	}
+	maps.Copy(data, c.TemplateVar)
 
 	buff := &bytes.Buffer{}
 	err = tmpl.Execute(buff, data)

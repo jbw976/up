@@ -17,12 +17,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 )
 
@@ -119,7 +119,7 @@ type xpExtractCmd struct {
 }
 
 // Run runs the xp extract cmd.
-func (c *xpExtractCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *xpExtractCmd) Run(ctx context.Context, p upterm.Printer) error {
 	// NOTE(hasheddan): most of the logic in this method is from the machinery
 	// used in Crossplane's package cache and should be updated to use shared
 	// libraries if moved to crossplane-runtime.

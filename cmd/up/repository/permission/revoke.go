@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/upbound/up-sdk-go/service/repositorypermission"
 	"github.com/upbound/up/internal/input"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // revokeCmd revoke the repository permission for a team on Upbound.
@@ -35,7 +35,7 @@ func (c *revokeCmd) BeforeApply() error {
 }
 
 // AfterApply accepts user input by default to confirm the delete operation.
-func (c *revokeCmd) AfterApply(p pterm.TextPrinter) error {
+func (c *revokeCmd) AfterApply(p upterm.Printer) error {
 	if c.Force {
 		return nil
 	}
@@ -54,7 +54,7 @@ func (c *revokeCmd) AfterApply(p pterm.TextPrinter) error {
 }
 
 // Run executes the delete command.
-func (c *revokeCmd) Run(ctx context.Context, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
+func (c *revokeCmd) Run(ctx context.Context, p upterm.Printer, ac *accounts.Client, oc *organizations.Client, rpc *repositorypermission.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return errors.Wrap(err, "cannot get accounts")

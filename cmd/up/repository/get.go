@@ -6,19 +6,10 @@ package repository
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
-
 	repos "github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
-
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
 
 // getCmd gets a single repo.
 type getCmd struct {
@@ -26,7 +17,7 @@ type getCmd struct {
 }
 
 // Run executes the get command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, rc *repos.Client, upCtx *upbound.Context) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ResultPrinter, rc *repos.Client, upCtx *upbound.Context) error {
 	repo, err := rc.Get(ctx, upCtx.Organization, c.Name)
 	if err != nil {
 		return err
@@ -36,5 +27,5 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, rc *repo
 	repoList := repos.RepositoryListResponse{
 		Repositories: []repos.Repository{repo.Repository},
 	}
-	return printer.Print(repoList.Repositories, fieldNames, extractFields)
+	return printer.PrintObject(repoList.Repositories, fieldNames, extractFields)
 }

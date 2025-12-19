@@ -10,9 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alecthomas/kong"
 	"github.com/google/uuid"
-	"github.com/pterm/pterm"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -31,19 +29,8 @@ type createCmd struct {
 	File string `help:"file to write Token JSON, Use '-' to write to standard output." short:"f"`
 }
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *createCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // Run executes the create command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, upCtx *upbound.Context) error {
-	tokenFields := []string{
-		"AccessID",
-		"Token",
-	}
-
+func (c *createCmd) Run(ctx context.Context, printer upterm.Printer, ac *accounts.Client, oc *organizations.Client, tc *tokens.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -94,34 +81,24 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, printer upterm
 	}
 
 	if c.File == "" {
-		p.Printfln("Refusing to emit sensitive output. Please specify file location.")
+		printer.Printfln("Refusing to emit sensitive output. Please specify file location.")
 		return nil
 	}
 
 	tokenFile := &upbound.TokenFile{
 		AccessID: res.ID.String(),
-		Token:    fmt.Sprint(res.DataSet.Meta["jwt"]),
+		Token:    fmt.Sprint(res.Meta["jwt"]),
 	}
 	if c.File == "-" {
 		// print token always as json
-		printer.Format = "json"
-		return printer.Print(tokenFile, tokenFields, extractTokenFields)
+		return json.NewEncoder(os.Stdout).Encode(tokenFile)
 	}
 
-	p.Printfln("%s/%s/%s created", upCtx.Organization, c.RobotName, c.TokenName)
+	printer.Printfln("%s/%s/%s created", upCtx.Organization, c.RobotName, c.TokenName)
 	f, err := os.OpenFile(filepath.Clean(c.File), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
 	defer f.Close() //nolint:errcheck // Can't do anything useful with this error.
 	return json.NewEncoder(f).Encode(tokenFile)
-}
-
-// Define the extract function for tokenFile.
-func extractTokenFields(obj any) []string {
-	t, ok := obj.(*upbound.TokenFile)
-	if !ok || t == nil {
-		return []string{}
-	}
-	return []string{t.AccessID, t.Token}
 }

@@ -115,9 +115,6 @@ const (
 	DefaultDomain = "https://upbound.io"
 )
 
-// QuietFlag provides a named boolean type for the QuietFlag.
-type QuietFlag bool
-
 // Format represents allowed values for the global output format option.
 type Format string
 

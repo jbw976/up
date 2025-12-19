@@ -12,7 +12,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,7 +134,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) Run(ctx context.Context, p upterm.Printer) error {
 	operation, err := c.newOperation(ctx)
 	if err != nil {
 		return err
@@ -201,14 +200,14 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		p.Printfln("successfully created %s and saved to %s", out.GetObjectKind().GroupVersionKind().Kind, fullPath)
 
 	case outputYAML:
-		p.Println(string(outYAML))
+		p.PrintResult(string(outYAML))
 
 	case outputJSON:
 		jsonData, err := yaml.YAMLToJSON(outYAML)
 		if err != nil {
 			return errors.Wrap(err, "failed to convert operation to JSON")
 		}
-		p.Println(string(jsonData))
+		p.PrintResult(string(jsonData))
 
 	default:
 		return errors.New("invalid output format specified")

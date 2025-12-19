@@ -15,7 +15,6 @@ import (
 	"text/template"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"github.com/spf13/afero/tarfs"
 	"golang.org/x/mod/module"
@@ -95,7 +94,6 @@ type generateCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Set test name and template base folder based on test type
@@ -156,14 +154,14 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 }
 
 // Run executes the test generation command.
-func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
+func (c *generateCmd) Run(ctx context.Context, printer upterm.Printer) error {
 	if errs := validation.IsDNS1035Label(c.testName); len(errs) > 0 {
 		return errors.Errorf("'%s' is not a valid test name. DNS-1035 constraints: %s", c.testName, strings.Join(errs, "; "))
 	}
 
 	isEmpty, err := filesystem.IsFsEmpty(c.testFS)
 	if err != nil {
-		pterm.Error.Println("Failed to check if the filesystem is empty:", err)
+		printer.PrintError("Failed to check if the filesystem is empty:", err)
 		return err
 	}
 
@@ -171,18 +169,18 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		result, _ := upterm.Confirm(fmt.Sprintf("The folder '%s' is not empty. Do you want to overwrite its contents?", filesystem.FullPath(c.projFS, c.fsPath)), false)
 
 		if !result {
-			pterm.Error.Println("The operation was cancelled.")
+			printer.PrintError("The operation was cancelled.")
 			return errors.New("operation cancelled by user")
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner("Checking dependencies", func() error {
+	err = printer.WrapWithSuccessSpinner("Checking dependencies", func() error {
 		err := c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 		if err != nil {
 			return err
 		}
 		return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
-	}, printer)
+	})
 	if err != nil {
 		return err
 	}
@@ -192,7 +190,7 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 		return errors.Wrap(err, "unable to generate meta apis schemas")
 	}
 
-	err = upterm.WrapWithSuccessSpinner(
+	err = printer.WrapWithSuccessSpinner(
 		"Generating Test Folder",
 		func() error {
 			testSpecificFs, err := c.generateFiles()
@@ -220,12 +218,12 @@ func (c *generateCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) err
 				}
 			}
 			return nil
-		}, printer)
+		})
 	if err != nil {
 		return err
 	}
 
-	pterm.Printfln("Successfully created Test and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
+	printer.Printfln("Successfully created Test and saved to %s", filesystem.FullPath(c.projFS, c.fsPath))
 	return nil
 }
 

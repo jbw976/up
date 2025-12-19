@@ -23,7 +23,7 @@ generate:
 
 .PHONY: lint
 lint: generate
-	golangci-lint run --fix
+	golangci-lint run --fix --new-from-merge-base=origin/main
 
 .PHONY: test
 test: generate

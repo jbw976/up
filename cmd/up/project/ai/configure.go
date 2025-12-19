@@ -5,12 +5,11 @@ package ai
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"text/template"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -59,9 +58,7 @@ type configureToolsCmd struct {
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
-
+func (c *configureToolsCmd) AfterApply() error {
 	if !c.UseGemini && !c.UseClaude && !c.UseCursor && !c.UseCopilot {
 		return errors.New("no tools specified; must specify at least one tool to configure")
 	}
@@ -86,7 +83,7 @@ func (c *configureToolsCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
+func (c *configureToolsCmd) Run(printer upterm.Printer) (err error) {
 	cfgFS := []afero.Fs{}
 	// filepath roots for the various tool configuration sub directories.
 	claudeRoot := "templates/claude"
@@ -126,7 +123,7 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 		cfgFS = append(cfgFS, fs)
 	}
 
-	err = upterm.WrapWithSuccessSpinner(
+	err = printer.WrapWithSuccessSpinner(
 		"Generating AI Tool Configurations",
 		func() error {
 			for _, fs := range cfgFS {
@@ -135,14 +132,15 @@ func (c *configureToolsCmd) Run(printer upterm.ObjectPrinter) (err error) {
 				}
 			}
 			return nil
-		}, printer)
+		})
 	if err != nil {
 		return err
 	}
 
-	pterm.Println()
-	pterm.Info.WithPrefix(upterm.BotPrefix).Printfln("Successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, ""))
-	pterm.Println()
+	printer.Println()
+	printer.PrintSuccess(fmt.Sprintf("Successfully created tooling configurations and saved to %s", filesystem.FullPath(c.projFS, "")))
+	printer.Println()
+
 	return nil
 }
 

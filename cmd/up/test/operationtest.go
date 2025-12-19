@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -21,15 +20,16 @@ import (
 	"github.com/upbound/up/internal/render"
 	"github.com/upbound/up/internal/render/operations"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	operationtest "github.com/upbound/up/pkg/apis/operationtest/v1alpha1"
 )
 
-func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []operationtest.OperationTest) (int, int, int, error) {
+func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, log logging.Logger, tests []operationtest.OperationTest, printer upterm.Printer) (int, int, int, error) {
 	total, success, errs := 0, 0, 0
 
 	// Build embedded functions once for all tests
 	var efns []v1.Function
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		functionOptions := render.FunctionOptions{
 			Project:            c.proj.Project,
 			ProjFS:             c.projFS,
@@ -78,13 +78,13 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 		if err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, errors.Wrapf(err, "failed to render operation for test %s", test.Name))
-			pterm.PrintOnError(err)
+			printer.PrintError(err)
 			continue
 		}
 
 		// Run assertions on the output
-		if err = c.asyncWrapper(func(ch async.EventChannel) error {
-			return assertions(ctx, output, test.Name, test.Spec.AssertResources, ch)
+		if err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
+			return assertions(ctx, output, test.Name, test.Spec.AssertResources, ch, printer)
 		}); err != nil {
 			errs++
 			finalErr = errors.Join(finalErr, err)

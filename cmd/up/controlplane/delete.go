@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pterm/pterm"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +16,7 @@ import (
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
 	"github.com/upbound/up/cmd/up/controlplane/requires"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // deleteCmd deletes a control plane on Upbound.
@@ -40,7 +40,7 @@ func (c *deleteCmd) AfterApply(upCtx *upbound.Context) error {
 }
 
 // Run executes the delete command.
-func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter, client client.Client) error {
+func (c *deleteCmd) Run(ctx context.Context, p upterm.Printer, client client.Client) error {
 	ctp := &spacesv1beta1.ControlPlane{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.Name,

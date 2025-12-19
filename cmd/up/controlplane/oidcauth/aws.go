@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +23,6 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
-	upconfig "github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 
@@ -46,32 +44,27 @@ type awsCmd struct {
 	ProviderConfigName string `default:"default"                                                                                                                       help:"Provider AWS ProviderConfigName"`
 	Sub                string `help:"Define the control plane name that the IAM Role trust policy will use in the 'sub' claim. Supports wildcards (using StringLike)."`
 	Yes                bool   `default:"false"                                                                                                                         help:"When set to true, automatically accepts any confirmation prompts."`
+	DryRun             bool   `help:"Print what changes would be made but do not take action."`
 
-	printer upterm.ObjectPrinter
-	quiet   upconfig.QuietFlag
-	ctp     types.NamespacedName
+	ctp types.NamespacedName
 }
 
 // AfterApply sets default values in command after assignment and validation.
-func (c *awsCmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *awsCmd) AfterApply(upCtx *upbound.Context) error {
 	var ctp types.NamespacedName
 	var isSpace bool
 	if _, ctp, isSpace = upCtx.GetCurrentSpaceContextScope(); isSpace && ctp.Name == "" {
 		return errors.New("no control plane context is defined. Use 'up ctx' to set an control plane inside a group context")
 	}
 
-	c.quiet = printer.Quiet
-	c.printer = printer
 	c.ctp = ctp
 	return nil
 }
 
 // Run executes the AWS command.
-func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Context) error {
-	pterm.EnableStyling()
-
-	if c.printer.DryRun {
-		return c.runDryRun(upCtx)
+func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Context, printer upterm.Printer) error {
+	if c.DryRun {
+		return c.runDryRun(upCtx, printer)
 	}
 
 	cfg, err := config.LoadDefaultConfig(ctx)
@@ -94,13 +87,13 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 		}
 
 		if !confirmed {
-			pterm.Error.Println("Operation cancelled by user; creation aborted.")
+			printer.PrintError("Operation cancelled by user; creation aborted.")
 			return errors.New("operation cancelled by user")
 		}
 	}
 
 	oidcProviderARN := ""
-	if err = upterm.WrapWithSuccessSpinner(
+	if err = printer.WrapWithSuccessSpinner(
 		"Find or Create IAM Identity Provider OIDC",
 		func() error {
 			oidcProviderARN, err = oidcProvider(ctx, iamClient, c.OIDCProviderName)
@@ -109,13 +102,12 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 			}
 			return nil
 		},
-		c.printer,
 	); err != nil {
 		return err
 	}
 
 	var role *iam.CreateRoleOutput
-	if err = upterm.WrapWithSuccessSpinner(
+	if err = printer.WrapWithSuccessSpinner(
 		"Create IAM Role with IAM Policy",
 		func() error {
 			sub := c.ctp.Name
@@ -142,14 +134,13 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 			}
 			return nil
 		},
-		c.printer,
 	); err != nil {
 		return err
 	}
 
 	// ToDo(haarchri): check if Family Provider AWS is installed
 	providerConfig := c.buildProviderConfig(*role.Role.Arn)
-	if err = upterm.WrapWithSuccessSpinner(
+	if err = printer.WrapWithSuccessSpinner(
 		"Create ProviderConfig in ControlPlane",
 		func() error {
 			if err := cl.Patch(ctx, providerConfig, client.Apply, client.ForceOwnership, client.FieldOwner("up-ctp-auth-providerconfig")); err != nil {
@@ -157,20 +148,19 @@ func (c *awsCmd) Run(ctx context.Context, cl client.Client, upCtx *upbound.Conte
 			}
 			return nil
 		},
-		c.printer,
 	); err != nil {
 		return err
 	}
 
-	pterm.Success.Printfln("OIDC Provider: %s", oidcProviderARN)
-	pterm.Success.Printfln("IAM Role: %s", *role.Role.Arn)
-	pterm.Success.Printfln("ProviderConfig: %s", providerConfig.GetName())
+	printer.PrintSuccess(fmt.Sprintf("OIDC Provider: %s", oidcProviderARN))
+	printer.PrintSuccess(fmt.Sprintf("IAM Role: %s", *role.Role.Arn))
+	printer.PrintSuccess(fmt.Sprintf("ProviderConfig: %s", providerConfig.GetName()))
 	return nil
 }
 
-func (c *awsCmd) runDryRun(upCtx *upbound.Context) error {
-	pterm.Info.Println("Dry-run mode: Showing CLI commands that would be executed")
-	pterm.Println()
+func (c *awsCmd) runDryRun(upCtx *upbound.Context, p upterm.Printer) error {
+	p.PrintInfo("Dry-run mode: Showing CLI commands that would be executed")
+	p.Println()
 
 	// Build trust policy for display
 	sub := c.ctp.Name
@@ -184,34 +174,34 @@ func (c *awsCmd) runDryRun(upCtx *upbound.Context) error {
 	}
 
 	// Show OIDC provider commands
-	pterm.DefaultSection.Println("1. Check for existing OIDC provider:")
-	pterm.Printf("aws iam list-open-id-connect-providers\n")
-	pterm.Printf("aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::ACCOUNT_ID:oidc-provider/%s\n", c.OIDCProviderName)
-	pterm.Println()
+	p.Println("1. Check for existing OIDC provider:")
+	p.Printfln("aws iam list-open-id-connect-providers")
+	p.Printfln("aws iam get-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::ACCOUNT_ID:oidc-provider/%s", c.OIDCProviderName)
+	p.Println()
 
-	pterm.DefaultSection.Println("2. Create OIDC provider (if not exists):")
-	pterm.Printf("# Get thumbprint for the OIDC provider\n")
-	pterm.Printf("THUMBPRINT=$(echo | openssl s_client -servername %s -showcerts -connect %s:443 2>/dev/null | openssl x509 -fingerprint -sha1 -noout | sed 's/://g' | awk -F= '{print tolower($2)}')\n", c.OIDCProviderName, c.OIDCProviderName)
-	pterm.Printf("\n")
-	pterm.Printf("aws iam create-open-id-connect-provider \\\n")
-	pterm.Printf("  --url https://%s \\\n", c.OIDCProviderName)
-	pterm.Printf("  --client-id-list sts.amazonaws.com \\\n")
-	pterm.Printf("  --thumbprint-list \"$THUMBPRINT\"\n")
-	pterm.Println()
+	p.Println("2. Create OIDC provider (if not exists):")
+	p.Printfln("# Get thumbprint for the OIDC provider")
+	p.Printfln("THUMBPRINT=$(echo | openssl s_client -servername %s -showcerts -connect %s:443 2>/dev/null | openssl x509 -fingerprint -sha1 -noout | sed 's/://g' | awk -F= '{print tolower($2)}')", c.OIDCProviderName, c.OIDCProviderName)
+	p.Println()
+	p.Printfln("aws iam create-open-id-connect-provider \\")
+	p.Printfln("  --url https://%s \\", c.OIDCProviderName)
+	p.Printfln("  --client-id-list sts.amazonaws.com \\")
+	p.Printfln("  --thumbprint-list \"$THUMBPRINT\"")
+	p.Println()
 
-	pterm.DefaultSection.Println("3. Create IAM role with trust policy:")
-	pterm.Printf("aws iam create-role \\\n")
-	pterm.Printf("  --role-name %s \\\n", c.Name)
-	pterm.Printf("  --assume-role-policy-document '%s'\n", trustPolicy)
-	pterm.Println()
+	p.Println("3. Create IAM role with trust policy:")
+	p.Printfln("aws iam create-role \\")
+	p.Printfln("  --role-name %s \\", c.Name)
+	p.Printfln("  --assume-role-policy-document '%s'", trustPolicy)
+	p.Println()
 
-	pterm.DefaultSection.Println("4. Attach policy to role:")
-	pterm.Printf("aws iam attach-role-policy \\\n")
-	pterm.Printf("  --role-name %s \\\n", c.Name)
-	pterm.Printf("  --policy-arn %s\n", c.Policy)
-	pterm.Println()
+	p.Println("4. Attach policy to role:")
+	p.Printfln("aws iam attach-role-policy \\")
+	p.Printfln("  --role-name %s \\", c.Name)
+	p.Printfln("  --policy-arn %s", c.Policy)
+	p.Println()
 
-	pterm.DefaultSection.Println("5. Create ProviderConfig in ControlPlane:")
+	p.Println("5. Create ProviderConfig in ControlPlane:")
 	// Build the ProviderConfig with a placeholder role ARN for dry-run
 	roleARN := fmt.Sprintf("arn:aws:iam::ACCOUNT_ID:role/%s", c.Name)
 	providerConfig := c.buildProviderConfig(roleARN)
@@ -222,7 +212,7 @@ func (c *awsCmd) runDryRun(upCtx *upbound.Context) error {
 		return errors.Wrap(err, "failed to marshal ProviderConfig to YAML")
 	}
 
-	pterm.Printf("cat <<EOF | kubectl apply -f -\n%sEOF\n", string(yamlBytes))
+	p.Printfln("cat <<EOF | kubectl apply -f -\n%sEOF", string(yamlBytes))
 
 	return nil
 }

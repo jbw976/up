@@ -7,7 +7,6 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,11 +15,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	spacesv1beta1 "github.com/upbound/up-sdk-go/apis/spaces/v1beta1"
-	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 )
-
-var errDeletionProtectionEnabled = errors.New("Deletion protection is enabled on the specified group. Use '--force' to delete anyway.")
 
 // deleteCmd creates a group in a space.
 type deleteCmd struct {
@@ -29,7 +25,7 @@ type deleteCmd struct {
 }
 
 // Run executes the create command.
-func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx *upbound.Context, client client.Client, p pterm.TextPrinter) error { //nolint:gocyclo
+func (c *deleteCmd) Run(ctx context.Context, printer upterm.Printer, client client.Client) error {
 	// delete group
 	group := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +44,7 @@ func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx
 			if protected, err := strconv.ParseBool(key); err != nil {
 				return err
 			} else if protected {
-				return errDeletionProtectionEnabled
+				return errors.New("deletion protection is enabled on the specified group; use '--force' to delete anyway")
 			}
 		}
 	}
@@ -57,6 +53,6 @@ func (c *deleteCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, upCtx
 		return err
 	}
 
-	p.Printfln("%s deleted", c.Name)
+	printer.Printfln("%s deleted", c.Name)
 	return nil
 }

@@ -5,13 +5,10 @@ package profile
 
 import (
 	"encoding/json"
-	"fmt"
-
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 
 	"github.com/upbound/up/internal/profile"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -26,7 +23,7 @@ func (c *viewCmd) Help() string {
 }
 
 // Run executes the list command.
-func (c *viewCmd) Run(p pterm.TextPrinter, ctx *kong.Context, upCtx *upbound.Context) error {
+func (c *viewCmd) Run(p upterm.Printer, upCtx *upbound.Context) error {
 	profiles, err := upCtx.Cfg.GetUpboundProfiles()
 	if err != nil {
 		p.Println("No profiles found")
@@ -38,10 +35,14 @@ func (c *viewCmd) Run(p pterm.TextPrinter, ctx *kong.Context, upCtx *upbound.Con
 		redacted[k] = profile.Redacted{Profile: v}
 	}
 
+	// TODO(adamwg): Should we respect use p.PrintObject so we respect the
+	// format flag here?
 	b, err := json.MarshalIndent(redacted, "", "    ")
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(ctx.Stdout, string(b))
-	return err
+
+	p.PrintResult(string(b))
+
+	return nil
 }

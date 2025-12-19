@@ -6,9 +6,6 @@ package robot
 import (
 	"context"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go/service/accounts"
@@ -17,19 +14,13 @@ import (
 	"github.com/upbound/up/internal/upterm"
 )
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *getCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // getCmd gets a single robot in an account on Upbound.
 type getCmd struct {
 	Name string `arg:"" help:"Name of robot." predictor:"robots" required:""`
 }
 
 // Run executes the get robot command.
-func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *accounts.Client, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *getCmd) Run(ctx context.Context, printer upterm.ResultPrinter, ac *accounts.Client, oc *organizations.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -50,7 +41,7 @@ func (c *getCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, ac *acco
 
 	for _, r := range rs {
 		if r.Name == c.Name {
-			return printer.Print(r, fieldNames, extractFields)
+			return printer.PrintObject(r, fieldNames, extractFields)
 		}
 	}
 	return errors.New("no robot named \"" + c.Name + "\"")

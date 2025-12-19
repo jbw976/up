@@ -205,8 +205,7 @@ func TestGenerateCmd_Run(t *testing.T) {
 				m:                 mgr,
 			}
 
-			printer := upterm.DefaultObjPrinter
-			printer.Quiet = true
+			printer := upterm.NewTestPrinter()
 			err = c.Run(t.Context(), printer)
 
 			if tc.err == nil {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/gobuffalo/flect"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +89,6 @@ type generateCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Read the project file.
@@ -138,7 +136,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *generateCmd) Run(ctx context.Context, p upterm.Printer) error {
 	yamlData, err := afero.ReadFile(c.projFS, c.relFile)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
@@ -208,14 +206,14 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		p.Printfln("Successfully created CompositeResourceDefinition (XRD) and saved to %s", filesystem.FullPath(c.apisFS, filePath))
 
 	case outputYAML:
-		p.Println(string(xrdYAML))
+		p.PrintResult(string(xrdYAML))
 
 	case outputJSON:
 		jsonData, err := yaml.YAMLToJSON(xrdYAML)
 		if err != nil {
 			return errors.Wrapf(err, "failed to convert XRD to JSON")
 		}
-		p.Println(string(jsonData))
+		p.PrintResult(string(jsonData))
 
 	default:
 		return errors.New("invalid output format specified")

@@ -19,7 +19,6 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -39,13 +38,10 @@ type Cmd struct {
 	transport   http.RoundTripper
 	keychain    authn.Keychain
 	concurrency uint
-
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
 }
 
 // AfterApply processes flags and sets defaults.
-func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) AfterApply(upCtx *upbound.Context) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
 	// Read the project file.
@@ -71,21 +67,11 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, printer upterm.ObjectPrinter) e
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
 
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
-
 	return nil
 }
 
 // Run is the body of the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error {
 	projFilePath := filepath.Join("/", filepath.Base(c.ProjectFile))
 	proj, err := project.Parse(c.projFS, projFilePath)
 	if err != nil {
@@ -105,13 +91,12 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 
 	// Load the packages from disk.
 	var imgMap project.ImageTagMap
-	err = upterm.WrapWithSuccessSpinner(
+	err = printer.WrapWithSuccessSpinner(
 		fmt.Sprintf("Loading packages from %s", c.PackageFile),
 		func() error {
 			imgMap, err = c.loadPackages()
 			return err
 		},
-		printer,
 	)
 
 	pusher := project.NewPusher(
@@ -121,7 +106,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Ob
 		project.PushWithMaxConcurrency(c.concurrency),
 	)
 
-	err = c.asyncWrapper(func(ch async.EventChannel) error {
+	err = printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),

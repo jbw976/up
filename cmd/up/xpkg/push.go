@@ -18,7 +18,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 
@@ -26,6 +25,7 @@ import (
 
 	"github.com/upbound/up-sdk-go/service/repositories"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 )
 
@@ -57,7 +57,7 @@ type pushCmd struct {
 }
 
 // Run runs the push cmd.
-func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *pushCmd) Run(p upterm.Printer, upCtx *upbound.Context) error {
 	// If package is not defined, attempt to find single package in current
 	// directory.
 	if len(c.Package) == 0 {
@@ -84,7 +84,7 @@ func (c *pushCmd) Run(p pterm.TextPrinter, upCtx *upbound.Context) error {
 }
 
 // PushImages pushes images.
-func PushImages(p pterm.TextPrinter, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, _ string) error { //nolint:gocognit // We will delete this soon.
+func PushImages(p upterm.Printer, upCtx *upbound.Context, imgs []v1.Image, t string, create bool, _ string) error { //nolint:gocognit // We will delete this soon.
 	tag, err := name.NewTag(t, name.WithDefaultRegistry(upCtx.RegistryEndpoint.Hostname()))
 	if err != nil {
 		return err

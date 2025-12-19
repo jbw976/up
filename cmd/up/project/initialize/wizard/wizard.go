@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/upbound/up/cmd/up/runner"
+	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/pkg/apis/project/v2alpha1"
 )
@@ -31,7 +31,7 @@ type Wizard struct {
 
 // Run executes the wizard workflow, handling user interaction and resource generation.
 // It returns the final state of the wizard and any error that occurred.
-func (w *Wizard) Run() (State, error) {
+func (w *Wizard) Run(upCtx *upbound.Context, p upterm.Printer) (State, error) {
 	var state State
 	var err error
 	if _, err = os.Stat(w.StatePath); err == nil {
@@ -63,8 +63,10 @@ func (w *Wizard) Run() (State, error) {
 	}
 
 	deleteState(w.StatePath)
-	pterm.Success.Println("Wizard complete!")
-	pterm.Debug.Printfln("Final state: %+v", state)
+	p.PrintSuccess("Wizard complete!")
+	if upCtx.DebugLevel > 0 {
+		p.Printfln("Final state: %+v", state)
+	}
 
 	return state, nil
 }
@@ -234,8 +236,8 @@ func (w *Wizard) GenerateAIToolingCfg(state State) error {
 
 // PrintNextSteps outputs a series of info messages to the user about the next
 // steps to take after the wizard is complete.
-func (w *Wizard) PrintNextSteps(state State) {
-	pterm.Info.Println("Next steps:")
+func (w *Wizard) PrintNextSteps(state State, p upterm.Printer) {
+	p.PrintInfo("Next steps:")
 
 	nextSteps := []string{}
 
@@ -263,7 +265,7 @@ func (w *Wizard) PrintNextSteps(state State) {
 	}
 
 	for i, step := range nextSteps {
-		pterm.Info.Println(fmt.Sprintf("%d. %s", i+1, step))
+		p.PrintInfo(fmt.Sprintf("%d. %s", i+1, step))
 	}
 }
 

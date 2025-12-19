@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/upbound/controller-manager/apis/licensing/v1alpha1"
+	"github.com/upbound/up/internal/upterm"
 )
 
 func TestRemove(t *testing.T) {
@@ -107,7 +108,7 @@ func TestRemove(t *testing.T) {
 				Force: true,
 			}
 
-			err := c.Run(cl)
+			err := c.Run(cl, upterm.NewTestPrinter())
 			assert.NilError(t, err)
 
 			var gotLicense v1alpha1.License

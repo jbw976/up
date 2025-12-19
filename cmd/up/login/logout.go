@@ -7,12 +7,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up-sdk-go"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 
 	_ "embed"
 )
@@ -50,7 +49,7 @@ func (c *LogoutCmd) Help() string {
 }
 
 // Run executes the logout command.
-func (c *LogoutCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *LogoutCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	req, err := c.client.NewRequest(ctx, http.MethodPost, logoutPath, "", nil)

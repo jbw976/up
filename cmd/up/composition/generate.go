@@ -13,7 +13,6 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/gobuffalo/flect"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,7 +93,6 @@ type generateCmd struct {
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
 func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Read the project file.
@@ -132,7 +130,7 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 	return nil
 }
 
-func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //nolint:gocyclo // multiple output options
+func (c *generateCmd) Run(ctx context.Context, p upterm.Printer) error { //nolint:gocyclo // multiple output options
 	composition, plural, err := c.newComposition(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to create composition")
@@ -191,14 +189,14 @@ func (c *generateCmd) Run(ctx context.Context, p pterm.TextPrinter) error { //no
 		p.Printfln("successfully created Composition and saved to %s", afero.FullBaseFsPath(baseApisFS, filePath))
 
 	case outputYAML:
-		p.Println(string(compositionYAML))
+		p.PrintResult(string(compositionYAML))
 
 	case outputJSON:
 		jsonData, err := yaml.YAMLToJSON(compositionYAML)
 		if err != nil {
 			return errors.Wrap(err, "failed to convert composition to JSON")
 		}
-		p.Println(string(jsonData))
+		p.PrintResult(string(jsonData))
 
 	default:
 		return errors.New("invalid output format specified")

@@ -4,8 +4,6 @@
 package webui
 
 import (
-	"github.com/pterm/pterm"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/install"
@@ -23,7 +21,7 @@ type disableCmd struct {
 	Unstable bool `help:"Allow upgrading unstable chart versions."`
 }
 
-func (c *disableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error {
+func (c *disableCmd) Run(insCtx *install.Context, p upterm.Printer) error {
 	repo := uxp.RepoURL
 
 	filter := uxp.StableVersionFilter
@@ -49,7 +47,7 @@ func (c *disableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error 
 		},
 	}
 
-	if err := upterm.WrapWithSuccessSpinner(
+	if err := p.WrapWithSuccessSpinner(
 		"Disabling UXP web UI",
 		func() error {
 			currentVersion, err := mgr.GetCurrentVersion()
@@ -58,10 +56,9 @@ func (c *disableCmd) Run(insCtx *install.Context, p upterm.ObjectPrinter) error 
 			}
 			return errors.Wrap(mgr.Upgrade(currentVersion, values), errDisableWebUI)
 		},
-		p,
 	); err != nil {
 		return err
 	}
-	pterm.Info.WithPrefix(upterm.RaisedPrefix).Println("UXP web UI disabled")
+	p.PrintInfo("UXP web UI disabled")
 	return nil
 }

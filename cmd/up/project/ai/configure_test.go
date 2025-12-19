@@ -90,8 +90,7 @@ func TestRuleCmd_Run(t *testing.T) {
 				proj:        proj,
 			}
 
-			printer := upterm.DefaultObjPrinter
-			printer.Quiet = true
+			printer := upterm.NewTestPrinter()
 			err = c.Run(printer)
 
 			if tc.err == nil {

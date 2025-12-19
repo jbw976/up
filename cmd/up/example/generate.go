@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,23 +132,23 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *generateCmd) Run() error {
+func (c *generateCmd) Run(p upterm.Printer) error {
 	// For v2 projects, we only have XRs (no XRCs), so set type to xr
 	if c.proj != nil && c.proj.IsV2() {
 		c.Type = xrString
-		c.Scope = c.getInteractiveScope()
+		c.Scope = c.getInteractiveScope(p)
 	} else if c.Type == "" {
 		// For v1 projects, get xr or xrc/claim as input otherwise ask interactive
-		c.Type = c.getInteractiveType()
+		c.Type = c.getInteractiveType(p)
 	}
 	if len(c.relXrdFilePath) > 0 {
-		return c.processXRDFile()
+		return c.processXRDFile(p)
 	}
-	return c.processInput()
+	return c.processInput(p)
 }
 
 // processXRDFile handles the logic when the XRD file path is provided.
-func (c *generateCmd) processXRDFile() error {
+func (c *generateCmd) processXRDFile(p upterm.Printer) error {
 	xrd, err := c.readXRDFile()
 	if err != nil {
 		return err
@@ -165,7 +164,7 @@ func (c *generateCmd) processXRDFile() error {
 		return err
 	}
 
-	return c.outputResource(resource)
+	return c.outputResource(resource, p)
 }
 
 // readXRDFile reads and unmarshals the XRD file, returning either v1 or v2 XRD.
@@ -284,8 +283,8 @@ func (c *generateCmd) generateResourceFromCRD(crd *apiextensionsv1.CustomResourc
 }
 
 // processInput handles the logic when the XRD file path is not provided (interactive input).
-func (c *generateCmd) processInput() error {
-	resourceType, compositeName, apiGroup, apiVersion, name, namespace, err := c.collectInteractiveInput()
+func (c *generateCmd) processInput(p upterm.Printer) error {
+	resourceType, compositeName, apiGroup, apiVersion, name, namespace, err := c.collectInteractiveInput(p)
 	if err != nil {
 		return err
 	}
@@ -295,30 +294,30 @@ func (c *generateCmd) processInput() error {
 		return errors.Wrap(err, "failed to create xrd")
 	}
 
-	return c.outputResource(resource)
+	return c.outputResource(resource, p)
 }
 
-func (c *generateCmd) collectInteractiveInput() (string, string, string, string, string, string, error) {
+func (c *generateCmd) collectInteractiveInput(p upterm.Printer) (string, string, string, string, string, string, error) {
 	// Collect the resource type, kind, API group, API version, metadata.name and metadata.namespace
-	resourceType := c.getInteractiveType()
+	resourceType := c.getInteractiveType(p)
 	return resourceType,
-		c.getInteractiveKind(resourceType),
-		c.getInteractiveGroup(),
-		c.getInteractiveVersion(),
-		c.getInteractiveMetadataName(),
-		c.getInteractiveMetadataNamespace(resourceType),
+		c.getInteractiveKind(resourceType, p),
+		c.getInteractiveGroup(p),
+		c.getInteractiveVersion(p),
+		c.getInteractiveMetadataName(p),
+		c.getInteractiveMetadataNamespace(resourceType, p),
 		nil
 }
 
 // getInteractiveType gets the resource type interactively.
-func (c *generateCmd) getInteractiveType() string {
+func (c *generateCmd) getInteractiveType(p upterm.Printer) string {
 	if c.Type != "" {
 		return c.Type
 	}
 
 	choice, err := upterm.Selection("What do you want to create?", []string{xrc, xr}, xrc)
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting choice:", err)
+		p.PrintError("An error occurred while getting choice:", err)
 		return ""
 	}
 
@@ -336,14 +335,14 @@ func (c *generateCmd) getInteractiveType() string {
 
 // getInteractiveScope asks whether XR should be cluster scoped or namespace
 // scoped.
-func (c *generateCmd) getInteractiveScope() string {
+func (c *generateCmd) getInteractiveScope(p upterm.Printer) string {
 	if c.Scope != "" {
 		return c.Scope
 	}
 
 	wantClusterScoped, err := upterm.Confirm("Should this Composite Resource (XR) be cluster scoped? (default: namespace scoped)", false)
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting scoping choice:", err)
+		p.PrintError("An error occurred while getting scoping choice:", err)
 		return scopeNamespace // Default to namespace scoped.
 	}
 	if wantClusterScoped {
@@ -354,7 +353,7 @@ func (c *generateCmd) getInteractiveScope() string {
 }
 
 // getInteractiveKind gets the resource kind interactively.
-func (c *generateCmd) getInteractiveKind(resourceType string) string {
+func (c *generateCmd) getInteractiveKind(resourceType string, p upterm.Printer) string {
 	if c.Kind != "" {
 		return c.Kind
 	}
@@ -370,7 +369,7 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 
 	name, err := upterm.Prompt(prompt, def)
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting Claim or Composite Resource name:", err)
+		p.PrintError("An error occurred while getting Claim or Composite Resource name:", err)
 		return ""
 	}
 
@@ -378,14 +377,14 @@ func (c *generateCmd) getInteractiveKind(resourceType string) string {
 }
 
 // getInteractiveGroup gets the API group interactively.
-func (c *generateCmd) getInteractiveGroup() string {
+func (c *generateCmd) getInteractiveGroup(p upterm.Printer) string {
 	if c.APIGroup != "" {
 		return c.APIGroup
 	}
 
 	group, err := upterm.Prompt("What is the API group named?", "customer.upbound.io")
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting API Group:", err)
+		p.PrintError("An error occurred while getting API Group:", err)
 		return ""
 	}
 
@@ -393,14 +392,14 @@ func (c *generateCmd) getInteractiveGroup() string {
 }
 
 // getInteractiveVersion gets the API version interactively.
-func (c *generateCmd) getInteractiveVersion() string {
+func (c *generateCmd) getInteractiveVersion(p upterm.Printer) string {
 	if c.APIVersion != "" {
 		return c.APIVersion
 	}
 
 	version, err := upterm.Prompt("What is the API Version named?", "v1alpha1")
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting API Version:", err)
+		p.PrintError("An error occurred while getting API Version:", err)
 		return ""
 	}
 
@@ -408,14 +407,14 @@ func (c *generateCmd) getInteractiveVersion() string {
 }
 
 // getInteractiveMetadataName gets the metadata.name interactively.
-func (c *generateCmd) getInteractiveMetadataName() string {
+func (c *generateCmd) getInteractiveMetadataName(p upterm.Printer) string {
 	if c.Name != "" {
 		return c.Name
 	}
 
 	name, err := upterm.Prompt("What is the metadata name?", "example")
 	if err != nil {
-		pterm.Error.Println("An error occurred while getting metadata.name:", err)
+		p.PrintError("An error occurred while getting metadata.name:", err)
 		return ""
 	}
 
@@ -423,7 +422,7 @@ func (c *generateCmd) getInteractiveMetadataName() string {
 }
 
 // getInteractiveMetadataNamespace gets the metadata.namespace interactively.
-func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) string {
+func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string, p upterm.Printer) string {
 	if c.Namespace != "" {
 		return c.Namespace
 	}
@@ -433,7 +432,7 @@ func (c *generateCmd) getInteractiveMetadataNamespace(resourceType string) strin
 	if resourceType == xrcString || resourceType == claimString || c.Scope == scopeNamespace {
 		namespace, err := upterm.Prompt("What is the metadata namespace?", defaultNamespace)
 		if err != nil {
-			pterm.Error.Println("An error occurred while getting metadata.namespace:", err)
+			p.PrintError("An error occurred while getting metadata.namespace:", err)
 			return ""
 		}
 
@@ -486,7 +485,7 @@ func (c *generateCmd) createResource(resourceType, compositeName, apiGroup, apiV
 }
 
 // outputResource handles the output of the generated resource based on the specified output type.
-func (c *generateCmd) outputResource(res resource) error {
+func (c *generateCmd) outputResource(res resource, p upterm.Printer) error {
 	// Convert resource to YAML format
 	resourceYAML, err := yaml.Marshal(res)
 	if err != nil {
@@ -526,16 +525,16 @@ func (c *generateCmd) outputResource(res resource) error {
 			return errors.Wrap(err, "failed to write example to file")
 		}
 
-		pterm.Printfln("Successfully created example and saved to %s", filesystem.FullPath(c.exampleFS, filePath))
+		p.Printfln("Successfully created example and saved to %s", filesystem.FullPath(c.exampleFS, filePath))
 
 	case outputYAML:
-		pterm.Println(string(resourceYAML))
+		p.Println(string(resourceYAML))
 	case outputJSON:
 		jsonData, err := yaml.YAMLToJSON(resourceYAML)
 		if err != nil {
 			return errors.Wrapf(err, "failed to convert resource to JSON")
 		}
-		pterm.Println(string(jsonData))
+		p.Println(string(jsonData))
 	default:
 		return errors.New("invalid output format specified")
 	}

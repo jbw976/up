@@ -13,14 +13,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/cmd/up/project/common"
 	"github.com/upbound/up/internal/async"
-	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/filesystem"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
@@ -50,18 +48,13 @@ type Cmd struct {
 
 	m *project.DependencyManager
 
-	quiet        config.QuietFlag
-	asyncWrapper async.WrapperFunc
-	printer      upterm.ObjectPrinter
-
 	proj *v2alpha1.Project
 }
 
 // AfterApply parses flags and applies defaults.
-func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer upterm.ObjectPrinter) error {
+func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
 	c.concurrency = max(1, c.MaxConcurrency)
 
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 	// Read the project file.
 	projFilePath, err := filepath.Abs(c.ProjectFile)
@@ -101,21 +94,11 @@ func (c *Cmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context, printer 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
 
-	c.printer = printer
-	c.quiet = printer.Quiet
-	switch {
-	case bool(printer.Quiet):
-		c.asyncWrapper = async.IgnoreEvents
-	case printer.Pretty:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersPretty
-	default:
-		c.asyncWrapper = async.WrapWithSuccessSpinnersNonPretty
-	}
 	return nil
 }
 
 // Run runs the command.
-func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:gocyclo // This is fine.
+func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Printer) error { //nolint:gocyclo // This is fine.
 	basePath := ""
 	if c.Repository != "" {
 		// Update the project (in-memory) to use the new repository. This
@@ -141,7 +124,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 	)
 
 	var imgMap project.ImageTagMap
-	err := c.asyncWrapper(func(ch async.EventChannel) error {
+	err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
 		imgMap, err = b.Build(ctx, upCtx, c.proj, c.projFS,
 			project.BuildWithEventChannel(ch),
@@ -172,7 +155,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 		}
 	}
 
-	err = upterm.WrapWithSuccessSpinner(
+	err = printer.WrapWithSuccessSpinner(
 		fmt.Sprintf("Writing packages to %s", outFile),
 		func() error {
 			f, err := c.outputFS.Create(outFile)
@@ -187,20 +170,17 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context) error { //nolint:
 			}
 			return nil
 		},
-		c.printer,
 	)
 	if err != nil {
 		return err
 	}
 
-	if !c.printer.Quiet {
-		vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
-		if err != nil {
-			return errors.New("this is not a project directory")
-		}
-		if vPrj.IsV1() {
-			pterm.Info.Println("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
-		}
+	vPrj, err := project.ParseWithVersion(c.projFS, c.ProjectFile)
+	if err != nil {
+		return errors.New("this is not a project directory")
+	}
+	if vPrj.IsV1() {
+		printer.PrintInfo("Consider upgrading to v2alpha1 project format for Crossplane v2 features. Run 'up project upgrade' to upgrade.")
 	}
 
 	return nil

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -48,7 +47,6 @@ func (c *updateCacheCmd) Help() string {
 }
 
 func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 
 	// Read the project file.
@@ -83,35 +81,33 @@ func (c *updateCacheCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Contex
 	return nil
 }
 
-func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) error {
+func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.Printer) error {
 	if len(c.proj.Spec.DependsOn) > 0 {
-		if err := upterm.WrapWithSuccessSpinner(
+		if err := printer.WrapWithSuccessSpinner(
 			fmt.Sprintf("Updating %d dependencies...", len(c.proj.Spec.DependsOn)),
 			func() error {
 				return c.m.AddAll(ctx, c.proj.Spec.DependsOn...)
 			},
-			printer,
 		); err != nil {
 			return err
 		}
 
-		pterm.Success.Printfln("Dependencies updated:")
+		printer.PrintSuccess("Dependencies updated:")
 		for _, d := range c.proj.Spec.DependsOn {
 			pkg, err := c.m.GetParsedPackage(ctx, d)
 			if err != nil {
 				return err
 			}
-			pterm.Success.Printfln("- %s (%s)", pkg.Name(), pkg.Version())
+			printer.PrintSuccess(fmt.Sprintf("- %s (%s)", pkg.Name(), pkg.Version()))
 		}
 	}
 
 	if len(c.proj.Spec.APIDependencies) > 0 {
-		if err := upterm.WrapWithSuccessSpinner(
+		if err := printer.WrapWithSuccessSpinner(
 			fmt.Sprintf("Updating %d api-dependencies...", len(c.proj.Spec.APIDependencies)),
 			func() error {
 				return c.m.AddAllAPIDependencies(ctx, c.proj.Spec.APIDependencies)
 			},
-			printer,
 		); err != nil {
 			return err
 		}
@@ -121,9 +117,9 @@ func (c *updateCacheCmd) Run(ctx context.Context, printer upterm.ObjectPrinter) 
 			return err
 		}
 
-		pterm.Success.Printfln("API dependencies updated:")
+		printer.PrintSuccess("API dependencies updated:")
 		for _, dep := range processedAPIDeps {
-			pterm.Success.Printfln("- %s (%s)", dep.Source, dep.Type)
+			printer.PrintSuccess(fmt.Sprintf("- %s (%s)", dep.Source, dep.Type))
 		}
 	}
 
@@ -149,7 +145,6 @@ func (c *cleanCacheCmd) Help() string {
 }
 
 func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 	ctx := context.Background()
 	fs := afero.NewOsFs()
 
@@ -165,10 +160,10 @@ func (c *cleanCacheCmd) AfterApply(kongCtx *kong.Context) error {
 	return nil
 }
 
-func (c *cleanCacheCmd) Run(p pterm.TextPrinter) error {
+func (c *cleanCacheCmd) Run(p upterm.Printer) error {
 	if err := c.c.Clean(); err != nil {
 		return err
 	}
-	p.Printfln("xpkg cache cleaned")
+	p.Println("xpkg cache cleaned")
 	return nil
 }

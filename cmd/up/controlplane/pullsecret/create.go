@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,6 +16,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 const (
@@ -28,7 +27,7 @@ const (
 
 // AfterApply constructs and binds Upbound-specific context to any subcommands
 // that have Run() methods that receive it.
-func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *createCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error {
 	if c.File != "" {
 		tf, err := upbound.TokenFromPath(c.File)
 		if err != nil {
@@ -41,7 +40,7 @@ func (c *createCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 			return errors.New(errMissingProfileCreds)
 		}
 		c.user, c.pass = defaultUsername, upCtx.Profile.Session
-		pterm.Warning.WithWriter(kongCtx.Stdout).Printfln("Using temporary user credentials that will expire within 30 days.")
+		p.PrintWarning("Using temporary user credentials that will expire within 30 days.")
 	}
 	return nil
 }
@@ -59,7 +58,7 @@ type createCmd struct {
 }
 
 // Run executes the pull secret command.
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context, cl client.Client) error {
+func (c *createCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context, cl client.Client) error {
 	// Construct the pull-secret secret object
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -72,7 +71,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
-			".dockerconfigjson": []byte(fmt.Sprintf(`{
+			".dockerconfigjson": fmt.Appendf(nil, `{
 				"auths": {
 					"%s": {
 						"username": "%s",
@@ -81,7 +80,8 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound
 					}
 				}
 			}`, upCtx.RegistryEndpoint.Hostname(), c.user, c.pass,
-				base64.StdEncoding.EncodeToString([]byte(c.user+":"+c.pass)))),
+				base64.StdEncoding.EncodeToString([]byte(c.user+":"+c.pass)),
+			),
 		},
 	}
 

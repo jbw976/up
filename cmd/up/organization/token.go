@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/pterm/pterm"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientauthentication "k8s.io/client-go/pkg/apis/clientauthentication/v1"
 
 	"github.com/upbound/up-sdk-go/service/auth"
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 )
 
 // tokenCmd generates an org-scoped token for use with spaces.
@@ -23,7 +23,7 @@ type tokenCmd struct {
 }
 
 // Run executes the token command.
-func (c *tokenCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.Context) error {
+func (c *tokenCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.Context) error {
 	cfg, err := upCtx.BuildSDKAuthConfig()
 	if err != nil {
 		return err
@@ -58,6 +58,6 @@ func (c *tokenCmd) Run(ctx context.Context, p pterm.TextPrinter, upCtx *upbound.
 		return err
 	}
 
-	p.Print(string(out))
+	p.PrintResult(string(out))
 	return nil
 }

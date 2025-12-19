@@ -4,16 +4,15 @@
 package xpkg
 
 import (
-	"github.com/alecthomas/kong"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pterm/pterm"
 	"github.com/spf13/afero"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
 	"github.com/upbound/up/internal/upbound"
+	"github.com/upbound/up/internal/upterm"
 	"github.com/upbound/up/internal/xpkg"
 
 	_ "embed"
@@ -30,9 +29,8 @@ const (
 )
 
 // AfterApply parses flags and sets defaults.
-func (c *appendCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error {
+func (c *appendCmd) AfterApply(upCtx *upbound.Context) error {
 	// TODO(jastang): consider prompting about re-signing if already signed
-	kongCtx.Bind(pterm.DefaultBulletList.WithWriter(kongCtx.Stdout))
 
 	// Get default docker auth.
 	c.keychain = remote.WithAuthFromKeychain(upCtx.RegistryKeychain())
@@ -92,7 +90,7 @@ func (c *appendCmd) Help() string {
 }
 
 // Run executes the append command.
-func (c *appendCmd) Run(p pterm.TextPrinter) error {
+func (c *appendCmd) Run(p upterm.Printer) error {
 	// Create a layered v1.Image from the extensions root dir.
 	extManifest, err := xpkg.ImageFromFiles(c.fs, "/")
 	if err != nil {

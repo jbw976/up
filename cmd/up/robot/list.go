@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/alecthomas/kong"
-	"github.com/pterm/pterm"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -22,17 +20,11 @@ import (
 //nolint:gochecknoglobals // Would make this a const if we could.
 var fieldNames = []string{"NAME", "ID", "DESCRIPTION", "CREATED"}
 
-// AfterApply sets default values in command after assignment and validation.
-func (c *listCmd) AfterApply(kongCtx *kong.Context) error {
-	kongCtx.Bind(pterm.DefaultTable.WithWriter(kongCtx.Stdout).WithSeparator("   "))
-	return nil
-}
-
 // listCmd creates a robot on Upbound.
 type listCmd struct{}
 
 // Run executes the list robots command.
-func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm.TextPrinter, ac *accounts.Client, oc *organizations.Client, upCtx *upbound.Context) error {
+func (c *listCmd) Run(ctx context.Context, printer upterm.Printer, ac *accounts.Client, oc *organizations.Client, upCtx *upbound.Context) error {
 	a, err := ac.Get(ctx, upCtx.Organization)
 	if err != nil {
 		return err
@@ -45,10 +37,10 @@ func (c *listCmd) Run(ctx context.Context, printer upterm.ObjectPrinter, p pterm
 		return err
 	}
 	if len(rs) == 0 {
-		p.Printfln("No robots found in %s", upCtx.Organization)
+		printer.Printfln("No robots found in %s", upCtx.Organization)
 		return nil
 	}
-	return printer.Print(rs, fieldNames, extractFields)
+	return printer.PrintObject(rs, fieldNames, extractFields)
 }
 
 func extractFields(obj any) []string {

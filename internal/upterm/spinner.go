@@ -6,6 +6,7 @@ package upterm
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,24 +20,39 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"k8s.io/utils/ptr"
 
+	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/style"
 )
 
-// WrapWithSuccessSpinner adds spinners around message and run function.
-func WrapWithSuccessSpinner(msg string, f func() error, printer ObjectPrinter) error {
-	if bool(printer.Quiet) {
-		return f()
-	}
+// SpinnerPrinter prints spinners to the console.
+type SpinnerPrinter interface {
+	// WrapWithSuccessSpinner adds spinners around message and run function.
+	WrapWithSuccessSpinner(msg string, f func() error) error
 
+	// WrapAsyncWithSuccessSpinners runs a given function in a separate
+	// goroutine, consuming events from its event channel and using them to
+	// display a set of spinners on the terminal. One spinner will be generated
+	// for each unique event text received. A success/failure indicator will be
+	// displayed when each event completes.
+	WrapAsyncWithSuccessSpinners(f func(ch async.EventChannel) error) error
+}
+
+type defaultSpinnerPrinter struct {
+	pretty bool
+	out    io.Writer
+}
+
+func (p *defaultSpinnerPrinter) WrapWithSuccessSpinner(msg string, f func() error) error {
 	wrap := func(_ context.Context) error {
 		return f()
 	}
 	s := spinner.New().
+		Output(p.out).
 		Title(msg).
 		ActionWithErr(wrap).
 		TitleStyle(lipgloss.NewStyle())
 
-	if printer.Pretty {
+	if p.pretty {
 		s = s.Style(style.UpboundRootStyle)
 	} else {
 		s = s.
@@ -50,12 +66,92 @@ func WrapWithSuccessSpinner(msg string, f func() error, printer ObjectPrinter) e
 	if err != nil {
 		ind = "✗"
 	}
-	if printer.Pretty {
+	if p.pretty {
 		ind = style.UpboundRootStyle.Render(ind)
 	}
-	fmt.Printf("%s %s\n", ind, msg) //nolint:forbidigo // This is an output library.
+	_, _ = fmt.Fprintf(p.out, "%s %s\n", ind, msg)
 
 	return err
+}
+
+func (p *defaultSpinnerPrinter) WrapAsyncWithSuccessSpinners(fn func(ch async.EventChannel) error) error {
+	if p.pretty {
+		return p.asyncPretty(fn)
+	}
+
+	return p.asyncPlain(fn)
+}
+
+func (p *defaultSpinnerPrinter) asyncPretty(fn func(ch async.EventChannel) error) error {
+	var (
+		updateChan = make(async.EventChannel, 10)
+		doneChan   = make(chan error, 1)
+	)
+
+	go func() {
+		err := fn(updateChan)
+		close(updateChan)
+		doneChan <- err
+	}()
+	multi := &MultiSpinner{
+		out: p.out,
+	}
+	multi.Start()
+
+	for update := range updateChan {
+		switch update.Status {
+		case async.EventStatusStarted:
+			multi.Add(update.Text)
+		case async.EventStatusSuccess:
+			multi.Success(update.Text)
+		case async.EventStatusFailure:
+			multi.Fail(update.Text)
+		}
+	}
+	err := <-doneChan
+
+	multi.Stop()
+	return err
+}
+
+func (p *defaultSpinnerPrinter) asyncPlain(fn func(ch async.EventChannel) error) error {
+	var (
+		updateChan = make(async.EventChannel, 10)
+		doneChan   = make(chan error, 1)
+	)
+
+	go func() {
+		err := fn(updateChan)
+		close(updateChan)
+		doneChan <- err
+	}()
+
+	statusMap := make(map[string]string)
+	printed := make(map[string]bool)
+
+	for update := range updateChan {
+		prevStatus := statusMap[update.Text]
+		switch update.Status {
+		case async.EventStatusStarted:
+			if !printed[update.Text] {
+				_, _ = fmt.Fprintln(p.out, update.Text+"...")
+				printed[update.Text] = true
+				statusMap[update.Text] = "started"
+			}
+		case async.EventStatusSuccess:
+			if prevStatus != "success" {
+				_, _ = fmt.Fprintln(p.out, "✓ "+update.Text)
+				statusMap[update.Text] = "success"
+			}
+		case async.EventStatusFailure:
+			if prevStatus != "failure" {
+				_, _ = fmt.Fprintln(p.out, "✗ "+update.Text)
+				statusMap[update.Text] = "failure"
+			}
+		}
+	}
+
+	return <-doneChan
 }
 
 // StepCounter returns the counted steps.
@@ -69,6 +165,7 @@ type MultiSpinner struct {
 	spinners []*SuccessSpinner
 	mu       sync.Mutex
 	program  *tea.Program
+	out      io.Writer
 }
 
 type tickMsg time.Time
@@ -159,6 +256,7 @@ func (m *MultiSpinner) Start() {
 	m.program = tea.NewProgram(m,
 		tea.WithInput(nil),
 		tea.WithoutSignalHandler(),
+		tea.WithOutput(m.out),
 	)
 
 	go runProgramWithSignalHandler(m.program)

@@ -201,7 +201,8 @@ func TestGenerateCmd_Run(t *testing.T) {
 				proj:               proj,
 			}
 
-			err = c.Run(t.Context(), upterm.DefaultObjPrinter)
+			printer := upterm.NewTestPrinter()
+			err = c.Run(t.Context(), printer)
 			if tc.err != nil {
 				assert.ErrorContains(t, err, tc.err.Error())
 				return

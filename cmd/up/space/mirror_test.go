@@ -1,11 +1,12 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package space contains functions for handling spaces
 package space
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
+	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/upterm"
 )
@@ -437,23 +439,18 @@ func TestMirror(t *testing.T) {
 			t.Parallel()
 
 			// Capture output
-			var capturedOutput []string
-			mockPrinter := func(format string, a ...interface{}) {
-				capturedOutput = append(capturedOutput, fmt.Sprintf(format, a...))
-			}
+			var stdout bytes.Buffer
+			printer := upterm.NewPrinter(&stdout, &stdout, config.FormatDefault, false)
 
 			// Create a new command instance
 			cmd := &mirrorCmd{
 				Version:             tc.version,
+				DryRun:              true,
 				path:                tc.outputDir,
 				DestinationRegistry: tc.destinationRegistry,
 				fetchManifest:       tc.mockFetchManifest,      // Inject the mock
 				getValuesFromChart:  tc.mockGetValuesFromChart, // Inject the mock
-				defaultPrint:        mockPrinter,               // Inject the mock
 			}
-
-			printer := upterm.DefaultObjPrinter
-			printer.DryRun = true
 
 			// Run the mirror command
 			err := cmd.Run(printer)
@@ -473,7 +470,10 @@ func TestMirror(t *testing.T) {
 			for _, entry := range tc.expectedOutput {
 				expectedMap[entry]++
 			}
-			for _, entry := range capturedOutput {
+			for entry := range strings.SplitSeq(stdout.String(), "\n") {
+				if entry == "" {
+					continue
+				}
 				capturedMap[entry]++
 			}
 
@@ -503,7 +503,7 @@ func TestMirror(t *testing.T) {
 				if len(extraEntries) > 0 {
 					t.Logf("Extra entries: %v", extraEntries)
 				}
-				t.Fatalf("Mismatched output: expected %d entries but got %d", len(tc.expectedOutput), len(capturedOutput))
+				t.Fatalf("Mismatched output: expected %d entries but got %d", len(tc.expectedOutput), len(capturedMap))
 			}
 		})
 	}
