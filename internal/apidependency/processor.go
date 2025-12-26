@@ -33,19 +33,23 @@ func NewProcessor(cloner git.Cloner, authProvider git.AuthProvider, cache Cache)
 func (p *Processor) Process(dep v2alpha1.APIDependencies) (manager.Source, error) {
 	// Handle K8s type which always uses git
 	if dep.Type == v2alpha1.APIDependencyTypeK8s {
-		if dep.K8s == nil {
-			return nil, errors.New("K8s configuration is required for K8s type")
+		// If Git is already specified, use it directly
+		if dep.Git != nil {
+			return p.createCachedSource(dep)
 		}
-		// Convert K8s dependency to git dependency
-		gitDep := v2alpha1.APIDependencies{
-			Type: v2alpha1.APIDependencyTypeK8s,
-			Git: &v2alpha1.APIGitReference{
-				Repository: "https://github.com/kubernetes/kubernetes",
-				Ref:        dep.K8s.Version,
-				Path:       "api/openapi-spec",
-			},
+		// Convert K8s configuration to git dependency
+		if dep.K8s != nil {
+			gitDep := v2alpha1.APIDependencies{
+				Type: v2alpha1.APIDependencyTypeK8s,
+				Git: &v2alpha1.APIGitReference{
+					Repository: "https://github.com/kubernetes/kubernetes",
+					Ref:        dep.K8s.Version,
+					Path:       "api/openapi-spec",
+				},
+			}
+			return p.createCachedSource(gitDep)
 		}
-		return p.createCachedSource(gitDep)
+		return nil, errors.New("either Git or K8s configuration is required for K8s type")
 	}
 
 	// For other types, check which source is configured
