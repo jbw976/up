@@ -212,7 +212,7 @@ func (m *MultiSpinner) View() string {
 		views[i] = sp.View()
 	}
 
-	return strings.Join(views, "\n")
+	return strings.Join(views, "\n") + "\n"
 }
 
 // Add adds a spinner to the multi-spinner.
