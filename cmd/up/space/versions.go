@@ -29,6 +29,7 @@ type constraint struct {
 	message string
 }
 
+//nolint:gochecknoglobals // constants
 var (
 	// initVersionConstraints is the list of version constraints that are checked
 	// on up init.
@@ -84,4 +85,23 @@ func checkVersion(msg string, constraints []constraint, v string) error {
 	}
 
 	return nil
+}
+
+// supportsNativeRouterPortConfig returns true if the Spaces chart version
+// supports native helm values for router port configuration:
+// - router.proxy.hostPort for Kind/generic clusters
+// - exposed port 443 for LoadBalancer svcs
+// This was added in Spaces 1.16.0.
+func supportsNativeRouterPortConfig(versionStr string) bool {
+	v, err := semver.NewVersion(strings.TrimPrefix(versionStr, "v"))
+	if err != nil {
+		return false
+	}
+
+	constraint, err := semver.NewConstraint(">= 1.16.0-0")
+	if err != nil {
+		return false
+	}
+
+	return constraint.Check(v)
 }

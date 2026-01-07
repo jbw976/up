@@ -129,6 +129,12 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error { /
 		return err
 	}
 
+	if !c.PublicIngress {
+		defs.PublicIngress = false
+	} else {
+		p.PrintWarning("Public ingress will be exposed")
+	}
+
 	spacesValues := map[string]string{
 		// todo(avalanche123): Remove these defaults once we can default to using
 		// Upbound IAM, through connected spaces, to authenticate users in the
@@ -137,14 +143,26 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error { /
 		"authorization.hubRBAC":        "true",
 	}
 
-	// User supplied values always override the defaults
+	if supportsNativeRouterPortConfig(c.Version) {
+		if defs.PublicIngress {
+			spacesValues["router.proxy.service.type"] = "LoadBalancer"
+			switch defs.ClusterType {
+			case defaults.AmazonEKS:
+				spacesValues["router.proxy.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"] = "external"
+				spacesValues["router.proxy.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme"] = "internet-facing"
+				spacesValues["router.proxy.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-nlb-target-type"] = "ip"
+			case defaults.GoogleGKE:
+				spacesValues["router.proxy.service.annotations.cloud\\.google\\.com/l4-rbs"] = "enabled"
+			case defaults.AzureAKS, defaults.Generic, defaults.Kind:
+			}
+		} else if defs.ClusterType == defaults.Kind {
+			spacesValues["router.proxy.hostPort"] = "443"
+		}
+	}
+
+	// User supplied values override the defaults
 	maps.Copy(spacesValues, c.Set)
 	c.Set = spacesValues
-	if !c.PublicIngress {
-		defs.PublicIngress = false
-	} else {
-		p.PrintWarning("Public ingress will be exposed")
-	}
 
 	c.pullSecret = pullsecret.NewManagerFromFlags(kClient, defaultImagePullSecret, ns, c.Registry)
 	dClient, err := dynamic.NewForConfig(kubeconfig)
@@ -402,5 +420,5 @@ func outputNextSteps(p upterm.Printer) {
 	p.Println()
 	p.PrintInfo("Next Steps 👇")
 	p.Println()
-	p.Println("👉 Check out Upbound Spaces docs @ https://docs.upbound.io/concepts/upbound-spaces")
+	p.Println("👉 Check out Upbound Spaces docs @ https://docs.upbound.io/manuals/spaces/overview/")
 }

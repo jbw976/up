@@ -22,6 +22,7 @@ type CloudType string
 
 // CloudConfig contains cloud-specific configuration settings for Spaces.
 type CloudConfig struct {
+	ClusterType   CloudType
 	PublicIngress bool
 }
 
@@ -66,6 +67,7 @@ func GetConfig(kClient kubernetes.Interface, override string, p upterm.Printer) 
 		p.PrintInfo(fmt.Sprintf("Applying settings for Managed Kubernetes on %s", strings.ToUpper(string(cloud))))
 	}
 	return &CloudConfig{
+		ClusterType:   cloud,
 		PublicIngress: cloud.Defaults().PublicIngress,
 	}, nil
 }

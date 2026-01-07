@@ -5,6 +5,8 @@
 package prerequisites
 
 import (
+	"strings"
+
 	"github.com/Masterminds/semver/v3"
 	"k8s.io/client-go/rest"
 
@@ -50,12 +52,12 @@ type Status struct {
 func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flags, versionStr string, p upterm.Printer) (*Manager, error) {
 	prereqs := []Prerequisite{}
 
-	version, err := semver.NewVersion(versionStr)
+	version, err := semver.NewVersion(strings.TrimPrefix(versionStr, "v"))
 	if err != nil {
 		return nil, errors.New("invalid version format: " + err.Error())
 	}
 
-	requiresUXP, err := semver.NewConstraint("< v1.7.0-0")
+	requiresUXP, err := semver.NewConstraint("< 1.7.0-0")
 	if err != nil {
 		return nil, errors.New("invalid version constraint: " + err.Error())
 	}
@@ -87,16 +89,24 @@ func New(config *rest.Config, defs *defaults.CloudConfig, features *feature.Flag
 	}
 	prereqs = append(prereqs, certmanager)
 
-	svcType := ingressnginx.NodePort
-	if defs != nil && defs.PublicIngress {
-		svcType = ingressnginx.LoadBalancer
-	}
-
-	ingress, err := ingressnginx.New(config, svcType)
+	// Spaces 1.16+ supports native router port configuration via helm values,
+	// older versions require ingress-nginx for external traffic routing.
+	requiresIngress, err := semver.NewConstraint("< 1.16.0-0")
 	if err != nil {
-		return nil, errors.Wrap(err, errCreatePrerequisite)
+		return nil, errors.New("invalid version constraint: " + err.Error())
 	}
-	prereqs = append(prereqs, ingress)
+	if requiresIngress.Check(version) {
+		svcType := ingressnginx.NodePort
+		if defs != nil && defs.PublicIngress {
+			svcType = ingressnginx.LoadBalancer
+		}
+
+		ingress, err := ingressnginx.New(config, svcType)
+		if err != nil {
+			return nil, errors.Wrap(err, errCreatePrerequisite)
+		}
+		prereqs = append(prereqs, ingress)
+	}
 
 	if features.Enabled(spacefeature.EnableAlphaSharedTelemetry) {
 		otelopr, err := opentelemetrycollector.New(config, p)
