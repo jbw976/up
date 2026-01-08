@@ -129,9 +129,8 @@ func (c *initCmd) AfterApply(upCtx *upbound.Context, p upterm.Printer) error { /
 		return err
 	}
 
-	if !c.PublicIngress {
-		defs.PublicIngress = false
-	} else {
+	defs.PublicIngress = c.PublicIngress
+	if c.PublicIngress {
 		p.PrintWarning("Public ingress will be exposed")
 	}
 
