@@ -119,6 +119,14 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 	if err != nil {
 		return errors.Wrap(err, "failed to create control plane")
 	}
+
+	// Determine if we should skip deleting test manifests (only from test spec)
+	skipTestManifestDeletion := test.Spec.SkipDelete != nil && *test.Spec.SkipDelete
+
+	// Determine if we should skip cleanup of managed resources and control plane teardown
+	// This is triggered by either the CLI flag or the test spec skipDelete
+	skipCleanup := c.SkipControlPlaneCleanup || skipTestManifestDeletion
+
 	var devCtp ctp.DevControlPlane
 	if err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
@@ -215,10 +223,10 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				}
 			}()
 
-			c.e2eCleanup(cleanupCtx, devCtp, test, printer)
+			c.e2eCleanup(cleanupCtx, devCtp, test, skipCleanup, printer)
 
 		case <-retChan:
-			c.e2eCleanup(cleanupCtx, devCtp, test, printer)
+			c.e2eCleanup(cleanupCtx, devCtp, test, skipCleanup, printer)
 		}
 	}()
 
@@ -337,7 +345,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		SetDefaultConditions(test.Spec.DefaultConditions).
 		SetDefaultTimeout(time.Duration(*test.Spec.TimeoutSeconds) * time.Second).
 		SetDirectory(tempDir).
-		SetSkipDelete(false).
+		SetSkipDelete(skipTestManifestDeletion).
 		SetSkipUpdate(true).
 		SetSkipImport(true).
 		SetOnlyCleanUptestResources(true).
@@ -418,11 +426,12 @@ func (c *runCmd) reportCleanupResult(result *ctp.CleanupResult, err error, detai
 	}
 }
 
-// e2eCleanup cleans up test resources and the dev control plane. It returns an
-// exit code for the process, depending on how cleanup finishes.
-func (c *runCmd) e2eCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, printer upterm.Printer) {
-	if c.SkipControlPlaneCleanup {
-		printer.Println("Skipping cleanup due to --skip-control-plane-cleanup flag")
+// e2eCleanup cleans up managed resources and tears down the dev control plane.
+// Test manifests (claims/XRs) are cleaned up separately by uptest before this
+// function is called.
+func (c *runCmd) e2eCleanup(ctx context.Context, devCtp ctp.DevControlPlane, test e2etest.E2ETest, skipCleanup bool, printer upterm.Printer) {
+	if skipCleanup {
+		printer.Println("Skipping cleanup of managed resources and control plane teardown")
 		return
 	}
 

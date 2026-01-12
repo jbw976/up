@@ -41,3 +41,25 @@ Run e2e tests in `tests/`, overriding the default control plane version:
 ```shell
 up test run tests/* --e2e --control-plane-version=v2.0.2-up.5
 ```
+
+Skip cleanup after e2e test completion by setting `skipDelete: true` in the test
+spec. This leaves the control plane and all test resources (including claims and
+managed resources) intact for manual inspection and debugging:
+
+```yaml
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: E2ETest
+metadata:
+  name: my-test
+spec:
+  skipDelete: true  # Skip all cleanup after test completion
+  manifests:
+    - apiVersion: example.com/v1
+      kind: MyResource
+      # ...
+```
+
+Note: The `--skip-control-plane-cleanup` flag is different - it keeps the
+control plane running but still deletes test manifests (claims/XRs) after the
+test completes. Use `skipDelete: true` in the test spec if you want to preserve
+the test manifests as well.

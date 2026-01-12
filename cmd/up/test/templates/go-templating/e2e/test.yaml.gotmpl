@@ -19,5 +19,8 @@ items:
     - Ready
     extraResources: []
     manifests: []
+    # If true, skip cleanup of test resources and control plane after test
+    # completion. Useful for debugging and inspecting test state. Defaults to
+    # false.
     skipDelete: false
     timeoutSeconds: 4500
