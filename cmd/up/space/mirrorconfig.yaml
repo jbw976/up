@@ -16,6 +16,8 @@ oci:
       - pathNavigatorType: xgqlVersionPath
         image: xpkg.upbound.io/spaces-artifacts/xgql
     images:
+      - image: "xpkg.upbound.io/spaces-artifacts/hyperspace"
+        compatibleChartVersion: ">=1.6"
       - image: "xpkg.upbound.io/spaces-artifacts/mxp-charts"
       - image: "xpkg.upbound.io/spaces-artifacts/opentelemetry-collector-spaces"
       - image: "xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0"
