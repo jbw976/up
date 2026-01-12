@@ -13,6 +13,9 @@ _items = [
             defaultConditions: ["Ready"]
             manifests: []
             extraResources: []
+            # If true, skip cleanup of test resources and control plane after test
+            # completion. Useful for debugging and inspecting test state. Defaults to
+            # False.
             skipDelete: False
             timeoutSeconds: 4500
         }

@@ -16,6 +16,9 @@ test = e2etest.E2ETest(
         ],
         manifests=[],
         extraResources=[],
+        # If True, skip cleanup of test resources and control plane after test
+        # completion. Useful for debugging and inspecting test state. Defaults to
+        # False.
         skipDelete=False,
         timeoutSeconds=4500,
     )
