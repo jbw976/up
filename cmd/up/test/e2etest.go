@@ -356,7 +356,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		SetUseLibraryMode(true).
 		Build()
 
-	if err := uptest.RunTest(automatedTest); err != nil {
+	if err := uptest.RunTestContext(ctx, automatedTest); err != nil {
 		return errors.Wrap(err, "uptest failed")
 	}
 
