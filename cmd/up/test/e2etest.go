@@ -188,7 +188,6 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigChan) // Ensure we stop receiving signals after function exits
 
 	// Channel to trigger cleanup on function return.
 	retChan := make(chan struct{})
@@ -197,6 +196,9 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 
 	go func() { //nolint:contextcheck // We intentionally use a separate context for cleanup.
 		defer func() {
+			// Ensure we stop receiving signals after our handler runs so we
+			// don't intercept any further interrupts.
+			signal.Stop(sigChan)
 			close(cleanupDone)
 		}()
 
