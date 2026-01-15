@@ -175,7 +175,19 @@ func (h *cleanupHelper) findTestResources(ctx context.Context, dc discovery.Disc
 		return nil, errors.Wrap(err, "failed to get API resources")
 	}
 
-	// Find claims and composites with the test annotation
+	// Find claims and composites with the test annotation and their resourceRefs
+	h.findAnnotatedResourcesWithRefs(ctx, xpResources, annotation, resourceMap)
+
+	// Also find managed resources with deletionTimestamp (background deletion case)
+	// This ensures we wait for resources being deleted via background deletion
+	h.findDeletingResources(ctx, xpResources, resourceMap)
+
+	return resourceMap, nil
+}
+
+// findAnnotatedResourcesWithRefs finds claims/composites with the test annotation
+// and extracts their resourceRefs.
+func (h *cleanupHelper) findAnnotatedResourcesWithRefs(ctx context.Context, xpResources []metav1.GroupVersionKind, annotation string, resourceMap map[string]GenericResource) {
 	for _, gvk := range xpResources {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(schema.GroupVersionKind{
@@ -226,8 +238,6 @@ func (h *cleanupHelper) findTestResources(ctx context.Context, dc discovery.Disc
 			}
 		}
 	}
-
-	return resourceMap, nil
 }
 
 // extractResourceRefs extracts resource references and adds them to the map.
@@ -249,6 +259,50 @@ func (h *cleanupHelper) extractResourceRefs(refs []xpcommonv1.TypedReference, re
 				Name:    ref.Name,
 				Status:  resourceStatusPending,
 				Message: "managed resource",
+			}
+		}
+	}
+}
+
+// findDeletingResources finds managed resources with deletionTimestamp.
+// This handles the background deletion case where resources have deletionTimestamp
+// but are not in resourceRefs.
+func (h *cleanupHelper) findDeletingResources(ctx context.Context, xpResources []metav1.GroupVersionKind, resourceMap map[string]GenericResource) {
+	for _, gvk := range xpResources {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind,
+		})
+
+		if strings.HasSuffix(list.GetKind(), "List") {
+			list.SetKind(gvk.Kind + "List")
+		}
+
+		if err := h.client.List(ctx, list); err != nil {
+			continue
+		}
+
+		for _, item := range list.Items {
+			// Skip if no deletionTimestamp
+			if item.GetDeletionTimestamp() == nil {
+				continue
+			}
+
+			// Skip if already tracked
+			key := fmt.Sprintf("%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, item.GetName())
+			if _, exists := resourceMap[key]; exists {
+				continue
+			}
+
+			// Add this deleting managed resource to track
+			resourceMap[key] = GenericResource{
+				GVK:       gvk,
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+				Status:    resourceStatusPending,
+				Message:   "managed resource being deleted",
 			}
 		}
 	}

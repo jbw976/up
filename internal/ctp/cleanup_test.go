@@ -263,6 +263,98 @@ func TestFindTestResources(t *testing.T) {
 				},
 			},
 		},
+		"FindsManagedResourcesBeingDeleted": {
+			mockResources: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "example.io/v1",
+						"kind":       "TestClaim",
+						"metadata": map[string]any{
+							"name": "test-claim-1",
+							"annotations": map[string]any{
+								"cli.upbound.io/e2etest": "True",
+							},
+							"deletionTimestamp": "2025-01-12T10:00:00Z",
+							"finalizers":        []any{"test.finalizer"},
+						},
+						"spec": map[string]any{},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "provider.io/v1",
+						"kind":       "Bucket",
+						"metadata": map[string]any{
+							"name":              "orphan-bucket",
+							"deletionTimestamp": "2025-01-12T10:00:00Z",
+							"finalizers":        []any{"test.finalizer"},
+						},
+						"spec": map[string]any{},
+					},
+				},
+			},
+			want: map[string]GenericResource{
+				"example.io/v1/TestClaim/test-claim-1": {
+					GVK: metav1.GroupVersionKind{
+						Group:   "example.io",
+						Version: "v1",
+						Kind:    "TestClaim",
+					},
+					Name:    "test-claim-1",
+					Status:  resourceStatusPending,
+					Message: "test resource",
+				},
+				"provider.io/v1/Bucket/orphan-bucket": {
+					GVK: metav1.GroupVersionKind{
+						Group:   "provider.io",
+						Version: "v1",
+						Kind:    "Bucket",
+					},
+					Name:    "orphan-bucket",
+					Status:  resourceStatusPending,
+					Message: "managed resource being deleted",
+				},
+			},
+		},
+		"IgnoresManagedResourcesWithoutDeletionTimestamp": {
+			mockResources: []runtime.Object{
+				&unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "example.io/v1",
+						"kind":       "TestClaim",
+						"metadata": map[string]any{
+							"name": "test-claim-1",
+							"annotations": map[string]any{
+								"cli.upbound.io/e2etest": "True",
+							},
+						},
+						"spec": map[string]any{},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "provider.io/v1",
+						"kind":       "Bucket",
+						"metadata": map[string]any{
+							"name": "healthy-bucket",
+						},
+						"spec": map[string]any{},
+					},
+				},
+			},
+			want: map[string]GenericResource{
+				"example.io/v1/TestClaim/test-claim-1": {
+					GVK: metav1.GroupVersionKind{
+						Group:   "example.io",
+						Version: "v1",
+						Kind:    "TestClaim",
+					},
+					Name:    "test-claim-1",
+					Status:  resourceStatusPending,
+					Message: "test resource",
+				},
+			},
+		},
 	}
 
 	for name, tc := range tests {
