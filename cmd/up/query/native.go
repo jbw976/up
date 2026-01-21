@@ -90,6 +90,7 @@ var (
 		"ValidatingAdmissionPolicyBinding": "validatingadmissionpolicybindings",
 		"VolumeAttachment":                 "volumeattachments",
 		"VolumeAttributesClass":            "volumeattributesclasses",
+		"Workload":                         "workloads",
 	}
 )
 

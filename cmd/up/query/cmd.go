@@ -16,7 +16,7 @@ import (
 // QueryCmd contains commands for querying control plane objects.
 type cmd struct {
 	// general printer flags
-	OutputFormat string   `help:"Output format. One of: json,yaml,name,go-template,go-template-file,template,templatefile,jsonpath,jsonpath-as-json,jsonpath-file,custom-columns,custom-columns-file,wide"                                                                                    name:"output"        short:"o"`
+	OutputFormat string   `help:"Output format. One of: json,yaml,kyaml,name,go-template,go-template-file,template,templatefile,jsonpath,jsonpath-as-json,jsonpath-file,custom-columns,custom-columns-file,wide"                                                                              name:"output"        short:"o"`
 	NoHeaders    bool     `help:"When using the default or custom-column output format, don't print headers."`
 	ShowLabels   bool     `help:"When printing, show all labels as the last column (default hide labels column)"                                                                                                                                                                              name:"show-labels"`
 	SortBy       string   `help:"If non-empty, sort list types using this field specification.  The field specification is expressed as a JSONPath expression (e.g. '{.metadata.name}'). The field in the API resource specified by this JSONPath expression must be an integer or a string." name:"sort-by"`
