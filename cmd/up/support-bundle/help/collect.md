@@ -20,8 +20,8 @@ up support-bundle collect --output /tmp/my-support-bundle.tar.gz
 up support-bundle collect --config my-config.yaml
 
 # Collect a support bundle from specific namespaces
-# By default, upbound-system, crossplane-system, and any control plane namespaces
-# will be included.
+# By default, crossplane-system, upbound-system, and namespaces labeled with
+# internal.spaces.upbound.io/controlplane-name or spaces.upbound.io/group are included.
 up support-bundle collect --include-namespaces crossplane-system,upbound-system
 
 # Include namespaces using glob patterns

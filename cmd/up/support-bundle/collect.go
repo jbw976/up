@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -197,8 +198,8 @@ func parseRedactorFromDoc(doc []byte) (*troubleshootv1beta2.Redactor, bool, erro
 
 // determineNamespaces determines the final list of namespaces based on include/exclude flags.
 // If includeNamespaces is provided, those are used (supports glob patterns like "upbound-*").
-// Otherwise, it collects from crossplane-system, upbound-system, and namespaces labeled with
-// internal.spaces.upbound.io/controlplane-name.
+// Otherwise, it collects from crossplane-system, upbound-system, namespaces labeled with
+// internal.spaces.upbound.io/controlplane-name, and namespaces labeled with spaces.upbound.io/group.
 // Exclude patterns support glob matching (e.g., "upbound-*" to exclude all namespaces starting with "upbound-").
 // This function always returns a valid list of namespaces, falling back to defaults when necessary.
 func determineNamespaces(ctx context.Context, clientset kubernetes.Interface, includeNamespaces, excludeNamespaces []string) []string {
@@ -217,18 +218,19 @@ func determineNamespaces(ctx context.Context, clientset kubernetes.Interface, in
 			}
 		}
 	} else {
-		candidateNamespaces = []string{"crossplane-system", "upbound-system"}
+		namesSet := sets.New[string]("crossplane-system", "upbound-system")
 		if clientset != nil {
-			nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-				LabelSelector: "internal.spaces.upbound.io/controlplane-name",
-			})
-			if err == nil {
-				// If listing namespaces fails we will continue with the default namespaces only
+			for _, labelSelector := range []string{"internal.spaces.upbound.io/controlplane-name", "spaces.upbound.io/group"} {
+				nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+				if err != nil {
+					continue
+				}
 				for _, ns := range nsList.Items {
-					candidateNamespaces = append(candidateNamespaces, ns.Name)
+					namesSet.Insert(ns.Name)
 				}
 			}
 		}
+		candidateNamespaces = sets.List(namesSet)
 	}
 
 	filtered := []string{}
