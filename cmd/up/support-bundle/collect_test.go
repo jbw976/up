@@ -4,6 +4,7 @@
 package supportbundle
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -11,6 +12,8 @@ import (
 	"github.com/spf13/afero"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestMatchesPattern(t *testing.T) {
@@ -189,6 +192,113 @@ func TestShouldExcludeNamespace(t *testing.T) {
 			got := shouldExcludeNamespace(tt.namespace, tt.excludePatterns)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("%s\nshouldExcludeNamespace(%q, %v): -want, +got\n%s", name, tt.namespace, tt.excludePatterns, diff)
+			}
+		})
+	}
+}
+
+func TestDetermineNamespaces(t *testing.T) {
+	ctx := context.Background()
+
+	type args struct {
+		includeNamespaces []string
+		excludeNamespaces []string
+	}
+
+	cases := map[string]struct {
+		reason string
+		args   args
+		setup  func(*fake.Clientset)
+		want   []string
+	}{
+		"DefaultWithNilClient": {
+			reason: "Should return default namespaces when client is nil.",
+			setup:  nil,
+			want:   []string{"crossplane-system", "upbound-system"},
+		},
+		"DefaultWithEmptyClient": {
+			reason: "Should return default namespaces when client has no labeled namespaces.",
+			setup:  func(_ *fake.Clientset) {},
+			want:   []string{"crossplane-system", "upbound-system"},
+		},
+		"DefaultIncludesControlplaneNameLabeledNamespace": {
+			reason: "Should include namespaces labeled with internal.spaces.upbound.io/controlplane-name.",
+			setup: func(client *fake.Clientset) {
+				_, _ = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "space-cp-1",
+						Labels: map[string]string{"internal.spaces.upbound.io/controlplane-name": "cp-1"},
+					},
+				}, metav1.CreateOptions{})
+			},
+			want: []string{"crossplane-system", "space-cp-1", "upbound-system"},
+		},
+		"DefaultIncludesSpacesGroupLabeledNamespace": {
+			reason: "Should include namespaces labeled with spaces.upbound.io/group.",
+			setup: func(client *fake.Clientset) {
+				_, _ = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "space-group-1",
+						Labels: map[string]string{"spaces.upbound.io/group": "group-1"},
+					},
+				}, metav1.CreateOptions{})
+			},
+			want: []string{"crossplane-system", "space-group-1", "upbound-system"},
+		},
+		"DefaultDeduplicatesNamespaceWithBothLabels": {
+			reason: "Should include namespace with both labels only once.",
+			setup: func(client *fake.Clientset) {
+				_, _ = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "space-both",
+						Labels: map[string]string{
+							"internal.spaces.upbound.io/controlplane-name": "cp-1",
+							"spaces.upbound.io/group":                      "group-1",
+						},
+					},
+				}, metav1.CreateOptions{})
+			},
+			want: []string{"crossplane-system", "space-both", "upbound-system"},
+		},
+		"ExcludePatternFiltersDefaultNamespaces": {
+			reason: "Should filter out namespaces matching exclude pattern.",
+			args: args{
+				excludeNamespaces: []string{"crossplane-system"},
+			},
+			setup: func(_ *fake.Clientset) {},
+			want:  []string{"upbound-system"},
+		},
+		"IncludePatternWithClient": {
+			reason: "Should resolve include patterns against cluster namespaces.",
+			args: args{
+				includeNamespaces: []string{"upbound-*"},
+			},
+			setup: func(client *fake.Clientset) {
+				for _, name := range []string{"upbound-system", "other-ns"} {
+					_, _ = client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{Name: name},
+					}, metav1.CreateOptions{})
+				}
+			},
+			want: []string{"upbound-system"},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var kubeClient kubernetes.Interface
+			if tc.setup != nil {
+				client := fake.NewClientset()
+				tc.setup(client)
+				kubeClient = client
+			}
+
+			got := determineNamespaces(ctx, kubeClient, tc.args.includeNamespaces, tc.args.excludeNamespaces)
+
+			if diff := cmp.Diff(tc.want, got, cmpopts.SortSlices(func(a, b string) bool {
+				return a < b
+			})); diff != "" {
+				t.Errorf("\n%s\ndetermineNamespaces(): -want, +got\n%s", tc.reason, diff)
 			}
 		})
 	}
