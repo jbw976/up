@@ -41,6 +41,7 @@ func (in *OperationTest) DeepCopyObject() runtime.Object {
 func (in *OperationTestSpec) DeepCopyInto(out *OperationTestSpec) {
 	*out = *in
 	in.Operation.DeepCopyInto(&out.Operation)
+	in.WatchedResource.DeepCopyInto(&out.WatchedResource)
 	if in.RequiredResources != nil {
 		in, out := &in.RequiredResources, &out.RequiredResources
 		*out = make([]runtime.RawExtension, len(*in))

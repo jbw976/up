@@ -39,6 +39,16 @@ type OperationTestSpec struct {
 	// Optional.
 	OperationPath string `json:"operationPath,omitempty"`
 
+	// WatchedResource specifies additional watched resource inline.
+	// Optional.
+	// +kubebuilder:validation:Optional
+	WatchedResource runtime.RawExtension `json:"watchedResource,omitempty"`
+
+	// WatchedResourcePath specifies a path to watched resource file.
+	// Optional.
+	// +kubebuilder:validation:Optional
+	WatchedResourcePath string `json:"watchedResourcePath,omitempty"`
+
 	// RequiredResources specifies additional required resources inline.
 	// Optional.
 	// +kubebuilder:validation:Optional

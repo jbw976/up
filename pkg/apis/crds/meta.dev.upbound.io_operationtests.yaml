@@ -98,6 +98,17 @@ spec:
                   Required. Default is 30s.
                 minimum: 1
                 type: integer
+              watchedResource:
+                description: |-
+                  WatchedResource specifies additional watched resource inline.
+                  Optional.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              watchedResourcePath:
+                description: |-
+                  WatchedResourcePath specifies a path to watched resource file.
+                  Optional.
+                type: string
             required:
             - timeoutSeconds
             type: object

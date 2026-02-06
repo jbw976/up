@@ -99,6 +99,7 @@ func (c *runCmd) runOperationTests(ctx context.Context, upCtx *upbound.Context, 
 type operationTestFilePaths struct {
 	operation         string
 	requiredResources string
+	watchedResource   string
 	context           map[string]string
 }
 
@@ -118,6 +119,12 @@ func (c *runCmd) prepareOperationTestFiles(overlayFS afero.Fs, test operationtes
 		return nil, err
 	}
 	paths.requiredResources = requiredResourcesPath
+
+	watchedResourcePath, err := c.resolveResourcesPath(overlayFS, test.Spec.WatchedResourcePath, []runtime.RawExtension{test.Spec.WatchedResource})
+	if err != nil {
+		return nil, err
+	}
+	paths.watchedResource = watchedResourcePath
 
 	for key, value := range test.Spec.Context {
 		path, err := writeContextToFile(overlayFS, value, fmt.Sprintf("context-%s", key))
@@ -147,6 +154,7 @@ func (c *runCmd) buildOperationRenderOptions(overlayFS afero.Fs, test operationt
 		Operation:              paths.operation,
 		FunctionCredentials:    test.Spec.FunctionCredentialsPath,
 		RequiredResources:      paths.requiredResources,
+		WatchedResource:        paths.watchedResource,
 		ContextFiles:           paths.context,
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
