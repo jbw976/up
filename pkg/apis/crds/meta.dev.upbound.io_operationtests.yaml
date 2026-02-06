@@ -110,9 +110,11 @@ spec:
                   Optional.
                 type: string
             required:
+            - operation
             - timeoutSeconds
             type: object
         required:
+        - metadata
         - spec
         type: object
     served: true
