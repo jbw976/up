@@ -1,6 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
+// Package credhelper implements a Docker credential helper for Upbound.
 package credhelper
 
 import (
@@ -85,12 +86,12 @@ func New(opts ...Opt) *Helper {
 }
 
 // Add adds the supplied credentials.
-func (h *Helper) Add(c *credentials.Credentials) error {
+func (h *Helper) Add(_ *credentials.Credentials) error {
 	return errors.New(errUnimplemented)
 }
 
 // Delete deletes credentials for the supplied server.
-func (h *Helper) Delete(serverURL string) error {
+func (h *Helper) Delete(_ string) error {
 	return errors.New(errUnimplemented)
 }
 
