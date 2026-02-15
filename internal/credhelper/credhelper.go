@@ -5,8 +5,10 @@ package credhelper
 
 import (
 	"strings"
+	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
@@ -121,5 +123,31 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", errors.Wrap(err, errGetProfile)
 		}
 	}
+	if p.Session == "" {
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+	if !hasValidSession(p.Session) {
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
 	return defaultDockerUser, p.Session, nil
+}
+
+// hasValidSession checks whether the session token is a valid, non-expired JWT.
+// If the token cannot be parsed or is expired, it returns false so that callers
+// can fall back to anonymous access for public artifacts.
+func hasValidSession(session string) bool {
+	parser := jwt.NewParser()
+	token, _, err := parser.ParseUnverified(session, jwt.MapClaims{})
+	if err != nil {
+		return false
+	}
+	exp, err := token.Claims.GetExpirationTime()
+	if err != nil {
+		return false
+	}
+	if exp == nil {
+		return true
+	}
+	// Treat the token as expired if it expires within the next 30 seconds.
+	return time.Now().Add(30 * time.Second).Before(exp.Time)
 }
