@@ -346,7 +346,6 @@ func isPermanentError(err error) bool {
 		apierrors.IsNotAcceptable(err) ||
 		apierrors.IsUnsupportedMediaType(err) ||
 		apierrors.IsUnauthorized(err) ||
-		apierrors.IsForbidden(err) ||
 		apierrors.IsRequestEntityTooLargeError(err) {
 		return true
 	}
