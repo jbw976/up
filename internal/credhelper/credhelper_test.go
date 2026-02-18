@@ -5,8 +5,10 @@ package credhelper
 
 import (
 	"testing"
+	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
@@ -15,6 +17,18 @@ import (
 	"github.com/upbound/up/internal/config"
 	"github.com/upbound/up/internal/profile"
 )
+
+func testToken(t *testing.T, exp time.Time) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(exp),
+	})
+	s, err := token.SignedString([]byte("test-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
 
 // TODO(hasheddan): these tests are testing through to the underlying config
 // package more than we would like. We should consider refactoring the config
@@ -25,7 +39,8 @@ var _ credentials.Helper = &Helper{}
 func TestGet(t *testing.T) {
 	testServer := "xpkg.upbound.io"
 	testProfile := "test"
-	testSecret := "supersecretvalue"
+	validToken := testToken(t, time.Now().Add(1*time.Hour))
+	expiredToken := testToken(t, time.Now().Add(-1*time.Hour))
 	errBoom := errors.New("boom")
 	type args struct {
 		server string
@@ -127,8 +142,8 @@ func TestGet(t *testing.T) {
 				err: errors.Wrap(errors.Errorf("profile not found with identifier: %s", testProfile), errGetProfile),
 			},
 		},
-		"Success": {
-			reason: "If we successfully get profile return credentials.",
+		"ErrorEmptySession": {
+			reason: "Should return credentials not found if session is empty.",
 			args: args{
 				server: testServer,
 			},
@@ -143,7 +158,63 @@ func TestGet(t *testing.T) {
 							Upbound: config.Upbound{
 								Profiles: map[string]profile.Profile{
 									testProfile: {
-										Session: testSecret,
+										Session: "",
+									},
+								},
+							},
+						}, nil
+					},
+				}),
+			},
+			want: want{
+				err: credentials.NewErrCredentialsNotFound(),
+			},
+		},
+		"ErrorExpiredSession": {
+			reason: "Should return credentials not found if session token is expired.",
+			args: args{
+				server: testServer,
+			},
+			opts: []Opt{
+				WithProfile(testProfile),
+				WithSource(&config.MockSource{
+					InitializeFn: func() error {
+						return nil
+					},
+					GetConfigFn: func() (*config.Config, error) {
+						return &config.Config{
+							Upbound: config.Upbound{
+								Profiles: map[string]profile.Profile{
+									testProfile: {
+										Session: expiredToken,
+									},
+								},
+							},
+						}, nil
+					},
+				}),
+			},
+			want: want{
+				err: credentials.NewErrCredentialsNotFound(),
+			},
+		},
+		"Success": {
+			reason: "If we successfully get profile with a valid session return credentials.",
+			args: args{
+				server: testServer,
+			},
+			opts: []Opt{
+				WithProfile(testProfile),
+				WithSource(&config.MockSource{
+					InitializeFn: func() error {
+						return nil
+					},
+					GetConfigFn: func() (*config.Config, error) {
+						return &config.Config{
+							Upbound: config.Upbound{
+								Profiles: map[string]profile.Profile{
+									testProfile: {
+										Session: validToken,
 									},
 								},
 							},
@@ -153,7 +224,7 @@ func TestGet(t *testing.T) {
 			},
 			want: want{
 				user:   defaultDockerUser,
-				secret: testSecret,
+				secret: validToken,
 			},
 		},
 	}
