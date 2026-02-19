@@ -30,4 +30,4 @@ jobs:
     secrets:
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}
-      aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+      aws-role-arn: ${{ secrets.AWS_ROLE_ARN_ARTIFACT_PUBLISH }}

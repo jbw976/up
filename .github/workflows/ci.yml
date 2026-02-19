@@ -32,4 +32,4 @@ jobs:
     secrets:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
-      aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+      aws-role-arn: ${{ secrets.AWS_ROLE_ARN_E2E_TEST }}
