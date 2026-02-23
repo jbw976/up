@@ -20,11 +20,8 @@ on:
       xpkg-token:
         description: 'XPKG registry token'
         required: false
-      aws-usr:
-        description: 'AWS access key ID'
-        required: false
-      aws-psw:
-        description: 'AWS secret access key'
+      aws-role-arn:
+        description: 'AWS IAM role ARN for OIDC authentication'
         required: false
 
 jobs:
@@ -47,6 +44,12 @@ jobs:
           username: ${{ secrets.xpkg-access-id }}
           password: ${{ secrets.xpkg-token }}
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          role-to-assume: ${{ secrets.aws-role-arn }}
+          aws-region: us-west-2
+
       - name: Promote Artifacts in S3 and xpkg
         run: hack/promote.sh
         env:
@@ -54,6 +57,3 @@ jobs:
           CHANNEL: ${{ inputs.channel }}
           S3_BUCKET: public-cli.releases
           OCI_REPOSITORY: xpkg.upbound.io/upbound/up-cli
-          AWS_ACCESS_KEY_ID: ${{ secrets.aws-usr }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-psw }}
-          AWS_DEFAULT_REGION: us-west-2

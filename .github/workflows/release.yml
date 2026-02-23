@@ -41,8 +41,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       xpkg-access-id: ${{ secrets.XPKG_ACCESS_ID }}
       xpkg-token: ${{ secrets.XPKG_TOKEN }}
-      aws-usr: ${{ secrets.AWS_USR }}
-      aws-psw: ${{ secrets.AWS_PSW }}
+      aws-role-arn: ${{ secrets.AWS_ROLE_ARN_ARTIFACT_PUBLISH }}
       upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   e2e-tests:
@@ -53,4 +52,4 @@ jobs:
     secrets:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
-      aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+      aws-role-arn: ${{ secrets.AWS_ROLE_ARN_E2E_TEST }}
