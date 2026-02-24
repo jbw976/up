@@ -350,6 +350,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 		SetSkipDelete(skipTestManifestDeletion).
 		SetSkipUpdate(true).
 		SetSkipImport(true).
+		SetSkipWebhookCheck(true).
 		SetOnlyCleanUptestResources(true).
 		SetRenderOnly(false).
 		SetLogCollectionInterval(10 * time.Second).
