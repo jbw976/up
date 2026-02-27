@@ -42,6 +42,19 @@ type xgqlVersionPath struct {
 	} `json:"controlPlanes"`
 }
 
+// apolloVersionPath reads apollo image tag from spaces chart values (apollo.apollo.syncer.image.tag).
+type apolloVersionPath struct {
+	Apollo struct {
+		Apollo struct {
+			Syncer struct {
+				Image struct {
+					Tag stringOrArray `json:"tag"`
+				} `json:"image"`
+			} `json:"syncer"`
+		} `json:"apollo"`
+	} `json:"apollo"`
+}
+
 type imageTag struct {
 	Image struct {
 		Tag stringOrArray `json:"tag"`
@@ -77,6 +90,10 @@ func (k *xgqlVersionPath) Extractor() ([]string, error) {
 	return k.ControlPlanes.Uxp.Xgql.Version, nil
 }
 
+func (k *apolloVersionPath) Extractor() ([]string, error) {
+	return k.Apollo.Apollo.Syncer.Image.Tag, nil
+}
+
 func (k *imageTag) Extractor() ([]string, error) {
 	if len(k.Image.Tag) == 0 {
 		return nil, errors.New("no supported versions found in ImageTag")
@@ -94,11 +111,12 @@ func (k *registerImageTag) Extractor() ([]string, error) {
 // init function to return byte slice and oci.PathNavigator.
 func initConfig() ([]byte, map[string]reflect.Type) {
 	return configFile, map[string]reflect.Type{
-		"uxpVersionsPath":  reflect.TypeOf(uxpVersionsPath{}),
-		"kubeVersionPath":  reflect.TypeOf(kubeVersionPath{}),
-		"xgqlVersionPath":  reflect.TypeOf(xgqlVersionPath{}),
-		"imageTag":         reflect.TypeOf(imageTag{}),
-		"registerImageTag": reflect.TypeOf(registerImageTag{}),
+		"uxpVersionsPath":   reflect.TypeFor[uxpVersionsPath](),
+		"kubeVersionPath":   reflect.TypeFor[kubeVersionPath](),
+		"xgqlVersionPath":   reflect.TypeFor[xgqlVersionPath](),
+		"apolloVersionPath": reflect.TypeFor[apolloVersionPath](),
+		"imageTag":          reflect.TypeFor[imageTag](),
+		"registerImageTag":  reflect.TypeFor[registerImageTag](),
 	}
 }
 

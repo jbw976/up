@@ -15,6 +15,8 @@ oci:
         image: xpkg.upbound.io/spaces-artifacts/kube-scheduler
       - pathNavigatorType: xgqlVersionPath
         image: xpkg.upbound.io/spaces-artifacts/xgql
+      - pathNavigatorType: apolloVersionPath
+        image: xpkg.upbound.io/spaces-artifacts/uxp-apollo
     images:
       - image: "xpkg.upbound.io/spaces-artifacts/hyperspace"
         compatibleChartVersion: ">=1.6"
@@ -25,14 +27,12 @@ oci:
       - image: "xpkg.upbound.io/spaces-artifacts/coredns:1.10.1"
         compatibleChartVersion: "<1.16.0"
       - image: "xpkg.upbound.io/spaces-artifacts/coredns:1.12.4"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
+        compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/envoy:v1.26-latest"
-      - image: "xpkg.upbound.io/spaces-artifacts/xgql:v0.2.0-rc.0.180.g864b87f"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
       - image: "xpkg.upbound.io/spaces-artifacts/etcd:3.5.15-0"
         compatibleChartVersion: "<1.16.0"
       - image: "xpkg.upbound.io/spaces-artifacts/etcd:3.5.21-0"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
+        compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.17.0-up.1"
         compatibleChartVersion: ">=1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.16.2-up.1"
@@ -48,7 +48,7 @@ oci:
       - image: "xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003"
         compatibleChartVersion: "<1.16.0"
       - image: "xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.17.0"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
+        compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0"
         compatibleChartVersion: ">=1.8.x"
       - image: "xpkg.upbound.io/spaces-artifacts/kyverno-background-controller:v1.11.4"
@@ -67,15 +67,15 @@ oci:
         compatibleChartVersion: ">=1.6.x"
       # vcluster
       - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2-upbound001"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
-      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2"
-        compatibleChartVersion: "<1.16.0"
-      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1"
-        compatibleChartVersion: "<1.16.0"
-      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.22.3"
-        compatibleChartVersion: "1.12.x"
+        compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.15.7"
         compatibleChartVersion: "<1.12.0"
+      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.22.3"
+        compatibleChartVersion: "1.12.x"
+      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2"
+        compatibleChartVersion: ">=1.14.2 <1.16.0 || >=1.13.3 <1.14.0"
+      - image: "xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1"
+        compatibleChartVersion: ">=1.13.0 <1.13.3 || >=1.14.0 <1.14.2"
       - image: "xpkg.upbound.io/spaces-artifacts/alpine:3.20"
         compatibleChartVersion: ">=1.14.0"
       # vcluster-chart
@@ -92,11 +92,6 @@ oci:
       # vector
       - image: "xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc"
         compatibleChartVersion: ">=1.8.0"
-      # Apollo
-      - image: "xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.4.7"
-        compatibleChartVersion: ">=1.16.0 || >=1.15.3 || >=1.14.3 || >=1.13.6"
-      - image: "xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.2.11"
-        compatibleChartVersion: "<1.16.0"
   - chart: "xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957"
     subResources:
       - pathNavigatorType: imageTag
