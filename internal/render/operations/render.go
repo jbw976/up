@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 
 	"github.com/spf13/afero"
 	"google.golang.org/grpc/grpclog"
@@ -42,6 +43,7 @@ type Options struct {
 	Operation           string
 	FunctionCredentials string
 	RequiredResources   string
+	WatchedResource     string
 
 	ContextFiles  map[string]string
 	ContextValues map[string]string
@@ -68,9 +70,10 @@ type OperationOptions struct {
 }
 
 // Render executes the rendering logic and returns YAML output as a string.
+//
+//nolint:gocognit // complex but necessary function
 func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.Function, opts Options) (string, error) {
-	// Use our enhanced loader that supports CronOperation and WatchOperation
-	op, err := loadOperationWithTemplateSupport(opts.ProjFS, opts.Operation)
+	op, err := oprender.LoadOperation(opts.ProjFS, opts.Operation)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot load operation from %q", opts.Operation)
 	}
@@ -90,6 +93,23 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		if err != nil {
 			return "", errors.Wrapf(err, "cannot load required resources from %q", opts.RequiredResources)
 		}
+	}
+
+	if opts.WatchedResource != "" {
+		watched, err := xprender.LoadRequiredResources(opts.ProjFS, opts.WatchedResource)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot load watched resource from %q", opts.WatchedResource)
+		}
+
+		if len(watched) != 1 {
+			return "", errors.Errorf("--watched-resource must contain exactly one resource, got %d", len(watched))
+		}
+
+		// Inject selector into all pipeline steps (replicates WatchOperation controller behavior)
+		oprender.InjectWatchedResource(op, &watched[0])
+
+		// Add to required resources so it can be fetched by functions
+		rrs = append(rrs, watched[0])
 	}
 
 	// Load context values
@@ -136,8 +156,8 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 
 	// Serialize output to YAML
 	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
-	var result string
-	result += "---\n"
+	var result strings.Builder
+	result.WriteString("---\n")
 
 	// Only include spec when IncludeFullOperation flag is set
 	if opts.IncludeFullOperation {
@@ -149,39 +169,39 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	if err := s.Encode(out.Operation, &buffer); err != nil {
 		return "", errors.Wrap(err, "failed to encode operation resource to YAML")
 	}
-	result += buffer.String()
+	result.WriteString(buffer.String())
 
 	// Output rendered resources
 	for _, res := range out.Resources {
-		result += "---\n"
+		result.WriteString("---\n")
 		buffer.Reset()
 		if err := s.Encode(&res, &buffer); err != nil {
 			return "", errors.Wrap(err, "failed to encode composed resource to YAML")
 		}
-		result += buffer.String()
+		result.WriteString(buffer.String())
 	}
 
 	// Encode FunctionResults if needed
 	if opts.IncludeFunctionResults {
 		for _, res := range out.Results {
-			result += "---\n"
+			result.WriteString("---\n")
 			buffer.Reset()
 			if err := s.Encode(&res, &buffer); err != nil {
 				return "", errors.Wrap(err, "failed to encode function result to YAML")
 			}
-			result += buffer.String()
+			result.WriteString(buffer.String())
 		}
 	}
 
 	// Encode Context if needed
 	if opts.IncludeContext {
-		result += "---\n"
+		result.WriteString("---\n")
 		buffer.Reset()
 		if err := s.Encode(out.Context, &buffer); err != nil {
 			return "", errors.Wrap(err, "failed to encode context to YAML")
 		}
-		result += buffer.String()
+		result.WriteString(buffer.String())
 	}
 
-	return result, nil
+	return result.String(), nil
 }

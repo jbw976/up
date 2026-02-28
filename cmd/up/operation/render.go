@@ -40,6 +40,7 @@ type renderCmd struct {
 	Operation string `arg:"" help:"A YAML file specifying the Operation to render." type:"existingfile"`
 
 	RequiredResources      string            `help:"A YAML file or directory of YAML files specifying required resources that functions can request."                                          placeholder:"PATH"      short:"r"   type:"path"`
+	WatchedResource        string            `help:"A YAML file specifying the watched resource for WatchOperation rendering. The resource is also added to required resources."               placeholder:"PATH"      short:"w"   type:"path"`
 	ContextFiles           map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be files containing JSON."                           mapsep:""`
 	ContextValues          map[string]string `help:"Comma-separated context key-value pairs to pass to the Function pipeline. Values must be JSON. Keys take precedence over --context-files." mapsep:""`
 	IncludeFunctionResults bool              `help:"Include informational and warning messages from Functions in the rendered output as resources of kind: Result."                            short:"f"`
@@ -64,6 +65,7 @@ type renderCmd struct {
 
 	operationRel           string
 	requiredResourcesRel   string
+	watchedResourcesRel    string
 	functionCredentialsRel string
 
 	m *project.DependencyManager
@@ -102,6 +104,7 @@ func (c *renderCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) er
 		{c.Operation, &c.operationRel},
 		{c.RequiredResources, &c.requiredResourcesRel},
 		{c.FunctionCredentials, &c.functionCredentialsRel},
+		{c.WatchedResource, &c.watchedResourcesRel},
 	}
 
 	for _, mapping := range pathMappings {
@@ -175,6 +178,7 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 		Operation:              c.operationRel,
 		FunctionCredentials:    c.functionCredentialsRel,
 		RequiredResources:      c.requiredResourcesRel,
+		WatchedResource:        c.watchedResourcesRel,
 		ContextFiles:           c.ContextFiles,
 		ContextValues:          c.ContextValues,
 		Concurrency:            c.concurrency,

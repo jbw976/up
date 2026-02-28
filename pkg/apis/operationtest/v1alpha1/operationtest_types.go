@@ -16,7 +16,7 @@ import (
 // +kubebuilder:resource:scope=Namespaced,shortName=optest,categories=meta
 type OperationTest struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	Spec OperationTestSpec `json:"spec"`
 }
@@ -33,11 +33,21 @@ type OperationTestSpec struct {
 
 	// Operation specifies the Operation definition inline.
 	// Optional.
-	Operation runtime.RawExtension `json:"operation,omitempty"`
+	Operation runtime.RawExtension `json:"operation,omitzero"`
 
 	// OperationPath specifies the XRD definition path.
 	// Optional.
 	OperationPath string `json:"operationPath,omitempty"`
+
+	// WatchedResource specifies additional watched resource inline.
+	// Optional.
+	// +kubebuilder:validation:Optional
+	WatchedResource runtime.RawExtension `json:"watchedResource,omitzero"`
+
+	// WatchedResourcePath specifies a path to watched resource file.
+	// Optional.
+	// +kubebuilder:validation:Optional
+	WatchedResourcePath string `json:"watchedResourcePath,omitempty"`
 
 	// RequiredResources specifies additional required resources inline.
 	// Optional.
