@@ -80,7 +80,7 @@ type upgradeCmd struct {
 	parser  install.ParameterParser
 	kClient kubernetes.Interface
 
-	Version string `arg:"" help:"UXP version to upgrade to." optional:""`
+	Version version `arg:"" help:"UXP version to upgrade. Should be >= 2.0.0-up.0, use the helm chart to install uxp v1." optional:""`
 
 	Rollback bool `help:"Rollback to previously installed version on failed upgrade."`
 	Force    bool `help:"Force upgrade even if versions are incompatible."`
@@ -96,7 +96,7 @@ func (c *upgradeCmd) Run(p upterm.Printer) error {
 			if err != nil {
 				return errors.Wrap(err, errParseUpgradeParameters)
 			}
-			return c.mgr.Upgrade(c.Version, params)
+			return c.mgr.Upgrade(string(c.Version), params)
 		},
 	); err != nil {
 		return err
