@@ -81,6 +81,67 @@ metadata:
 			expectErr:      true,
 			expectedErrMsg: "no actual resource found",
 		},
+		{
+			name: "OwnerReferencesStrippedFromDiffWhenNotInExpected",
+			output: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  ownerReferences:
+  - apiVersion: example.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Owner
+    name: my-owner
+    uid: ""
+data:
+  key: value
+`,
+			expectedYAML: []string{
+				`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  key: value
+`,
+			},
+			expectErr: false,
+		},
+		{
+			name: "OwnerReferencesAssertedWhenInExpected",
+			output: `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  ownerReferences:
+  - apiVersion: example.io/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Owner
+    name: my-owner
+    uid: ""
+data:
+  key: value
+`,
+			expectedYAML: []string{
+				`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  ownerReferences:
+  - apiVersion: example.io/v1
+    kind: Owner
+    name: wrong-owner
+`,
+			},
+			expectErr:      true,
+			expectedErrMsg: "name",
+		},
 	}
 
 	ctx := t.Context()

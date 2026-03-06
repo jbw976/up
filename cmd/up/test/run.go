@@ -485,7 +485,15 @@ func matchExpectedManifest(ctx context.Context, expected unstructured.Unstructur
 
 	for _, rendered := range renderedManifests {
 		if isMatchingManifest(expected, rendered, expectedAnnotations) {
-			checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, rendered.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
+			// Strip ownerReferences from the rendered copy unless the expected
+			// manifest explicitly asserts them. They are set by Crossplane on
+			// composed resources and are noise in the diff when not under test.
+			renderedForCheck := *rendered.DeepCopy()
+			if len(expected.GetOwnerReferences()) == 0 {
+				renderedForCheck.SetOwnerReferences(nil)
+			}
+
+			checkErrs, err := chainsawchecks.Check(ctx, chainsawapis.DefaultCompilers, renderedForCheck.UnstructuredContent(), chainsawapis.NewBindings(), ptr.To(chainsawv1alpha1.NewCheck(expected.UnstructuredContent())))
 			if err != nil {
 				return fmt.Errorf("error during manifest check: %w", err)
 			}
@@ -497,7 +505,7 @@ func matchExpectedManifest(ctx context.Context, expected unstructured.Unstructur
 			return chainsawerrors.ResourceError(
 				chainsawcompilers.DefaultCompilers,
 				expected,
-				rendered,
+				renderedForCheck,
 				false,
 				chainsawapis.NewBindings(),
 				checkErrs,
