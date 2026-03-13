@@ -16,7 +16,7 @@ import (
 // +kubebuilder:storageversion
 type Project struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:modernize // required by k8s API conventions
 
 	Spec *ProjectSpec `json:"spec,omitempty"`
 }

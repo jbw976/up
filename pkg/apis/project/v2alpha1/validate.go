@@ -1,7 +1,5 @@
-// Copyright 2025 Upbound Inc.
-// All rights reserved
+// Copyright 2025 Upbound Inc. All rights reserved.
 
-// Package v2alpha1 contains v2alpha1 of the Upbound project type.
 package v2alpha1
 
 import (
