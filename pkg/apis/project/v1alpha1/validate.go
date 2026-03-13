@@ -5,9 +5,16 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+)
+
+const (
+	// AnnotationKeyPrefix is the required prefix for all project annotation keys.
+	AnnotationKeyPrefix = "meta.upbound.io/"
 )
 
 // Validate validates a project.
@@ -51,6 +58,12 @@ func (s *ProjectSpec) Validate() error {
 
 	if s.Architectures != nil && len(s.Architectures) == 0 {
 		errs = append(errs, errors.New("architectures must not be empty"))
+	}
+
+	for k := range s.Annotations {
+		if !strings.HasPrefix(k, AnnotationKeyPrefix) {
+			errs = append(errs, fmt.Errorf("annotation key %q must have the %q prefix", k, AnnotationKeyPrefix))
+		}
 	}
 
 	// Validate API dependencies

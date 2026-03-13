@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -569,6 +570,8 @@ func cfgMetaFromProject(proj *v2alpha1.Project) metav1.ObjectMeta {
 	meta.Annotations["meta.crossplane.io/description"] = proj.Spec.Description
 	meta.Annotations["meta.crossplane.io/readme"] = proj.Spec.Readme
 
+	maps.Copy(meta.Annotations, proj.Spec.Annotations)
+
 	return *meta
 }
 
@@ -586,6 +589,8 @@ func fnMetaFromProject(proj *v2alpha1.Project, fnName string) metav1.ObjectMeta 
 	meta.Annotations["meta.crossplane.io/license"] = proj.Spec.License
 	meta.Annotations["meta.crossplane.io/description"] = fmt.Sprintf("Function %s from project %s", fnName, proj.Name)
 
+	maps.Copy(meta.Annotations, proj.Spec.Annotations)
+
 	return *meta
 }
 
@@ -599,9 +604,7 @@ func addLabels(img v1.Image, labels map[string]string) (v1.Image, error) {
 		cfgFile.Config.Labels = make(map[string]string)
 	}
 
-	for k, v := range labels {
-		cfgFile.Config.Labels[k] = v
-	}
+	maps.Copy(cfgFile.Config.Labels, labels)
 
 	// Mutate the image to include the updated configuration with labels
 	updatedImg, err := mutate.ConfigFile(img, cfgFile)

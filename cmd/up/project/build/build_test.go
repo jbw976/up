@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"slices"
 	"strings"
@@ -211,6 +212,8 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
 							"meta.crossplane.io/license":     "Apache-2.0",
 							"meta.crossplane.io/description": "Function xcluster from project project-embedded-functions",
+							"meta.upbound.io/team":           "platform-engineering",
+							"meta.upbound.io/env":            "testing",
 						},
 					},
 					Spec: xpmetav1.FunctionSpec{
@@ -234,6 +237,8 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
 							"meta.crossplane.io/license":     "Apache-2.0",
 							"meta.crossplane.io/description": "Function xnetwork from project project-embedded-functions",
+							"meta.upbound.io/team":           "platform-engineering",
+							"meta.upbound.io/env":            "testing",
 						},
 					},
 					Spec: xpmetav1.FunctionSpec{
@@ -257,6 +262,8 @@ func TestBuild(t *testing.T) {
 							"meta.crossplane.io/source":      "github.com/upbound/project-getting-started",
 							"meta.crossplane.io/license":     "Apache-2.0",
 							"meta.crossplane.io/description": "Function xsubnetwork from project project-embedded-functions",
+							"meta.upbound.io/team":           "platform-engineering",
+							"meta.upbound.io/env":            "testing",
 						},
 					},
 					Spec: xpmetav1.FunctionSpec{
@@ -472,15 +479,17 @@ func TestBuild(t *testing.T) {
 				APIVersion: xpmetav1.SchemeGroupVersion.String(),
 				Kind:       xpmetav1.ConfigurationKind,
 			})
+			expectedAnnotations := map[string]string{
+				"meta.crossplane.io/maintainer":  c.proj.Spec.Maintainer,
+				"meta.crossplane.io/source":      c.proj.Spec.Source,
+				"meta.crossplane.io/license":     c.proj.Spec.License,
+				"meta.crossplane.io/description": c.proj.Spec.Description,
+				"meta.crossplane.io/readme":      c.proj.Spec.Readme,
+			}
+			maps.Copy(expectedAnnotations, c.proj.Spec.Annotations)
 			assert.DeepEqual(t, cfgMeta.ObjectMeta, metav1.ObjectMeta{
-				Name: c.proj.Name,
-				Annotations: map[string]string{
-					"meta.crossplane.io/maintainer":  c.proj.Spec.Maintainer,
-					"meta.crossplane.io/source":      c.proj.Spec.Source,
-					"meta.crossplane.io/license":     c.proj.Spec.License,
-					"meta.crossplane.io/description": c.proj.Spec.Description,
-					"meta.crossplane.io/readme":      c.proj.Spec.Readme,
-				},
+				Name:        c.proj.Name,
+				Annotations: expectedAnnotations,
 			})
 			// Our project doesn't have a Crossplane constraint, so we should
 			// get the default.

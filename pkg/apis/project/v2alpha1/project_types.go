@@ -26,12 +26,13 @@ type Project struct {
 // +k8s:deepcopy-gen=true
 type ProjectSpec struct {
 	ProjectPackageMetadata `json:",inline"`
-	Repository             string                           `json:"repository"`
-	Crossplane             *pkgmetav1.CrossplaneConstraints `json:"crossplane,omitempty"`
-	DependsOn              []pkgmetav1.Dependency           `json:"dependsOn,omitempty"`
-	Paths                  *ProjectPaths                    `json:"paths,omitempty"`
-	Architectures          []string                         `json:"architectures,omitempty"`
-	ImageConfig            []ImageConfig                    `json:"imageConfig,omitempty"`
+
+	Repository    string                           `json:"repository"`
+	Crossplane    *pkgmetav1.CrossplaneConstraints `json:"crossplane,omitempty"`
+	DependsOn     []pkgmetav1.Dependency           `json:"dependsOn,omitempty"`
+	Paths         *ProjectPaths                    `json:"paths,omitempty"`
+	Architectures []string                         `json:"architectures,omitempty"`
+	ImageConfig   []ImageConfig                    `json:"imageConfig,omitempty"`
 	// APIDependencies are the API dependencies for this project.
 	// NOTE: This is an experimental feature and is subject to change.
 	// +optional
@@ -41,11 +42,16 @@ type ProjectSpec struct {
 // ProjectPackageMetadata holds metadata about the project, which will become
 // package metadata when a project is built into a Crossplane package.
 type ProjectPackageMetadata struct {
-	Maintainer  string `json:"maintainer,omitempty"`
-	Source      string `json:"source,omitempty"`
-	License     string `json:"license,omitempty"`
+	Maintainer string `json:"maintainer,omitempty"`
+	Source     string `json:"source,omitempty"`
+	License    string `json:"license,omitempty"`
+	// Description is a short description of the project.
 	Description string `json:"description,omitempty"`
 	Readme      string `json:"readme,omitempty"`
+	// Annotations are arbitrary metadata key-value pairs. All annotation keys
+	// must have the "meta.upbound.io/" prefix.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ProjectPaths configures the locations of various parts of the project, for

@@ -43,6 +43,13 @@ spec:
               ProjectSpec is the spec for a Project. Since a Project is not a Kubernetes
               resource there is no Status, only Spec.
             properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Annotations are arbitrary metadata key-value pairs. All annotation keys
+                  must have the "meta.upbound.io/" prefix.
+                type: object
               apiDependencies:
                 description: |-
                   APIDependencies are the API dependencies for this project.
@@ -168,6 +175,7 @@ spec:
                   type: object
                 type: array
               description:
+                description: Description is a short description of the project.
                 type: string
               imageConfig:
                 items:
@@ -283,6 +291,13 @@ spec:
               ProjectSpec is the spec for a Project. Since a Project is not a Kubernetes
               resource there is no Status, only Spec.
             properties:
+              annotations:
+                additionalProperties:
+                  type: string
+                description: |-
+                  Annotations are arbitrary metadata key-value pairs. All annotation keys
+                  must have the "meta.upbound.io/" prefix.
+                type: object
               apiDependencies:
                 description: |-
                   APIDependencies are the API dependencies for this project.
@@ -408,6 +423,7 @@ spec:
                   type: object
                 type: array
               description:
+                description: Description is a short description of the project.
                 type: string
               imageConfig:
                 items:

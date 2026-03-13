@@ -44,6 +44,9 @@ func TestValidate(t *testing.T) {
 						License:     "Apache-2.0",
 						Description: "I'm a unit test",
 						Readme:      "Don't use me, I'm a unit test",
+						Annotations: map[string]string{
+							"meta.upbound.io/team": "platform",
+						},
 					},
 					Crossplane: &pkgmetav1.CrossplaneConstraints{
 						Version: ">=1.17.0",
@@ -273,6 +276,61 @@ func TestValidate(t *testing.T) {
 			},
 			expectedErrors: []string{
 				"api dependency 0: k8s: version must not be empty",
+			},
+		},
+		"ValidAnnotations": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					ProjectPackageMetadata: ProjectPackageMetadata{
+						Annotations: map[string]string{
+							"meta.upbound.io/team":    "platform",
+							"meta.upbound.io/env":     "production",
+							"meta.upbound.io/version": "v2",
+						},
+					},
+				},
+			},
+		},
+		"InvalidAnnotationPrefix": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					ProjectPackageMetadata: ProjectPackageMetadata{
+						Annotations: map[string]string{
+							"meta.upbound.io/valid": "ok",
+							"invalid.io/key":        "bad",
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				`annotation key "invalid.io/key" must have the "meta.upbound.io/" prefix`,
+			},
+		},
+		"MultipleInvalidAnnotationPrefixes": {
+			input: &Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-project",
+				},
+				Spec: &ProjectSpec{
+					Repository: "xpkg.upbound.io/acmeco/my-project",
+					ProjectPackageMetadata: ProjectPackageMetadata{
+						Annotations: map[string]string{
+							"foo":          "bar",
+							"other.io/key": "val",
+						},
+					},
+				},
+			},
+			expectedErrors: []string{
+				"must have the \"meta.upbound.io/\" prefix",
 			},
 		},
 	}
