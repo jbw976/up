@@ -501,9 +501,9 @@ jobs:
       - name: up test run --operation
         run: |
           cd operations-test
-          up test run tests/ --operation
+          up test run tests/* --operation
 
       - name: up test run --e2e
         run: |
           cd operations-test
-          up test run tests/ --e2e --local
+          up test run tests/* --e2e --local
