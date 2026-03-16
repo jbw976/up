@@ -752,7 +752,7 @@ func ensureKindCluster(ctx context.Context, name string, portMapping string, ing
 	_ = kubeconfigFile.Close()
 	// Clean up the file when we're done, but don't try too hard. If it fails
 	// the temporary kubeconfig will be left behind.
-	defer func() { _ = os.Remove(kubeconfigFile.Name()) }() //nolint:gosec // File name comes from os.CreateTemp, not user input.
+	defer func() { _ = os.Remove(kubeconfigFile.Name()) }()
 
 	existing, err := provider.List()
 	if err != nil {
@@ -773,7 +773,7 @@ func ensureKindCluster(ctx context.Context, name string, portMapping string, ing
 		}
 	}
 
-	kubeconfigBytes, err := os.ReadFile(kubeconfigFile.Name()) //nolint:gosec // File name comes from os.CreateTemp, not user input.
+	kubeconfigBytes, err := os.ReadFile(kubeconfigFile.Name())
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to load kubeconfig")
 	}
