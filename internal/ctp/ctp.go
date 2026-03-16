@@ -107,6 +107,7 @@ type localConfig struct {
 	ingress           bool
 	portMapping       string
 	clusterAdmin      bool
+	skipPrometheus    bool
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
@@ -195,6 +196,14 @@ func WithIngress(enabled bool, portMapping string) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.localConfig.ingress = enabled
 		cfg.localConfig.portMapping = portMapping
+	}
+}
+
+// SkipPrometheus sets whether to disable Prometheus in the local dev control
+// plane.
+func SkipPrometheus(s bool) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.localConfig.skipPrometheus = s
 	}
 }
 
@@ -609,7 +618,7 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	}
 
 	telemetryDisabled := upCtx.Cfg.Upbound.Configuration[config.ConfigurationTelemetryDisabled] == "true"
-	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled, cfg.localConfig.clusterAdmin); err != nil {
+	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled, cfg.localConfig.clusterAdmin, cfg.localConfig.skipPrometheus); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -816,7 +825,7 @@ func createNewKindCluster(ctx context.Context, provider *kind.Provider, name str
 	return portMapping, nil
 }
 
-func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool, clusterAdmin bool) error {
+func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool, clusterAdmin bool, skipPrometheus bool) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
@@ -842,25 +851,40 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 	values := map[string]any{
 		"args": []string{
 			"--enable-dependency-version-upgrades",
+			"--enable-operations",
+			"--package-runtime=External",
 		},
 		"registryCaBundleConfig": map[string]string{
 			"name": caConfigMap,
 			"key":  certs.SecretKeyCACert,
 		},
-		"upbound": map[string]any{
-			"telemetry": map[string]any{
-				"disabled": telemetryDisabled,
-			},
-		},
+		"upbound": upboundValues(telemetryDisabled, skipPrometheus),
 		"rbac": map[string]any{
 			"clusterAdmin": clusterAdmin,
 		},
 	}
+
 	if err = mgr.Install(version, values); err != nil {
 		return errors.Wrap(err, "failed to install crossplane")
 	}
 
 	return nil
+}
+
+func upboundValues(telemetryDisabled, skipPrometheus bool) map[string]any {
+	v := map[string]any{
+		"telemetry": map[string]any{
+			"disabled": telemetryDisabled,
+		},
+	}
+	if skipPrometheus {
+		v["manager"] = map[string]any{
+			"prometheus": map[string]any{
+				"disabled": true,
+			},
+		}
+	}
+	return v
 }
 
 func ensureUXPDevLicense(ctx context.Context, cl client.Client) error {

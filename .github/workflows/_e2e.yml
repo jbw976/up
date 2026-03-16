@@ -20,6 +20,9 @@ on:
       aws-role-arn:
         description: 'AWS role ARN for OIDC'
         required: true
+      upbound-bot-github-token:
+        description: 'Upbound bot GitHub token for private repo access'
+        required: true
 
 env:
   AWS_REGION: ${{ inputs.aws-region }}
@@ -441,3 +444,66 @@ jobs:
           command: |
             cd $PROJECT_NAME
             up test run tests/e2etest-xstoragebucket --e2e
+
+  e2e-operation:
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Go
+        id: setup-go
+        uses: useblacksmith/setup-go@647ac649bd5b480f2a262e3e3e5f4d150ed452ad # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: output
+          path: _output
+
+      - name: up
+        run: |
+          mkdir -p ~/up-cli-bin
+          cp _output/up_linux_amd64_v1/up ~/up-cli-bin/
+          chmod +x ~/up-cli-bin/up
+          echo "$HOME/up-cli-bin" >> $GITHUB_PATH
+
+      - name: up version
+        run: |
+          up version
+
+      - name: up login with robot
+        run: |
+          up login -t ${{ secrets.upbound-robot-token }} --organization=upbound
+
+      - name: Granting private modules access
+        run: |
+          git config --global url."https://${{ secrets.upbound-bot-github-token }}:x-oauth-basic@github.com/upbound".insteadOf "https://github.com/upbound"
+
+      - name: Clone operations-test
+        run: |
+          git clone https://github.com/upbound/operations-test.git
+
+      - name: up project build
+        run: |
+          cd operations-test
+          up project build
+
+      - name: up operation render
+        run: |
+          cd operations-test
+          up operation render operations/configmap-creation/operation.yaml -w examples/namespace.yaml -r examples/configmap.yaml
+
+      - name: up test run --operation
+        run: |
+          cd operations-test
+          up test run tests/* --operation
+
+      - name: up test run --e2e
+        run: |
+          cd operations-test
+          up test run tests/* --e2e --local

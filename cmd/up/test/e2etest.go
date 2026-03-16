@@ -141,6 +141,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				ctp.ForceLocal(c.Local),
 				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 				ctp.WithClusterAdmin(c.ClusterAdmin),
+				ctp.SkipPrometheus(true),
 			}
 
 			switch {
