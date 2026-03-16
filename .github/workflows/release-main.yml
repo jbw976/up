@@ -38,6 +38,7 @@ jobs:
       upbound-robot-token: ${{ secrets.UPBOUND_ROBOT_TOKEN }}
       upbound-robot-id: ${{ secrets.UPBOUND_ROBOT_ID }}
       aws-role-arn: ${{ secrets.AWS_ROLE_ARN_E2E_TEST }}
+      upbound-bot-github-token: ${{ secrets.UPBOUND_BOT_GITHUB_TOKEN }}
 
   promote-main:
     if: ${{ github.ref == 'refs/heads/main' }}
