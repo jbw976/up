@@ -496,7 +496,7 @@ jobs:
       - name: up operation render
         run: |
           cd operations-test
-          up operation render -w examples/namespace.yaml -r examples/configmap.yaml
+          up operation render operations/configmap-creation/operation.yaml -w examples/namespace.yaml -r examples/configmap.yaml
 
       - name: up test run --operation
         run: |
