@@ -10,9 +10,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	rgdv1alpha1 "github.com/kubernetes-sigs/kro/api/v1alpha1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	v1 "github.com/crossplane/crossplane/v2/apis/apiextensions/v1"
@@ -1153,9 +1155,480 @@ invalidKey: shouldNotBeHere
 				t.Errorf("newXRDv2() error - got: %q, want: %q", gotErrMsg, wantErrMsg)
 			}
 
-			// Compare the output XRD (ignoring "Required" field for simplicity)
 			if diff := cmp.Diff(got, tc.want.xrd, cmpopts.IgnoreFields(extv1.JSONSchemaProps{}, "Required")); diff != "" {
 				t.Errorf("newXRDv2() -got, +want:\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestNewXRDFromSimpleSchema tests creating XRDs from SimpleSchema format.
+func TestNewXRDFromSimpleSchema(t *testing.T) {
+	type want struct {
+		xrd *v2.CompositeResourceDefinition
+		err error
+	}
+
+	cases := map[string]struct {
+		inputYAML    string
+		customPlural string
+		want         want
+	}{
+		"SimpleSchemaApplication": {
+			inputYAML: `apiVersion: chris.io/v1alpha1
+kind: Application
+metadata:
+  name: default
+spec:
+  name: string
+  image: string | default="nginx"
+  ingress:
+    enabled: boolean | default=false
+status:
+  deploymentConditions: ${deployment.status.conditions}
+  availableReplicas: ${deployment.status.availableReplicas}`,
+			want: want{
+				xrd: &v2.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "applications.chris.io",
+					},
+					Spec: v2.CompositeResourceDefinitionSpec{
+						Group: "chris.io",
+						Scope: v2.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Application",
+							Plural:     "applications",
+						},
+						Versions: []v2.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1alpha1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Application is the Schema for the Application API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Type:    "object",
+												Default: &extv1.JSON{Raw: []byte(`{}`)},
+												Properties: map[string]extv1.JSONSchemaProps{
+													"name": {
+														Type: "string",
+													},
+													"image": {
+														Type:    "string",
+														Default: &extv1.JSON{Raw: []byte(`"nginx"`)},
+													},
+													"ingress": {
+														Type:    "object",
+														Default: &extv1.JSON{Raw: []byte(`{}`)},
+														Properties: map[string]extv1.JSONSchemaProps{
+															"enabled": {
+																Type:    "boolean",
+																Default: &extv1.JSON{Raw: []byte(`false`)},
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"deploymentConditions": {
+														XPreserveUnknownFields: &[]bool{true}[0],
+													},
+													"availableReplicas": {
+														XPreserveUnknownFields: &[]bool{true}[0],
+													},
+												},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"SimpleSchemaWithCustomPlural": {
+			inputYAML: `apiVersion: example.com/v1
+kind: Database
+metadata:
+  name: test-db
+spec:
+  engine: string
+  version: string`,
+			customPlural: "databases",
+			want: want{
+				xrd: &v2.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "databases.example.com",
+					},
+					Spec: v2.CompositeResourceDefinitionSpec{
+						Group: "example.com",
+						Scope: v2.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Database",
+							Plural:     "databases",
+						},
+						Versions: []v2.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Database is the Schema for the Database API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"engine": {
+														Type: "string",
+													},
+													"version": {
+														Type: "string",
+													},
+												},
+											},
+											"status": {
+												Type:       "object",
+												Properties: map[string]extv1.JSONSchemaProps{},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := fromSimpleSchema([]byte(tc.inputYAML), tc.customPlural)
+
+			gotErrMsg := ""
+			wantErrMsg := ""
+
+			if err != nil {
+				gotErrMsg = strings.TrimSpace(err.Error())
+			}
+			if tc.want.err != nil {
+				wantErrMsg = strings.TrimSpace(tc.want.err.Error())
+			}
+
+			if gotErrMsg != wantErrMsg {
+				t.Errorf("newXRDFromSimpleSchema() error - got: %q, want: %q", gotErrMsg, wantErrMsg)
+			}
+
+			if diff := cmp.Diff(got, tc.want.xrd, cmpopts.IgnoreFields(extv1.JSONSchemaProps{}, "Required")); diff != "" {
+				t.Errorf("newXRDFromSimpleSchema() -got, +want:\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestXRDFromResourceGraphDefinition tests creating XRDs from ResourceGraphDefinition format.
+func TestXRDFromResourceGraphDefinition(t *testing.T) {
+	type want struct {
+		xrd *v2.CompositeResourceDefinition
+		err error
+	}
+
+	cases := map[string]struct {
+		inputYAML    string
+		customPlural string
+		want         want
+	}{
+		"ResourceGraphDefinitionApplication": {
+			inputYAML: `apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: application
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Application
+    spec:
+      name: string
+      image: string | default="nginx"
+      ingress:
+        enabled: boolean | default=false
+    status:
+      deploymentConditions: ${deployment.status.conditions}
+      availableReplicas: ${deployment.status.availableReplicas}
+    additionalPrinterColumns:
+      - jsonPath: .status.availableReplicas
+        name: Available replicas
+        type: integer
+      - jsonPath: .spec.image
+        name: Image
+        type: string
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment`,
+			want: want{
+				xrd: &v2.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "applications.kro.run",
+					},
+					Spec: v2.CompositeResourceDefinitionSpec{
+						Group: "kro.run",
+						Scope: v2.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Application",
+							Plural:     "applications",
+						},
+						Versions: []v2.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1alpha1",
+								Referenceable: true,
+								Served:        true,
+								AdditionalPrinterColumns: []extv1.CustomResourceColumnDefinition{
+									{
+										JSONPath: ".status.availableReplicas",
+										Name:     "Available replicas",
+										Type:     "integer",
+									},
+									{
+										JSONPath: ".spec.image",
+										Name:     "Image",
+										Type:     "string",
+									},
+								},
+								Schema: &v2.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Application is the Schema for the Application API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Type:    "object",
+												Default: &extv1.JSON{Raw: []byte(`{}`)},
+												Properties: map[string]extv1.JSONSchemaProps{
+													"name": {
+														Type: "string",
+													},
+													"image": {
+														Type:    "string",
+														Default: &extv1.JSON{Raw: []byte(`"nginx"`)},
+													},
+													"ingress": {
+														Type:    "object",
+														Default: &extv1.JSON{Raw: []byte(`{}`)},
+														Properties: map[string]extv1.JSONSchemaProps{
+															"enabled": {
+																Type:    "boolean",
+																Default: &extv1.JSON{Raw: []byte(`false`)},
+															},
+														},
+													},
+												},
+											},
+											"status": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"deploymentConditions": {
+														XPreserveUnknownFields: &[]bool{true}[0],
+													},
+													"availableReplicas": {
+														XPreserveUnknownFields: &[]bool{true}[0],
+													},
+												},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"ResourceGraphDefinitionWithFullAPIVersion": {
+			inputYAML: `apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: myapp
+spec:
+  schema:
+    apiVersion: custom.io/v1beta1
+    kind: MyApp
+    spec:
+      replicas: integer
+    status:
+      ready: ${deployment.status.ready}`,
+			want: want{
+				xrd: &v2.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "myapps.custom.io",
+					},
+					Spec: v2.CompositeResourceDefinitionSpec{
+						Group: "custom.io",
+						Scope: v2.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "MyApp",
+							Plural:     "myapps",
+						},
+						Versions: []v2.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1beta1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "MyApp is the Schema for the MyApp API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"replicas": {
+														Type: "integer",
+													},
+												},
+											},
+											"status": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"ready": {
+														XPreserveUnknownFields: &[]bool{true}[0],
+													},
+												},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+		"ResourceGraphDefinitionWithCustomPlural": {
+			inputYAML: `apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: database
+spec:
+  schema:
+    apiVersion: v1
+    kind: Database
+    spec:
+      engine: string`,
+			customPlural: "databases",
+			want: want{
+				xrd: &v2.CompositeResourceDefinition{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apiextensions.crossplane.io/v2",
+						Kind:       "CompositeResourceDefinition",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "databases.kro.run",
+					},
+					Spec: v2.CompositeResourceDefinitionSpec{
+						Group: "kro.run",
+						Scope: v2.CompositeResourceScopeNamespaced,
+						Names: extv1.CustomResourceDefinitionNames{
+							Categories: []string{"crossplane"},
+							Kind:       "Database",
+							Plural:     "databases",
+						},
+						Versions: []v2.CompositeResourceDefinitionVersion{
+							{
+								Name:          "v1",
+								Referenceable: true,
+								Served:        true,
+								Schema: &v2.CompositeResourceValidation{
+									OpenAPIV3Schema: jsonSchemaPropsToRawExtension(&extv1.JSONSchemaProps{
+										Description: "Database is the Schema for the Database API.",
+										Type:        "object",
+										Properties: map[string]extv1.JSONSchemaProps{
+											"spec": {
+												Type: "object",
+												Properties: map[string]extv1.JSONSchemaProps{
+													"engine": {
+														Type: "string",
+													},
+												},
+											},
+											"status": {
+												Type:       "object",
+												Properties: map[string]extv1.JSONSchemaProps{},
+											},
+										},
+										Required: []string{"spec"},
+									}),
+								},
+							},
+						},
+					},
+				},
+				err: nil,
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var rgd rgdv1alpha1.ResourceGraphDefinition
+			if err := yaml.Unmarshal([]byte(tc.inputYAML), &rgd); err != nil {
+				t.Fatalf("Failed to unmarshal ResourceGraphDefinition: %v", err)
+			}
+
+			got, err := fromResourceGraphDefinition(&rgd, tc.customPlural)
+
+			gotErrMsg := ""
+			wantErrMsg := ""
+
+			if err != nil {
+				gotErrMsg = strings.TrimSpace(err.Error())
+			}
+			if tc.want.err != nil {
+				wantErrMsg = strings.TrimSpace(tc.want.err.Error())
+			}
+
+			if gotErrMsg != wantErrMsg {
+				t.Errorf("xrdFromResourceGraphDefinition() error - got: %q, want: %q", gotErrMsg, wantErrMsg)
+			}
+
+			if diff := cmp.Diff(got, tc.want.xrd, cmpopts.IgnoreFields(extv1.JSONSchemaProps{}, "Required")); diff != "" {
+				t.Errorf("xrdFromResourceGraphDefinition() -got, +want:\n%s", diff)
 			}
 		})
 	}

@@ -20,8 +20,20 @@ up xrd generate examples/postgres/example.yaml --plural postgreses
 ```
 
 Generate a CompositeResourceDefinition (XRD) and save it to a custom path within
-the project's default APIs folder.
+the project's default APIs folder:
 
 ```shell
 up xrd generate examples/postgres/example.yaml --path database/definition.yaml
+```
+
+Generate a CompositeResourceDefinition (XRD) from a ResourceGraphDefinition:
+
+```shell
+up xrd generate rgd/network.yaml --input rgd
+```
+
+Generate a CompositeResourceDefinition (XRD) from SimpleSchema:
+
+```shell
+up xrd generate simpleschema/network.yaml --input SimpleSchema
 ```

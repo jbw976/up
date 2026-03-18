@@ -26,7 +26,7 @@ require (
 	github.com/crossplane/uptest/v2 v2.2.1-0.20260224131307-4a16ecb4006f
 	github.com/docker/docker-credential-helpers v0.9.4
 	github.com/gdamore/tcell/v2 v2.8.1
-	github.com/getkin/kin-openapi v0.131.0
+	github.com/getkin/kin-openapi v0.133.0
 	github.com/goccy/go-yaml v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang/tools v0.32.0
@@ -36,6 +36,7 @@ require (
 	github.com/google/ko v0.17.1
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/kubernetes-sigs/kro v0.8.1
 	github.com/kyverno/chainsaw v0.2.14-0.20251026071850-cfa8bb38e7b2
 	github.com/kyverno/kyverno-json v0.0.4-0.20241008103124-b294ee72a2bf
 	github.com/mesosphere/dkp-cli-runtime/core v0.7.3
@@ -69,11 +70,11 @@ require (
 	k8s.io/apiextensions-apiserver v0.35.0
 	k8s.io/apimachinery v0.35.1
 	k8s.io/client-go v0.35.1
-	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912
+	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e
 	k8s.io/kubectl v0.34.2
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	oras.land/oras-go/v2 v2.6.0
-	sigs.k8s.io/controller-runtime v0.22.4
+	sigs.k8s.io/controller-runtime v0.23.0
 	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/kind v0.30.0
 	sigs.k8s.io/yaml v1.6.0
@@ -288,7 +289,7 @@ require (
 	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.12 // indirect
-	github.com/sigstore/cosign/v2 v2.6.2 // indirect
+	github.com/sigstore/cosign/v2 v2.4.1 // indirect
 	github.com/sigstore/cosign/v3 v3.0.5 // indirect
 	github.com/sigstore/protobuf-specs v0.5.0 // indirect
 	github.com/sigstore/rekor v1.5.0 // indirect
@@ -321,6 +322,7 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/vmware-tanzu/velero v1.17.1 // indirect
+	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
@@ -523,6 +525,7 @@ require (
 replace (
 	github.com/crossplane/crossplane/v2/xcrd => ./internal/vendor/github.com/crossplane/crossplane/xcrd
 	github.com/golang/tools => ./internal/vendor/golang.org/x/tools
+	sigs.k8s.io/controller-runtime v0.23.0 => sigs.k8s.io/controller-runtime v0.22.4
 )
 
 // use the local one

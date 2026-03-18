@@ -1,0 +1,11 @@
+# OperationTest defines tests for Operation resources.
+# For multiple tests, separate them with '---' YAML document separator.
+
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: OperationTest
+metadata:
+  name: basic-operation-test
+spec:
+  operationPath: ""
+  assertResources: []
+  timeoutSeconds: 60

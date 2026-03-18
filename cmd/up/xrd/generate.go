@@ -12,6 +12,8 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/gobuffalo/flect"
+	rgdv1alpha1 "github.com/kubernetes-sigs/kro/api/v1alpha1"
+	"github.com/kubernetes-sigs/kro/pkg/simpleschema"
 	"github.com/spf13/afero"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,8 +53,9 @@ type inputYAML struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   map[string]any `json:"spec"`
-	Status map[string]any `json:"status"`
+	Spec                     map[string]any                         `json:"spec"`
+	Status                   map[string]any                         `json:"status"`
+	AdditionalPrinterColumns []extv1.CustomResourceColumnDefinition `json:"additionalPrinterColumns"`
 }
 
 // parsedXRD represents the common parsed data from XR YAML.
@@ -75,6 +78,8 @@ type generateCmd struct {
 	Path     string `help:"Path to the output file where the Composite Resource Definition (XRD) will be saved." optional:""`
 	Plural   string `help:"Optional custom plural form for the Composite Resource Definition (XRD)."             optional:""`
 	Output   string `default:"file"                                                                              enum:"file,yaml,json"                                                                             help:"Output format for the results: 'file' to save to a file, 'yaml' to print XRD in YAML format, 'json' to print XRD in JSON format." short:"o"`
+
+	Input string `default:"xr" enum:"xr,rgd,ResourceGraphDefinition,SimpleSchema" help:"Input format: xr (default), rgd, ResourceGraphDefinition, or SimpleSchema."`
 
 	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
 
@@ -142,17 +147,9 @@ func (c *generateCmd) Run(ctx context.Context, p upterm.Printer) error {
 		return errors.Wrapf(err, "failed to read file in %s", filesystem.FullPath(c.projFS, c.relFile))
 	}
 
-	var xrd any
-	if c.proj.IsV2() {
-		xrd, err = newXRDv2(yamlData, c.Plural)
-		if err != nil {
-			return errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
-		}
-	} else {
-		xrd, err = newXRDv1(yamlData, c.Plural)
-		if err != nil {
-			return errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
-		}
+	xrd, err := c.newXRD(yamlData)
+	if err != nil {
+		return err
 	}
 
 	var pluralName string
@@ -220,6 +217,55 @@ func (c *generateCmd) Run(ctx context.Context, p upterm.Printer) error {
 	}
 
 	return nil
+}
+
+func (c *generateCmd) newXRD(yamlData []byte) (any, error) {
+	var xrd any
+	var err error
+
+	// Check if using ResourceGraphDefinition or SimpleSchema format
+	if c.Input == "rgd" || c.Input == "ResourceGraphDefinition" || c.Input == "SimpleSchema" {
+		if !c.proj.IsV2() {
+			return nil, errors.New(
+				"SimpleSchema and ResourceGraphDefinition formats are only supported for v2 projects",
+			)
+		}
+
+		// Try to parse as ResourceGraphDefinition first if input is rgd or resourcegraphdefinition
+		if c.Input == "rgd" || c.Input == "ResourceGraphDefinition" {
+			var rgd rgdv1alpha1.ResourceGraphDefinition
+			if err := yaml.Unmarshal(yamlData, &rgd); err == nil && rgd.Kind == "ResourceGraphDefinition" {
+				xrd, err = fromResourceGraphDefinition(&rgd, c.Plural)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to create XRD from ResourceGraphDefinition")
+				}
+				return xrd, nil
+			}
+		}
+
+		// Otherwise, treat as SimpleSchema
+		xrd, err = fromSimpleSchema(yamlData, c.Plural)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create XRD from SimpleSchema")
+		}
+
+		return xrd, nil
+	}
+
+	// Generate XRD from XR/XRC YAML (default behavior)
+	if c.proj.IsV2() {
+		xrd, err = newXRDv2(yamlData, c.Plural)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
+		}
+	} else {
+		xrd, err = newXRDv1(yamlData, c.Plural)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create CompositeResourceDefinition (XRD)")
+		}
+	}
+
+	return xrd, nil
 }
 
 // parseAndValidateXRD parses and validates the input YAML and returns common XRD data.
@@ -459,4 +505,245 @@ func newXRDv2(yamlData []byte, customPlural string) (*v2.CompositeResourceDefini
 	}
 
 	return xrd, nil
+}
+
+// isCELExpression checks if a value is a CEL expression (starts with ${ and ends with }).
+func isCELExpression(value any) bool {
+	if str, ok := value.(string); ok {
+		return strings.HasPrefix(str, "${") && strings.HasSuffix(str, "}")
+	}
+	return false
+}
+
+// celFieldPath tracks paths to fields containing CEL expressions.
+type celFieldPath []string
+
+// findCELFields recursively finds all field paths that contain CEL expressions.
+func findCELFields(data map[string]any, currentPath []string) []celFieldPath {
+	var paths []celFieldPath
+
+	for key, value := range data {
+		// Create a copy of currentPath to avoid mutating the original slice
+		fieldPath := make([]string, len(currentPath), len(currentPath)+1)
+		copy(fieldPath, currentPath)
+		fieldPath = append(fieldPath, key)
+
+		if isCELExpression(value) {
+			paths = append(paths, celFieldPath(fieldPath))
+		} else if nestedMap, ok := value.(map[string]any); ok {
+			paths = append(paths, findCELFields(nestedMap, fieldPath)...)
+		}
+	}
+
+	return paths
+}
+
+// replaceCELWithPlaceholder replaces CEL expressions with "object" placeholder for simpleschema processing.
+func replaceCELWithPlaceholder(data map[string]any) map[string]any {
+	result := make(map[string]any)
+
+	for key, value := range data {
+		if isCELExpression(value) {
+			// Use "object" as placeholder - it will be marked with preserveUnknownFields later
+			result[key] = "object"
+		} else if nestedMap, ok := value.(map[string]any); ok {
+			result[key] = replaceCELWithPlaceholder(nestedMap)
+		} else {
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+// markCELFieldsPreserveUnknown marks fields at the given paths with x-kubernetes-preserve-unknown-fields: true.
+func markCELFieldsPreserveUnknown(schema *extv1.JSONSchemaProps, paths []celFieldPath) {
+	if schema == nil || len(paths) == 0 {
+		return
+	}
+
+	preserveTrue := true
+
+	for _, path := range paths {
+		// Navigate to the field and mark it
+		current := schema
+		for i, key := range path {
+			if current.Properties == nil {
+				break
+			}
+
+			if prop, exists := current.Properties[key]; exists {
+				if i == len(path)-1 {
+					// Last key in path - mark this field
+					prop.XPreserveUnknownFields = &preserveTrue
+					// Also clear the type since we're preserving unknown fields
+					prop.Type = ""
+					prop.Properties = nil
+					current.Properties[key] = prop
+				} else {
+					// Intermediate key - continue navigating
+					current = &prop
+				}
+			}
+		}
+	}
+}
+
+// xrdParams holds the parsed inputs needed to build a v2 XRD from a simple schema.
+type xrdParams struct {
+	group                    string
+	version                  string
+	kind                     string
+	plural                   string
+	specMap                  map[string]any
+	statusMap                map[string]any
+	additionalPrinterColumns []extv1.CustomResourceColumnDefinition
+}
+
+// buildXRD constructs a namespaced v2 CompositeResourceDefinition from parsed parameters.
+func buildXRD(p xrdParams) (*v2.CompositeResourceDefinition, error) {
+	specSchema, err := simpleschema.ToOpenAPISpec(p.specMap, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert spec to OpenAPI schema")
+	}
+
+	statusSchema := &extv1.JSONSchemaProps{Type: "object", Properties: map[string]extv1.JSONSchemaProps{}}
+	if len(p.statusMap) > 0 {
+		// Find all CEL expression fields before processing
+		celPaths := findCELFields(p.statusMap, nil)
+
+		// Replace CEL expressions with placeholder for simpleschema processing
+		processedStatus := replaceCELWithPlaceholder(p.statusMap)
+
+		// Generate schema from processed status
+		statusSchema, err = simpleschema.ToOpenAPISpec(processedStatus, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert status to OpenAPI schema")
+		}
+
+		// Mark CEL fields to preserve unknown fields
+		markCELFieldsPreserveUnknown(statusSchema, celPaths)
+	}
+
+	openAPIV3Schema := &extv1.JSONSchemaProps{
+		Description: fmt.Sprintf("%s is the Schema for the %s API.", p.kind, p.kind),
+		Type:        "object",
+		Properties: map[string]extv1.JSONSchemaProps{
+			"spec":   *specSchema,
+			"status": *statusSchema,
+		},
+		Required: []string{"spec"},
+	}
+
+	schemaBytes, err := json.Marshal(openAPIV3Schema)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal OpenAPI schema")
+	}
+
+	return &v2.CompositeResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v2.CompositeResourceDefinitionGroupVersionKind.GroupVersion().String(),
+			Kind:       v2.CompositeResourceDefinitionGroupVersionKind.Kind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: strings.ToLower(fmt.Sprintf("%s.%s", p.plural, p.group)),
+		},
+		Spec: v2.CompositeResourceDefinitionSpec{
+			Group: p.group,
+			Scope: v2.CompositeResourceScopeNamespaced,
+			Names: extv1.CustomResourceDefinitionNames{
+				Categories: []string{"crossplane"},
+				Kind:       flect.Capitalize(p.kind),
+				Plural:     strings.ToLower(p.plural),
+			},
+			Versions: []v2.CompositeResourceDefinitionVersion{
+				{
+					Name:                     p.version,
+					Referenceable:            true,
+					Served:                   true,
+					AdditionalPrinterColumns: p.additionalPrinterColumns,
+					Schema: &v2.CompositeResourceValidation{
+						OpenAPIV3Schema: runtime.RawExtension{Raw: schemaBytes},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+// fromSimpleSchema creates a new namespaced CompositeResourceDefinition v2 from a simple Kubernetes manifest.
+func fromSimpleSchema(yamlData []byte, customPlural string) (*v2.CompositeResourceDefinition, error) {
+	var simpleInput inputYAML
+	if err := yaml.Unmarshal(yamlData, &simpleInput); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal YAML")
+	}
+
+	gv, err := schema.ParseGroupVersion(simpleInput.APIVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse API version")
+	}
+
+	plural := customPlural
+	if plural == "" {
+		plural = flect.Pluralize(simpleInput.Kind)
+	}
+
+	return buildXRD(xrdParams{
+		group:                    gv.Group,
+		version:                  gv.Version,
+		kind:                     simpleInput.Kind,
+		plural:                   plural,
+		specMap:                  simpleInput.Spec,
+		statusMap:                simpleInput.Status,
+		additionalPrinterColumns: simpleInput.AdditionalPrinterColumns,
+	})
+}
+
+// fromResourceGraphDefinition builds an XRD from a ResourceGraphDefinition.
+func fromResourceGraphDefinition(rgd *rgdv1alpha1.ResourceGraphDefinition, customPlural string) (*v2.CompositeResourceDefinition, error) {
+	rgdSchema := rgd.Spec.Schema
+
+	// Parse group/version - if schema.APIVersion doesn't have a group, use the parent's
+	var group, version string
+	if strings.Contains(rgdSchema.APIVersion, "/") {
+		gv, err := schema.ParseGroupVersion(rgdSchema.APIVersion)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse schema API version")
+		}
+		group, version = gv.Group, gv.Version
+	} else {
+		version = rgdSchema.APIVersion
+		parentGV, err := schema.ParseGroupVersion(rgd.APIVersion)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse parent API version")
+		}
+		group = parentGV.Group
+	}
+
+	plural := customPlural
+	if plural == "" {
+		plural = flect.Pluralize(rgdSchema.Kind)
+	}
+
+	var specMap map[string]any
+	if err := json.Unmarshal(rgdSchema.Spec.Raw, &specMap); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal spec")
+	}
+
+	var statusMap map[string]any
+	if len(rgdSchema.Status.Raw) > 0 {
+		if err := json.Unmarshal(rgdSchema.Status.Raw, &statusMap); err != nil {
+			return nil, errors.Wrap(err, "failed to unmarshal status")
+		}
+	}
+
+	return buildXRD(xrdParams{
+		group:                    group,
+		version:                  version,
+		kind:                     rgdSchema.Kind,
+		plural:                   plural,
+		specMap:                  specMap,
+		statusMap:                statusMap,
+		additionalPrinterColumns: rgdSchema.AdditionalPrinterColumns,
+	})
 }

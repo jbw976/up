@@ -64,6 +64,11 @@ func (p *Processor) Process(dep v2alpha1.APIDependencies) (manager.Source, error
 	return nil, errors.Errorf("no valid source configuration found for API dependency type %s", dep.Type)
 }
 
+// Cache returns the cache used by the processor.
+func (p *Processor) Cache() Cache {
+	return p.cache
+}
+
 // createCachedSource wraps the appropriate source with caching.
 func (p *Processor) createCachedSource(dep v2alpha1.APIDependencies) (manager.Source, error) {
 	var source manager.Source

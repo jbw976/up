@@ -7,6 +7,7 @@ package test
 import (
 	"bytes"
 	"context"
+	"io"
 	"io/fs"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	"github.com/spf13/afero"
+	yamlv3 "gopkg.in/yaml.v3"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 
@@ -128,6 +130,120 @@ func (t *GoTemplatingRunner) Run(_ context.Context, fs afero.Fs, _ string, _ run
 	return nil
 }
 
+// YAMLRunner implements the TestType interface for raw YAML tests.
+type YAMLRunner struct{}
+
+// Run yaml tests - normalizes flexible YAML format to standard items format.
+func (t *YAMLRunner) Run(_ context.Context, fs afero.Fs, _ string, _ runner.SchemaRunner) error {
+	raw, err := afero.ReadFile(fs, "test.yaml")
+	if err != nil {
+		return errors.Wrap(err, "failed to read test.yaml")
+	}
+
+	// Decode multi-document YAML properly (handles --- with whitespace, leading separators, etc.)
+	dec := yamlv3.NewDecoder(bytes.NewReader(raw))
+
+	var docs []any
+	for {
+		var doc any
+		if err := dec.Decode(&doc); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return errors.Wrap(err, "failed to decode YAML document")
+		}
+
+		// yaml decoder can return nil for empty docs
+		if doc == nil {
+			continue
+		}
+		docs = append(docs, doc)
+	}
+
+	if len(docs) == 0 {
+		return errors.New("test.yaml is empty or contains only empty documents")
+	}
+
+	// If it's a single doc and already has items, we consider it normalized
+	if len(docs) == 1 {
+		if m, ok := asMap(docs[0]); ok {
+			if _, hasItems := m["items"]; hasItems {
+				return nil // Already normalized
+			}
+		}
+	}
+
+	// Collect items from docs
+	var items []any
+	for i, d := range docs {
+		m, ok := asMap(d)
+		if !ok {
+			return errors.Errorf("unexpected YAML structure in document %d: expected mapping/object", i+1)
+		}
+
+		// Guard against mixed formats
+		if _, hasItems := m["items"]; hasItems {
+			if len(docs) > 1 {
+				return errors.Errorf("document %d contains 'items'; mixed multi-doc + items format is not supported", i+1)
+			}
+			// Single doc with items - already handled above
+			return nil
+		}
+
+		kind, _ := m["kind"].(string)
+		switch kind {
+		case "CompositionTest", "OperationTest", "E2ETest":
+			items = append(items, m)
+		case "":
+			return errors.Errorf("document %d missing required 'kind' field", i+1)
+		default:
+			return errors.Errorf("unknown test kind in document %d: %s", i+1, kind)
+		}
+	}
+
+	if len(items) == 0 {
+		return errors.New("no test documents found to normalize")
+	}
+
+	// Write normalized output using internal yaml package for consistent formatting
+	outObj := map[string]any{
+		"items": items,
+	}
+
+	outBytes, err := yaml.Marshal(outObj)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal normalized YAML")
+	}
+
+	if err := afero.WriteFile(fs, "test.yaml", outBytes, 0o644); err != nil {
+		return errors.Wrap(err, "failed to write normalized test.yaml")
+	}
+
+	return nil
+}
+
+// asMap converts various map types to map[string]interface{}.
+func asMap(v any) (map[string]any, bool) {
+	switch m := v.(type) {
+	case map[string]any:
+		return m, true
+	case map[any]any:
+		// yaml.v3 may return map[interface{}]interface{}
+		// Convert to map[string]interface{} where possible
+		out := make(map[string]any, len(m))
+		for k, val := range m {
+			ks, ok := k.(string)
+			if !ok {
+				return nil, false
+			}
+			out[ks] = val
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
 func readTemplates(fsys afero.Fs) (string, error) {
 	const dotCharacter = 46
 
@@ -181,6 +297,10 @@ func (i *DefaultIdentifier) Identify(fs afero.Fs) (Runner, error) {
 	if containsGoTemplating(fs) {
 		return &GoTemplatingRunner{}, nil
 	}
+	// Check for raw YAML tests - test.yaml file exists without any language-specific files
+	if exists, _ := afero.Exists(fs, "test.yaml"); exists {
+		return &YAMLRunner{}, nil
+	}
 	return nil, errors.New("no supported test type found")
 }
 
@@ -227,7 +347,7 @@ func containsGoTemplating(tmplFS afero.Fs) bool {
 // Builder builds a project into test results.
 type Builder interface {
 	// Build dynamically identifies test types and runs them.
-	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error)
+	Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]any, error)
 }
 
 // BuildOption configures a build.
@@ -270,7 +390,7 @@ func NewBuilder(opts ...BuildOption) Builder {
 }
 
 // Build implements the Builder interface to identify and run tests.
-func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]interface{}, error) { //nolint:gocognit // building and cast tests
+func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string, testsFolder string, opts ...BuildOption) ([]any, error) { //nolint:gocognit // building and cast tests
 	buildOpts := *b.options
 	for _, opt := range opts {
 		opt(&buildOpts)
@@ -281,7 +401,7 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 		return nil, errors.Wrap(err, "failed to discover test directories")
 	}
 
-	var results []interface{}
+	var results []any
 	for _, testDir := range testDirs {
 		testFS := afero.NewBasePathFs(fs, testDir)
 		langType, err := buildOpts.testIdentifier.Identify(testFS)
@@ -305,19 +425,19 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 			return nil, errors.Wrapf(err, "failed to read test.yaml in %q", testDir)
 		}
 
-		var rawContent map[string]interface{}
+		var rawContent map[string]any
 		if err := yaml.Unmarshal(resourceRaw, &rawContent); err != nil {
 			return nil, errors.Wrapf(err, "failed to unmarshal test.yaml in %q", testDir)
 		}
 
-		items, ok := rawContent["items"].([]interface{})
+		items, ok := rawContent["items"].([]any)
 		if !ok {
 			return nil, errors.Errorf("expected `items` array in test.yaml in %q", testDir)
 		}
 
 		for _, item := range items {
 			switch item.(type) {
-			case map[string]interface{}, map[interface{}]interface{}, struct{}:
+			case map[string]any, map[any]any, struct{}:
 				// Continue to marshal
 			default:
 				continue
@@ -328,8 +448,8 @@ func (b *realBuilder) Build(ctx context.Context, fs afero.Fs, patterns []string,
 				continue
 			}
 
-			var testObj interface{}
-			itemMap, ok := item.(map[string]interface{})
+			var testObj any
+			itemMap, ok := item.(map[string]any)
 			if !ok {
 				continue
 			}

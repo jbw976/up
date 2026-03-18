@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package render contains functions for composition rendering
 package render
 
 import (

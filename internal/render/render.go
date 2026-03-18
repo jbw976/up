@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 
 	"github.com/spf13/afero"
 	"google.golang.org/grpc/grpclog"
@@ -59,6 +60,9 @@ type Options struct {
 	FunctionAnnotations []string
 
 	ImageResolver manager.ImageResolver
+
+	// DependencyManager for accessing schemas and CRDs from dependencies
+	DependencyManager *project.DependencyManager
 }
 
 // FunctionOptions defines the configuration for building embedded functions.
@@ -99,8 +103,9 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	}
 
 	// Load XRD and apply default values if needed
+	var xrd *apiextensionsv1.CompositeResourceDefinition
 	if opts.XRD != "" {
-		xrd, err := loadXRD(opts.ProjFS, opts.XRD)
+		xrd, err = loadXRD(opts.ProjFS, opts.XRD)
 		if err != nil {
 			return "", errors.Wrapf(err, "cannot load XRD from %q", opts.XRD)
 		}
@@ -164,6 +169,13 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		return "", errors.Wrap(err, "cannot apply function annotation overrides")
 	}
 
+	// Load all available schemas to use as requiredSchema input
+	schemas := LoadAllSchemas(ctx, SchemaOptions{
+		Project:           opts.Project,
+		XRD:               xrd,
+		DependencyManager: opts.DependencyManager,
+	})
+
 	// Turn off gRPC log messages.
 	// When a function starts slowly, gRPC logs a warning that it can't handle the first request.
 	// This warning goes away once the function is ready, so it's safe to discard the logs using io.Discard.
@@ -178,6 +190,7 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 		ObservedResources:   ors,
 		RequiredResources:   ers,
 		Context:             fctx,
+		RequiredSchemas:     schemas,
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "cannot render composite resource")
@@ -185,8 +198,8 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 
 	// Serialize output to YAML
 	s := json.NewSerializerWithOptions(json.DefaultMetaFactory, nil, nil, json.SerializerOptions{Yaml: true})
-	var result string
-	result += "---\n"
+	var result strings.Builder
+	result.WriteString("---\n")
 
 	// If IncludeFullXR is set, retain full composite resource details
 	if opts.IncludeFullXR {
@@ -214,41 +227,41 @@ func Render(ctx context.Context, log logging.Logger, embeddedFunctions []pkgv1.F
 	if err := s.Encode(out.CompositeResource, &buffer); err != nil {
 		return "", errors.Wrap(err, "failed to encode composite resource to YAML")
 	}
-	result += buffer.String()
+	result.WriteString(buffer.String())
 
 	// Encode ComposedResources
 	for _, res := range out.ComposedResources {
-		result += "---\n"
+		result.WriteString("---\n")
 		buffer.Reset()
 		if err := s.Encode(&res, &buffer); err != nil {
 			return "", errors.Wrap(err, "failed to encode composed resource to YAML")
 		}
-		result += buffer.String()
+		result.WriteString(buffer.String())
 	}
 
 	// Encode FunctionResults if needed
 	if opts.IncludeFunctionResults {
 		for _, res := range out.Results {
-			result += "---\n"
+			result.WriteString("---\n")
 			buffer.Reset()
 			if err := s.Encode(&res, &buffer); err != nil {
 				return "", errors.Wrap(err, "failed to encode function result to YAML")
 			}
-			result += buffer.String()
+			result.WriteString(buffer.String())
 		}
 	}
 
 	// Encode Context if needed
 	if opts.IncludeContext {
-		result += "---\n"
+		result.WriteString("---\n")
 		buffer.Reset()
 		if err := s.Encode(out.Context, &buffer); err != nil {
 			return "", errors.Wrap(err, "failed to encode context to YAML")
 		}
-		result += buffer.String()
+		result.WriteString(buffer.String())
 	}
 
-	return result, nil
+	return result.String(), nil
 }
 
 func loadXRD(fs afero.Fs, file string) (*apiextensionsv1.CompositeResourceDefinition, error) {

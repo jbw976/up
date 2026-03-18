@@ -1,0 +1,17 @@
+# E2ETest defines end-to-end tests for Crossplane configurations in controlplanes.
+# For multiple tests, separate them with '---' YAML document separator.
+
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: E2ETest
+metadata:
+  name: basic-e2e-test
+spec:
+  crossplane:
+    autoUpgrade:
+      channel: "stable"
+  defaultConditions:
+    - "Ready"
+  manifests: []
+  extraResources: []
+  skipDelete: false
+  timeoutSeconds: 4500

@@ -192,6 +192,7 @@ func (c *renderCmd) Run(ctx context.Context, upCtx *upbound.Context, log logging
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
 		FunctionAnnotations:    c.FunctionAnnotations,
+		DependencyManager:      c.m,
 	}
 
 	renderCtx, cancel := context.WithTimeout(ctx, c.Timeout)

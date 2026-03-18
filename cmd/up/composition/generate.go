@@ -13,6 +13,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/gobuffalo/flect"
 	"github.com/google/go-containerregistry/pkg/name"
+	rgdv1alpha1 "github.com/kubernetes-sigs/kro/api/v1alpha1"
 	"github.com/spf13/afero"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +50,7 @@ const (
 	outputJSON            = "json"
 	errInvalidPkgName     = "invalid package dependency supplied"
 	functionAutoReadyXpkg = "xpkg.upbound.io/crossplane-contrib/function-auto-ready"
+	functionKroXpkg       = "xpkg.upbound.io/crossplane-contrib/function-kro"
 	kclTemplate           = `{
 		"apiVersion": "template.fn.crossplane.io/v1beta1",
 		"kind": "KCLInput",
@@ -74,9 +76,11 @@ const (
 )
 
 type generateCmd struct {
-	Resource string `arg:""                                                      help:"File path to Composite Resource Claim (XRC) or Composite Resource (XR) or CompositeResourceDefinition (XRD)." required:""`
-	Name     string `help:"Name for the new composition."                        optional:""`
-	Plural   string `help:"Optional custom plural for the CompositeTypeRef.Kind" optional:""`
+	Resource  string `arg:""                                                          help:"File path to Composite Resource Claim (XRC) or Composite Resource (XR) or CompositeResourceDefinition (XRD)." required:""`
+	Name      string `help:"Name for the new composition."                            optional:""`
+	Plural    string `help:"Optional custom plural for the CompositeTypeRef.Kind"     optional:""`
+	Input     string `default:""                                                      enum:"rgd,ResourceGraphDefinition,"                                                                                 help:"Input format: rgd or ResourceGraphDefinition." optional:""`
+	InputFile string `help:"Path to input file (e.g., ResourceGraphDefinition file)." optional:""`
 
 	Path        string `help:"Optional path to the output file where the generated Composition will be saved." optional:""`
 	ProjectFile string `default:"upbound.yaml"                                                                 help:"Path to project definition file." short:"f"`
@@ -124,6 +128,11 @@ func (c *generateCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) 
 		return err
 	}
 	c.depManager = dm
+
+	// Validate that --input-file is provided when --input=rgd.
+	if (c.Input == "rgd" || c.Input == "ResourceGraphDefinition") && c.InputFile == "" {
+		return errors.New("--input-file is required when --input=rgd is specified")
+	}
 
 	// workaround interfaces not being bindable ref: https://github.com/alecthomas/kong/issues/48
 	kongCtx.BindTo(ctx, (*context.Context)(nil))
@@ -270,6 +279,21 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]apiextv1
 		fnDeps = append(fnDeps, dep)
 	}
 
+	// Check if ResourceGraphDefinition input is specified
+	if c.Input == "rgd" || c.Input == "ResourceGraphDefinition" {
+		var err error
+		fnDeps, err = c.ensureFunctionKro(ctx, fnDeps)
+		if err != nil {
+			return nil, err
+		}
+
+		kroStep, err := createKroPipelineStep(c.projFS, c.InputFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create kro pipeline step")
+		}
+		pipelineSteps = append(pipelineSteps, *kroStep)
+	}
+
 	// Make sure we depend on function-auto-ready since we include it in all
 	// pipelines.
 	fnDeps, err := c.ensureFunctionAutoReady(ctx, fnDeps)
@@ -298,9 +322,10 @@ func (c *generateCmd) createPipelineFromProject(ctx context.Context) ([]apiextv1
 	return reorderPipelineSteps(pipelineSteps), nil
 }
 
-func (c *generateCmd) ensureFunctionAutoReady(ctx context.Context, fnDeps []pkgmetav1.Dependency) ([]pkgmetav1.Dependency, error) {
+// ensureFunction is a generic helper to ensure a function dependency exists.
+func (c *generateCmd) ensureFunction(ctx context.Context, fnDeps []pkgmetav1.Dependency, packageName, functionName string) ([]pkgmetav1.Dependency, error) {
 	for _, dep := range fnDeps {
-		if ptr.Deref(dep.Package, "") == functionAutoReadyXpkg {
+		if ptr.Deref(dep.Package, "") == packageName {
 			return fnDeps, nil
 		}
 	}
@@ -308,15 +333,23 @@ func (c *generateCmd) ensureFunctionAutoReady(ctx context.Context, fnDeps []pkgm
 	d := pkgmetav1.Dependency{
 		APIVersion: ptr.To(pkgv1.FunctionGroupVersionKind.GroupVersion().String()),
 		Kind:       &pkgv1.FunctionKind,
-		Package:    ptr.To(functionAutoReadyXpkg),
+		Package:    ptr.To(packageName),
 		Version:    ">=v0.0.0",
 	}
 	if err := c.depManager.Add(ctx, d); err != nil {
-		return nil, errors.Wrap(err, "failed to add function-auto-ready dependency")
+		return nil, errors.Wrapf(err, "failed to add %s dependency", functionName)
 	}
 	fnDeps = append(fnDeps, d)
 
 	return fnDeps, nil
+}
+
+func (c *generateCmd) ensureFunctionKro(ctx context.Context, fnDeps []pkgmetav1.Dependency) ([]pkgmetav1.Dependency, error) {
+	return c.ensureFunction(ctx, fnDeps, functionKroXpkg, "function-kro")
+}
+
+func (c *generateCmd) ensureFunctionAutoReady(ctx context.Context, fnDeps []pkgmetav1.Dependency) ([]pkgmetav1.Dependency, error) {
+	return c.ensureFunction(ctx, fnDeps, functionAutoReadyXpkg, "function-auto-ready")
 }
 
 func (c *generateCmd) createPipelineStep(ctx context.Context, dep pkgmetav1.Dependency) (apiextv1.PipelineStep, error) {
@@ -480,4 +513,74 @@ func (c *generateCmd) processResource() (string, string, string, string, map[str
 
 	// Return the gathered information along with any matchLabels
 	return gvk.Group, gvk.Version, gvk.Kind, plural, matchLabels, nil
+}
+
+// createKroPipelineStep creates a pipeline step for function-kro from a ResourceGraphDefinition.
+func createKroPipelineStep(fs afero.Fs, resourceGraphPath string) (*apiextv1.PipelineStep, error) {
+	// Read the ResourceGraphDefinition file
+	yamlData, err := afero.ReadFile(fs, resourceGraphPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read ResourceGraphDefinition file %s", resourceGraphPath)
+	}
+
+	var rgd rgdv1alpha1.ResourceGraphDefinition
+	if err := yaml.Unmarshal(yamlData, &rgd); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal ResourceGraphDefinition YAML")
+	}
+
+	// Validate required fields
+	if len(rgd.Spec.Resources) == 0 {
+		return nil, errors.New("invalid ResourceGraphDefinition: spec.resources is required")
+	}
+
+	// Build the ResourceGraph input
+	resourceGraph := map[string]any{
+		"apiVersion": "kro.fn.crossplane.io/v1beta1",
+		"kind":       "ResourceGraph",
+	}
+
+	// Convert status from RawExtension to map if present
+	if len(rgd.Spec.Schema.Status.Raw) > 0 {
+		var statusMap map[string]any
+		if err := json.Unmarshal(rgd.Spec.Schema.Status.Raw, &statusMap); err == nil && len(statusMap) > 0 {
+			resourceGraph["status"] = statusMap
+		}
+	}
+
+	// Convert resources to []interface{} for the ResourceGraph
+	resources := make([]any, 0, len(rgd.Spec.Resources))
+	for _, res := range rgd.Spec.Resources {
+		// Marshal and unmarshal to convert to map[string]interface{}
+		resBytes, err := json.Marshal(res)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to marshal resource: %v", res)
+		}
+		var resMap map[string]any
+		if err := json.Unmarshal(resBytes, &resMap); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal resource: %v", res)
+		}
+		resources = append(resources, resMap)
+	}
+	resourceGraph["resources"] = resources
+
+	// Convert to runtime.RawExtension
+	inputBytes, err := json.Marshal(resourceGraph)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal ResourceGraph to JSON")
+	}
+
+	input := &runtime.RawExtension{
+		Raw: inputBytes,
+	}
+
+	// Create the pipeline step
+	step := &apiextv1.PipelineStep{
+		Step: "kro-run",
+		FunctionRef: apiextv1.FunctionReference{
+			Name: "crossplane-contrib-function-kro",
+		},
+		Input: input,
+	}
+
+	return step, nil
 }

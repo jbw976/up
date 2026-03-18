@@ -171,5 +171,6 @@ func (c *runCmd) buildRenderOptions(overlayFS afero.Fs, test compositiontest.Com
 		Concurrency:            c.concurrency,
 		ImageResolver:          c.r,
 		FunctionAnnotations:    c.FunctionAnnotations,
+		DependencyManager:      c.m,
 	}
 }

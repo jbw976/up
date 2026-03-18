@@ -31,3 +31,10 @@ and save output to `apis/xdatabases/composition.yaml`:
 ```shell
 up composition generate examples/xdatabase/database.yaml --plural postgreses
 ```
+
+Generate a composition from a Composite Resource (XR) using a
+ResourceGraphDefinition:
+
+```shell
+up composition generate examples/xnetwork/xnetwork.yaml --input rgd --input-file rgd/network.yaml
+```

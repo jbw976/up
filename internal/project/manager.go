@@ -391,6 +391,14 @@ func (m *DependencyManager) SchemaManager() *smanager.Manager {
 	return m.schemas
 }
 
+// APIDependencyCache returns the cache used for API dependencies.
+func (m *DependencyManager) APIDependencyCache() apidependency.Cache {
+	if m.apiDepProcessor == nil {
+		return nil
+	}
+	return m.apiDepProcessor.Cache()
+}
+
 // NormalizeDependency converts dependencies to the modern format where
 // APIVersion and Kind are specified.
 func NormalizeDependency(dep pkgmetav1.Dependency) (pkgmetav1.Dependency, error) {
@@ -399,23 +407,23 @@ func NormalizeDependency(dep pkgmetav1.Dependency) (pkgmetav1.Dependency, error)
 	}
 
 	switch {
-	case dep.Provider != nil:
+	case dep.Provider != nil: //nolint:staticcheck // Supporting deprecated field for backward compatibility
 		dep.APIVersion = ptr.To(pkgv1.ProviderGroupVersionKind.GroupVersion().String())
 		dep.Kind = &pkgv1.ProviderKind
-		dep.Package = dep.Provider
-		dep.Provider = nil
+		dep.Package = dep.Provider //nolint:staticcheck // Supporting deprecated field for backward compatibility
+		dep.Provider = nil         //nolint:staticcheck // Supporting deprecated field for backward compatibility
 
-	case dep.Function != nil:
+	case dep.Function != nil: //nolint:staticcheck // Supporting deprecated field for backward compatibility
 		dep.APIVersion = ptr.To(pkgv1.FunctionGroupVersionKind.GroupVersion().String())
 		dep.Kind = &pkgv1.FunctionKind
-		dep.Package = dep.Function
-		dep.Function = nil
+		dep.Package = dep.Function //nolint:staticcheck // Supporting deprecated field for backward compatibility
+		dep.Function = nil         //nolint:staticcheck // Supporting deprecated field for backward compatibility
 
-	case dep.Configuration != nil:
+	case dep.Configuration != nil: //nolint:staticcheck // Supporting deprecated field for backward compatibility
 		dep.APIVersion = ptr.To(pkgv1.ConfigurationGroupVersionKind.GroupVersion().String())
 		dep.Kind = &pkgv1.ConfigurationKind
-		dep.Package = dep.Configuration
-		dep.Configuration = nil
+		dep.Package = dep.Configuration //nolint:staticcheck // Supporting deprecated field for backward compatibility
+		dep.Configuration = nil         //nolint:staticcheck // Supporting deprecated field for backward compatibility
 
 	default:
 		return dep, errors.New("unknown dependency type")

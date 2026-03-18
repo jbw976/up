@@ -1,0 +1,14 @@
+# CompositionTest defines the inputs (XR, XRD, Composition) and expected outputs.
+# For multiple tests, separate them with '---' YAML document separator.
+
+apiVersion: meta.dev.upbound.io/v1alpha1
+kind: CompositionTest
+metadata:
+  name: basic-test
+spec:
+  assertResources: []
+  compositionPath: ""
+  xrPath: ""
+  xrdPath: ""
+  timeoutSeconds: 60
+  validate: false

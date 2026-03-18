@@ -60,6 +60,9 @@ var (
 
 	//go:embed templates/go-templating/**
 	goTemplatingTemplate embed.FS
+
+	//go:embed templates/yaml/**
+	yamlTemplate embed.FS
 )
 
 // Template data structure for dynamic rendering.
@@ -75,7 +78,7 @@ type kclImportStatement struct {
 type generateCmd struct {
 	ProjectFile string `default:"upbound.yaml"        help:"Path to project definition file." short:"f"`
 	CacheDir    string `default:"~/.up/cache/"        env:"CACHE_DIR"                         help:"Directory used for caching dependency images." type:"path"`
-	Language    string `default:"kcl"                 enum:"go,go-templating,kcl,python"      help:"Language for test."                            short:"l"   telemetry:"true"`
+	Language    string `default:"kcl"                 enum:"go,go-templating,kcl,python,yaml" help:"Language for test."                            short:"l"   telemetry:"true"`
 	Name        string `arg:""                        help:"Name for the new Function."       required:""`
 	E2E         bool   `help:"create e2e tests"       name:"e2e"`
 	Operation   bool   `help:"create operation tests" name:"operation"`
@@ -241,6 +244,9 @@ func (c *generateCmd) generateFiles() (afero.Fs, error) {
 	case "go-templating":
 		return c.generateGoTemplatingFiles()
 
+	case "yaml":
+		return c.generateYAMLFiles()
+
 	default:
 		return nil, errors.Errorf("unsupported language: %s", c.Language)
 	}
@@ -374,6 +380,21 @@ func (c *generateCmd) generateGoTemplatingFiles() (afero.Fs, error) {
 	}
 
 	if err := renderTemplates(targetFS, templates, tmplData); err != nil {
+		return nil, err
+	}
+
+	return targetFS, nil
+}
+
+// generateYAMLFiles generates YAML test template files.
+func (c *generateCmd) generateYAMLFiles() (afero.Fs, error) {
+	targetFS := afero.NewMemMapFs()
+
+	// Parse YAML templates (no template data needed, just copy as-is)
+	templates := template.Must(template.ParseFS(yamlTemplate, fmt.Sprintf("templates/yaml/%s/**", c.templateBaseFolder)))
+
+	// Render templates without any data (empty struct)
+	if err := renderTemplates(targetFS, templates, struct{}{}); err != nil {
 		return nil, err
 	}
 
