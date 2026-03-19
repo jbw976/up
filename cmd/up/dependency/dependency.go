@@ -15,6 +15,8 @@ type Cmd struct {
 	upbound.RequiresContext
 
 	Add         addCmd         `cmd:"" help:"Add a dependency to the current project."`
+	List        listCmd        `cmd:"" help:"List all transitive dependencies for the current project or a specific package."`
+	Tree        treeCmd        `cmd:"" help:"Display the dependency tree for the current project or a specific package."`
 	UpdateCache updateCacheCmd `cmd:"" help:"Update the dependency cache for the current project."`
 	CleanCache  cleanCacheCmd  `cmd:"" help:"Clean the dependency cache."`
 }
