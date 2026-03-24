@@ -55,6 +55,17 @@ type apolloVersionPath struct {
 	} `json:"apollo"`
 }
 
+// routerProxyImageTagPath reads the router envoy proxy image tag from spaces chart values (router.proxy.image.tag).
+type routerProxyImageTagPath struct {
+	Router struct {
+		Proxy struct {
+			Image struct {
+				Tag stringOrArray `json:"tag"`
+			} `json:"image"`
+		} `json:"proxy"`
+	} `json:"router"`
+}
+
 type imageTag struct {
 	Image struct {
 		Tag stringOrArray `json:"tag"`
@@ -94,6 +105,13 @@ func (k *apolloVersionPath) Extractor() ([]string, error) {
 	return k.Apollo.Apollo.Syncer.Image.Tag, nil
 }
 
+func (k *routerProxyImageTagPath) Extractor() ([]string, error) {
+	if len(k.Router.Proxy.Image.Tag) == 0 {
+		return nil, errors.New("no tag found in routerProxyImageTagPath")
+	}
+	return k.Router.Proxy.Image.Tag, nil
+}
+
 func (k *imageTag) Extractor() ([]string, error) {
 	if len(k.Image.Tag) == 0 {
 		return nil, errors.New("no supported versions found in ImageTag")
@@ -111,12 +129,13 @@ func (k *registerImageTag) Extractor() ([]string, error) {
 // init function to return byte slice and oci.PathNavigator.
 func initConfig() ([]byte, map[string]reflect.Type) {
 	return configFile, map[string]reflect.Type{
-		"uxpVersionsPath":   reflect.TypeFor[uxpVersionsPath](),
-		"kubeVersionPath":   reflect.TypeFor[kubeVersionPath](),
-		"xgqlVersionPath":   reflect.TypeFor[xgqlVersionPath](),
-		"apolloVersionPath": reflect.TypeFor[apolloVersionPath](),
-		"imageTag":          reflect.TypeFor[imageTag](),
-		"registerImageTag":  reflect.TypeFor[registerImageTag](),
+		"uxpVersionsPath":         reflect.TypeFor[uxpVersionsPath](),
+		"kubeVersionPath":         reflect.TypeFor[kubeVersionPath](),
+		"xgqlVersionPath":         reflect.TypeFor[xgqlVersionPath](),
+		"apolloVersionPath":       reflect.TypeFor[apolloVersionPath](),
+		"routerProxyImageTagPath": reflect.TypeFor[routerProxyImageTagPath](),
+		"imageTag":                reflect.TypeFor[imageTag](),
+		"registerImageTag":        reflect.TypeFor[registerImageTag](),
 	}
 }
 
