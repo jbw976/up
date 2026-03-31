@@ -21,6 +21,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
 	xpv1 "github.com/crossplane/crossplane/v2/apis/pkg/v1"
 
+	upboundpkgv1beta1 "github.com/upbound/up-sdk-go/apis/pkg/v1beta1"
 	"github.com/upbound/up/internal/resources"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
@@ -44,6 +45,9 @@ func (c *installCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) e
 	case xpv1.FunctionKind:
 		c.gvr = xpv1.FunctionGroupVersionKind.GroupVersion().WithResource("functions")
 		c.kind = xpv1.FunctionKind
+	case upboundpkgv1beta1.AddOnKind:
+		c.gvr = upboundpkgv1beta1.AddOnGroupVersionKind.GroupVersion().WithResource("addons")
+		c.kind = upboundpkgv1beta1.AddOnKind
 	default:
 		return errors.New(errUnknownPkgType)
 	}
@@ -113,7 +117,7 @@ func (c *installCmd) Run(ctx context.Context, p upterm.Printer, upCtx *upbound.C
 	// Create the resource
 	resource := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "pkg.crossplane.io/v1",
+			"apiVersion": c.gvr.GroupVersion().String(),
 			"kind":       c.kind,
 			"metadata": map[string]any{
 				"name": c.Name,

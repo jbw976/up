@@ -117,6 +117,7 @@ type Cmd struct {
 	Configuration pkg.Cmd `cmd:"" help:"Manage Configurations." set:"package_type=Configuration"`
 	Provider      pkg.Cmd `cmd:"" help:"Manage Providers."      set:"package_type=Provider"`
 	Function      pkg.Cmd `cmd:"" help:"Manage Functions."      set:"package_type=Function"`
+	AddOn         pkg.Cmd `cmd:"" help:"Manage AddOns."         set:"package_type=AddOn"`
 
 	// Commands for managing pull secrets in control planes. These require a
 	// control plane context.
