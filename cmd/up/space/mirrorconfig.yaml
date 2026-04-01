@@ -4,6 +4,8 @@
 oci:
   - chart: "xpkg.upbound.io/spaces-artifacts/spaces"
     subResources:
+      # UXP v1 uses universal-crossplane + crossplane image tags derived from supportedVersions.
+      # UXP v2 (major >= 2) is handled in code: spaces-artifacts/crossplane chart, runtime tags from chart values, and controller-manager.
       - pathNavigatorType: uxpVersionsPath
         chart: "xpkg.upbound.io/spaces-artifacts/universal-crossplane"
         image: "xpkg.upbound.io/spaces-artifacts/crossplane"

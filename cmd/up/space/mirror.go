@@ -25,6 +25,14 @@ import (
 	_ "embed"
 )
 
+const (
+	// uxpV2HelmChart is the OCI chart for Upbound Crossplane (UXP) v2+ (major >= 2 in supportedVersions).
+	// UXP v1 uses universal-crossplane from mirrorconfig.yaml.
+	uxpV2HelmChart = "xpkg.upbound.io/spaces-artifacts/crossplane"
+	// uxpV2ControllerManagerImage is mirrored for each UXP v2 supportedVersion alongside the crossplane runtime image.
+	uxpV2ControllerManagerImage = "xpkg.upbound.io/spaces-artifacts/controller-manager"
+)
+
 //go:embed help/mirror.md
 var mirrorHelp string
 
@@ -64,8 +72,9 @@ type mirrorCmd struct {
 
 	craneOpts []crane.Option
 
-	fetchManifest      func(ref string, opts ...crane.Option) ([]byte, error)
-	getValuesFromChart func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
+	fetchManifest       func(ref string, opts ...crane.Option) ([]byte, error)
+	getValuesFromChart  func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
+	getUxpV2RuntimeTags func(chart, version, username, password string) (crossplaneTag, controllerManagerTag string, err error)
 
 	path string
 }
@@ -104,6 +113,7 @@ func (c *mirrorCmd) AfterApply() error {
 
 	c.fetchManifest = crane.Manifest
 	c.getValuesFromChart = oci.GetValuesFromChart
+	c.getUxpV2RuntimeTags = oci.GetUxpV2RuntimeTags
 
 	return nil
 }
@@ -183,7 +193,54 @@ func (c *mirrorCmd) mirrorSubResources(p upterm.Printer, chart, tag string, subR
 }
 
 func (c *mirrorCmd) processSubResource(p upterm.Printer, subResource subResource, versions []string) error {
+	if _, ok := subResource.PathNavigator.(*uxpVersionsPath); ok {
+		return c.processUxpVersionsSubResource(p, subResource, versions)
+	}
 	for _, version := range versions {
+		if len(subResource.Chart) > 0 {
+			if err := c.mirrorArtifact(p, subResource.Chart, version); err != nil {
+				return errors.Wrapf(err, "mirroring chart image %s", subResource.Chart)
+			}
+		}
+		if len(subResource.Image) > 0 {
+			versionWithV := version
+			if !strings.HasPrefix(version, "v") {
+				versionWithV = "v" + version
+			}
+			if err := c.mirrorArtifact(p, subResource.Image, versionWithV); err != nil {
+				return errors.Wrap(err, "unable to mirror artifact")
+			}
+		}
+	}
+	return nil
+}
+
+func (c *mirrorCmd) processUxpVersionsSubResource(p upterm.Printer, subResource subResource, versions []string) error {
+	for _, version := range versions {
+		sv, err := semver.NewVersion(strings.TrimPrefix(version, "v"))
+		if err != nil {
+			return errors.Wrapf(err, "parse supported crossplane version %q", version)
+		}
+		if sv.Major() >= 2 {
+			if len(subResource.Chart) > 0 {
+				if err := c.mirrorArtifact(p, uxpV2HelmChart, version); err != nil {
+					return errors.Wrapf(err, "mirroring chart image %s", uxpV2HelmChart)
+				}
+			}
+			cxTag, cmTag, err := c.getUxpV2RuntimeTags(uxpV2HelmChart, version, c.Registry.Username, c.Registry.Password)
+			if err != nil {
+				return errors.Wrap(err, "uxp v2 runtime tags from chart")
+			}
+			if len(subResource.Image) > 0 {
+				if err := c.mirrorArtifact(p, subResource.Image, cxTag); err != nil {
+					return errors.Wrap(err, "unable to mirror crossplane image")
+				}
+			}
+			if err := c.mirrorArtifact(p, uxpV2ControllerManagerImage, cmTag); err != nil {
+				return errors.Wrap(err, "unable to mirror controller-manager image")
+			}
+			continue
+		}
 		if len(subResource.Chart) > 0 {
 			if err := c.mirrorArtifact(p, subResource.Chart, version); err != nil {
 				return errors.Wrapf(err, "mirroring chart image %s", subResource.Chart)
