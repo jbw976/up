@@ -306,6 +306,7 @@ func (s *mockSource) Type() SourceType {
 
 type mockPackagedSource struct {
 	mockSource
+
 	files map[string]string
 }
 

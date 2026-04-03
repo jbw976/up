@@ -63,40 +63,6 @@ func (m *Manager) Add(ctx context.Context, source Source) error {
 	return err
 }
 
-// sourceFilesIntact reports whether all files previously generated for the
-// given source ID are still present on disk. Returns false if no files are
-// tracked for the source (e.g. old lock format), so that regeneration is
-// always triggered when tracking information is unavailable.
-func (m *Manager) sourceFilesIntact(id string) (bool, error) {
-	m.lockMu.RLock()
-	defer m.lockMu.RUnlock()
-
-	l, err := m.getLock()
-	if err != nil {
-		return false, err
-	}
-
-	files := l.Files[id]
-	if len(files) == 0 {
-		// No files tracked for this source. This happens with old lock files
-		// that predate file tracking, or when a source produced no output.
-		// Force regeneration to populate the tracking data.
-		return false, nil
-	}
-
-	for _, f := range files {
-		exists, err := afero.Exists(m.fs, f)
-		if err != nil {
-			return false, err
-		}
-		if !exists {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
 // Generate generates and returns schemas using the manager's generators, and
 // adds them to the manager. Unlike Add, Generate will always generate schemas,
 // regardless of whether they're already present in the manager. Callers should
@@ -181,6 +147,40 @@ func (m *Manager) Generate(ctx context.Context, source Source) (map[string]afero
 	}
 
 	return schemas, m.updateVersion(source.ID(), version, generatedFiles)
+}
+
+// sourceFilesIntact reports whether all files previously generated for the
+// given source ID are still present on disk. Returns false if no files are
+// tracked for the source (e.g. old lock format), so that regeneration is
+// always triggered when tracking information is unavailable.
+func (m *Manager) sourceFilesIntact(id string) (bool, error) {
+	m.lockMu.RLock()
+	defer m.lockMu.RUnlock()
+
+	l, err := m.getLock()
+	if err != nil {
+		return false, err
+	}
+
+	files := l.Files[id]
+	if len(files) == 0 {
+		// No files tracked for this source. This happens with old lock files
+		// that predate file tracking, or when a source produced no output.
+		// Force regeneration to populate the tracking data.
+		return false, nil
+	}
+
+	for _, f := range files {
+		exists, err := afero.Exists(m.fs, f)
+		if err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // processModelsForLanguage does any language-specific work after adding models
