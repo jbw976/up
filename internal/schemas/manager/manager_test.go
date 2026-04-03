@@ -19,19 +19,27 @@ func TestManager_Add(t *testing.T) {
 	t.Parallel()
 
 	tcs := map[string]struct {
-		lock *lock
-		gen  generator.Interface
-		src  Source
+		lock          *lock
+		existingFiles map[string]string // files to write into the FS before calling Add
+		gen           generator.Interface
+		src           Source
 
 		expectedLock  *lock
 		expectedFiles map[string]string
 		expectErr     bool
 	}{
+		// Version matches, files tracked in lock, and files exist on disk: skip.
 		"AlreadyGenerated": {
 			lock: &lock{
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
 				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/already-exists"},
+				},
+			},
+			existingFiles: map[string]string{
+				"mock/already-exists": "pre-existing content",
 			},
 			gen: &mockGenerator{
 				files: map[string]string{
@@ -46,9 +54,75 @@ func TestManager_Add(t *testing.T) {
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
 				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/already-exists"},
+				},
 			},
-			expectedFiles: map[string]string{},
+			expectedFiles: map[string]string{
+				"mock/already-exists": "pre-existing content",
+			},
 		},
+		// Version matches, files tracked in lock, but files were deleted: regenerate.
+		"DeletedModels": {
+			lock: &lock{
+				Packages: map[string]string{
+					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
+				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/was-deleted"},
+				},
+			},
+			// Note: "mock/was-deleted" is NOT written to existingFiles, simulating deletion.
+			gen: &mockGenerator{
+				files: map[string]string{
+					"regenerated": "regenerated content",
+				},
+			},
+			src: &mockSource{
+				id:      "xpkg.upbound.io/my-org/my-pkg",
+				version: "v1.0.0",
+			},
+			expectedLock: &lock{
+				Packages: map[string]string{
+					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
+				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/regenerated"},
+				},
+			},
+			expectedFiles: map[string]string{
+				"mock/regenerated": "regenerated content",
+			},
+		},
+		// Version matches but no files are tracked (old lock format): regenerate.
+		"OldLockNoFileTracking": {
+			lock: &lock{
+				Packages: map[string]string{
+					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
+				},
+			},
+			gen: &mockGenerator{
+				files: map[string]string{
+					"should-exist": "does get created",
+				},
+			},
+			src: &mockSource{
+				id:      "xpkg.upbound.io/my-org/my-pkg",
+				version: "v1.0.0",
+			},
+			expectedLock: &lock{
+				Packages: map[string]string{
+					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
+				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/should-exist"},
+				},
+			},
+			expectedFiles: map[string]string{
+				"mock/should-exist": "does get created",
+			},
+		},
+		// No lock at all: generate and start tracking files.
 		"EmptyLock": {
 			gen: &mockGenerator{
 				files: map[string]string{
@@ -63,17 +137,26 @@ func TestManager_Add(t *testing.T) {
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
 				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/should-exist"},
+				},
 			},
 			expectedFiles: map[string]string{
 				"mock/should-exist": "does get created",
 			},
 		},
+		// Version changed: regenerate and update file tracking.
 		"VersionUpdated": {
 			lock: &lock{
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.0.0",
 				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/old-file"},
+				},
 			},
+			// No existingFiles: old files may or may not be on disk; version
+			// mismatch alone is sufficient to trigger regeneration.
 			gen: &mockGenerator{
 				files: map[string]string{
 					"should-exist": "does get created",
@@ -87,6 +170,9 @@ func TestManager_Add(t *testing.T) {
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.1.0",
 				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/should-exist"},
+				},
 			},
 			expectedFiles: map[string]string{
 				"mock/should-exist": "does get created",
@@ -95,6 +181,7 @@ func TestManager_Add(t *testing.T) {
 		"PackagedSource": {
 			lock: &lock{
 				Packages: make(map[string]string),
+				Files:    make(map[string][]string),
 			},
 			src: &mockPackagedSource{
 				mockSource: mockSource{
@@ -108,6 +195,9 @@ func TestManager_Add(t *testing.T) {
 			expectedLock: &lock{
 				Packages: map[string]string{
 					"xpkg.upbound.io/my-org/my-pkg": "v1.1.0",
+				},
+				Files: map[string][]string{
+					"xpkg.upbound.io/my-org/my-pkg": {"mock/should-exist"},
 				},
 			},
 			expectedFiles: map[string]string{
@@ -126,6 +216,12 @@ func TestManager_Add(t *testing.T) {
 			m := New(testFS, []generator.Interface{tc.gen}, nil)
 			if tc.lock != nil {
 				err := m.updateLock(tc.lock)
+				assert.NilError(t, err)
+			}
+
+			// Write any pre-existing files into the FS.
+			for path, content := range tc.existingFiles {
+				err := afero.WriteFile(testFS, path, []byte(content), 0o600)
 				assert.NilError(t, err)
 			}
 
