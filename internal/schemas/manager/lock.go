@@ -9,10 +9,15 @@ const lockFileName = ".lock.json"
 // manager. It is persisted to the manager's filesystem.
 type lock struct {
 	Packages map[string]string `json:"packages"`
+	// Files tracks which files were generated for each source, keyed by source
+	// ID. This allows the manager to detect when generated files have been
+	// deleted and force regeneration even when the version hasn't changed.
+	Files map[string][]string `json:"files,omitempty"`
 }
 
 func newLock() *lock {
 	return &lock{
 		Packages: make(map[string]string),
+		Files:    make(map[string][]string),
 	}
 }
