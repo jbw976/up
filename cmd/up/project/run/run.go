@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
 	"github.com/upbound/up/internal/filesystem"
+	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/kube"
 	"github.com/upbound/up/internal/oci/cache"
 	"github.com/upbound/up/internal/project"
@@ -56,22 +58,24 @@ type Flags struct {
 type Cmd struct {
 	Flags
 
-	ControlPlaneGroup   string        `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
-	ControlPlaneName    string        `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
-	ControlPlaneVersion string        `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
-	Force               bool          `alias:"allow-production"                                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
-	Local               bool          `help:"Use a local dev control plane, even if Spaces is available."`
-	LocalRegistryPath   string        `help:"Directory to use for local registry images. The default is system-dependent."`
-	NoUpdateKubeconfig  bool          `help:"Do not update kubeconfig to use the dev control plane as its current context."`
-	UseCurrentContext   bool          `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
-	CacheDir            string        `default:"~/.up/cache/"                                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
-	Public              bool          `help:"Create new repositories with public visibility."`
-	Timeout             time.Duration `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
-	Ingress             bool          `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
-	IngressPort         string        `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
-	ClusterAdmin        bool          `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
-	InitResources       []string      `help:"Paths to additional resource manifests that should be applied before installing the project."                                                        type:"path"`
-	ExtraResources      []string      `help:"Paths to additional resource manifests that should be applied after installing the project."                                                         type:"path"`
+	ControlPlaneGroup   string            `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
+	ControlPlaneName    string            `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
+	ControlPlaneVersion string            `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
+	Force               bool              `alias:"allow-production"                                                                                                                                   help:"Allow running on a non-development control plane."                                                       name:"skip-control-plane-check"`
+	Local               bool              `help:"Use a local dev control plane, even if Spaces is available."`
+	LocalRegistryPath   string            `help:"Directory to use for local registry images. The default is system-dependent."`
+	NoUpdateKubeconfig  bool              `help:"Do not update kubeconfig to use the dev control plane as its current context."`
+	UseCurrentContext   bool              `help:"Run the project with the current kubeconfig context rather than creating a new dev control plane."`
+	CacheDir            string            `default:"~/.up/cache/"                                                                                                                                     env:"CACHE_DIR"                                                                                                help:"Directory used for caching dependencies." type:"path"`
+	Public              bool              `help:"Create new repositories with public visibility."`
+	Timeout             time.Duration     `default:"5m"                                                                                                                                               help:"Maximum time to wait for the project to become ready in the control plane. Set to zero to wait forever."`
+	Ingress             bool              `default:"false"                                                                                                                                            help:"Enable ingress controller for the local dev control plane."`
+	IngressPort         string            `help:"Port mapping for the local dev control plane (e.g., '8080:80'). If not specified, a random available port will be selected when ingress is enabled."`
+	ClusterAdmin        bool              `default:"true"                                                                                                                                             help:"Allow Crossplane cluster admin privileges in the local dev control plane. Defaults to true."             negatable:""`
+	InitResources       []string          `help:"Paths to additional resource manifests that should be applied before installing the project."                                                        type:"path"`
+	ExtraResources      []string          `help:"Paths to additional resource manifests that should be applied after installing the project."                                                         type:"path"`
+	SetHelmValues       map[string]string `help:"Set custom Crossplane helm chart values for the local dev control plane, specified as key=value pairs."`
+	HelmValues          string            `help:"Path to a YAML file containing custom Crossplane helm chart values for the local dev control plane."                                                 type:"existingfile"`
 
 	projFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -85,6 +89,8 @@ type Cmd struct {
 	initResources []runtime.RawExtension
 	// Parsed version of ExtraResources, filled by AfterApply.
 	extraResources []runtime.RawExtension
+	// Parsed version of HelmValues + SetHelmValue, filled by AfterApply.
+	chartValues map[string]any
 
 	// Allow these functions to be injected for testing purposes.
 	ensureDevControlPlane func(context.Context, *upbound.Context, ...ctp.EnsureDevControlPlaneOption) (ctp.DevControlPlane, error)
@@ -155,6 +161,11 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, flags upbound.Flags) error {
 		}
 	}
 
+	c.chartValues, err = getHelmValues(c.HelmValues, c.SetHelmValues)
+	if err != nil {
+		return err
+	}
+
 	c.functionIdentifier = functions.DefaultIdentifier
 	c.transport = http.DefaultTransport
 	c.keychain = upCtx.RegistryKeychain()
@@ -177,6 +188,30 @@ func (c *Cmd) AfterApply(upCtx *upbound.Context, flags upbound.Flags) error {
 	c.m = m
 
 	return nil
+}
+
+func getHelmValues(valuesFile string, setValues map[string]string) (map[string]any, error) {
+	if valuesFile == "" && len(setValues) == 0 {
+		return nil, nil
+	}
+
+	base := map[string]any{}
+	if valuesFile != "" {
+		b, err := os.ReadFile(valuesFile) //nolint:gosec // We parse this safely.
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to read helm values file")
+		}
+		if err := yaml.Unmarshal(b, &base); err != nil {
+			return nil, errors.Wrap(err, "unable to parse helm values file")
+		}
+	}
+
+	parsed, err := helm.NewParser(base, setValues).Parse()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to parse helm value overrides")
+	}
+
+	return parsed, nil
 }
 
 // Run is the body of the command.
@@ -231,6 +266,7 @@ func (c *Cmd) Run(ctx context.Context, upCtx *upbound.Context, printer upterm.Pr
 			ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 			ctp.WithIngress(c.Ingress, c.IngressPort),
 			ctp.WithClusterAdmin(c.ClusterAdmin),
+			ctp.WithLocalHelmValues(c.chartValues),
 		}
 
 		// Set the version options appropriately: to the user-provided version,

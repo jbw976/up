@@ -142,6 +142,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 				ctp.WithClusterAdmin(c.ClusterAdmin),
 				ctp.SkipPrometheus(true),
+				ctp.WithLocalHelmValues(c.chartValues),
 			}
 
 			switch {
