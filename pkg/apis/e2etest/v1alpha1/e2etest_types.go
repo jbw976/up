@@ -19,7 +19,7 @@ import (
 // +kubebuilder:resource:scope=Namespaced,shortName=e2e,categories=meta
 type E2ETest struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	Spec E2ETestSpec `json:"spec"`
 }
@@ -42,6 +42,15 @@ type E2ETestSpec struct {
 	// manifests.
 	// +kubebuilder:validation:Required
 	Crossplane *v1beta1.CrossplaneSpec `json:"crossplane,omitempty"`
+
+	// HelmValues specifies custom Crossplane helm chart values for the
+	// controlplane used by this test. These values are merged on top of the
+	// default chart values. Values specified via CLI flags (--set-helm-value,
+	// --helm-values) take precedence over values defined here. Helm values are
+	// ignored when using a Spaces control plane.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	HelmValues *runtime.RawExtension `json:"helmValues,omitempty"`
 
 	// TimeoutSeconds defines the maximum duration in seconds that the test is
 	// allowed to run before being marked as failed. This includes time for
