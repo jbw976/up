@@ -44,7 +44,7 @@ func TestValidate(t *testing.T) {
 						License:     "Apache-2.0",
 						Description: "I'm a unit test",
 						Readme:      "Don't use me, I'm a unit test",
-						Annotations: map[string]string{
+						AdditionalMetadata: map[string]string{
 							"meta.upbound.io/team": "platform",
 						},
 					},
@@ -286,7 +286,7 @@ func TestValidate(t *testing.T) {
 				Spec: &ProjectSpec{
 					Repository: "xpkg.upbound.io/acmeco/my-project",
 					ProjectPackageMetadata: ProjectPackageMetadata{
-						Annotations: map[string]string{
+						AdditionalMetadata: map[string]string{
 							"meta.upbound.io/team":    "platform",
 							"meta.upbound.io/env":     "production",
 							"meta.upbound.io/version": "v2",
@@ -303,7 +303,7 @@ func TestValidate(t *testing.T) {
 				Spec: &ProjectSpec{
 					Repository: "xpkg.upbound.io/acmeco/my-project",
 					ProjectPackageMetadata: ProjectPackageMetadata{
-						Annotations: map[string]string{
+						AdditionalMetadata: map[string]string{
 							"meta.upbound.io/valid": "ok",
 							"invalid.io/key":        "bad",
 						},
@@ -311,7 +311,7 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			expectedErrors: []string{
-				`annotation key "invalid.io/key" must have the "meta.upbound.io/" prefix`,
+				`additional metadata key "invalid.io/key" must have the "meta.upbound.io/" prefix`,
 			},
 		},
 		"MultipleInvalidAnnotationPrefixes": {
@@ -322,7 +322,7 @@ func TestValidate(t *testing.T) {
 				Spec: &ProjectSpec{
 					Repository: "xpkg.upbound.io/acmeco/my-project",
 					ProjectPackageMetadata: ProjectPackageMetadata{
-						Annotations: map[string]string{
+						AdditionalMetadata: map[string]string{
 							"foo":          "bar",
 							"other.io/key": "val",
 						},

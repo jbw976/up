@@ -6,7 +6,7 @@ spec:
   maintainer: Upbound <support@upbound.io>
   source: github.com/upbound/project-getting-started
   license: Apache-2.0
-  annotations:
+  additionalMetadata:
     meta.upbound.io/team: platform-engineering
     meta.upbound.io/env: testing
   repository: xpkg.upbound.io/awg/getting-started

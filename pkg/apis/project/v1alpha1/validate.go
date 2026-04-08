@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// AnnotationKeyPrefix is the required prefix for all project annotation keys.
-	AnnotationKeyPrefix = "meta.upbound.io/"
+	// AdditionalMetadataKeyPrefix is the required prefix for all additional metadata keys.
+	AdditionalMetadataKeyPrefix = "meta.upbound.io/"
 )
 
 // Validate validates a project.
@@ -58,9 +58,9 @@ func (s *ProjectSpec) Validate() error {
 		errs = append(errs, errors.New("architectures must not be empty"))
 	}
 
-	for k := range s.Annotations {
-		if !strings.HasPrefix(k, AnnotationKeyPrefix) {
-			errs = append(errs, fmt.Errorf("annotation key %q must have the %q prefix", k, AnnotationKeyPrefix))
+	for k := range s.AdditionalMetadata {
+		if !strings.HasPrefix(k, AdditionalMetadataKeyPrefix) {
+			errs = append(errs, fmt.Errorf("additional metadata key %q must have the %q prefix", k, AdditionalMetadataKeyPrefix))
 		}
 	}
 

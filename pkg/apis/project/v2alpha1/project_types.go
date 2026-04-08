@@ -48,10 +48,10 @@ type ProjectPackageMetadata struct {
 	// Description is a short description of the project.
 	Description string `json:"description,omitempty"`
 	Readme      string `json:"readme,omitempty"`
-	// Annotations are arbitrary metadata key-value pairs. All annotation keys
+	// AdditionalMetadata are arbitrary metadata key-value pairs. All keys
 	// must have the "meta.upbound.io/" prefix.
 	// +optional
-	Annotations map[string]string `json:"annotations,omitempty"`
+	AdditionalMetadata map[string]string `json:"additionalMetadata,omitempty"`
 }
 
 // ProjectPaths configures the locations of various parts of the project, for

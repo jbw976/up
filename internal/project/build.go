@@ -570,7 +570,7 @@ func cfgMetaFromProject(proj *v2alpha1.Project) metav1.ObjectMeta {
 	meta.Annotations["meta.crossplane.io/description"] = proj.Spec.Description
 	meta.Annotations["meta.crossplane.io/readme"] = proj.Spec.Readme
 
-	maps.Copy(meta.Annotations, proj.Spec.Annotations)
+	maps.Copy(meta.Annotations, proj.Spec.AdditionalMetadata)
 
 	return *meta
 }
@@ -589,7 +589,7 @@ func fnMetaFromProject(proj *v2alpha1.Project, fnName string) metav1.ObjectMeta 
 	meta.Annotations["meta.crossplane.io/license"] = proj.Spec.License
 	meta.Annotations["meta.crossplane.io/description"] = fmt.Sprintf("Function %s from project %s", fnName, proj.Name)
 
-	maps.Copy(meta.Annotations, proj.Spec.Annotations)
+	maps.Copy(meta.Annotations, proj.Spec.AdditionalMetadata)
 
 	return *meta
 }

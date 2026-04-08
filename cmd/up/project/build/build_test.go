@@ -486,7 +486,7 @@ func TestBuild(t *testing.T) {
 				"meta.crossplane.io/description": c.proj.Spec.Description,
 				"meta.crossplane.io/readme":      c.proj.Spec.Readme,
 			}
-			maps.Copy(expectedAnnotations, c.proj.Spec.Annotations)
+			maps.Copy(expectedAnnotations, c.proj.Spec.AdditionalMetadata)
 			assert.DeepEqual(t, cfgMeta.ObjectMeta, metav1.ObjectMeta{
 				Name:        c.proj.Name,
 				Annotations: expectedAnnotations,
