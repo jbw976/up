@@ -38,11 +38,12 @@ import (
 
 // K8s package constants.
 const (
-	k8sPkgMetaV1   = "io.k8s.apimachinery.pkg.apis.meta.v1"
-	k8sPkgRuntime  = "io.k8s.apimachinery.pkg.runtime"
-	k8sPkgCoreV1   = "io.k8s.api.core.v1"
-	k8sPkgIntStr   = "io.k8s.apimachinery.pkg.util.intstr"
-	k8sPkgResource = "io.k8s.apimachinery.pkg.api.resource"
+	k8sPkgMetaV1        = "io.k8s.apimachinery.pkg.apis.meta.v1"
+	k8sPkgRuntime       = "io.k8s.apimachinery.pkg.runtime"
+	k8sPkgCoreV1        = "io.k8s.api.core.v1"
+	k8sPkgIntStr        = "io.k8s.apimachinery.pkg.util.intstr"
+	k8sPkgResource      = "io.k8s.apimachinery.pkg.api.resource"
+	k8sPkgAutoscalingV1 = "io.k8s.api.autoscaling.v1"
 )
 
 // goModContents is the contents of the go.mod we write for our generated models
@@ -182,6 +183,20 @@ func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.
 			group = "meta.k8s.io"
 			kind = "meta"
 			version = "v1"
+		} else if pkg == k8sPkgAutoscalingV1 {
+			group = "autoscaling"
+			kind = "autoscaling"
+			version = "v1"
+		}
+
+		// For K8s packages that reference meta.v1, we need to use the correct
+		// meta import path. The meta.v1 package uses goReferenceK8sTypes (core path)
+		// because self-references get stripped. Other packages like autoscaling
+		// use goReferenceK8sTypesForCRDs (non-core path) to reference the CRD
+		// meta.v1 package at dev.upbound.io/models/io/k8s/meta/v1.
+		refMutator := goReferenceK8sTypes
+		if pkg != k8sPkgMetaV1 {
+			refMutator = goReferenceK8sTypesForCRDs
 		}
 
 		code, err := generateGo(pkgSpec, version,
@@ -189,7 +204,7 @@ func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.
 			goRenameEnums,
 			goReplaceNumberWithInt,
 			goRemoveRequired,
-			goReferenceK8sTypes,
+			refMutator,
 		)
 		if err != nil {
 			return nil, err
@@ -407,6 +422,7 @@ func goExtractK8sSchemas(s *spec3.OpenAPI) map[string]map[string]*spec.Schema {
 		k8sPkgCoreV1,
 		k8sPkgIntStr,
 		k8sPkgResource,
+		k8sPkgAutoscalingV1,
 	}
 
 	// Initialize the map for each package
@@ -655,7 +671,8 @@ func goReferenceK8sTypeWithMetaPath(schema *spec.Schema, useCorePath bool) {
 			strings.Contains(ref, k8sPkgCoreV1) ||
 			strings.Contains(ref, k8sPkgRuntime) ||
 			strings.Contains(ref, k8sPkgIntStr) ||
-			strings.Contains(ref, k8sPkgResource)
+			strings.Contains(ref, k8sPkgResource) ||
+			strings.Contains(ref, k8sPkgAutoscalingV1)
 	}
 
 	// Handle direct reference
@@ -762,6 +779,11 @@ func tryReplaceK8sTypeWithMetaPath(schema *spec.Schema, ref string, useCorePath 
 			alias:      "resourcev1",
 			importPath: "dev.upbound.io/models/io/k8s/resource/v1",
 		},
+		{
+			contains:   k8sPkgAutoscalingV1,
+			alias:      "autoscalingv1",
+			importPath: "dev.upbound.io/models/io/k8s/autoscaling/v1",
+		},
 	}
 
 	for _, m := range mapping {
@@ -785,7 +807,8 @@ func goRemoveK8s(s *spec3.OpenAPI) {
 			strings.HasPrefix(name, k8sPkgRuntime) ||
 			strings.HasPrefix(name, k8sPkgCoreV1) ||
 			strings.HasPrefix(name, k8sPkgIntStr) ||
-			strings.HasPrefix(name, k8sPkgResource) {
+			strings.HasPrefix(name, k8sPkgResource) ||
+			strings.HasPrefix(name, k8sPkgAutoscalingV1) {
 			delete(s.Components.Schemas, name)
 		}
 	}
@@ -898,11 +921,12 @@ func removeSelfImports(code string, pkg string) (string, error) {
 	selfImports := map[string]struct {
 		Alias, Path string
 	}{
-		k8sPkgMetaV1:   {"metacorev1", "dev.upbound.io/models/io/k8s/core/meta/v1"},
-		k8sPkgCoreV1:   {"corev1", "dev.upbound.io/models/io/k8s/core/v1"},
-		k8sPkgRuntime:  {"runtimev1", "dev.upbound.io/models/io/k8s/runtime/v1"},
-		k8sPkgIntStr:   {"intstrv1", "dev.upbound.io/models/io/k8s/util/v1"},
-		k8sPkgResource: {"resourcev1", "dev.upbound.io/models/io/k8s/resource/v1"},
+		k8sPkgMetaV1:        {"metacorev1", "dev.upbound.io/models/io/k8s/core/meta/v1"},
+		k8sPkgCoreV1:        {"corev1", "dev.upbound.io/models/io/k8s/core/v1"},
+		k8sPkgRuntime:       {"runtimev1", "dev.upbound.io/models/io/k8s/runtime/v1"},
+		k8sPkgIntStr:        {"intstrv1", "dev.upbound.io/models/io/k8s/util/v1"},
+		k8sPkgResource:      {"resourcev1", "dev.upbound.io/models/io/k8s/resource/v1"},
+		k8sPkgAutoscalingV1: {"autoscalingv1", "dev.upbound.io/models/io/k8s/autoscaling/v1"},
 	}
 
 	info, ok := selfImports[pkg]
@@ -943,12 +967,13 @@ func removeSelfImports(code string, pkg string) (string, error) {
 func fixMissingImports(code string) (string, error) {
 	// 1. Define the k8s imports you might need
 	k8sImports := map[string]string{
-		"metacorev1": "dev.upbound.io/models/io/k8s/core/meta/v1",
-		"metav1":     "dev.upbound.io/models/io/k8s/meta/v1",
-		"corev1":     "dev.upbound.io/models/io/k8s/core/v1",
-		"resourcev1": "dev.upbound.io/models/io/k8s/resource/v1",
-		"runtimev1":  "dev.upbound.io/models/io/k8s/runtime/v1",
-		"intstrv1":   "dev.upbound.io/models/io/k8s/util/v1",
+		"metacorev1":   "dev.upbound.io/models/io/k8s/core/meta/v1",
+		"metav1":       "dev.upbound.io/models/io/k8s/meta/v1",
+		"corev1":       "dev.upbound.io/models/io/k8s/core/v1",
+		"resourcev1":   "dev.upbound.io/models/io/k8s/resource/v1",
+		"runtimev1":    "dev.upbound.io/models/io/k8s/runtime/v1",
+		"intstrv1":     "dev.upbound.io/models/io/k8s/util/v1",
+		"autoscalingv1": "dev.upbound.io/models/io/k8s/autoscaling/v1",
 	}
 
 	fset := token.NewFileSet()
@@ -1203,6 +1228,8 @@ func getK8sPackageInfo(pkg string) (group, kind, version string) {
 		return "util.k8s.io", "intstr", "v1"
 	case k8sPkgResource:
 		return "resource.k8s.io", "resource", "v1"
+	case k8sPkgAutoscalingV1:
+		return "autoscaling", "autoscaling", "v1"
 	default:
 		return "", "", ""
 	}
