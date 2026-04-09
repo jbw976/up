@@ -48,6 +48,8 @@ type subResource struct {
 	PathNavigatorType string            `yaml:"pathNavigatorType"`
 	Chart             string            `yaml:"chart,omitempty"`
 	Image             string            `yaml:"image,omitempty"`
+	// TagAsSpecified mirrors the image using the tag exactly as returned by the path navigator (no implicit "v" prefix).
+	TagAsSpecified bool `yaml:"tagAsSpecified,omitempty"`
 }
 
 type ociconfig struct {
@@ -190,11 +192,11 @@ func (c *mirrorCmd) processSubResource(p upterm.Printer, subResource subResource
 			}
 		}
 		if len(subResource.Image) > 0 {
-			versionWithV := version
-			if !strings.HasPrefix(version, "v") {
-				versionWithV = "v" + version
+			tag := version
+			if !subResource.TagAsSpecified && !strings.HasPrefix(version, "v") {
+				tag = "v" + version
 			}
-			if err := c.mirrorArtifact(p, subResource.Image, versionWithV); err != nil {
+			if err := c.mirrorArtifact(p, subResource.Image, tag); err != nil {
 				return errors.Wrap(err, "unable to mirror artifact")
 			}
 		}
