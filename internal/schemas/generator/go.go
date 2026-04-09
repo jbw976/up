@@ -53,6 +53,38 @@ const (
 const goModContents = `module dev.upbound.io/models
 
 go 1.23
+
+require github.com/oapi-codegen/runtime v1.1.0
+
+require (
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+)
+`
+
+// goSumContents is the contents of the go.sum we write for our generated models
+// module alongside the go.mod.
+const goSumContents = `github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
+github.com/apapsch/go-jsonmerge/v2 v2.0.0 h1:axGnT1gRIfimI7gJifB699GoE/oq+F2MU7Dml6nw9rQ=
+github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP2+08jFMw88y4klk=
+github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
+github.com/google/uuid v1.4.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
+github.com/oapi-codegen/runtime v1.1.0 h1:rJpoNUawn5XTvekgfkvSZr0RqEnoYpFkyvrzfWeFKWM=
+github.com/oapi-codegen/runtime v1.1.0/go.mod h1:BeSfBkWWWnAnGdyS+S/GnlbmHKzf8/hwkvelJZDeKA8=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/spkg/bom v0.0.0-20160624110644-59b7046e48ad/go.mod h1:qLr4V1qq6nMqFKkMo8ZTx3f+BZEkzsRUY10Xsm2mwU0=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
+github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 `
 
 // goImportsTemplate replaces the default import template for oapi-codegen,
@@ -64,7 +96,11 @@ const goImportsTemplate = `// Package {{.PackageName}} contains generated models
 package {{.PackageName}}
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/oapi-codegen/runtime"
 
 	{{- range .ExternalImports}}
 	{{ . }}
@@ -74,9 +110,12 @@ import (
 	{{- end}}
 )
 
-// Use time to avoid unused import errors.
+// Use the following to avoid unused import errors.
 var (
-	_ *time.Time     = nil
+	_ *time.Time      = nil
+	_ json.RawMessage = nil
+	_ = fmt.Errorf
+	_ = runtime.JSONMerge
 )
 `
 
@@ -183,7 +222,6 @@ func (goGenerator) GenerateFromCRD(_ context.Context, fromFS afero.Fs, _ runner.
 			goReferenceK8sTypesForCRDs,
 			goRemoveK8s,
 			goKeepOnlyComponents,
-			goRemoveUnions,
 		)
 		if err != nil {
 			return nil, err
@@ -764,120 +802,6 @@ func goKeepOnlyComponents(s *spec3.OpenAPI) {
 	}
 }
 
-// - io.k8s.apimachinery.pkg.util.intstr.IntOrString.
-func goSimplifyK8sUnionTypes(s *spec3.OpenAPI) {
-	if s.Components == nil || s.Components.Schemas == nil {
-		return
-	}
-
-	// Types that should be simplified from oneOf to string
-	unionTypes := []string{
-		"io.k8s.apimachinery.pkg.api.resource.Quantity",
-		"io.k8s.apimachinery.pkg.util.intstr.IntOrString",
-	}
-
-	for name, schema := range s.Components.Schemas {
-		// Check if this is one of the union types we want to simplify
-		for _, unionType := range unionTypes {
-			if strings.Contains(name, unionType) {
-				// Convert oneOf to simple string type
-				if len(schema.OneOf) > 0 {
-					schema.OneOf = nil
-					schema.Type = spec.StringOrArray{"string"}
-				}
-				break
-			}
-		}
-		// Also process nested properties
-		goSimplifyK8sUnionProperties(schema.Properties, unionTypes)
-	}
-}
-
-func goSimplifyK8sUnionProperties(props map[string]spec.Schema, unionTypes []string) {
-	for name, prop := range props {
-		// Check if this property is using one of the union type references
-		ref := prop.Ref.String()
-		for _, unionType := range unionTypes {
-			if strings.Contains(ref, unionType) {
-				// Keep the reference but it will point to the simplified string type
-				break
-			}
-		}
-
-		// Process nested properties
-		goSimplifyK8sUnionProperties(prop.Properties, unionTypes)
-
-		// Process items if it's an array
-		if prop.Items != nil {
-			itemRef := prop.Items.Schema.Ref.String()
-			for _, unionType := range unionTypes {
-				if strings.Contains(itemRef, unionType) {
-					// Keep the reference but it will point to the simplified string type
-					break
-				}
-			}
-			goSimplifyK8sUnionProperties(prop.Items.Schema.Properties, unionTypes)
-		}
-
-		// Process additional properties if it's a map
-		if prop.AdditionalProperties != nil && prop.AdditionalProperties.Schema != nil {
-			addRef := prop.AdditionalProperties.Schema.Ref.String()
-			for _, unionType := range unionTypes {
-				if strings.Contains(addRef, unionType) {
-					// Keep the reference but it will point to the simplified string type
-					break
-				}
-			}
-			goSimplifyK8sUnionProperties(prop.AdditionalProperties.Schema.Properties, unionTypes)
-		}
-
-		props[name] = prop
-	}
-}
-
-// goRemoveUnions removes oneOf/anyOf schemas that cause complex union types
-// with json.RawMessage and runtime dependencies. For schemas with both
-// properties and unions, we keep only the properties.
-func goRemoveUnions(s *spec3.OpenAPI) {
-	if s.Components == nil || s.Components.Schemas == nil {
-		return
-	}
-
-	for _, schema := range s.Components.Schemas {
-		goRemoveUnionsInSchema(schema)
-		goRemoveUnionsInProperties(schema.Properties)
-	}
-}
-
-func goRemoveUnionsInSchema(schema *spec.Schema) {
-	// If a schema has oneOf or anyOf, but also has properties defined,
-	// just keep the properties and remove the oneOf/anyOf
-	if (len(schema.OneOf) > 0 || len(schema.AnyOf) > 0) && len(schema.Properties) > 0 {
-		schema.OneOf = nil
-		schema.AnyOf = nil
-	}
-
-	// Process items if it's an array
-	if schema.Items != nil && schema.Items.Schema != nil {
-		goRemoveUnionsInSchema(schema.Items.Schema)
-		goRemoveUnionsInProperties(schema.Items.Schema.Properties)
-	}
-}
-
-func goRemoveUnionsInProperties(props map[string]spec.Schema) {
-	for name, prop := range props {
-		goRemoveUnionsInSchema(&prop)
-		goRemoveUnionsInProperties(prop.Properties)
-
-		if prop.Items != nil && prop.Items.Schema != nil {
-			goRemoveUnionsInSchema(prop.Items.Schema)
-			goRemoveUnionsInProperties(prop.Items.Schema.Properties)
-		}
-
-		props[name] = prop
-	}
-}
-
 // goAddDefaults adds default values for apiVersion and kind properties based on
 // x-kubernetes-group-version-kind extension.
 func goAddDefaults(s *spec3.OpenAPI) {
@@ -1185,6 +1109,14 @@ func initializeSchemaFS() (afero.Fs, error) {
 		return nil, errors.Wrap(err, "failed to write go.mod")
 	}
 
+	sumf, err := schemaFS.Create("models/go.sum")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create go.sum")
+	}
+	if _, err := sumf.WriteString(goSumContents); err != nil {
+		return nil, errors.Wrap(err, "failed to write go.sum")
+	}
+
 	return schemaFS, nil
 }
 
@@ -1237,7 +1169,6 @@ func generateK8sPackageCode(pkg string, schemas map[string]*spec.Schema, schemaF
 		goRenameEnums,
 		goReplaceNumberWithInt,
 		goRemoveRequired,
-		goSimplifyK8sUnionTypes,
 		goReferenceK8sTypes,
 		goAddDefaults,
 	)
