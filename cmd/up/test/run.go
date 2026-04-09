@@ -36,6 +36,7 @@ import (
 
 	"github.com/upbound/up/internal/async"
 	"github.com/upbound/up/internal/ctp"
+	"github.com/upbound/up/internal/install/helm"
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/schemas/runner"
 	"github.com/upbound/up/internal/style"
@@ -80,6 +81,9 @@ type runCmd struct {
 	E2E       bool `help:"Run E2E tests"                                   name:"e2e"`
 	Operation bool `help:"Run Operation tests"                             name:"operation"`
 
+	SetHelmValues map[string]string `help:"Set custom Crossplane helm chart values for the local test control plane, specified as key=value pairs."`
+	HelmValues    string            `help:"Path to a YAML file containing custom Crossplane helm chart values for the local test control plane."    type:"existingfile"`
+
 	projFS             afero.Fs
 	testFS             afero.Fs
 	functionIdentifier functions.Identifier
@@ -90,6 +94,7 @@ type runCmd struct {
 	keychain           authn.Keychain
 	concurrency        uint
 	proj               *project.WithVersion
+	chartValues        map[string]any
 }
 
 //go:embed help/run.md
@@ -173,12 +178,41 @@ func (c *runCmd) AfterApply(kongCtx *kong.Context, upCtx *upbound.Context) error
 				}
 			}
 		}
+
+		c.chartValues, err = getHelmValues(c.HelmValues, c.SetHelmValues)
+		if err != nil {
+			return err
+		}
 	}
 
 	logger := logging.NewNopLogger()
 	kongCtx.BindTo(logger, (*logging.Logger)(nil))
 
 	return nil
+}
+
+func getHelmValues(valuesFile string, setValues map[string]string) (map[string]any, error) {
+	if valuesFile == "" && len(setValues) == 0 {
+		return nil, nil
+	}
+
+	base := map[string]any{}
+	if valuesFile != "" {
+		b, err := os.ReadFile(valuesFile) //nolint:gosec // We parse this safely.
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to read helm values file")
+		}
+		if err := yaml.Unmarshal(b, &base); err != nil {
+			return nil, errors.Wrap(err, "unable to parse helm values file")
+		}
+	}
+
+	parsed, err := helm.NewParser(base, setValues).Parse()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to parse helm value overrides")
+	}
+
+	return parsed, nil
 }
 
 // Run is the body of the command.
