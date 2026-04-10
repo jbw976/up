@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -38,13 +39,13 @@ func (c *treeCmd) Help() string {
 
 // treeTemplate is used by printer.PrintObjectTemplate for default output.
 // JSON and YAML modes ignore this and serialize the treeOutput struct directly.
-const treeTemplate = "{{.AsciiText}}"
+const treeTemplate = "{{.ASCIIText}}"
 
 // treeCmd displays the dependency tree for a project or a specific package.
 type treeCmd struct {
-	Package     string `arg:"" optional:"" help:"Package reference to show tree for (e.g. xpkg.upbound.io/org/name:version). Defaults to current project."`
-	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
-	CacheDir    string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
+	Package     string `arg:""                 help:"Package reference to show tree for (e.g. xpkg.upbound.io/org/name:version). Defaults to current project." optional:""`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file."                                                                         short:"f"`
+	CacheDir    string `default:"~/.up/cache/" env:"CACHE_DIR"                                                                                                 help:"Directory used for caching package images." type:"path"`
 
 	// cch and res are built in AfterApply; the manager is built in Run so
 	// it can be wired with a progress callback tied to the spinner.
@@ -196,9 +197,7 @@ func (c *treeCmd) runProjectMode(ctx context.Context, printer upterm.Printer) er
 			sp.Fail()
 			return fmt.Errorf("failed to resolve %s: %w", converted.Package, err)
 		}
-		for name, pkg := range buildPkgMap(pkgs) {
-			pkgMap[name] = pkg
-		}
+		maps.Copy(pkgMap, buildPkgMap(pkgs))
 		resolvedDeps = append(resolvedDeps, resolved)
 	}
 	sp.Success()
@@ -232,15 +231,15 @@ func (c *treeCmd) runProjectMode(ctx context.Context, printer upterm.Printer) er
 // serialized in JSON/YAML output.
 type treeOutput struct {
 	asciiText    string
-	Name         string     `json:"name,omitempty"         yaml:"name,omitempty"`
-	Package      string     `json:"package,omitempty"      yaml:"package,omitempty"`
-	Version      string     `json:"version,omitempty"      yaml:"version,omitempty"`
-	Kind         string     `json:"kind,omitempty"         yaml:"kind,omitempty"`
-	Dependencies []*depNode `json:"dependencies"           yaml:"dependencies"`
+	Name         string     `json:"name,omitempty"    yaml:"name,omitempty"`
+	Package      string     `json:"package,omitempty" yaml:"package,omitempty"`
+	Version      string     `json:"version,omitempty" yaml:"version,omitempty"`
+	Kind         string     `json:"kind,omitempty"    yaml:"kind,omitempty"`
+	Dependencies []*depNode `json:"dependencies"      yaml:"dependencies"`
 }
 
-// AsciiText is called by treeTemplate to render the ASCII tree in default mode.
-func (t *treeOutput) AsciiText() string { return t.asciiText }
+// ASCIIText is called by treeTemplate to render the ASCII tree in default mode.
+func (t *treeOutput) ASCIIText() string { return t.asciiText }
 
 // depNode is a single node in the structured dependency tree used for JSON/YAML output.
 // Diamond dependencies are fully expanded (each occurrence includes its full subtree);
@@ -368,7 +367,7 @@ func printTree(node *treeNode, prefix string, isLast bool, w io.Writer) {
 		childPrefix = prefix + "    "
 	}
 
-	fmt.Fprintf(w, "%s%s%s\n", prefix, connector, node.label)
+	_, _ = fmt.Fprintf(w, "%s%s%s\n", prefix, connector, node.label)
 
 	if !node.deduped {
 		for i, child := range node.children {

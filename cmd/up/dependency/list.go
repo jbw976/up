@@ -34,13 +34,11 @@ func (c *listCmd) Help() string {
 	return listHelp
 }
 
-var depListFieldNames = []string{"PACKAGE", "VERSION", "KIND"}
-
 // listCmd lists all transitive dependencies for a project or a specific package.
 type listCmd struct {
-	Package     string `arg:"" optional:"" help:"Package reference to list dependencies for (e.g. xpkg.upbound.io/org/name:version). Defaults to current project."`
-	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file." short:"f"`
-	CacheDir    string `default:"~/.up/cache/" env:"CACHE_DIR" help:"Directory used for caching package images." type:"path"`
+	Package     string `arg:""                 help:"Package reference to list dependencies for (e.g. xpkg.upbound.io/org/name:version). Defaults to current project." optional:""`
+	ProjectFile string `default:"upbound.yaml" help:"Path to project definition file."                                                                                 short:"f"`
+	CacheDir    string `default:"~/.up/cache/" env:"CACHE_DIR"                                                                                                         help:"Directory used for caching package images." type:"path"`
 
 	cch  dmanager.Cache
 	res  *image.Resolver
@@ -122,7 +120,7 @@ func (c *listCmd) runPackageMode(ctx context.Context, printer upterm.Printer) er
 	sp.Success()
 
 	items := deduplicatePackages(pkgs)
-	return printer.PrintObject(items, depListFieldNames, extractDepListFields)
+	return printer.PrintObject(items, []string{"PACKAGE", "VERSION", "KIND"}, extractDepListFields)
 }
 
 func (c *listCmd) runProjectMode(ctx context.Context, printer upterm.Printer) error {
@@ -162,14 +160,14 @@ func (c *listCmd) runProjectMode(ctx context.Context, printer upterm.Printer) er
 	sp.Success()
 
 	items := deduplicatePackages(allPkgs)
-	return printer.PrintObject(items, depListFieldNames, extractDepListFields)
+	return printer.PrintObject(items, []string{"PACKAGE", "VERSION", "KIND"}, extractDepListFields)
 }
 
 // depListItem is a single entry in the flat dependency list.
 type depListItem struct {
-	Package string `json:"package" yaml:"package"`
+	Package string `json:"package"           yaml:"package"`
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
-	Kind    string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Kind    string `json:"kind,omitempty"    yaml:"kind,omitempty"`
 }
 
 // deduplicatePackages converts a (possibly duplicated) flat package slice into
