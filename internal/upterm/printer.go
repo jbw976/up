@@ -67,6 +67,13 @@ type ResultPrinter interface {
 // NewPrinter returns a configured printer. Regular output is printed to out;
 // results are printed to result.
 func NewPrinter(out, result io.Writer, format config.Format, pretty bool) Printer {
+	// Spinner output is suppressed for JSON/YAML formats to prevent status
+	// messages from corrupting structured output.
+	spinnerOut := out
+	if format == config.FormatJSON || format == config.FormatYAML {
+		spinnerOut = io.Discard
+	}
+
 	var op ResultPrinter
 	switch format {
 	case config.FormatJSON:
@@ -93,7 +100,7 @@ func NewPrinter(out, result io.Writer, format config.Format, pretty bool) Printe
 			ResultPrinter: op,
 			SpinnerPrinter: &defaultSpinnerPrinter{
 				pretty: pretty,
-				out:    out,
+				out:    spinnerOut,
 			},
 			out: out,
 		}
@@ -102,7 +109,7 @@ func NewPrinter(out, result io.Writer, format config.Format, pretty bool) Printe
 			ResultPrinter: op,
 			SpinnerPrinter: &defaultSpinnerPrinter{
 				pretty: pretty,
-				out:    out,
+				out:    spinnerOut,
 			},
 			out: out,
 		}

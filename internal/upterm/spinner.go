@@ -382,6 +382,7 @@ func (ss *SuccessSpinner) UpdateText(msg string) {
 // Success marks the spinner in the multi-spinner as having succeeded.
 func (ss *SuccessSpinner) Success() {
 	if !ss.pretty {
+		_, _ = fmt.Fprintf(ss.out, "✓ %s\n", ss.title)
 		return
 	}
 	ss.mu.Lock()
@@ -395,6 +396,7 @@ func (ss *SuccessSpinner) Success() {
 // Fail marks an existing spinner in the multi-spinner as having failed.
 func (ss *SuccessSpinner) Fail() {
 	if !ss.pretty {
+		_, _ = fmt.Fprintf(ss.out, "✗ %s\n", ss.title)
 		return
 	}
 	ss.mu.Lock()
