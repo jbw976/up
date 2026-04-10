@@ -48,6 +48,7 @@ type Manager struct {
 
 	acc                     []*xpkg.ParsedPackage
 	skipCacheUpdateIfExists bool
+	progressFn              func(pkg string)
 }
 
 // Cache defines the API contract for working with a Cache.
@@ -138,6 +139,15 @@ func WithCache(c Cache) Option {
 func WithSkipCacheUpdateIfExists(skip bool) Option {
 	return func(m *Manager) {
 		m.skipCacheUpdateIfExists = skip
+	}
+}
+
+// WithProgressFunc sets a callback that is invoked with the package name each
+// time a package is retrieved during dependency resolution. This can be used
+// to update progress indicators as the resolver walks the dependency tree.
+func WithProgressFunc(fn func(pkg string)) Option {
+	return func(m *Manager) {
+		m.progressFn = fn
 	}
 }
 
@@ -347,6 +357,10 @@ func (m *Manager) retrieveAndStorePkg(ctx context.Context, d v1beta1.Dependency)
 	// resolve version prior to Get
 	if err := m.finalizeExtDepVersion(ctx, &d); err != nil {
 		return nil, fmt.Errorf("failed to resolve %s:%s: %w", d.Package, d.Constraints, err)
+	}
+
+	if m.progressFn != nil {
+		m.progressFn(d.Package)
 	}
 
 	p, err := m.c.Get(d)
