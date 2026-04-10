@@ -1,13 +1,18 @@
-// Copyright 2025 Upbound Inc.
-// All rights reserved
+// Copyright 2025 Upbound Inc. All rights reserved.
 
-// Package v1alpha1 contains v1alpha1 of the Upbound project type.
 package v1alpha1
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/errors"
+)
+
+const (
+	// AdditionalMetadataKeyPrefix is the required prefix for all additional metadata keys.
+	AdditionalMetadataKeyPrefix = "meta.upbound.io/"
 )
 
 // Validate validates a project.
@@ -51,6 +56,12 @@ func (s *ProjectSpec) Validate() error {
 
 	if s.Architectures != nil && len(s.Architectures) == 0 {
 		errs = append(errs, errors.New("architectures must not be empty"))
+	}
+
+	for k := range s.AdditionalMetadata {
+		if !strings.HasPrefix(k, AdditionalMetadataKeyPrefix) {
+			errs = append(errs, fmt.Errorf("additional metadata key %q must have the %q prefix", k, AdditionalMetadataKeyPrefix))
+		}
 	}
 
 	// Validate API dependencies
