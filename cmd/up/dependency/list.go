@@ -6,8 +6,10 @@ package dependency
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/spf13/afero"
@@ -187,12 +189,8 @@ func deduplicatePackages(pkgs []*xpkg.ParsedPackage) []depListItem {
 		}
 	}
 
-	items := make([]depListItem, 0, len(seen))
-	for _, item := range seen {
-		items = append(items, item)
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Package < items[j].Package
+	items := slices.SortedFunc(maps.Values(seen), func(a, b depListItem) int {
+		return strings.Compare(a.Package, b.Package)
 	})
 	return items
 }
