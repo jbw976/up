@@ -607,9 +607,10 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 				uxpVersionsPath: []string{
 					"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1",
 					"2.2.0-up.3",
