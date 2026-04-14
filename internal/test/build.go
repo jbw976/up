@@ -79,6 +79,14 @@ type GoRunner struct{}
 
 // Run go tests manifest generation.
 func (t *GoRunner) Run(ctx context.Context, fs afero.Fs, basePath string, _ runner.SchemaRunner) error {
+	// Run go mod tidy to ensure all transitive dependencies from the
+	// replaced models module are resolved before building.
+	tidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+	tidyCmd.Dir = basePath
+	if out, err := tidyCmd.CombinedOutput(); err != nil {
+		return errors.Wrapf(err, "failed to run go mod tidy: %s", string(out))
+	}
+
 	// Go tests run locally using "go run ." instead of in a container
 	cmd := exec.CommandContext(ctx, "go", "run", ".")
 	cmd.Dir = basePath

@@ -40,11 +40,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -94,11 +95,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -148,11 +150,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -202,11 +205,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -257,11 +261,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -312,11 +317,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -367,12 +373,13 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:          []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:   []string{"v1.31.0"},
-				registerImageTag:  []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:   []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:   []string{"v0.2.0-rc.0.180.g864b87f"},
-				apolloVersionPath: []string{"v0.4.7"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.180.g864b87f"},
+				apolloVersionPath:       []string{"v0.4.7"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -424,12 +431,13 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:          []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:   []string{"v1.31.0"},
-				registerImageTag:  []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:   []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:   []string{"v0.2.0-rc.0.167.gb4b3e68"},
-				apolloVersionPath: []string{"v0.2.11"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				apolloVersionPath:       []string{"v0.2.11"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -481,12 +489,13 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:          []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:   []string{"v1.31.0"},
-				registerImageTag:  []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:   []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
-				xgqlVersionPath:   []string{"v0.2.0-rc.0.167.gb4b3e68"},
-				apolloVersionPath: []string{"v0.2.11"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				apolloVersionPath:       []string{"v0.2.11"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -538,11 +547,12 @@ func TestMirror(t *testing.T) {
 				return []byte(`{"schemaVersion": 2}`), nil
 			},
 			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
-				imageTag:         []string{"v0.0.0-649.g97cc957"},
-				kubeVersionPath:  []string{"v1.31.0"},
-				registerImageTag: []string{"v0.0.0-649.g97cc957"},
-				uxpVersionsPath:  []string{"1.16.0-up.1", "1.16.2-up.2", "1.16.4-up.1", "1.17.1-up.1", "1.17.3-up.1", "1.18.0-up.1"},
-				xgqlVersionPath:  []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.16.0-up.1", "1.16.2-up.2", "1.16.4-up.1", "1.17.1-up.1", "1.17.3-up.1", "1.18.0-up.1"},
+				xgqlVersionPath:         []string{"v0.2.0-rc.0.167.gb4b3e68"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
 			}),
 			expectedOutput: []string{
 				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
@@ -747,12 +757,13 @@ func TestMirror(t *testing.T) {
 }
 
 type pathNavigatorMockData struct {
-	imageTag          []string
-	kubeVersionPath   []string
-	registerImageTag  []string
-	uxpVersionsPath   []string
-	xgqlVersionPath   []string
-	apolloVersionPath []string
+	imageTag                []string
+	kubeVersionPath         []string
+	registerImageTag        []string
+	uxpVersionsPath         []string
+	xgqlVersionPath         []string
+	apolloVersionPath       []string
+	routerProxyImageTagPath []string
 }
 
 func mockGetValuesFromChart(data pathNavigatorMockData) func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error) {
@@ -770,6 +781,8 @@ func mockGetValuesFromChart(data pathNavigatorMockData) func(chart, version stri
 			return data.imageTag, nil
 		case *registerImageTag:
 			return data.registerImageTag, nil
+		case *routerProxyImageTagPath:
+			return data.routerProxyImageTagPath, nil
 		default:
 			return nil, fmt.Errorf("unsupported type: %T", v)
 		}

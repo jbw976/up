@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"dario.cat/mergo"
 	v1cache "github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/spf13/afero"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,6 +36,7 @@ import (
 	"github.com/upbound/up/internal/project"
 	"github.com/upbound/up/internal/upbound"
 	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/internal/yaml"
 	e2etest "github.com/upbound/up/pkg/apis/e2etest/v1alpha1"
 )
 
@@ -127,6 +129,19 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 	// This is triggered by either the CLI flag or the test spec skipDelete
 	skipCleanup := c.SkipControlPlaneCleanup || skipTestManifestDeletion
 
+	// Merge test spec helm values (base) with CLI helm values (override).
+	helmValues := map[string]any{}
+	if test.Spec.HelmValues != nil {
+		if err := yaml.Unmarshal(test.Spec.HelmValues.Raw, &helmValues); err != nil {
+			return errors.Wrap(err, "failed to unmarshal test spec helm values")
+		}
+	}
+	if len(c.chartValues) > 0 {
+		if err := mergo.Merge(&helmValues, c.chartValues, mergo.WithOverride); err != nil {
+			return errors.Wrap(err, "failed to merge CLI helm values")
+		}
+	}
+
 	var devCtp ctp.DevControlPlane
 	if err := printer.WrapAsyncWithSuccessSpinners(func(ch async.EventChannel) error {
 		var err error
@@ -142,6 +157,7 @@ func (c *runCmd) executeE2ETest(ctx context.Context, upCtx *upbound.Context, pro
 				ctp.WithLocalRegistryDirectory(c.LocalRegistryPath),
 				ctp.WithClusterAdmin(c.ClusterAdmin),
 				ctp.SkipPrometheus(true),
+				ctp.WithLocalHelmValues(helmValues),
 			}
 
 			switch {

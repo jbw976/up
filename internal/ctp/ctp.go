@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -108,6 +109,7 @@ type localConfig struct {
 	portMapping       string
 	clusterAdmin      bool
 	skipPrometheus    bool
+	helmValues        map[string]any
 }
 
 // defaultCrossplaneSpec returns the default Crossplane configuration.
@@ -212,6 +214,14 @@ func SkipPrometheus(s bool) EnsureDevControlPlaneOption {
 func WithClusterAdmin(enabled bool) EnsureDevControlPlaneOption {
 	return func(cfg *ensureDevControlPlaneConfig) {
 		cfg.localConfig.clusterAdmin = enabled
+	}
+}
+
+// WithLocalHelmValues sets custom Crossplane helm chart values for the local
+// dev control plane.
+func WithLocalHelmValues(vals map[string]any) EnsureDevControlPlaneOption {
+	return func(cfg *ensureDevControlPlaneConfig) {
+		cfg.localConfig.helmValues = vals
 	}
 }
 
@@ -618,7 +628,7 @@ func ensureLocalDevControlPlane(ctx context.Context, upCtx *upbound.Context, cfg
 	}
 
 	telemetryDisabled := upCtx.Cfg.Upbound.Configuration[config.ConfigurationTelemetryDisabled] == "true"
-	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled, cfg.localConfig.clusterAdmin, cfg.localConfig.skipPrometheus); err != nil {
+	if err := ensureUXP(restConfig, cfg.localConfig.crossplaneVersion, ca.Name, telemetryDisabled, cfg.localConfig.clusterAdmin, cfg.localConfig.skipPrometheus, cfg.localConfig.helmValues); err != nil {
 		cfg.eventChan.SendEvent(evText, async.EventStatusFailure)
 		return nil, err
 	}
@@ -825,7 +835,7 @@ func createNewKindCluster(ctx context.Context, provider *kind.Provider, name str
 	return portMapping, nil
 }
 
-func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool, clusterAdmin bool, skipPrometheus bool) error {
+func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDisabled bool, clusterAdmin bool, skipPrometheus bool, extraValues map[string]any) error {
 	repo := uxp.RepoURL
 	mgr, err := helm.NewManager(restConfig,
 		"crossplane",
@@ -862,6 +872,10 @@ func ensureUXP(restConfig *rest.Config, version, caConfigMap string, telemetryDi
 		"rbac": map[string]any{
 			"clusterAdmin": clusterAdmin,
 		},
+	}
+
+	if err := mergo.Merge(&values, extraValues, mergo.WithOverride); err != nil {
+		return errors.Wrap(err, "failed to merge custom helm values")
 	}
 
 	if err = mgr.Install(version, values); err != nil {

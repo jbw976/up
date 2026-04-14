@@ -46,6 +46,11 @@ func (in *E2ETestSpec) DeepCopyInto(out *E2ETestSpec) {
 		*out = new(v1beta1.CrossplaneSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.HelmValues != nil {
+		in, out := &in.HelmValues, &out.HelmValues
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.TimeoutSeconds != nil {
 		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
 		*out = new(int)

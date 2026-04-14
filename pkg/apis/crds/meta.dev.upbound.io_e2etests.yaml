@@ -136,6 +136,15 @@ spec:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                 type: array
+              helmValues:
+                description: |-
+                  HelmValues specifies custom Crossplane helm chart values for the
+                  controlplane used by this test. These values are merged on top of the
+                  default chart values. Values specified via CLI flags (--set-helm-value,
+                  --helm-values) take precedence over values defined here. Helm values are
+                  ignored when using a Spaces control plane.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               initResources:
                 description: |-
                   InitResources specifies Kubernetes resources that must be created or
@@ -179,6 +188,7 @@ spec:
             - manifests
             type: object
         required:
+        - metadata
         - spec
         type: object
     served: true

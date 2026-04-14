@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -44,6 +45,15 @@ func (b *goBuilder) Build(ctx context.Context, _ afero.Fs, architectures []strin
 	// don't show the user a bunch of ko junk. We don't use the standard logger
 	// at all in `up`, so it's fine to leave it disabled.
 	log.SetOutput(io.Discard)
+
+	// Run go mod tidy to ensure all transitive dependencies from the
+	// replaced models module are resolved. In a fresh clone the function's
+	// go.mod may not list dependencies introduced by the generated models.
+	tidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+	tidyCmd.Dir = osBasePath
+	if out, err := tidyCmd.CombinedOutput(); err != nil {
+		return nil, errors.Wrapf(err, "failed to run go mod tidy: %s", string(out))
+	}
 
 	platforms := make([]string, len(architectures))
 	for i, arch := range architectures {

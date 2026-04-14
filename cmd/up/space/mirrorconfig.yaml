@@ -19,6 +19,9 @@ oci:
         image: xpkg.upbound.io/spaces-artifacts/xgql
       - pathNavigatorType: apolloVersionPath
         image: xpkg.upbound.io/spaces-artifacts/uxp-apollo
+      - pathNavigatorType: routerProxyImageTagPath
+        image: xpkg.upbound.io/spaces-artifacts/envoy
+        tagAsSpecified: true
     images:
       - image: "xpkg.upbound.io/spaces-artifacts/hyperspace"
         compatibleChartVersion: ">=1.6"
@@ -30,7 +33,6 @@ oci:
         compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/coredns:1.10.1"
         compatibleChartVersion: "<1.16.0"
-      - image: "xpkg.upbound.io/spaces-artifacts/envoy:v1.26-latest"
       - image: "xpkg.upbound.io/spaces-artifacts/etcd:3.5.21-0"
         compatibleChartVersion: ">=1.15.3 || >=1.14.4 <1.15.0 || >=1.13.6 <1.14.0"
       - image: "xpkg.upbound.io/spaces-artifacts/etcd:3.5.15-0"
