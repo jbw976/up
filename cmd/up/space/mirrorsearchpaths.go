@@ -70,23 +70,14 @@ type registerImageTag struct {
 }
 
 func (j *uxpVersionsPath) Extractor() ([]string, error) {
-	if len(j.Controller.Crossplane.SupportedVersions) == 0 {
-		return nil, errors.New("no supported versions found in UXPVersionsPath")
-	}
 	return j.Controller.Crossplane.SupportedVersions, nil
 }
 
 func (k *kubeVersionPath) Extractor() ([]string, error) {
-	if len(k.ControlPlanes.K8sVersion) == 0 {
-		return nil, errors.New("no supported versions found in KubeVersionPath")
-	}
 	return k.ControlPlanes.K8sVersion, nil
 }
 
 func (k *xgqlVersionPath) Extractor() ([]string, error) {
-	if len(k.ControlPlanes.Uxp.Xgql.Version) == 0 {
-		return nil, errors.New("no supported versions found in XgqlVersionPath")
-	}
 	return k.ControlPlanes.Uxp.Xgql.Version, nil
 }
 
@@ -95,16 +86,10 @@ func (k *apolloVersionPath) Extractor() ([]string, error) {
 }
 
 func (k *imageTag) Extractor() ([]string, error) {
-	if len(k.Image.Tag) == 0 {
-		return nil, errors.New("no supported versions found in ImageTag")
-	}
 	return k.Image.Tag, nil
 }
 
 func (k *registerImageTag) Extractor() ([]string, error) {
-	if len(k.Registration.Image.Tag) == 0 {
-		return nil, errors.New("no supported versions found in RegisterImageTag")
-	}
 	return k.Registration.Image.Tag, nil
 }
 
