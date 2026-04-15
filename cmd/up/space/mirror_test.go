@@ -25,10 +25,10 @@ func TestMirror(t *testing.T) {
 	tcs := map[string]struct {
 		version                 string
 		outputDir               string
-		destinationRegistry   string
-		expectedError         string
-		expectedOutput        []string
-		mockFetchManifest     func(ref string, opts ...crane.Option) ([]byte, error)
+		destinationRegistry     string
+		expectedError           string
+		expectedOutput          []string
+		mockFetchManifest       func(ref string, opts ...crane.Option) ([]byte, error)
 		mockGetValuesFromChart  func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
 		mockGetUxpV2RuntimeTags func(chart, version, username, password string) (string, string, error)
 	}{
@@ -686,13 +686,13 @@ func TestMirror(t *testing.T) {
 
 			// Create a new command instance
 			cmd := &mirrorCmd{
-				Version:              tc.version,
-				DryRun:               true,
-				path:                 tc.outputDir,
-				DestinationRegistry:  tc.destinationRegistry,
-				fetchManifest:        tc.mockFetchManifest,       // Inject the mock
-				getValuesFromChart:   tc.mockGetValuesFromChart,  // Inject the mock
-				getUxpV2RuntimeTags:  tc.mockGetUxpV2RuntimeTags, // nil: stubbed below
+				Version:             tc.version,
+				DryRun:              true,
+				path:                tc.outputDir,
+				DestinationRegistry: tc.destinationRegistry,
+				fetchManifest:       tc.mockFetchManifest,       // Inject the mock
+				getValuesFromChart:  tc.mockGetValuesFromChart,  // Inject the mock
+				getUxpV2RuntimeTags: tc.mockGetUxpV2RuntimeTags, // nil: stubbed below
 			}
 			if cmd.getUxpV2RuntimeTags == nil {
 				cmd.getUxpV2RuntimeTags = func(_, _, _, _ string) (string, string, error) {

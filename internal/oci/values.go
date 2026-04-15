@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package oci contains functions for handling remote oci artifacts
 package oci
 
 import (

@@ -23,13 +23,13 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "ExplicitTags",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{AppVersion: "2.2.0-up.3"},
-				Values: map[string]interface{}{
-					"image": map[string]interface{}{
+				Values: map[string]any{
+					"image": map[string]any{
 						"tag": "v2.2.0-up.1",
 					},
-					"upbound": map[string]interface{}{
-						"manager": map[string]interface{}{
-							"image": map[string]interface{}{
+					"upbound": map[string]any{
+						"manager": map[string]any{
+							"image": map[string]any{
 								"tag": "v2.2.0-up.3",
 							},
 						},
@@ -43,13 +43,13 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "FallbackToAppVersion",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{AppVersion: "2.1.4-up.2"},
-				Values: map[string]interface{}{
-					"image": map[string]interface{}{
+				Values: map[string]any{
+					"image": map[string]any{
 						"tag": "",
 					},
-					"upbound": map[string]interface{}{
-						"manager": map[string]interface{}{
-							"image": map[string]interface{}{
+					"upbound": map[string]any{
+						"manager": map[string]any{
+							"image": map[string]any{
 								"tag": "",
 							},
 						},
@@ -63,9 +63,9 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "AppVersionWithoutVPrefix",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{AppVersion: "2.0.0-up.1"},
-				Values: map[string]interface{}{
-					"image":   map[string]interface{}{},
-					"upbound": map[string]interface{}{},
+				Values: map[string]any{
+					"image":   map[string]any{},
+					"upbound": map[string]any{},
 				},
 			},
 			wantCX: "v2.0.0-up.1",
@@ -75,13 +75,13 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "SameMajorMinorPatchUsesAppVersionForControllerManager",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{AppVersion: "2.2.0-up.3"},
-				Values: map[string]interface{}{
-					"image": map[string]interface{}{
+				Values: map[string]any{
+					"image": map[string]any{
 						"tag": "v2.2.0-up.1",
 					},
-					"upbound": map[string]interface{}{
-						"manager": map[string]interface{}{
-							"image": map[string]interface{}{
+					"upbound": map[string]any{
+						"manager": map[string]any{
+							"image": map[string]any{
 								"tag": "",
 							},
 						},
@@ -95,13 +95,13 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "DifferentCoreUsesCrossplaneTagForControllerManager",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{AppVersion: "2.0.1-up.2"},
-				Values: map[string]interface{}{
-					"image": map[string]interface{}{
+				Values: map[string]any{
+					"image": map[string]any{
 						"tag": "v2.1.0-up.1",
 					},
-					"upbound": map[string]interface{}{
-						"manager": map[string]interface{}{
-							"image": map[string]interface{}{
+					"upbound": map[string]any{
+						"manager": map[string]any{
+							"image": map[string]any{
 								"tag": "",
 							},
 						},
@@ -115,13 +115,13 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 			name: "MissingAppVersion",
 			loadedChart: &chart.Chart{
 				Metadata: &chart.Metadata{},
-				Values: map[string]interface{}{
-					"image": map[string]interface{}{
+				Values: map[string]any{
+					"image": map[string]any{
 						"tag": "",
 					},
-					"upbound": map[string]interface{}{
-						"manager": map[string]interface{}{
-							"image": map[string]interface{}{
+					"upbound": map[string]any{
+						"manager": map[string]any{
+							"image": map[string]any{
 								"tag": "",
 							},
 						},
