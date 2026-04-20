@@ -4,8 +4,6 @@
             "command": "docker",
             "args": [
                 "run",
-                "--name",
-                "mcp-marketplace",
                 "--rm",
                 "-i",
                 "-v",
