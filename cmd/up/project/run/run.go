@@ -58,6 +58,8 @@ type Flags struct {
 type Cmd struct {
 	Flags
 
+	Tag string `help:"Tag for the built package. If not provided, a tag of the form v0.0.0-{timestamp} will be generated." optional:"" short:"t"`
+
 	ControlPlaneGroup   string            `help:"The control plane group that the control plane to use is contained in. This defaults to the group specified in the current context."`
 	ControlPlaneName    string            `help:"Name of the control plane to use. It will be created if not found. Defaults to the project name."`
 	ControlPlaneVersion string            `help:"Version of Crossplane to use for the control plane. By default, the latest compatible version will be used."`
@@ -415,6 +417,9 @@ func (c *Cmd) confirmUseCurrentContext(upCtx *upbound.Context) error {
 func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap, devCtp ctp.DevControlPlane, printer upterm.Printer) (name.Tag, error) {
 	if sl, ok := devCtp.(ctp.SideloadingControlPlane); ok {
 		tagStr := fmt.Sprintf("%s:v0.0.0-%d", c.proj.Spec.Repository, time.Now().Unix())
+		if c.Tag != "" {
+			tagStr = fmt.Sprintf("%s:%s", c.proj.Spec.Repository, c.Tag)
+		}
 		tag, err := name.NewTag(tagStr, name.StrictValidation)
 		if err != nil {
 			return tag, errors.Wrap(err, "failed to construct image tag")
@@ -432,6 +437,9 @@ func (c *Cmd) pushOrLoadPackages(ctx context.Context, imgMap project.ImageTagMap
 		opts := []project.PushOption{
 			project.PushWithEventChannel(ch),
 			project.PushWithCreatePublicRepositories(c.Public),
+		}
+		if c.Tag != "" {
+			opts = append(opts, project.PushWithTag(c.Tag))
 		}
 
 		var err error
