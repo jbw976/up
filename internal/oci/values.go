@@ -30,11 +30,11 @@ type PullFunc func(src, version, username, password string) (string, error)
 
 // GetValuesFromChart fetches the supported versions from a Helm chart specified by the chart and version parameters.
 func GetValuesFromChart[T PathNavigator](chart, version string, pathNavigator T, username, password string) ([]string, error) {
-	return getValuesFromChartWithLoaderAndPull(chart, version, pathNavigator, loader.Load, defaultPullFunc, username, password)
+	return getValuesFromChartWithLoaderAndPull(chart, version, pathNavigator, loader.Load, DefaultPullFunc, username, password)
 }
 
-// loadChart pulls an OCI Helm chart to a temporary directory and loads it into memory.
-func loadChart(chart, version string, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) (*chart.Chart, error) {
+// LoadChart pulls an OCI Helm chart to a temporary directory and loads it into memory.
+func LoadChart(chart, version string, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) (*chart.Chart, error) {
 	src := fmt.Sprintf("oci://%s", chart)
 
 	tempDir, err := pullFunc(src, version, username, password)
@@ -60,7 +60,7 @@ func loadChart(chart, version string, loaderFunc LoaderFunc, pullFunc PullFunc, 
 // from a Helm chart specified by the chart and version parameters. It allows custom loader and
 // pull functions to be provided for more flexible testing and use cases.
 func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string, pathNavigator T, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) ([]string, error) {
-	loadedChart, err := loadChart(chart, version, loaderFunc, pullFunc, username, password)
+	loadedChart, err := LoadChart(chart, version, loaderFunc, pullFunc, username, password)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string,
 	return pathNavigator.Extractor()
 }
 
-// defaultPullFunc is the default implementation of the PullFunc type for pulling charts.
-func defaultPullFunc(repourl, version, username, password string) (string, error) {
+// DefaultPullFunc is the default implementation of the PullFunc type for pulling charts.
+func DefaultPullFunc(repourl, version, username, password string) (string, error) {
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(

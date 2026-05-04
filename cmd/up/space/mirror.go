@@ -21,6 +21,7 @@ import (
 	"github.com/upbound/up/internal/oci"
 	"github.com/upbound/up/internal/registry"
 	"github.com/upbound/up/internal/upterm"
+	"github.com/upbound/up/internal/uxp"
 
 	_ "embed"
 )
@@ -115,7 +116,7 @@ func (c *mirrorCmd) AfterApply() error {
 
 	c.fetchManifest = crane.Manifest
 	c.getValuesFromChart = oci.GetValuesFromChart
-	c.getUxpV2RuntimeTags = oci.GetUxpV2RuntimeTags
+	c.getUxpV2RuntimeTags = uxp.GetV2RuntimeTags
 
 	return nil
 }

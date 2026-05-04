@@ -1,7 +1,7 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-package oci
+package uxp
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 )
 
-func TestParseUxpV2RuntimeTags(t *testing.T) {
+func TestParseV2RuntimeTags(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name        string
@@ -135,7 +135,7 @@ func TestParseUxpV2RuntimeTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cx, cm, err := parseUxpV2RuntimeTags("xpkg.upbound.io/spaces-artifacts/crossplane", "2.2.0-up.3", tt.loadedChart)
+			cx, cm, err := parseV2RuntimeTags("xpkg.upbound.io/spaces-artifacts/crossplane", "2.2.0-up.3", tt.loadedChart)
 			if tt.wantErr != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
