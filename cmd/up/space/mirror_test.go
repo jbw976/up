@@ -23,13 +23,14 @@ func TestMirror(t *testing.T) {
 	t.Parallel()
 	// Define test cases.
 	tcs := map[string]struct {
-		version                string
-		outputDir              string
-		destinationRegistry    string
-		expectedError          string
-		expectedOutput         []string
-		mockFetchManifest      func(ref string, opts ...crane.Option) ([]byte, error)
-		mockGetValuesFromChart func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
+		version                 string
+		outputDir               string
+		destinationRegistry     string
+		expectedError           string
+		expectedOutput          []string
+		mockFetchManifest       func(ref string, opts ...crane.Option) ([]byte, error)
+		mockGetValuesFromChart  func(chart, version string, pathNavigator oci.PathNavigator, username, password string) ([]string, error)
+		mockGetUxpV2RuntimeTags func(chart, version, username, password string) (string, string, error)
 	}{
 		"SpaceVersion131FolderOutput": {
 			version:       "1.13.1",
@@ -65,7 +66,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.13.1 testdata/output/mxp-charts-v1.13.1.tgz",
@@ -120,7 +120,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.13.2 testdata/output/mxp-charts-v1.13.2.tgz",
@@ -175,7 +174,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.13.3 testdata/output/mxp-charts-v1.13.3.tgz",
@@ -231,7 +229,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.14.0 testdata/output/mxp-charts-v1.14.0.tgz",
@@ -245,7 +242,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.0-up.1 testdata/output/universal-crossplane-1.19.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1 testdata/output/vcluster-0.24.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.1 testdata/output/vcluster-chart-0.24.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
@@ -287,7 +283,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.14.1 testdata/output/mxp-charts-v1.14.1.tgz",
@@ -301,7 +296,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.0-up.1 testdata/output/universal-crossplane-1.19.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1 testdata/output/vcluster-0.24.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.1 testdata/output/vcluster-chart-0.24.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
@@ -343,7 +337,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.14.2 testdata/output/mxp-charts-v1.14.2.tgz",
@@ -357,7 +350,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.0-up.1 testdata/output/universal-crossplane-1.19.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2 testdata/output/vcluster-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.2 testdata/output/vcluster-chart-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
@@ -400,7 +392,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.17.0 testdata/output/kube-state-metrics-v2.17.0.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.16.0 testdata/output/mxp-charts-v1.16.0.tgz",
@@ -415,7 +406,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.4.7 testdata/output/uxp-apollo-v0.4.7.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2-upbound001 testdata/output/vcluster-0.24.2-upbound001.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.2 testdata/output/vcluster-chart-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
@@ -458,7 +448,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.17.0 testdata/output/kube-state-metrics-v2.17.0.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.15.3 testdata/output/mxp-charts-v1.15.3.tgz",
@@ -473,7 +462,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.2.11 testdata/output/uxp-apollo-v0.2.11.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2-upbound001 testdata/output/vcluster-0.24.2-upbound001.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.2 testdata/output/vcluster-chart-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
@@ -516,7 +504,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.15.2 testdata/output/mxp-charts-v1.15.2.tgz",
@@ -531,11 +518,76 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.2.11 testdata/output/uxp-apollo-v0.2.11.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2 testdata/output/vcluster-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.2 testdata/output/vcluster-chart-0.24.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/xgql:v0.2.0-rc.0.167.gb4b3e68 testdata/output/xgql-v0.2.0-rc.0.167.gb4b3e68.tgz",
+			},
+		},
+		"SpaceVersion1170FolderOutput": {
+			version:       "1.17.0",
+			outputDir:     "testdata/output",
+			expectedError: "",
+			mockFetchManifest: func(_ string, _ ...crane.Option) ([]byte, error) {
+				return []byte(`{"schemaVersion": 2}`), nil
+			},
+			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.32.13"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				uxpVersionsPath:         []string{"1.19.2-up.1", "1.20.5-up.1", "1.20.6-up.2", "2.1.5-up.1", "2.2.1-up.1"},
+				apolloVersionPath:       []string{"v0.4.10"},
+				routerProxyImageTagPath: []string{"distroless-v1.34.13"},
+			}),
+			mockGetUxpV2RuntimeTags: func(chart, version, _, _ string) (string, string, error) {
+				if chart != "xpkg.upbound.io/spaces-artifacts/crossplane" {
+					return "", "", fmt.Errorf("unexpected UXP v2 chart %s", chart)
+				}
+				switch version {
+				case "2.1.5-up.1":
+					return "v2.1.5-up.1", "v2.1.5-up.1", nil
+				case "2.2.1-up.1":
+					return "v2.2.1-up.1", "v2.2.1-up.1", nil
+				}
+				return "", "", fmt.Errorf("unexpected UXP v2 version %s", version)
+			},
+			expectedOutput: []string{
+				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/agent:v0.0.0-649.g97cc957 testdata/output/agent-v0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/alpine:3.23.4 testdata/output/alpine-3.23.4.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/controller-manager:v2.1.5-up.1 testdata/output/controller-manager-v2.1.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/controller-manager:v2.2.1-up.1 testdata/output/controller-manager-v2.2.1-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/coredns:1.14.3 testdata/output/coredns-1.14.3.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:2.1.5-up.1 testdata/output/crossplane-2.1.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:2.2.1-up.1 testdata/output/crossplane-2.2.1-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.19.2-up.1 testdata/output/crossplane-v1.19.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.20.5-up.1 testdata/output/crossplane-v1.20.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.20.6-up.2 testdata/output/crossplane-v1.20.6-up.2.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v2.1.5-up.1 testdata/output/crossplane-v2.1.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v2.2.1-up.1 testdata/output/crossplane-v2.2.1-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/envoy:distroless-v1.34.13 testdata/output/envoy-distroless-v1.34.13.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/etcd:3.5.28-0 testdata/output/etcd-3.5.28-0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.17.0-up.1 testdata/output/external-secrets-chart-0.17.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets:v0.17.0-up.2 testdata/output/external-secrets-v0.17.0-up.2.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/hyperspace:v1.17.0 testdata/output/hyperspace-v1.17.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-apiserver:v1.32.13 testdata/output/kube-apiserver-v1.32.13.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.32.13 testdata/output/kube-controller-manager-v1.32.13.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.32.13 testdata/output/kube-scheduler-v1.32.13.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.17.0 testdata/output/kube-state-metrics-v2.17.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.17.0 testdata/output/mxp-charts-v1.17.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/opentelemetry-collector-contrib:0.98.0 testdata/output/opentelemetry-collector-contrib-0.98.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/opentelemetry-collector-spaces:v1.17.0 testdata/output/opentelemetry-collector-spaces-v1.17.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/register-init:v0.0.0-649.g97cc957 testdata/output/register-init-v0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/spaces:1.17.0 testdata/output/spaces-1.17.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.5-up.1 testdata/output/universal-crossplane-1.20.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.6-up.2 testdata/output/universal-crossplane-1.20.6-up.2.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-apollo:v0.4.10 testdata/output/uxp-apollo-v0.4.10.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.2-upbound003 testdata/output/vcluster-0.24.2-upbound003.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.2 testdata/output/vcluster-chart-0.24.2.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
 			},
 		},
 		"SpaceVersion120FolderOutput": {
@@ -572,7 +624,6 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
-				"crane pull xpkg.upbound.io/spaces-artifacts/kubectl:1.31.0 testdata/output/kubectl-1.31.0.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kyverno-background-controller:v1.11.4 testdata/output/kyverno-background-controller-v1.11.4.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kyverno-cleanup-controller:v1.11.4 testdata/output/kyverno-cleanup-controller-v1.11.4.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/kyverno-kyverno:v1.11.4 testdata/output/kyverno-kyverno-v1.11.4.tgz",
@@ -594,6 +645,72 @@ func TestMirror(t *testing.T) {
 				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.22.3 testdata/output/vcluster-0.22.3.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.22.3 testdata/output/vcluster-chart-0.22.3.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/xgql:v0.2.0-rc.0.167.gb4b3e68 testdata/output/xgql-v0.2.0-rc.0.167.gb4b3e68.tgz",
+			},
+		},
+		"MixedUxpV1AndV2SupportedVersions": {
+			version:       "1.13.1",
+			outputDir:     "testdata/output",
+			expectedError: "",
+			mockFetchManifest: func(_ string, _ ...crane.Option) ([]byte, error) {
+				return []byte(`{"schemaVersion": 2}`), nil
+			},
+			mockGetValuesFromChart: mockGetValuesFromChart(pathNavigatorMockData{
+				imageTag:                []string{"v0.0.0-649.g97cc957"},
+				kubeVersionPath:         []string{"v1.31.0"},
+				registerImageTag:        []string{"v0.0.0-649.g97cc957"},
+				routerProxyImageTagPath: []string{"v1.26-latest"},
+				uxpVersionsPath: []string{
+					"1.18.0-up.1", "1.18.3-up.1", "1.18.5-up.1", "1.19.0-up.1", "1.19.2-up.1", "1.20.0-up.1",
+					"2.2.0-up.3",
+				},
+				xgqlVersionPath: []string{"v0.2.0-rc.0.167.gb4b3e68"},
+			}),
+			mockGetUxpV2RuntimeTags: func(chart, version, _, _ string) (string, string, error) {
+				if chart == "xpkg.upbound.io/spaces-artifacts/crossplane" && version == "2.2.0-up.3" {
+					return "v2.2.0-up.1", "v2.2.0-up.3", nil
+				}
+				return "", "", fmt.Errorf("unexpected UXP v2 tag lookup for %s:%s", chart, version)
+			},
+			expectedOutput: []string{
+				"crane pull xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957 testdata/output/agent-0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/agent:v0.0.0-649.g97cc957 testdata/output/agent-v0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/coredns:1.10.1 testdata/output/coredns-1.10.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:2.2.0-up.3 testdata/output/crossplane-2.2.0-up.3.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.18.0-up.1 testdata/output/crossplane-v1.18.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.18.3-up.1 testdata/output/crossplane-v1.18.3-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.18.5-up.1 testdata/output/crossplane-v1.18.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.19.0-up.1 testdata/output/crossplane-v1.19.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.19.2-up.1 testdata/output/crossplane-v1.19.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v1.20.0-up.1 testdata/output/crossplane-v1.20.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/crossplane:v2.2.0-up.1 testdata/output/crossplane-v2.2.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/controller-manager:v2.2.0-up.3 testdata/output/controller-manager-v2.2.0-up.3.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/envoy:v1.26-latest testdata/output/envoy-v1.26-latest.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/etcd:3.5.15-0 testdata/output/etcd-3.5.15-0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets-chart:0.16.2-up.1 testdata/output/external-secrets-chart-0.16.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/external-secrets:v0.16.2-up.1 testdata/output/external-secrets-v0.16.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/hyperspace:v1.13.1 testdata/output/hyperspace-v1.13.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-apiserver:v1.31.0 testdata/output/kube-apiserver-v1.31.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-controller-manager:v1.31.0 testdata/output/kube-controller-manager-v1.31.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-scheduler:v1.31.0 testdata/output/kube-scheduler-v1.31.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/kube-state-metrics:v2.8.1-upbound003 testdata/output/kube-state-metrics-v2.8.1-upbound003.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector-server:v0.7.0 testdata/output/mcp-connector-server-v0.7.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mcp-connector:0.7.0 testdata/output/mcp-connector-0.7.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/mxp-charts:v1.13.1 testdata/output/mxp-charts-v1.13.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/opentelemetry-collector-contrib:0.98.0 testdata/output/opentelemetry-collector-contrib-0.98.0.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/opentelemetry-collector-spaces:v1.13.1 testdata/output/opentelemetry-collector-spaces-v1.13.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/register-init:v0.0.0-649.g97cc957 testdata/output/register-init-v0.0.0-649.g97cc957.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/spaces:1.13.1 testdata/output/spaces-1.13.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.18.0-up.1 testdata/output/universal-crossplane-1.18.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.18.3-up.1 testdata/output/universal-crossplane-1.18.3-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.18.5-up.1 testdata/output/universal-crossplane-1.18.5-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.0-up.1 testdata/output/universal-crossplane-1.19.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.19.2-up.1 testdata/output/universal-crossplane-1.19.2-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/universal-crossplane:1.20.0-up.1 testdata/output/universal-crossplane-1.20.0-up.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/uxp-bootstrapper:v1.10.4-up.2 testdata/output/uxp-bootstrapper-v1.10.4-up.2.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster:0.24.1 testdata/output/vcluster-0.24.1.tgz",
+				"crane pull xpkg.upbound.io/spaces-artifacts/vcluster-chart:0.24.1 testdata/output/vcluster-chart-0.24.1.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc testdata/output/vector-0.41.1-distroless-libc.tgz",
 				"crane pull xpkg.upbound.io/spaces-artifacts/xgql:v0.2.0-rc.0.167.gb4b3e68 testdata/output/xgql-v0.2.0-rc.0.167.gb4b3e68.tgz",
 			},
@@ -622,8 +739,14 @@ func TestMirror(t *testing.T) {
 				DryRun:              true,
 				path:                tc.outputDir,
 				DestinationRegistry: tc.destinationRegistry,
-				fetchManifest:       tc.mockFetchManifest,      // Inject the mock
-				getValuesFromChart:  tc.mockGetValuesFromChart, // Inject the mock
+				fetchManifest:       tc.mockFetchManifest,       // Inject the mock
+				getValuesFromChart:  tc.mockGetValuesFromChart,  // Inject the mock
+				getUxpV2RuntimeTags: tc.mockGetUxpV2RuntimeTags, // nil: stubbed below
+			}
+			if cmd.getUxpV2RuntimeTags == nil {
+				cmd.getUxpV2RuntimeTags = func(_, _, _, _ string) (string, string, error) {
+					return "", "", fmt.Errorf("unexpected UXP v2 runtime tags resolution in test %q", testName)
+				}
 			}
 
 			// Run the mirror command

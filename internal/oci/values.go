@@ -1,7 +1,6 @@
 // Copyright 2025 Upbound Inc.
 // All rights reserved
 
-// Package oci contains functions for handling remote oci artifacts
 package oci
 
 import (
@@ -31,25 +30,12 @@ type PullFunc func(src, version, username, password string) (string, error)
 
 // GetValuesFromChart fetches the supported versions from a Helm chart specified by the chart and version parameters.
 func GetValuesFromChart[T PathNavigator](chart, version string, pathNavigator T, username, password string) ([]string, error) {
-	return getValuesFromChartWithLoaderAndPull(chart, version, pathNavigator, loader.Load, defaultPullFunc, username, password)
+	return getValuesFromChartWithLoaderAndPull(chart, version, pathNavigator, loader.Load, DefaultPullFunc, username, password)
 }
 
-// getValuesFromChartWithLoaderAndPull is a helper function that fetches the supported versions
-// from a Helm chart specified by the chart and version parameters. It allows custom loader and
-// pull functions to be provided for more flexible testing and use cases.
-func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string, pathNavigator T, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) ([]string, error) {
+// LoadChart pulls an OCI Helm chart to a temporary directory and loads it into memory.
+func LoadChart(chart, version string, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) (*chart.Chart, error) {
 	src := fmt.Sprintf("oci://%s", chart)
-	settings := cli.New()
-
-	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(
-		settings.RESTClientGetter(),
-		settings.Namespace(),
-		"configmap",
-		log.Printf,
-	); err != nil {
-		return nil, fmt.Errorf("failed to initialize Helm action configuration: %w", err)
-	}
 
 	tempDir, err := pullFunc(src, version, username, password)
 	if err != nil {
@@ -67,6 +53,18 @@ func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string,
 		return nil, fmt.Errorf("failed to load chart: %w", err)
 	}
 
+	return loadedChart, nil
+}
+
+// getValuesFromChartWithLoaderAndPull is a helper function that fetches the supported versions
+// from a Helm chart specified by the chart and version parameters. It allows custom loader and
+// pull functions to be provided for more flexible testing and use cases.
+func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string, pathNavigator T, loaderFunc LoaderFunc, pullFunc PullFunc, username, password string) ([]string, error) {
+	loadedChart, err := LoadChart(chart, version, loaderFunc, pullFunc, username, password)
+	if err != nil {
+		return nil, err
+	}
+
 	valuesJSON, err := json.Marshal(loadedChart.Values)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal chart values: %w", err)
@@ -79,8 +77,8 @@ func getValuesFromChartWithLoaderAndPull[T PathNavigator](chart, version string,
 	return pathNavigator.Extractor()
 }
 
-// defaultPullFunc is the default implementation of the PullFunc type for pulling charts.
-func defaultPullFunc(repourl, version, username, password string) (string, error) {
+// DefaultPullFunc is the default implementation of the PullFunc type for pulling charts.
+func DefaultPullFunc(repourl, version, username, password string) (string, error) {
 	settings := cli.New()
 	actionConfig := new(action.Configuration)
 	if err := actionConfig.Init(

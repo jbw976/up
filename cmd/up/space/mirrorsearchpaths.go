@@ -95,9 +95,6 @@ func (k *kubeVersionPath) Extractor() ([]string, error) {
 }
 
 func (k *xgqlVersionPath) Extractor() ([]string, error) {
-	if len(k.ControlPlanes.Uxp.Xgql.Version) == 0 {
-		return nil, errors.New("no supported versions found in XgqlVersionPath")
-	}
 	return k.ControlPlanes.Uxp.Xgql.Version, nil
 }
 
