@@ -276,6 +276,9 @@ func (c *connectCmd) deriveParams(a *accounts.AccountResponse) map[string]any {
 				"name": defaultImagePullSecret,
 			},
 		},
+		"billing": map[string]any{
+			"enabled": false,
+		},
 	}
 
 	if c.Environment != "prod" {
