@@ -42,7 +42,7 @@ const (
 	ReleaseTargetRelease Target = "release"
 	// ReleaseTargetDebug used as debug.
 	ReleaseTargetDebug  Target = "debug"
-	agentVersion               = "0.0.0-649.g97cc957"
+	agentVersion               = "0.0.0-1116.g14cbfe6"
 	mcpConnectorVersion        = "0.8.0"
 	releaseTarget              = string(ReleaseTargetDebug)
 )

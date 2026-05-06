@@ -255,12 +255,14 @@ func (c *connectCmd) deriveParams(a *accounts.AccountResponse) map[string]any {
 	}
 
 	params := map[string]any{
-		"connect": map[string]any{
-			"url": connectURL,
+		"global": map[string]any{
+			"connect": map[string]any{
+				"url": connectURL,
+			},
+			"space":        c.Space,
+			"organization": a.Organization.Name,
+			"tokenSecret":  agentSecret,
 		},
-		"space":        c.Space,
-		"organization": a.Organization.Name,
-		"tokenSecret":  agentSecret,
 		"image": map[string]any{
 			"repository": c.Registry.Repository.JoinPath("agent").String(),
 		},

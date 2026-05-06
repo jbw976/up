@@ -99,7 +99,7 @@ oci:
       # vector
       - image: "xpkg.upbound.io/spaces-artifacts/vector:0.41.1-distroless-libc"
         compatibleChartVersion: ">=1.8.0"
-  - chart: "xpkg.upbound.io/spaces-artifacts/agent:0.0.0-649.g97cc957"
+  - chart: "xpkg.upbound.io/spaces-artifacts/agent:0.0.0-1116.g14cbfe6"
     subResources:
       - pathNavigatorType: imageTag
         image: xpkg.upbound.io/spaces-artifacts/agent
